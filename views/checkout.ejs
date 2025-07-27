@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Checkout - <%= product.name %></title>
+    <link rel="stylesheet" href="/css/bootstrap.css">
+    <link rel="stylesheet" href="/css/custom.css">
+</head>
+<body class="bg-light">
+    <%- include('partials/header') %>
+    <div class="container my-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="text-center mb-4">
+                            <h1 class="mt-3">Checkout</h1>
+                            <p class="lead">You are buying: <strong><%= product.name %></strong></p>
+                            <h3 class="text-primary fw-bold">$<%= product.price.toFixed(2) %></h3>
+                        </div>
+
+                        <form action="/process-checkout" method="POST">
+                            <input type="hidden" name="productName" value="<%= product.name %>">
+                            <input type="hidden" name="price" value="<%= product.price %>">
+
+                            <% if (product.requires_player_id === 1) { %>
+                                <div class="mb-3">
+                                    <label for="player_id" class="form-label">Player ID</label>
+                                    <input type="text" class="form-control form-control-lg" name="player_id" id="player_id" placeholder="Enter the player ID here" required>
+                                </div>
+                            <% } %>
+                            <div class="d-grid mt-4">
+                                <button type="submit" class="btn btn-primary btn-lg">Complete Purchase</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

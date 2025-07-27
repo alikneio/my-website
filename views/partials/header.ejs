@@ -1,0 +1,49 @@
+<a class="btn btn-dark m-3" data-bs-toggle="offcanvas" href="#offcanvasMenu" role="button" aria-controls="offcanvasMenu">
+  ☰ Menu
+</a>
+
+<div class="offcanvas offcanvas-start bg-dark text-white" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
+  
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="offcanvasMenuLabel">AK Cell Menu</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  
+  <div class="offcanvas-body">
+    <ul class="navbar-nav">
+        <% if (user) { %>
+            <li class="mb-3">
+                <h5>Welcome, <%= user.username %></h5>
+                <p class="text-success fw-bold mb-0">Balance: $<%= user.balance.toFixed(2) %></p>
+            </li>
+            <hr>
+            <li class="nav-item mb-2">
+                <a class="nav-link" href="/my-orders">My Orders</a>
+            </li>
+            <li class="nav-item mb-2">
+                <a class="nav-link" href="#">Security</a>
+            </li>
+            <% if (user.role === 'admin') { %>
+                <li class="nav-item mb-2">
+                    <a class="nav-link text-warning" href="/admin">Admin Panel</a>
+                </li>
+            <% } %>
+            <hr>
+            <li class="nav-item mb-2">
+                <a class="nav-link" href="/logout">Logout</a>
+            </li>
+
+        <% } else { %>
+            <li class="nav-item mb-2">
+                <a class="nav-link active" href="/">Home</a>
+            </li>
+            <li class="nav-item mb-2">
+                <a class="nav-link" href="/login.html">Login</a>
+            </li>
+            <li class="nav-item mb-2">
+                <a class="nav-link" href="/register.html">Register</a>
+            </li>
+        <% } %>
+    </ul>
+  </div>
+</div>

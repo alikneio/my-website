@@ -1,0 +1,143 @@
+  .carousel-item img {
+    max-height: 350px;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  /* القاعدة الثانية لخلفية الصفحة (للتجربة) */
+  body {
+   background-color: #f8f9fa;
+  font-family: 'Cairo', sans-serif;
+  
+  }
+  .card-link {
+    transition: transform 0.2s ease-in-out;
+}
+.card-link:hover {
+    transform: scale(1.05); /* تكبير البطاقة قليلاً */
+}
+
+/* --- Ticker Styles --- */
+
+.ticker-wrap {
+  width: 90%; /* أو 100% حسب اختيارك */
+  margin: auto; /* لتوسيط الشريط */
+  overflow: hidden; 
+  background-color: #212529;
+  color: white;
+  padding: 1rem 0;
+  border-radius: 50px;
+}
+
+.ticker-text {
+  display: inline-block;
+  white-space: nowrap;
+  /* تم حذف سطر padding-left من هنا */
+  animation: ticker-animation 10s linear infinite;
+}
+
+/* استبدل كود الأنيميشن القديم بهذا الكود الجديد */
+@keyframes ticker-animation {
+  0% {
+    transform: translateX(100%); /* يبدأ من خارج الشاشة يمينًا */
+  }
+  100% {
+    /* ينتهي خارج الشاشة يسارًا */
+    transform: translateX(-100%); 
+  }
+}
+.btn-back-to-home {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  z-index: 1031;
+
+  /* --- تعديلات الحجم --- */
+  font-size: 1rem;        /* تكبير حجم الخط قليلاً (القيمة الافتراضية غالبًا 0.9rem) */
+  padding: 10px 20px;     /* زيادة الـ padding الأفقي والرأسي */
+
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border-radius: 50px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.btn-back-to-home i {
+  font-size: 1.2rem;      /* تكبير حجم الأيقونة قليلاً (اختياري) */
+  margin-right: 5px;      /* زيادة المسافة بين الأيقونة والنص إذا كبرت الأيقونة */
+}
+
+.btn-back-to-home:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+}
+
+/* --- Mobile-Specific Styles --- */
+/* (Styles inside here will only apply to screens 767px wide or smaller) */
+@media (max-width: 767px) {
+
+  /* 1. تصغير حجم العنوان الرئيسي (AK CELL) */
+  .display-4 {
+    font-size: 2.5rem; /* أصغر من الحجم الأصلي */
+  }
+
+  /* 2. تقليل المسافة الكبيرة في قسم العنوان */
+  .p-5 {
+    padding: 2rem !important; /* تقليل الـ padding من 5 إلى 2 */
+  }
+
+  /* 3. تقليل ارتفاع الـ Carousel */
+  .carousel-item img {
+    max-height: 200px; /* ارتفاع أقل مناسب للموبايل */
+  }
+  
+  /* 4. تصغير حجم خط العناوين الفرعية مثل "Why Choose Us" */
+  h2 {
+    font-size: 1.75rem;
+  }
+
+  /* 5. تصغير عرض شريط البحث ليناسب الشاشة */
+  .w-50 {
+      width: 90% !important;
+  }
+
+}
+
+/* --- Ken Burns Effect for Carousel --- */
+.carousel-ken-burns .carousel-item {
+  overflow: hidden;
+}
+
+.carousel-ken-burns .carousel-item img {
+  animation: kenburns-animation 20s ease-in-out infinite alternate;
+  transform-origin: center center;
+}
+
+@keyframes kenburns-animation {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.15);
+  }
+  /* --- Awesome Carousel Animation: Fade & Scale --- */
+
+.carousel-zoom .carousel-item {
+  /* نحدد الانتقال للشفافية والحجم */
+  transition: transform 0.6s ease-in-out, opacity 0.6s ease-in-out;
+
+}
+/* الشرائح غير النشطة (القادمة أو الذاهبة) تكون أصغر قليلاً */
+.carousel-zoom .carousel-item:not(.active) {
+  transform: scale(0.9);
+}
+
+/* الشريحة التي تدخل (القادمة) تبدأ بحجم أكبر وتعود لحجمها الطبيعي */
+.carousel-zoom .carousel-item-next,
+.carousel-zoom .carousel-item-prev {
+  transform: scale(1.1);
+}
+

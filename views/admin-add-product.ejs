@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add New Product</title>
+    <link rel="stylesheet" href="/css/bootstrap.css">
+</head>
+<body class="bg-light">
+
+    <div class="container mt-5">
+        <h1>Add New Product</h1>
+        <form action="/admin/products" method="POST">
+            <div class="mb-3">
+                <label for="name" class="form-label">Product Name</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+            <div class="mb-3">
+                <label for="price" class="form-label">Price</label>
+                <input type="number" step="0.01" class="form-control" id="price" name="price" required>
+            </div>
+            <div class="mb-3">
+                <label for="image" class="form-label">Image Path</label>
+                <input type="text" class="form-control" id="image" name="image" placeholder="/images/product.png">
+            </div>
+            <div class="mb-3">
+                <label for="main_category" class="form-label">Main Category</label>
+                <input type="text" class="form-control" id="main_category" name="main_category" placeholder="e.g., Accounts, Games">
+            </div>
+            <div class="mb-3">
+                <label for="sub_category" class="form-label">Sub-Category</label>
+                <input type="text" class="form-control" id="sub_category" name="sub_category" placeholder="e.g., Netflix, Free Fire">
+            </div>
+            <div class="mb-3">
+                <label for="sub_category_image" class="form-label">Sub-Category Image Path</label>
+                <input type="text" class="form-control" id="sub_category_image" name="sub_category_image" placeholder="/images/cat_netflix.png">
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="requires_player_id" name="requires_player_id" value="1">
+                <label class="form-check-label" for="requires_player_id">Requires Player ID?</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Product</button>
+            <a href="/admin/products" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+
+</body>
+</html>
