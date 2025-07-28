@@ -10,7 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-
     <%- include('partials/header') %>
 
     <div class="container my-5">
@@ -31,8 +30,8 @@
                                     <% if (product.requires_player_id === 1) { %>
                                         <a href="/checkout/<%= product.id %>" class="btn btn-info mt-auto">Enter Details</a>
                                     <% } else { %>
-                                        <form action="/buy" method="POST" class="buy-form mt-auto">
-                                            <input type="hidden" name="productName" value="<%= product.name %>">
+                                        <form action="/process-checkout" method="POST" class="buy-form mt-auto">
+                                            <input type="hidden" name="product_id" value="<%= product.id %>">
                                             <input type="hidden" name="price" value="<%= product.price %>">
                                             <button type="submit" class="btn btn-primary">Buy Now</button>
                                         </form>
@@ -56,6 +55,45 @@
     <%- include('partials/footer') %>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/main.js"></script>
+// في نهاية ملف product.ejs
+<script>
+document.querySelectorAll('.buy-form').forEach(form => {
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const button = this.querySelector('button');
+        const originalText = button.innerHTML;
+        
+        button.disabled = true;
+        button.innerHTML = `
+            <span class="spinner-border spinner-border-sm me-1"></span>
+            جاري المعالجة...
+        `;
+
+        try {
+            const response = await fetch('/process-checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    product_id: this.querySelector('[name="product_id"]').value
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`تم الشراء بنجاح!\nالرصيد الجديد: $${result.newBalance.toFixed(2)}`);
+                window.location.reload();
+            } else {
+                alert(`${result.message}\nرصيدك الحالي: $${result.balance?.toFixed(2) || 'غير معروف'}\nالمطلوب: $${result.required?.toFixed(2) || 'غير معروف'}`);
+            }
+        } catch (error) {
+            alert('فشل في الاتصال بالخادم');
+        } finally {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    });
+});
+</script>
 </body>
 </html>

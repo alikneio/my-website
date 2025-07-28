@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Orders</title>
+    <link rel="stylesheet" href="/css/bootstrap.css">
+</head>
+<body class="bg-light">
+
+    <div class="d-flex">
+    <%- include('partials/admin-sidebar') %>
+
+    <div class="container-fluid p-4">
+        </div>
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Manage Orders</h1>
+            <a href="/admin" class="btn btn-secondary">Back to Admin Panel</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>User</th>
+                        <th>Product</th>
+                        <th>Details</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Admin Reply</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (orders && orders.length > 0) { %>
+                        <% orders.forEach(order => { %>
+                            <form action="/admin/order/update/<%= order.id %>" method="POST">
+                                <tr>
+                                    <td>#<%= order.id %></td>
+                                    <td><%= order.username %></td>
+                                    <td><%= order.productName %></td>
+                                    <td><%= order.order_details %></td>
+                                    <td><%= new Date(order.purchaseDate).toLocaleString() %></td>
+                                    <td>
+                                        <select name="status" class="form-select form-select-sm">
+                                            <option value="Waiting" <%= order.status === 'Waiting' ? 'selected' : '' %>>Waiting</option>
+                                            <option value="Accepted" <%= order.status === 'Accepted' ? 'selected' : '' %>>Accepted</option>
+                                            <option value="Rejected" <%= order.status === 'Rejected' ? 'selected' : '' %>>Rejected</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" name="admin_reply" class="form-control form-control-sm" value="<%= order.admin_reply || '' %>">
+                                    </td>
+                                    <td>
+                                        <button type="submit" class="btn btn-primary btn-sm">Update</button>
+                                    </td>
+                                </tr>
+                            </form>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="8" class="text-center">No orders found.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

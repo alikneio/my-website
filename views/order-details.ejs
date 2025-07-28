@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Details - #<%= order.id %></title>
+    <link rel="stylesheet" href="/css/bootstrap.css">
+    <link rel="stylesheet" href="/css/custom.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+        }
+        .details-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+        .details-box {
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container my-5">
+        <h1 class="mb-4">Order Details</h1>
+
+        <div class="details-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>STATUS: 
+                    <% if (order.status === 'Accepted') { %>
+                        <span class="badge bg-success">Accepted</span>
+                    <% } else if (order.status === 'Rejected') { %>
+                        <span class="badge bg-danger">Rejected</span>
+                    <% } else { %>
+                        <span class="badge bg-warning text-dark">Waiting</span>
+                    <% } %>
+                </h4>
+                <a href="/my-orders" class="btn btn-outline-secondary">Back to My Orders</a>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3"><strong>ORDER ID</strong></div>
+                <div class="col-md-9 details-box"><%= order.id %></div>
+
+                <div class="col-md-3"><strong>PRODUCT</strong></div>
+                <div class="col-md-9 details-box"><%= order.productName %></div>
+                
+                <div class="col-md-3"><strong>PRICE</strong></div>
+                <div class="col-md-9 details-box">$<%= order.price.toFixed(2) %></div>
+
+                <div class="col-md-3"><strong>DATE</strong></div>
+                <div class="col-md-9 details-box"><%= new Date(order.purchaseDate).toLocaleString() %></div>
+
+                <% if (order.order_details) { %>
+                    <div class="col-md-3"><strong>USER ID</strong></div>
+                    <div class="col-md-9 details-box"><%= order.order_details %></div>
+                <% } %>
+                
+                <% if (order.admin_reply) { %>
+                    <div class="col-md-3"><strong>REPLY</strong></div>
+                    <div class="col-md-9 details-box text-warning"><%= order.admin_reply %></div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/main.js"></script>
+</body>
+</html>

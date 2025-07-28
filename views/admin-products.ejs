@@ -9,6 +9,12 @@
 </head>
 <body class="bg-light">
 
+    <div class="d-flex">
+    <%- include('partials/admin-sidebar') %>
+
+    <div class="container-fluid p-4">
+        </div>
+
     <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>Manage Products</h1>
@@ -24,7 +30,6 @@
                     <th>ID</th>
                     <th>Name</th>
                     <th>Category</th>
-                    <th>Sub-Category</th>
                     <th>Price</th>
                     <th>Actions</th>
                 </tr>
@@ -34,18 +39,48 @@
                     <tr>
                         <td><%= product.id %></td>
                         <td><%= product.name %></td>
-                        <td><%= product.main_category %></td>
-                        <td><%= product.sub_category %></td>
+                        <td><%= product.main_category %> / <%= product.sub_category %></td>
                         <td>$<%= product.price.toFixed(2) %></td>
                         <td>
                             <a href="/admin/products/edit/<%= product.id %>" class="btn btn-warning btn-sm">Edit</a>
-                            <a href="/admin/products/delete/<%= product.id %>" class="btn btn-danger btn-sm">Delete</a>
+                            <button class="btn btn-danger btn-sm delete-btn" data-id="<%= product.id %>">Delete</button>
                         </td>
                     </tr>
                 <% }) %>
             </tbody>
         </table>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const deleteButtons = document.querySelectorAll('.delete-btn');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const productId = e.target.dataset.id;
+                    
+                    // إظهار رسالة تأكيد
+                    if (confirm(`Are you sure you want to delete product ID ${productId}?`)) {
+                        fetch(`/admin/products/delete/${productId}`, {
+                            method: 'POST', // تم تغييرها إلى POST
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message);
+                                location.reload(); // إعادة تحميل الصفحة لإظهار التغييرات
+                            } else {
+                                alert(`Error: ${data.message}`);
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert('An error occurred. Please check the console.');
+                        });
+                    }
+                });
+            });
+        });
+    </script>
 
 </body>
 </html>

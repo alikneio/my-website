@@ -17,48 +17,31 @@
         <h1 class="mb-4">My Order History</h1>
 
         <% if (orders && orders.length > 0) { %>
-            <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th scope="col">#</th>
-                            <th scope="col">Product Name</th>
-                            <th scope="col">Details</th> <th scope="col">Price</th>
-                            <th scope="col">Date of Purchase</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% orders.forEach((order, index) => { %>
-                            <tr>
-                                <th scope="row"><%= index + 1 %></th>
-                                <td><%= order.productName %></td>
-                                <td>
-                                    <% if (order.order_details) { %>
-                                        <%= order.order_details %>
-                                    <% } %>
-                                </td>
-                                <td>$<%= order.price.toFixed(2) %></td>
-                                <td><%= new Date(order.purchaseDate).toLocaleString() %></td>
-                            </tr>
-                        <% }) %>
-                    </tbody>
-                </table>
+            <div class="list-group">
+                <% orders.forEach(order => { %>
+                    <a href="/order-details/<%= order.id %>" class="list-group-item list-group-item-action flex-column align-items-start">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1"><%= order.productName %></h5>
+                            <small class="text-muted"><%= new Date(order.purchaseDate).toLocaleDateString() %></small>
+                        </div>
+                        <p class="mb-1">Price: <span class="fw-bold">$<%= order.price.toFixed(2) %></span></p>
+                        
+                        <small>Status: 
+                            <% if (order.status === 'Accepted') { %>
+                                <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i> Accepted</span>
+                            <% } else if (order.status === 'Rejected') { %>
+                                <span class="badge bg-danger"><i class="bi bi-x-circle-fill me-1"></i> Rejected</span>
+                            <% } else { %>
+                                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i> Waiting</span>
+                            <% } %>
+                        </small>
+                    </a>
+                <% }) %>
             </div>
         <% } else { %>
             <p class="text-center text-muted fs-4">You have not made any purchases yet.</p>
         <% } %>
     </div>
-
-       <footer class="bg-dark text-white text-center p-4 mt-5">
-      <div class="container">
-        <p>&copy; 2025 AK Cell. All Rights Reserved.</p>
-        <p>
-          <a href="#" class="text-white">Facebook</a> | 
-          <a href="#" class="text-white">Instagram</a> | 
-          <a href="#" class="text-white">WhatsApp</a>
-        </p>
-      </div>
-    </footer>
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

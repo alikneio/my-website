@@ -1,28 +1,158 @@
-  .carousel-item img {
-    max-height: 350px;
-    object-fit: cover;
-    width: 100%;
-  }
-
-  /* القاعدة الثانية لخلفية الصفحة (للتجربة) */
-  body {
-   background-color: #f8f9fa;
-  font-family: 'Cairo', sans-serif;
-  
-  }
-  .card-link {
-    transition: transform 0.2s ease-in-out;
+/* === Global Styles & Dark Theme === */
+body {
+    font-family: 'Cairo', sans-serif;
+    background-color: #f8f9fa; /* لون خلفية فاتح وافتراضي */
+    color: #212529; /* لون النص الأساسي */
+    overflow-x: hidden;
 }
-.card-link:hover {
-    transform: scale(1.05); /* تكبير البطاقة قليلاً */
+
+/* === Hero Section (بدل الـ Jumbotron) === */
+.hero-section {
+    background-color: #e9ecef; /* خلفية رمادية فاتحة */
+    padding: 4rem 1rem;
+    text-align: center;
+}
+
+.hero-section h1 {
+    font-weight: 700;
+}
+
+/* === Section Title Styling === */
+.section-title {
+    font-weight: 700;
+    margin-bottom: 3rem;
+    color: #212529;
+}
+
+/* === Custom Card Design for Categories === */
+.category-card {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    overflow: hidden;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    text-decoration: none;
+    display: block;
+    color: #212529;
+}
+
+.category-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    color: #0d6efd;
+}
+
+.category-card .card-img {
+    opacity: 0.9;
+    transition: opacity 0.3s ease;
+}
+
+.category-card:hover .card-img {
+    opacity: 1;
+}
+
+.category-card .card-body {
+    padding: 1.5rem;
+    font-weight: bold;
+}
+
+
+/* === Product Cards Design === */
+
+.product-card {
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.product-card-img {
+    width: 100%;
+    height: 120px;
+    object-fit: contain;
+    margin-bottom: 10px;
+}
+
+.product-card-title {
+    font-size: 14px;
+    margin: 8px 0;
+    height: 40px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.product-card-price {
+    font-size: 16px;
+    font-weight: bold;
+    color: #0d6efd;
+    margin: 8px 0;
+}
+
+.product-card-btn {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+}
+/* === Grid Layout === */
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); /* عرض ثابت للجوال */
+    gap: 15px;
+    padding: 10px;
+}
+
+@media (max-width: 768px) {
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+}
+@media (min-width: 768px) {
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* عرض أكبر للتابلت */
+        gap: 20px;
+    }
+    
+    .product-card-img {
+        height: 140px;
+    }
+}
+
+@media (min-width: 992px) {
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); /* عرض أكبر للابتوب */
+        gap: 25px;
+    }
+    
+    .product-card-img {
+        height: 160px;
+    }
+    
+    .product-card-title {
+        font-size: 15px;
+    }
+    
+    .product-card-price {
+        font-size: 18px;
+    }
+}
+
+
+/* === Why Choose Us Section === */
+.feature-icon {
+    font-size: 2.5rem;
+    color: #0d6efd; /* لون أزرق مميز */
 }
 
 /* --- Ticker Styles --- */
-
 .ticker-wrap {
-  width: 90%; /* أو 100% حسب اختيارك */
-  margin: auto; /* لتوسيط الشريط */
-  overflow: hidden; 
+  width: 90%;
+  margin: auto;
+  overflow: hidden;
   background-color: #212529;
   color: white;
   padding: 1rem 0;
@@ -32,112 +162,61 @@
 .ticker-text {
   display: inline-block;
   white-space: nowrap;
-  /* تم حذف سطر padding-left من هنا */
-  animation: ticker-animation 10s linear infinite;
+  animation: ticker-animation 30s linear infinite;
 }
 
-/* استبدل كود الأنيميشن القديم بهذا الكود الجديد */
 @keyframes ticker-animation {
-  0% {
-    transform: translateX(100%); /* يبدأ من خارج الشاشة يمينًا */
-  }
-  100% {
-    /* ينتهي خارج الشاشة يسارًا */
-    transform: translateX(-100%); 
-  }
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
 }
+
+/* --- Professional Footer --- */
+.footer-dark {
+    background-color: #212529;
+    color: #c9d1d9;
+}
+
+.footer-link {
+    color: #8b949e;
+    text-decoration: none;
+    transition: color 0.2s ease-in-out;
+}
+
+.footer-link:hover {
+    color: #1f6feb;
+}
+
+.social-icon {
+    font-size: 1.5rem;
+    color: #8b949e;
+    transition: color 0.2s ease-in-out;
+}
+
+.social-icon:hover {
+    color: white;
+}
+
+/* --- Fixed Back to Home Button --- */
 .btn-back-to-home {
   position: fixed;
   top: 15px;
   right: 15px;
   z-index: 1031;
-
-  /* --- تعديلات الحجم --- */
-  font-size: 1rem;        /* تكبير حجم الخط قليلاً (القيمة الافتراضية غالبًا 0.9rem) */
-  padding: 10px 20px;     /* زيادة الـ padding الأفقي والرأسي */
-
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
+  background-color: rgba(255, 255, 255, 0.8);
+  color: #0d1117;
+  font-weight: bold;
+  padding: 8px 15px;
   border-radius: 50px;
   text-decoration: none;
   display: flex;
   align-items: center;
-  transition: background-color 0.2s;
-}
-
-.btn-back-to-home i {
-  font-size: 1.2rem;      /* تكبير حجم الأيقونة قليلاً (اختياري) */
-  margin-right: 5px;      /* زيادة المسافة بين الأيقونة والنص إذا كبرت الأيقونة */
+  transition: all 0.2s ease-in-out;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .btn-back-to-home:hover {
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
+  background-color: white;
+  transform: scale(1.05);
+  color: black;
 }
-
-/* --- Mobile-Specific Styles --- */
-/* (Styles inside here will only apply to screens 767px wide or smaller) */
-@media (max-width: 767px) {
-
-  /* 1. تصغير حجم العنوان الرئيسي (AK CELL) */
-  .display-4 {
-    font-size: 2.5rem; /* أصغر من الحجم الأصلي */
-  }
-
-  /* 2. تقليل المسافة الكبيرة في قسم العنوان */
-  .p-5 {
-    padding: 2rem !important; /* تقليل الـ padding من 5 إلى 2 */
-  }
-
-  /* 3. تقليل ارتفاع الـ Carousel */
-  .carousel-item img {
-    max-height: 200px; /* ارتفاع أقل مناسب للموبايل */
-  }
-  
-  /* 4. تصغير حجم خط العناوين الفرعية مثل "Why Choose Us" */
-  h2 {
-    font-size: 1.75rem;
-  }
-
-  /* 5. تصغير عرض شريط البحث ليناسب الشاشة */
-  .w-50 {
-      width: 90% !important;
-  }
-
-}
-
-/* --- Ken Burns Effect for Carousel --- */
-.carousel-ken-burns .carousel-item {
-  overflow: hidden;
-}
-
-.carousel-ken-burns .carousel-item img {
-  animation: kenburns-animation 20s ease-in-out infinite alternate;
-  transform-origin: center center;
-}
-
-@keyframes kenburns-animation {
-  0% {
-    transform: scale(1);
-  }
-  100% {
-    transform: scale(1.15);
-  }
-  /* --- Awesome Carousel Animation: Fade & Scale --- */
-
-.carousel-zoom .carousel-item {
-  /* نحدد الانتقال للشفافية والحجم */
-  transition: transform 0.6s ease-in-out, opacity 0.6s ease-in-out;
-
-}
-/* الشرائح غير النشطة (القادمة أو الذاهبة) تكون أصغر قليلاً */
-.carousel-zoom .carousel-item:not(.active) {
-  transform: scale(0.9);
-}
-
-/* الشريحة التي تدخل (القادمة) تبدأ بحجم أكبر وتعود لحجمها الطبيعي */
-.carousel-zoom .carousel-item-next,
-.carousel-zoom .carousel-item-prev {
-  transform: scale(1.1);
-}
-

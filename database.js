@@ -26,38 +26,42 @@ db.serialize(() => {
     });
 
     // 2. إنشاء جدول الطلبات (orders table)
-    db.run(`CREATE TABLE IF NOT EXISTS orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        userId INTEGER,
-        productName TEXT,
-        price REAL,
-        purchaseDate TEXT,
-        order_details TEXT,
-        FOREIGN KEY (userId) REFERENCES users (id)
-    )`, (err) => {
-        if (err) {
-            return console.error(err.message);
-        }
-        console.log('Orders table created or already exists.');
-    });
+db.run(`CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER,
+    productName TEXT,
+    price REAL,
+    purchaseDate TEXT,
+    order_details TEXT,
+    status TEXT NOT NULL DEFAULT 'Waiting',
+    admin_reply TEXT,
+    FOREIGN KEY (userId) REFERENCES users (id)
+)`, (err) => {
+    if (err) {
+        return console.error(err.message);
+    }
+    console.log('Orders table created successfully with new fields.');
+});
 
     // 3. إنشاء جدول المنتجات (products table) بالهيكل الجديد
     db.run(`CREATE TABLE IF NOT EXISTS products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        price REAL NOT NULL,
-        image TEXT,
-        main_category TEXT NOT NULL,
-        sub_category TEXT NOT NULL,
-        sub_category_image TEXT,
-        requires_player_id INTEGER DEFAULT 0
-    )`, (err) => {
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    image TEXT,
+    main_category TEXT NOT NULL,
+    sub_category TEXT NOT NULL,
+    sub_category_image TEXT,
+    requires_player_id INTEGER DEFAULT 0
+)`, (err) => {
         if (err) {
             return console.error(err.message);
         }
         console.log('Products table created or already exists with new structure.');
     });
 });
+
+
 
 // إغلاق الاتصال بقاعدة البيانات
 db.close((err) => {
