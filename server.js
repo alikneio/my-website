@@ -12,6 +12,12 @@ const multer = require('multer');
 const uploadNone = multer(); // لمعالجة form بدون ملفات
 const PORT = process.env.PORT || 3000;
 console.log("✅ PORT correctly defined:", PORT);
+require('http').get(`http://localhost:${PORT}`, res => {
+  console.log("✅ Self-check succeeded with status:", res.statusCode);
+}).on("error", (err) => {
+  console.error("❌ Self-check failed:", err.message);
+});
+
 console.log("🧾 ENV DUMP:", process.env);
 
 
