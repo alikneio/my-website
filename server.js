@@ -31,10 +31,7 @@ const upload = multer({ storage });
 
 // 1. تعريف التطبيق والبورت أولاً
 const app = express();
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+
 
 
 // 2. إعداد محرك القوالب
