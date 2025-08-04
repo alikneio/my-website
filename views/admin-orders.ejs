@@ -2,70 +2,76 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Orders</title>
     <link rel="stylesheet" href="/css/bootstrap.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body class="bg-light">
 
-    <div class="d-flex">
+<div class="d-flex">
     <%- include('partials/admin-sidebar') %>
 
     <div class="container-fluid p-4">
-        </div>
-    <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>Manage Orders</h1>
-            <a href="/admin" class="btn btn-secondary">Back to Admin Panel</a>
+            <a href="/admin" class="btn btn-secondary">Back to Dashboard</a>
         </div>
-
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>User</th>
-                        <th>Product</th>
-                        <th>Details</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                        <th>Admin Reply</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% if (orders && orders.length > 0) { %>
-                        <% orders.forEach(order => { %>
-                            <form action="/admin/order/update/<%= order.id %>" method="POST">
+        
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>User</th>
+                                <th>Product</th>
+                                <th>Details</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Admin Reply</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (orders && orders.length > 0) { %>
+                                <% orders.forEach(order => { %>
+                                    <tr>
+                                        <form action="/admin/order/update/<%= order.id %>" method="POST">
+                                            <td>#<%= order.id %></td>
+                                            <td><%= order.username %></td>
+                                            <td><%= order.productName %></td>
+                                            <td><%= order.order_details %></td>
+                                            <td><%= new Date(order.purchaseDate).toLocaleString() %></td>
+                                            <td>
+                                                <select name="status" class="form-select form-select-sm">
+                                                    <option value="Waiting" <%= order.status === 'Waiting' ? 'selected' : '' %>>Waiting</option>
+                                                    <option value="Accepted" <%= order.status === 'Accepted' ? 'selected' : '' %>>Accepted</option>
+                                                    <option value="Rejected" <%= order.status === 'Rejected' ? 'selected' : '' %>>Rejected</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input type="text" name="admin_reply" class="form-control form-control-sm" value="<%= order.admin_reply || '' %>">
+                                            </td>
+                                            <td>
+                                                <button type="submit" class="btn btn-primary btn-sm">Update</button>
+                                            </td>
+                                        </form>
+                                    </tr>
+                                <% }) %>
+                            <% } else { %>
                                 <tr>
-                                    <td>#<%= order.id %></td>
-                                    <td><%= order.username %></td>
-                                    <td><%= order.productName %></td>
-                                    <td><%= order.order_details %></td>
-                                    <td><%= new Date(order.purchaseDate).toLocaleString() %></td>
-                                    <td>
-                                        <select name="status" class="form-select form-select-sm">
-                                            <option value="Waiting" <%= order.status === 'Waiting' ? 'selected' : '' %>>Waiting</option>
-                                            <option value="Accepted" <%= order.status === 'Accepted' ? 'selected' : '' %>>Accepted</option>
-                                            <option value="Rejected" <%= order.status === 'Rejected' ? 'selected' : '' %>>Rejected</option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <input type="text" name="admin_reply" class="form-control form-control-sm" value="<%= order.admin_reply || '' %>">
-                                    </td>
-                                    <td>
-                                        <button type="submit" class="btn btn-primary btn-sm">Update</button>
-                                    </td>
+                                    <td colspan="8" class="text-center p-4">No orders found.</td>
                                 </tr>
-                            </form>
-                        <% }) %>
-                    <% } else { %>
-                        <tr>
-                            <td colspan="8" class="text-center">No orders found.</td>
-                        </tr>
-                    <% } %>
-                </tbody>
-            </table>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
+</div>
+
 </body>
 </html>

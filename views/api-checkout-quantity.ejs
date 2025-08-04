@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Checkout - <%= product.name %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body {
+      background: #f8f9fa;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .checkout-card {
+      border-radius: 16px;
+      padding: 30px;
+      background: #fff;
+      width: 100%;
+      max-width: 100%;
+      box-shadow: 0 0 20px rgba(0,0,0,0.05);
+    }
+
+    @media (max-width: 576px) {
+      .checkout-card {
+        width: 100% !important;
+        padding-left: 12px;
+        padding-right: 12px;
+        margin: 0 auto;
+      }
+    }
+
+    .alert-icon {
+      font-size: 1.2rem;
+      margin-right: 6px;
+    }
+
+    .back-link {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <%- include('partials/header') %>
+
+  <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5 mx-auto px-2">
+
+    <div class="container py-4">
+      <div class="d-flex justify-content-end mb-3">
+        <a href="/" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
+          <i class="bi bi-arrow-left"></i> Back to Home
+        </a>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-12 px-2">
+        <div class="checkout-card shadow mx-auto">
+
+          <% if (product.image) { %>
+            <img src="<%= product.image %>" class="img-fluid mb-3 mx-auto d-block" style="max-height: 100px;" alt="<%= product.name %>">
+          <% } %>
+
+          <h4 class="text-center text-primary fw-bold mb-3"><%= product.name %></h4>
+
+          <div class="alert alert-light border small text-center">
+            <div>
+              <span class="text-success fw-bold fs-5">
+                $<%= parseFloat(product.unit_price || 0).toFixed(2) %>
+              </span>
+              <span class="text-secondary"> per </span>
+              <span class="fw-bold"><%= product.unit_quantity || 1 %> <%= product.unit_label || 'units' %></span>
+            </div>
+            <% if (product.min_quantity && product.max_quantity) { %>
+              <div class="text-muted mt-1">
+                Min: <strong><%= product.min_quantity %></strong> | Max: <strong><%= product.max_quantity %></strong>
+                <%= product.unit_label || 'units' %>
+              </div>
+            <% } %>
+          </div>
+
+<% const finalMsg = typeof msg !== 'undefined' ? msg : ''; %>
+<% if (error || finalMsg) {
+  let alertMsg = '';
+  switch (error) {
+    case 'balance':
+      alertMsg = '❌ Insufficient balance to complete the order.';
+      break;
+    case 'invalid_quantity':
+      alertMsg = '❌ The quantity you entered is invalid.';
+      break;
+    case 'notfound':
+      alertMsg = '❌ Product not found or is disabled.';
+      break;
+    case 'failed':
+    case 'order_failed':
+      alertMsg = '❌ Failed to place your order. Please try again.';
+      break;
+    case 'missing_player':
+      alertMsg = `❌ ${decodeURIComponent(finalMsg || 'Player ID is required for this product.')}`;
+      break;
+    case 'verify':
+      alertMsg = `❌ ${decodeURIComponent(finalMsg || 'Player ID verification failed.')}`;
+      break;
+    case 'network':
+      alertMsg = '❌ Network issue. Please try again shortly.';
+      break;
+    case 'server':
+    default:
+      alertMsg = '❌ An unexpected server error occurred.';
+      break;
+  }
+%>
+  <div class="alert alert-danger d-flex align-items-center" role="alert">
+    <i class="bi bi-exclamation-circle alert-icon"></i>
+    <div><%= alertMsg %></div>
+  </div>
+<% } %>
+
+
+
+
+          <form method="POST" action="/buy-quantity-product">
+            <input type="hidden" name="productId" value="<%= product.id %>">
+            <input type="hidden" name="player_id" id="hiddenPlayerId">
+
+            <div class="mb-3">
+              <label class="form-label">Enter quantity</label>
+              <input type="number" class="form-control" id="quantityInput" name="quantity"
+                    value="<%= product.min_quantity %>" min="<%= product.min_quantity %>" max="<%= product.max_quantity %>" required>
+            </div>
+
+            <div class="mb-3 fw-semibold text-center">
+              Total: $<span id="totalPrice">0.00</span>
+            </div>
+
+            <% if (product.requires_verification) { %>
+              <div class="mb-3 text-start">
+                <label class="form-label">Player ID</label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="playerIdInput" placeholder="Enter Player ID" required>
+                  <button type="button" class="btn btn-outline-primary" onclick="verifyPlayer()">Verify</button>
+                </div>
+                <div id="verifyResult" class="small mt-1 text-muted"></div>
+              </div>
+            <% } else { %>
+              <div class="mb-3 text-start">
+                <label class="form-label">Player ID</label>
+                <input type="text" class="form-control" id="playerIdInput" placeholder="Enter Player ID">
+              </div>
+            <% } %>
+
+            <button type="submit" class="btn btn-success w-100 mt-3" onclick="beforeSubmit()">
+              Buy Now
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="productData"
+       data-product-id="<%= product.id %>"
+       data-unit-price="<%= parseFloat(product.unit_price || 0) %>"
+       data-unit-qty="<%= parseInt(product.unit_quantity || 1) %>">
+  </div>
+
+  <script>
+    const qtyInput = document.getElementById('quantityInput');
+    const totalPriceEl = document.getElementById('totalPrice');
+
+    function calculateTotal() {
+      const unitPrice = parseFloat(document.getElementById('productData').dataset.unitPrice);
+      const unitQty = parseInt(document.getElementById('productData').dataset.unitQty);
+      const qty = parseInt(qtyInput.value);
+
+      if (!isNaN(qty) && qty >= 0) {
+        const total = ((qty / unitQty) * unitPrice).toFixed(2);
+        totalPriceEl.innerText = total;
+      } else {
+        totalPriceEl.innerText = "0.00";
+      }
+    }
+
+    qtyInput.addEventListener('input', calculateTotal);
+    window.addEventListener('DOMContentLoaded', calculateTotal);
+
+    function beforeSubmit() {
+      const playerIdField = document.getElementById('playerIdInput');
+      const hiddenField = document.getElementById('hiddenPlayerId');
+      if (playerIdField && hiddenField) {
+        hiddenField.value = playerIdField.value.trim();
+      }
+    }
+
+    async function verifyPlayer() {
+      const playerId = document.getElementById("playerIdInput")?.value.trim();
+      const productId = document.getElementById("productData").dataset.productId;
+      const resultBox = document.getElementById("verifyResult");
+
+      if (!playerId) {
+        resultBox.innerHTML = "<span class='text-danger'>Please enter a Player ID first.</span>";
+        return;
+      }
+
+      resultBox.innerHTML = "⏳ Verifying...";
+
+      try {
+        const res = await fetch('/verify-player', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ player_id: playerId, product_id: productId })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          resultBox.innerHTML = `<span class="text-success">✔️ Valid ID${data.player_name ? ': ' + data.player_name : ''}</span>`;
+        } else {
+          resultBox.innerHTML = `<span class="text-danger">❌ ${data.message || 'Invalid Player ID'}</span>`;
+        }
+      } catch (error) {
+        resultBox.innerHTML = "<span class='text-danger'>❌ Failed to verify</span>";
+        console.error("Verify Error:", error);
+      }
+    }
+  </script>
+
+  <%- include('partials/footer') %>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+  <script src="/main.js"></script>
+
+</body>
+</html>

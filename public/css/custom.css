@@ -4,6 +4,8 @@ body {
     background-color: #f8f9fa; /* لون خلفية فاتح وافتراضي */
     color: #212529; /* لون النص الأساسي */
     overflow-x: hidden;
+    background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+  background-attachment: fixed;
 }
 
 /* === Hero Section (بدل الـ Jumbotron) === */
@@ -57,7 +59,6 @@ body {
     font-weight: bold;
 }
 
-
 /* === Product Cards Design === */
 
 .product-card {
@@ -98,6 +99,7 @@ body {
     padding: 8px;
     font-size: 14px;
 }
+
 /* === Grid Layout === */
 .products-grid {
     display: grid;
@@ -140,7 +142,6 @@ body {
         font-size: 18px;
     }
 }
-
 
 /* === Why Choose Us Section === */
 .feature-icon {
@@ -219,4 +220,224 @@ body {
   background-color: white;
   transform: scale(1.05);
   color: black;
+}
+/* --- Professional Search Bar --- */
+.search-bar-container {
+    max-width: 700px;
+    margin: 4rem auto;
+    position: relative;
+}
+
+.search-input {
+    width: 100%;
+    height: 60px;
+    padding: 10px 65px 10px 25px; /* مسافة لليسار ولليمين (لمكان الأيقونة) */
+    border-radius: 50px; /* زوايا دائرية بالكامل */
+    border: 1px solid #e0e0e0;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #0d6efd;
+    box-shadow: 0 0 15px rgba(13, 110, 253, 0.2);
+}
+
+.search-btn {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    height: 40px;
+    width: 40px;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 50%; /* زر دائري */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: background-color 0.2s;
+}
+
+.search-btn:hover {
+    background-color: #0b5ed7;
+}
+
+@media (max-width: 576px) {
+  .card-body {
+    padding: 1.2rem;
+  }
+
+  .card-body h4 {
+    font-size: 1.1rem;
+  }
+
+  .card-body p {
+    font-size: 1rem;
+  }
+
+  .input-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .input-group input {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .input-group button {
+    width: 100%;
+  }
+
+  #submitResult {
+    font-size: 0.9rem;
+  }
+
+  .container.py-5 {
+    padding-bottom: 8rem !important; /* حتى ما يطلع الفوتر فوق */
+  }
+}
+
+.search-wrapper {
+  max-width: 400px;
+  width: 100%;
+  padding: 0 12px;
+}
+
+@media (max-width: 576px) {
+  .search-wrapper {
+    max-width: 90%;
+  }
+
+  .search-wrapper input {
+    font-size: 1rem;
+  }
+
+  .search-wrapper button {
+    font-size: 1rem;
+  }
+}
+form.d-flex input:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+@media (max-width: 576px) {
+  .form-control {
+    font-size: 0.95rem;
+  }
+
+  .btn {
+    font-size: 0.95rem;
+  }
+}
+
+/* حركة خفيفة عند التحويم */
+.card {
+  transition: transform 0.2s ease-in-out;
+}
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* إعداد الكارد الأساسي */
+service-card .card {
+  height: 100%;
+  border-radius: 16px;
+  padding: 0; /* شلنا البادينغ */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  background: #fff;
+}
+
+/* الصورة داخل الكارد */
+.card-img-top {
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* موبايل فقط: نكبر الصورة شوي */
+@media (max-width: 576px) {
+  .card-img-top {
+    height: 220px;
+  }
+}
+
+/* تنسيق عنوان المنتج */
+.card-title {
+  font-size: 1rem;
+  margin: 0 8px 6px;
+  min-height: 40px;
+  line-height: 1.3;
+}
+
+/* تنسيق السعر */
+.card-text {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #007bff;
+  margin-bottom: 6px;
+}
+
+/* زر الشراء أو تسجيل الدخول */
+.card .btn {
+  font-size: 0.95rem;
+  padding: 8px 12px;
+  margin: 0 8px 8px;
+}
+
+/* --- تنسيقات الكارد التي تم نقلها من الـ HTML --- */
+.product-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 17px;
+  overflow: hidden;
+}
+
+.product-card:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+/* تنسيقات حاوية الصورة (Image Wrapper) */
+.product-image-wrapper {
+    position: relative; /* مهم لـ position: absolute للصورة */
+    width: 100%;
+    padding-top: 100%; /* يجعل الارتفاع مساوياً للعرض، لإنشاء مربع */
+    background-color: #f8f9fa; /* لون رمادي فاتح للخلفية */
+    overflow: hidden;
+}
+
+/* تنسيقات الصورة (Image) */
+.product-image-wrapper img {
+  position: absolute; /* وضع الصورة داخل المربع */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* نستخدم 'contain' لمنع القص */
+}
+
+/* تنسيقات body الكارد */
+.product-card .card-body {
+  padding-top: 0;
+}
+
+/* Media query for mobile only */
+@media (max-width: 576px) {
+  .product-image-wrapper {
+    padding-top: 100%; /* Ensure it's a square on mobile too */
+  }
 }

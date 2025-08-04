@@ -19,12 +19,12 @@
         <% if (orders && orders.length > 0) { %>
             <div class="list-group">
                 <% orders.forEach(order => { %>
-                    <a href="/order-details/<%= order.id %>" class="list-group-item list-group-item-action flex-column align-items-start">
+    <a href="/order-details/<%= order.id %>" class="list-group-item list-group-item-action flex-column align-items-start">
                         <div class="d-flex w-100 justify-content-between">
                             <h5 class="mb-1"><%= order.productName %></h5>
                             <small class="text-muted"><%= new Date(order.purchaseDate).toLocaleDateString() %></small>
                         </div>
-                        <p class="mb-1">Price: <span class="fw-bold">$<%= order.price.toFixed(2) %></span></p>
+                        <p class="mb-1">Price: <span class="fw-bold">$<%= parseFloat(order.price).toFixed(2) %></span></p>
                         
                         <small>Status: 
                             <% if (order.status === 'Accepted') { %>

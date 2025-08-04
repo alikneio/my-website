@@ -15,6 +15,7 @@
         <h1>Dashboard</h1>
         <hr>
 
+        <!-- Stats -->
         <div class="row mb-4">
             <div class="col-md-4">
                 <div class="card text-center shadow-sm">
@@ -36,31 +37,47 @@
                 <div class="card text-center shadow-sm">
                     <div class="card-body">
                         <h5 class="card-title">Total Revenue</h5>
-                        <p class="card-text fs-2 fw-bold text-success">$<%= (stats.totalRevenue || 0).toFixed(2) %></p>
+                        <p class="card-text fs-2 fw-bold text-success">
+                            $<%= parseFloat(stats.totalRevenue || 0).toFixed(2) %>
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Manage Balance -->
         <div class="card shadow-sm">
             <div class="card-header">
                 <h3>Manage User Balances</h3>
             </div>
             <div class="card-body">
-                <form action="/admin/add-credit" method="POST" class="row g-3 align-items-end">
-                    <div class="col-md-6">
+                <form action="/admin/update-balance" method="POST" class="row g-3 align-items-end">
+                    <div class="col-md-4">
                         <label for="userId" class="form-label">Select User</label>
-                        <select name="userId" id="userId" class="form-select">
-                             <% users.forEach(u => { %>
-                                <option value="<%= u.id %>"><%= u.username %> - Balance: $<%= u.balance.toFixed(2) %></option>
+                        <select name="userId" id="userId" class="form-select" required>
+                            <% users.forEach(u => { %>
+                                <option value="<%= u.id %>">
+                                    <%= u.username %> - Balance: $<%= parseFloat(u.balance).toFixed(2) %>
+                                </option>
                             <% }) %>
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <label for="amount" class="form-label">Amount to Add</label>
-                        <input type="number" name="amount" id="amount" class="form-control" placeholder="e.g., 50" required>
+
+                    <div class="col-md-3">
+                        <label for="amount" class="form-label">Amount</label>
+                        <input type="number" name="amount" id="amount" class="form-control" placeholder="e.g., 50" step="0.01" min="0.01" required>
                     </div>
+
+                    <div class="col-md-3">
+                        <label for="operation" class="form-label">Operation</label>
+                        <select name="operation" id="operation" class="form-select" required>
+                            <option value="add">➕ Add</option>
+                            <option value="deduct">➖ Deduct</option>
+                        </select>
+                    </div>
+
                     <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">Add Credit</button>
+                        <button type="submit" class="btn btn-primary w-100">Apply</button>
                     </div>
                 </form>
             </div>

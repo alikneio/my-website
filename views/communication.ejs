@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>communication - AK Cell</title>
+    <link rel="stylesheet" href="/css/bootstrap.css">
+    <link rel="stylesheet" href="/css/custom.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="hero-section">
+        <h1 class="display-4">Ccommunication Services</h1>
+        <p class="lead col-lg-8 mx-auto">
+            All available accounts and subscriptions in one place.
+        </p>
+    </div>
+
+    <div class="container my-5 ">
+    <div class="search-bar-container">
+        <form id="searchForm" action="#" method="GET" role="search">
+            <input type="search" id="searchInput" class="search-input" placeholder="Search for any service...">
+            <button type="submit" class="search-btn">
+                <i class="bi bi-search"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+    <div class="container my-5 py-5">
+        <h2 class="text-center section-title">Select a Service</h2>
+        <div class="row row-cols-2 row-cols-sm-4 row-cols-lg-3 g-4">
+            
+            <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/Touch-section" class="category-card service-card">
+                    <img src="/images/touchlogo.png" class="card-img" alt="Touch">
+                    <div class="card-body">Touch</div>
+                </a>
+            </div>
+
+            <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/Alfa-section" class="category-card service-card">
+                    <img src="/images/alfalogo.png" class="card-img" alt="Alfa">
+                    <div class="card-body">Alfa</div>
+                </a>
+            </div>
+
+            
+
+
+            </div>
+    </div>
+</div>
+    <%- include('partials/footer') %>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/main.js"></script>
+</body>
+</html>

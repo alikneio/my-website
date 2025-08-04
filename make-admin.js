@@ -1,33 +1,33 @@
-const sqlite3 = require('sqlite3').verbose();
+const mysql = require('mysql2');
 
-// أدخل هنا الإيميل الخاص بالحساب الذي تريد جعله Admin
-const adminEmail = 'alikneio71@gmail.com'; 
+// ↓↓↓ ضع هنا إيميل الحساب الذي تريد ترقيته ↓↓↓
+const adminEmail = 'alikneio71@gmail.com';
 
-// --- لا تعدل أي شيء تحت هذا السطر ---
+// --- بيانات الاتصال ---
+const dbConfig = {
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'ak_cell_db',
+    port: 3306 // تأكد من أنه نفس البورت
+};
 
-const db = new sqlite3.Database('./akcell.db', (err) => {
-    if (err) {
-        return console.error('Error connecting to database:', err.message);
-    }
-    console.log('Connected to the SQLite database.');
-});
+const connection = mysql.createConnection(dbConfig);
 
-const sql = `UPDATE users SET role = 'admin' WHERE email = ?`;
+connection.connect(err => {
+    if (err) return console.error('Error connecting:', err.stack);
 
-db.run(sql, [adminEmail], function(err) {
-    if (err) {
-        return console.error('Error updating user:', err.message);
-    }
-    if (this.changes > 0) {
-        console.log(`Success! User with email "${adminEmail}" is now an admin.`);
-    } else {
-        console.log(`Error: Could not find a user with the email "${adminEmail}". Please check the email and try again.`);
-    }
-});
+    const sql = `UPDATE users SET role = 'admin' WHERE email = ?`;
 
-db.close((err) => {
-    if (err) {
-        return console.error(err.message);
-    }
-    console.log('Closed the database connection.');
+    connection.query(sql, [adminEmail], (err, result) => {
+        if (err) throw err;
+
+        if (result.affectedRows > 0) {
+            console.log(`Success! User with email "${adminEmail}" is now an admin.`);
+        } else {
+            console.log(`Error: Could not find a user with the email "${adminEmail}".`);
+        }
+        
+        connection.end();
+    });
 });

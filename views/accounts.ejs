@@ -20,51 +20,155 @@
         </p>
     </div>
 
+    <div class="container my-5 ">
+    <div class="search-bar-container">
+        <form id="searchForm" action="#" method="GET" role="search">
+            <input type="search" id="searchInput" class="search-input" placeholder="Search for any service...">
+            <button type="submit" class="search-btn">
+                <i class="bi bi-search"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
     <div class="container my-5 py-5">
         <h2 class="text-center section-title">Select a Service</h2>
         <div class="row row-cols-2 row-cols-sm-4 row-cols-lg-3 g-4">
             
             <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/netflix-section" class="category-card">
-                    <img src="/images/netflix-icon.svg" class="card-img" alt="Netflix">
-                    <div class="card-body">Netflix</div>
+                <a href="/netflixH-section" class="category-card service-card">
+                    <img src="/images/netflixlogo.png" class="card-img" alt="Netflix">
+                    <div class="card-body">Netflix High Quality</div>
+                </a>
+            </div>
+            <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/netflixL-section" class="category-card service-card">
+                    <img src="/images/netflixlogo.png" class="card-img" alt="Netflix">
+                    <div class="card-body">Netflix Normal Qauilty</div>
                 </a>
             </div>
 
             <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/shahid-section" class="category-card">
-                    <img src="/images/shahid-svgrepo-com.svg" class="card-img" alt="shahid">
+                <a href="/shahid-section" class="category-card service-card">
+                    <img src="/images/shahidlogo1.png" class="card-img" alt="shahid">
                     <div class="card-body">Shahid</div>
                 </a>
             </div>
 
            <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/osn-section" class="category-card">
-                    <img src="/images/osnlogo.png" class="card-img" alt="osn">
+                <a href="/osn-section" class="category-card  service-card">
+                    <img src="/images/osnlogo1.png" class="card-img" alt="osn">
                     <div class="card-body">osn</div>
                 </a>
             </div>
 
                     <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/primevideo" class="category-card">
-                    <img src="/images/primelogo.svg" class="card-img" alt="Prime Video">
+                <a href="/primevideo" class="category-card service-card">
+                    <img src="/images/primevideologo.png" class="card-img" alt="Prime Video">
                     <div class="card-body">Prime video</div>
                 </a>
             </div>
 
          <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/disney-section" class="category-card">
-                    <img src="/images/disneylogo.svg" class="card-img" alt="Disney">
+                <a href="/disney-section" class="category-card service-card">
+                    <img src="/images/disneylogo1.png" class="card-img" alt="Disney">
                     <div class="card-body">Disney</div>
                 </a>
             </div>
 
-               
+               <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/anghami-section" class="category-card service-card">
+                    <img src="/images/anghamilogo.png" class="card-img" alt="anghami">
+                    <div class="card-body">Anghami</div>
+                </a>
+            </div>
+
+<div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/youtube-section" class="category-card service-card">
+                    <img src="/images/youtubelogo.png" class="card-img" alt="Youtube">
+                    <div class="card-body">Youtube premuim</div>
+                </a>
+            </div>
+
+            <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/canva-section" class="category-card service-card">
+                    <img src="/images/canvalogo.png" class="card-img" alt="Canva">
+                    <div class="card-body">Canva</div>
+                </a>
+            </div>
+
+              <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/spotifyN-section" class="category-card service-card">
+                    <img src="/images/spotifylogo.png" class="card-img" alt="Spotify">
+                    <div class="card-body">Spotify  Normal Quality</div>
+                </a>
+            </div>
+
+            <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/spotifyH-section" class="category-card service-card">
+                    <img src="/images/spotifylogo.png" class="card-img" alt="Spotify">
+                    <div class="card-body">Spotify High Quality</div>
+                </a>
+            </div>
+
+            <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/crunchyroll-section" class="category-card service-card">
+                    <img src="/images/crunchyrol.png" class="card-img" alt="crunchyroll">
+                    <div class="card-body">Crunchy Roll</div>
+                </a>
+            </div>
+
+             <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="/capcut-section" class="category-card service-card">
+                    <img src="/images/capcutlogo.png" class="card-img" alt="CapCut">
+                    <div class="card-body">CapCut</div>
+                </a>
+            </div>
+
+
+
 
             </div>
     </div>
 </div>
     <%- include('partials/footer') %>
+
+
+    <script>
+document.addEventListener("DOMContentLoaded", function () {
+  console.log("✅ Search script loaded!");
+
+  const searchInput = document.getElementById("searchInput");
+  if (!searchInput) return;
+
+  const searchForm = document.getElementById("searchForm");
+  if (searchForm) {
+    searchForm.addEventListener("submit", e => e.preventDefault());
+  }
+
+  searchInput.addEventListener("input", function () {
+    const query = this.value.toLowerCase();
+
+    // تأكد من وجود الكروت من هذا الكلاس
+    const cards = document.querySelectorAll(".category-card");
+
+    cards.forEach(card => {
+      const title = card.textContent?.toLowerCase() || "";
+
+      const cardWrapper = card.closest("div[class^='col']");
+ // ضروري تحتوي الكرت
+
+      if (cardWrapper) {
+        if (title.includes(query)) {
+          cardWrapper.style.display = "";
+        } else {
+          cardWrapper.style.display = "none";
+        }
+      }
+    });
+  });
+});
+</script>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/main.js"></script>

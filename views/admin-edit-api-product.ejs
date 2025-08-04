@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit API Product</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+</head>
+<body class="bg-light">
+
+  <div class="container py-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h3 class="mb-3 text-primary"><%= product.name %></h3>
+
+        <p><strong>Original Price:</strong> $<%= parseFloat(product.price).toFixed(6) %></p>
+        <p><strong>Requires Player ID:</strong> <%= product.player_check ? 'Yes' : 'No' %></p>
+        <p><strong>Product ID:</strong> <%= product.id %></p>
+
+        <form method="POST" action="/admin/api-products/edit/<%= product.id %>">
+
+          <div class="mb-3">
+            <label class="form-label">Custom Name</label>
+            <input type="text" name="custom_name" class="form-control" value="<%= custom.custom_name || '' %>">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Custom Price ($)</label>
+            <input type="number" step="0.0001" name="custom_price" class="form-control" value="<%= custom.custom_price || '' %>">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Custom Image URL</label>
+            <input type="text" name="custom_image" class="form-control" value="<%= custom.custom_image || '' %>">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Category</label>
+            <select name="category" class="form-select">
+              <option value="">-- Select Category --</option>
+              <option value="freefire" <%= custom.category === 'freefire' ? 'selected' : '' %>>Free Fire</option>
+              <option value="pubg" <%= custom.category === 'pubg' ? 'selected' : '' %>>PUBG</option>
+              <option value="bigo" <%= custom.category === 'bigo' ? 'selected' : '' %>>BIGO</option>
+              <option value="hiyachat" <%= custom.category === 'hiyachat' ? 'selected' : '' %>>Hiya Chat</option>
+              <option value="jawaker" <%= custom.category === 'jawaker' ? 'selected' : '' %>>Jawaker</option>
+              <option value="soulchill" <%= custom.category === 'soulchill' ? 'selected' : '' %>>Soul Chill</option>
+              <option value="Likee Live" <%= custom.category === 'Likee Live' ? 'selected' : '' %>>Likee</option>
+            </select>
+          </div>
+
+          <div class="form-check mb-3">
+            <input type="checkbox" name="variable_quantity" value="1" class="form-check-input" id="quantityCheck"
+              <%= custom.variable_quantity === 1 ? 'checked' : '' %>>
+            <label class="form-check-label" for="quantityCheck">Enable Quantity Checkout</label>
+          </div>
+
+          <div class="form-check mb-3">
+            <input type="checkbox" name="player_check" value="1" class="form-check-input" id="playerCheck"
+              <%= custom.player_check === 1 ? 'checked' : '' %>>
+            <label class="form-check-label" for="playerCheck">Requires Player ID</label>
+          </div>
+
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="requires_verification" name="requires_verification"
+              <%= custom.requires_verification == 1 ? 'checked' : '' %>
+            >
+            <label class="form-check-label" for="requires_verification">
+              Requires Verification
+            </label>
+          </div>
+
+          <!-- Unit Price field -->
+          <div class="mb-3">
+            <label class="form-label">Unit Price ($)</label>
+            <input type="number" name="unit_price" step="any" class="form-control" value="<%= custom.unit_price || '' %>">
+          </div>
+
+          <!-- Unit Quantity field -->
+          <div class="mb-3">
+            <label class="form-label">Unit Quantity</label>
+            <input type="number" step="any" name="unit_quantity" class="form-control" value="<%= custom.unit_quantity || '' %>">
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Min Quantity</label>
+              <input type="number" name="min_quantity" class="form-control" value="<%= custom.min_quantity || '' %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Max Quantity</label>
+              <input type="number" name="max_quantity" class="form-control" value="<%= custom.max_quantity || '' %>">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Unit Label (مثال: coins, points, UC)</label>
+            <input type="text" name="unit_label" class="form-control"
+               value="<%= custom.unit_label || '' %>" placeholder="units">
+          </div>
+
+          <div class="d-flex justify-content-between mt-4">
+            <button type="submit" class="btn btn-success">
+              💾 Save Changes
+            </button>
+            <a href="/admin/api-products" class="btn btn-secondary">
+              ← Back
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whish Money - LBP Recharge</title>
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: #f1f2f6;
+    }
+    .whish-form-container {
+      max-width: 550px;
+      margin: 40px auto;
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+    }
+    .form-title {
+      font-weight: bold;
+      font-size: 24px;
+      margin-bottom: 20px;
+      text-align: center;
+      color: #2f3542;
+    }
+    .note-box {
+      background: #f1f1f1;
+      border-left: 5px solid #007bff;
+      padding: 10px 15px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+<%- include('../partials/header') %>
+
+
+
+  <div class="container">
+
+    <div class="whish-form-container">
+      <h1 class="form-title">Whish Money - LBP</h1>
+       <div class="note-box">
+        <p>💸 Please transfer the amount to <strong>Whish Number: 71534662</strong></p>
+        <p>📌 Minimum recharge: <strong>1M</strong></p>
+      </div>
+
+      <form action="/add-balance/whish/lbp" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="amount" class="form-label">المبلغ (بالليرة اللبنانية)</label>
+          <input type="number" class="form-control" id="amount" name="amount" required>
+        </div>
+        <div class="mb-3">
+          <label for="screenshot" class="form-label">إرفاق صورة إيصال الدفع</label>
+          <input type="file" name="proofImage" id="proofImage" accept="image/*" class="form-control" required>
+
+        </div>
+        <div class="mb-3">
+          <label for="notes" class="form-label">ملاحظات إضافية (اختياري)</label>
+          <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+        </div>
+        <div class="d-grid">
+          <button type="submit" class="btn btn-success">إرسال الطلب</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+ 
+<%- include('../partials/footer') %>
+
+  <script src="/main.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

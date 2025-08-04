@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
 
-    // --- 1. تهيئة نظام الإشعارات (Toast) ---
+    // --- 1. نظام التوست للإشعارات ---
     const toastElement = document.getElementById('responseToast');
     let toast;
     if (toastElement) {
@@ -9,61 +9,55 @@ document.addEventListener('DOMContentLoaded', function () {
     const toastTitle = document.getElementById('toastTitle');
     const toastBody = document.getElementById('toastBody');
 
-    // دالة لعرض الإشعارات
     function showToast(title, message, isSuccess) {
         if (!toast) return;
         toastTitle.textContent = title;
         toastBody.textContent = message;
         toastElement.className = 'toast';
-        if (isSuccess) {
-            toastElement.classList.add('text-bg-success');
-        } else {
-            toastElement.classList.add('text-bg-danger');
-        }
+        toastElement.classList.add(isSuccess ? 'text-bg-success' : 'text-bg-danger');
         toast.show();
     }
 
-    // --- 2. تفعيل خاصية البحث (الفلترة) ---
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        const allCards = document.querySelectorAll('.service-card');
-        searchInput.addEventListener('input', function () {
-            const searchTerm = searchInput.value.toLowerCase();
-            allCards.forEach(function (card) {
-                const cardTitleElement = card.querySelector('.card-title') || card.querySelector('p');
-                if (cardTitleElement) {
-                    const cardTitle = cardTitleElement.textContent.toLowerCase();
-                    if (cardTitle.includes(searchTerm)) {
-                        card.style.display = 'block';
-                    } else {
-                        card.style.display = 'none';
-                    }
-                }
-            });
-        });
+    // --- 2. تفعيل البحث (فلترة المنتجات) ---
+
+    // --- 3. فورم الشراء المباشر ---
+document.querySelectorAll('.buy-form').forEach(form => {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new URLSearchParams(new FormData(form));
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Processing...`;
+
+    try {
+      const response = await fetch('/buy', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        showToast("Success!", data.message, true);
+        setTimeout(() => window.location.href = data.redirectUrl, 2000);
+      } else {
+        showToast("Error!", data.message || "Purchase failed", false);
+      }
+
+    } catch (error) {
+      console.error("Fetch Error:", error);
+      showToast("Error!", "Connection to server failed.", false);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalText;
     }
+  });
+});
 
-    // --- 3. التعامل مع فورم الشراء المباشر (.buy-form) ---
-    document.querySelectorAll('.buy-form').forEach(form => {
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const formData = new URLSearchParams(new FormData(form));
-            try {
-                const response = await fetch('/buy', { method: 'POST', body: formData });
-                const data = await response.json();
-                if (response.ok) {
-                    showToast('Success!', data.message, true);
-                    setTimeout(() => window.location.href = '/my-orders', 2000);
-                } else {
-                    showToast('Error!', data.message, false);
-                }
-            } catch (error) {
-                showToast('Error!', 'Connection to server failed.', false);
-            }
-        });
-    });
 
-    // --- 4. التعامل مع فورم صفحة الدفع (#checkout-form) ---
+    // --- 4. فورم صفحة الدفع ---
     const checkoutForm = document.querySelector('#checkout-form');
     if (checkoutForm) {
         checkoutForm.addEventListener('submit', async (event) => {
@@ -72,11 +66,14 @@ document.addEventListener('DOMContentLoaded', function () {
             const originalText = submitBtn.innerHTML;
             submitBtn.disabled = true;
             submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Processing...`;
-            
+
+            const formAction = checkoutForm.getAttribute('action');
             const formData = new URLSearchParams(new FormData(checkoutForm));
+
             try {
-                const response = await fetch('/process-checkout', { method: 'POST', body: formData });
+                const response = await fetch(formAction, { method: 'POST', body: formData });
                 const data = await response.json();
+
                 if (response.ok) {
                     showToast('Success!', data.message, true);
                     setTimeout(() => window.location.href = '/my-orders', 2000);
@@ -84,6 +81,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     showToast('Error!', data.message, false);
                 }
             } catch (error) {
+                console.error('Fetch Error:', error);
                 showToast('Error!', 'Connection to server failed.', false);
             } finally {
                 submitBtn.disabled = false;
@@ -91,4 +89,28 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // --- 5. فورم تسجيل الدخول ---
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new URLSearchParams(new FormData(loginForm));
+            const errorContainer = document.getElementById('error-message-container');
+            errorContainer.innerHTML = '';
+
+            try {
+                const response = await fetch('/login', { method: 'POST', body: formData });
+                const data = await response.json();
+                if (data.success) {
+                    window.location.href = data.redirectUrl;
+                } else {
+                    errorContainer.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                }
+            } catch (error) {
+                errorContainer.innerHTML = `<div class="alert alert-danger">Connection error. Please try again.</div>`;
+            }
+        });
+    }
+
 });

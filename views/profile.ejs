@@ -37,7 +37,7 @@
                                     <p><strong>Email:</strong> <%= user.email %></p>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <p><strong>Balance:</strong> $<%= user.balance.toFixed(2) %></p>
+                                   p><strong>Balance:</strong> $<%= parseFloat(user.balance).toFixed(2) %></p>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <p><strong>Member Since:</strong> <%= new Date(user.createdAt).toLocaleDateString() %></p>
@@ -149,5 +149,7 @@
     </div>
 
     <%- include('partials/footer') %>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

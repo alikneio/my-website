@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage API Products</title>
+    <link rel="stylesheet" href="/css/bootstrap.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body class="bg-light">
+<div class="d-flex">
+    <%- include('partials/admin-sidebar') %>
+    <div class="container-fluid p-4">
+        <h1>Manage API Products</h1>
+        <p>Select which products from DailyCard you want to display on your site.</p>
+        
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Show on Site</th>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Price (Original / Custom)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (products && products.length > 0) { %>
+                        <% products.forEach(product => { %>
+                            <tr>
+                                <td>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input product-toggle" type="checkbox" 
+                                               data-id="<%= product.id %>" 
+                                               <%= product.is_selected ? 'checked' : '' %>>
+                                    </div>
+                                </td>
+                                <td><%= product.id %></td>
+                                <td><%= product.name %></td>
+                               <td>
+    <% if (product.product_type === 'quantity') { %>
+        <span class="text-warning">🔢 Quantity-based</span>
+    <% } else { %>
+        <span class="text-primary">💲 Fixed Price</span>
+    <% } %>
+
+    <br>
+    Original: $<%= parseFloat(product.price).toFixed(2) %>
+
+    <% if (product.custom_price) { %>
+        <br>
+        <strong class="text-success">Custom: $<%= parseFloat(product.custom_price).toFixed(2) %></strong>
+    <% } %>
+</td>
+
+
+                                <td>
+                                    <a href="/admin/api-products/edit/<%= product.id %>" class="btn btn-warning btn-sm">Edit</a>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="5" class="text-center">No products found from API.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+            <div class="mt-4 d-flex justify-content-center">
+    <nav>
+        <ul class="pagination">
+            <% for (let i = 1; i <= totalPages; i++) { %>
+                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                    <a class="page-link" href="/admin/api-products?page=<%= i %>"><%= i %></a>
+                </li>
+            <% } %>
+        </ul>
+    </nav>
+</div>
+
+        </div>
+    </div>
+</div>
+
+
+<script>
+    document.querySelectorAll('.product-toggle').forEach(toggle => {
+        toggle.addEventListener('change', async (e) => {
+            const productId = e.target.dataset.id;
+            const isActive = e.target.checked;
+
+            try {
+                const response = await fetch('/admin/api-products/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productId, isActive })
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    alert('Failed to update product status.');
+                    e.target.checked = !isActive; // Revert checkbox on error
+                }
+            } catch (error) {
+                alert('Connection error.');
+                e.target.checked = !isActive;
+            }
+        });
+        
+    });
+</script>
+</body>
+</html>
