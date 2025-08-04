@@ -42,7 +42,7 @@ app.set('view engine', 'ejs');
 const db = require('./database');
 
 
-require('dotenv').config();
+
 
 
 
@@ -2798,4 +2798,7 @@ app.get('/order-status/:orderId', (req, res) => {
 // =============================================
 app.listen(port, () => {
   console.log(`✅ Server is running on port ${port}`);
+   console.log("🔑 API KEY:", process.env.API_KEY ? "Loaded" : "Missing");
+    console.log("🔐 API SECRET:", process.env.API_SECRET ? "Loaded" : "Missing");
 });
+
