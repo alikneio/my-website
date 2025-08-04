@@ -159,6 +159,9 @@ app.get('/', (req, res) => {
   }
 });
 
+app.get('/test', (req, res) => {
+  res.send("Test is working ✅");
+});
 
 
 app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
