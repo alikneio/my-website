@@ -2822,7 +2822,7 @@ app.get('/db-test', (req, res) => {
 //                  START SERVER
 // =============================================
 
-aapp.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 
    console.log("🔑 API KEY:", process.env.API_KEY ? "Loaded" : "Missing");
