@@ -12,7 +12,7 @@ const multer = require('multer');
 const uploadNone = multer(); // لمعالجة form بدون ملفات
 const PORT = process.env.PORT || 3000;
 console.log("✅ PORT correctly defined:", PORT);
-
+console.log("🧾 ENV DUMP:", process.env);
 
 
 
