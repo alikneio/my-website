@@ -2819,5 +2819,6 @@ app.listen(PORT, '0.0.0.0', () => {
 
    console.log("🔑 API KEY:", process.env.API_KEY ? "Loaded" : "Missing");
     console.log("🔐 API SECRET:", process.env.API_SECRET ? "Loaded" : "Missing");
+console.log("✅ Test route registered at /test");
 });
 
