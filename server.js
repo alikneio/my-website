@@ -1,13 +1,18 @@
 require('dotenv').config(); // دايمًا بالبداية
-
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
-const multer = require('multer'); // ✅ استورد multer قبل استخدامه
-const uploadNone = multer(); // ✅ بعد الاستيراد فيك تستخدمه
+const multer = require('multer');
 
+// ثالثاً: تحديد PORT بعد تحميل dotenv
+const PORT = process.env.PORT || 3000;
+
+// بعدها استورد أي شيء بيحتاج PORT أو ENV
 const { dailycardAPI, verifyPlayerId } = require('./services/dailycard');
 const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
