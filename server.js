@@ -1,5 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
+require('dotenv').config({ path: './.env' });
  // دايمًا بالبداية
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
