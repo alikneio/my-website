@@ -17,6 +17,8 @@ const { dailycardAPI, verifyPlayerId } = require('./services/dailycard');
 const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
+const multer = require('multer');
+const uploadNone = multer();
 
 console.log("🧾 ENV DUMP:", process.env);
 
