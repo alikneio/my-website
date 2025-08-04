@@ -2796,8 +2796,9 @@ app.get('/order-status/:orderId', (req, res) => {
 // =============================================
 //                  START SERVER
 // =============================================
-app.listen(port, () => {
-  console.log(`✅ Server is running on port ${port}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${PORT}`);
+
    console.log("🔑 API KEY:", process.env.API_KEY ? "Loaded" : "Missing");
     console.log("🔐 API SECRET:", process.env.API_SECRET ? "Loaded" : "Missing");
 });
