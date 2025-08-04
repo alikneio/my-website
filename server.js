@@ -191,7 +191,8 @@ app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
                 `💰 Amount: ${amount} ${currency}`;
 
       if (proofImage) {
-        const imageUrl = `http://localhost:3000/uploads/whish/${proofImage}`; // غيّره بعد النشر
+        const imageUrl = `https://akcells.store/uploads/whish/${proofImage}`;
+ 
         msg += `\n🖼 [Proof Image](${imageUrl})`;
       }
 
@@ -286,7 +287,8 @@ app.post('/add-balance/whish/lbp', upload.single('proofImage'), (req, res) => {
                 `💰 Amount: ${amount} ${currency}`;
 
       if (proofImage) {
-        const imageUrl = `http://localhost:3000/uploads/whish/${proofImage}`;
+       const imageUrl = `https://akcells.store/uploads/whish/${proofImage}`;
+
         msg += `\n🖼 [Proof Image](${imageUrl})`;
       }
 
