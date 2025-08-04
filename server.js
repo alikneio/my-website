@@ -36,24 +36,8 @@ const port = 3000;
 // 2. إعداد محرك القوالب
 app.set('view engine', 'ejs');
 
-const mysql = require('mysql2');
+const db = require('./database');
 
-// بيانات الاتصال بقاعدة بيانات MySQL
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '', // اتركها فارغة إذا لم تضع كلمة سر في XAMPP
-    database: 'ak_cell_db',
-    port: 3306 // تأكد من استخدام البورت الصحيح الذي حددناه
-});
-
-db.connect((err) => {
-    if (err) {
-        console.error('Error connecting to MySQL:', err);
-        return;
-    }
-    console.log('Connected to the MySQL database.');
-});
 
 require('dotenv').config();
 
