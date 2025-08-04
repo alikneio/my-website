@@ -11,7 +11,7 @@ const cookieParser = require('cookie-parser');
 const multer = require('multer');
 
 // ثالثاً: تحديد PORT بعد تحميل dotenv
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 
 
 // بعدها استورد أي شيء بيحتاج PORT أو ENV
@@ -2826,8 +2826,9 @@ app.get("/", (req, res) => {
 //                  START SERVER
 // =============================================
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
+});
 
 
 
