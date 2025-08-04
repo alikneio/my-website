@@ -8,17 +8,16 @@ const connection = mysql.createConnection({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   ssl: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: true,
+  },
 });
 
-
-connection.connect(err => {
+connection.connect((err) => {
   if (err) {
-    console.error('❌ Error connecting to MySQL:', err.stack);
+    console.error('Database connection error:', err);
   } else {
-    console.log('✅ Connected to MySQL successfully.');
+    console.log('Connected to MySQL database.');
   }
-})
+});
 
 module.exports = connection;
