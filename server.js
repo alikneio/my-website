@@ -2808,6 +2808,13 @@ app.get('/order-status/:orderId', (req, res) => {
   res.redirect(`/order-details/${orderId}`);
 });
 
+app.get('/db-test', (req, res) => {
+  const sql = "SELECT 1";
+  db.query(sql, (err, result) => {
+    if (err) return res.send("❌ DB FAILED: " + err.message);
+    res.send("✅ DB OK!");
+  });
+});
 
 
 // =============================================
