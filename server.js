@@ -148,18 +148,21 @@ app.use((req, res, next) => {
 
 // --- الصفحة الرئيسية ---
 app.get('/', (req, res) => {
-  const justLoggedIn = req.session?.justLoggedIn || false;
-  if (req.session) req.session.justLoggedIn = false;
+  try {
+    const justLoggedIn = req.session?.justLoggedIn || false;
+    if (req.session) req.session.justLoggedIn = false;
 
-  const user = req.session?.user || null;
-  const showTelegramNotice = justLoggedIn && user && !user.telegram_chat_id;
+    const user = req.session?.user || null;
+    const showTelegramNotice = justLoggedIn && user && !user.telegram_chat_id;
 
-  res.render('index', {
-    user,
-    justLoggedIn,
-    showTelegramNotice
-  });
+    console.log("✅ Rendering home page...");
+    res.render('index', { user, justLoggedIn, showTelegramNotice });
+  } catch (error) {
+    console.error("🔥 Error rendering /:", error);
+    res.status(500).send("Error rendering home page");
+  }
 });
+
 
 
 app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
