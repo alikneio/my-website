@@ -11,7 +11,8 @@ const cookieParser = require('cookie-parser');
 const multer = require('multer');
 
 // ثالثاً: تحديد PORT بعد تحميل dotenv
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
+
 
 // بعدها استورد أي شيء بيحتاج PORT أو ENV
 const { dailycardAPI, verifyPlayerId } = require('./services/dailycard');
@@ -2824,6 +2825,8 @@ app.get('/db-test', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
+});
+
 
    console.log("🔑 API KEY:", process.env.API_KEY ? "Loaded" : "Missing");
     console.log("🔐 API SECRET:", process.env.API_SECRET ? "Loaded" : "Missing");
