@@ -135,17 +135,19 @@ app.use((req, res, next) => {
 
 // --- الصفحة الرئيسية ---
 app.get('/', (req, res) => {
-    const justLoggedIn = req.session.justLoggedIn || false;
-    req.session.justLoggedIn = false; // نفرغها بعد أول عرض
+  const justLoggedIn = req.session?.justLoggedIn || false;
+  if (req.session) req.session.justLoggedIn = false;
 
-    const showTelegramNotice = justLoggedIn && req.session.user && !req.session.user.telegram_chat_id;
+  const user = req.session?.user || null;
+  const showTelegramNotice = justLoggedIn && user && !user.telegram_chat_id;
 
-    res.render('index', {
-        user: req.session.user,
-        justLoggedIn,
-        showTelegramNotice
-    });
+  res.render('index', {
+    user,
+    justLoggedIn,
+    showTelegramNotice
+  });
 });
+
 
 app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
   const { amount } = req.body;
