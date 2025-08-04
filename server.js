@@ -1,17 +1,17 @@
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
+
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
-const { dailycardAPI } = require('./services/dailycard'); // ✅ استيراد الـ API Client
-const { verifyPlayerId } = require('./services/dailycard');
+const { dailycardAPI, verifyPlayerId } = require('./services/dailycard');
 const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
-const multer = require('multer');
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
 const uploadNone = multer(); // لمعالجة form بدون ملفات
 const PORT = process.env.PORT || 3000;
 console.log("✅ PORT correctly defined:", PORT);
@@ -22,8 +22,6 @@ require('http').get(`http://localhost:${PORT}`, res => {
 });
 
 console.log("🧾 ENV DUMP:", process.env);
-
-
 
 
 
