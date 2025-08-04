@@ -9,6 +9,7 @@ const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
 const multer = require('multer');
+require('dotenv').config();
 const uploadNone = multer(); // لمعالجة form بدون ملفات
 const PORT = process.env.PORT || 3000;
 console.log("✅ PORT correctly defined:", PORT);
