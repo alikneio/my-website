@@ -15,6 +15,9 @@ connection.connect(err => {
   } else {
     console.log('✅ Connected to MySQL successfully.');
   }
+    ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 module.exports = connection;
