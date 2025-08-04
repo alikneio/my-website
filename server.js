@@ -2795,6 +2795,7 @@ app.get('/order-status/:orderId', (req, res) => {
 // =============================================
 //                  START SERVER
 // =============================================
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+  console.log(`✅ Server is running on port ${port}`);
 });
