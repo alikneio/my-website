@@ -141,14 +141,16 @@
             </div>
 
             <% if (product.requires_verification) { %>
-              <div class="mb-3 text-start">
-                <label class="form-label">Player ID</label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="playerIdInput" placeholder="Enter Player ID" required>
-                  <button type="button" class="btn btn-outline-primary" onclick="verifyPlayer()">Verify</button>
-                </div>
-                <div id="verifyResult" class="small mt-1 text-muted"></div>
-              </div>
+        <div class="mb-3">
+        <label class="form-label fw-semibold">Player ID</label>
+        <div class="row g-2">
+          <div class="col-12 col-md-9">
+            <input type="text" class="form-control form-control-lg" id="playerIdInput" placeholder="Enter Player ID" required>
+          </div>
+          <div class="col-12 col-md-3 d-grid">
+            <button type="button" class="btn btn-outline-primary btn-lg" onclick="verifyPlayer()">Verify</button>
+          </div>
+        </div>
             <% } else { %>
               <div class="mb-3 text-start">
                 <label class="form-label">Player ID</label>
