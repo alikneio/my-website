@@ -134,14 +134,19 @@
 
             <!-- إدخال معرف اللاعب -->
             <% if (product.requires_player_id) { %>
-         <div class="mb-3 text-start">
-                <label class="form-label">Player ID</label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="playerIdInput" placeholder="Enter Player ID" required>
-                  <button type="button" class="btn btn-outline-primary" onclick="verifyPlayer()">Verify</button>
-                </div>
-                <div id="verifyResult" class="mt-2 small text-muted"></div>
-              </div>
+        <div class="mb-3 text-start">
+  <label class="form-label">Player ID</label>
+
+  <input type="text" id="playerIdInput" placeholder="Enter Player ID" required
+         class="form-control mb-2"
+         style="height: 52px; font-size: 1rem; padding: 10px 15px;">
+
+  <button type="button" class="btn btn-outline-primary w-100"
+          style="height: 48px; font-size: 1rem;"
+          onclick="verifyPlayer()">Verify</button>
+
+  <div id="verifyResult" class="small mt-2 text-muted"></div>
+</div>
 
             <% } %>
 
