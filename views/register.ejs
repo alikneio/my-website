@@ -80,10 +80,15 @@
         <input type="tel" id="phone" name="phone" class="form-control" />
       </div>
 
-      <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <input type="password" id="password" name="password" class="form-control" required />
-      </div>
+      <div class="mb-3 position-relative">
+  <label for="password" class="form-label">Password</label>
+  <div class="input-group">
+    <input type="password" id="password" name="password" class="form-control" required />
+    <button type="button" class="btn btn-outline-secondary" id="togglePassword" tabindex="-1">
+      👁️
+    </button>
+  </div>
+</div>
 
       <div id="passwordError" class="alert alert-warning text-center fw-bold d-none">
         كلمة المرور يجب أن تكون على الأقل 8 أحرف، وتحتوي على حرف كبير ورقم.
