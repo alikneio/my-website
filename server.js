@@ -648,8 +648,10 @@ app.post('/register', (req, res) => {
         if (err) throw err;
         db.query(sql, [username, email, hash, phone], (err, result) => { // <-- إضافة phone
             if (err) {
-                return res.status(400).send("Error registering user.");
-            }
+    console.error("🔴 Register error:", err);  // اطبع الخطأ
+    return res.status(400).send("Error registering user.");
+}
+
             res.redirect('/login');
         });
     });
