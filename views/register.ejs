@@ -111,7 +111,8 @@
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.querySelector("form");
     form.addEventListener("submit", function (e) {
-      const password = document.getElementById("password").value;
+      const password = document.getElementById("password").value.trim();
+
 
       const isValid = password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password);
 
