@@ -17,7 +17,7 @@ bot.on('message', async (msg) => {
 2. ثم اضغط الزر بالأسفل لتأكيد ربط حسابك
 `.trim();
 
-  const verificationUrl = `http://localhost:3000/set-telegram/${chatId}`; // غيّره إذا عندك دومين خارجي
+  const verificationUrl = `https://akcell.store/set-telegram/${chatId}`; // ✅ رابط حقيقي بدل localhost
 
   bot.sendMessage(chatId, message, {
     reply_markup: {
