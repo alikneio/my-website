@@ -141,20 +141,17 @@
             </div>
 
             <% if (product.requires_verification) { %>
-       <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
-  <input type="text"
-         id="playerIdInput"
-         placeholder="Enter Player ID"
-         required
-         class="form-control form-control-lg flex-grow-1"
-         style="min-width: 200px; max-width: 100%; height: 56px; font-size: 1.05rem;">
-
-  <button type="button"
-          class="btn btn-outline-primary btn-lg"
-          style="height: 56px; white-space: nowrap;"
-          onclick="verifyPlayer()">Verify</button>
+       <div class="mb-3">
+  <label class="form-label fw-semibold">Player ID</label>
+  <div class="row g-2 align-items-center">
+    <div class="col-12 col-md-9">
+      <input type="text" class="form-control" id="playerIdInput" placeholder="Enter Player ID" required style="height: 42px;">
+    </div>
+    <div class="col-12 col-md-3 d-grid">
+      <button type="button" class="btn btn-outline-primary" onclick="verifyPlayer()">Verify</button>
+    </div>
+  </div>
 </div>
-<div id="verifyResult" class="small text-muted mt-1"></div>
             <% } else { %>
               <div class="mb-3 text-start">
                 <label class="form-label">Player ID</label>
