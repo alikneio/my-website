@@ -38,7 +38,8 @@ async function sendOrderStatusTelegram(orderId, newStatus) {
 🛍️ <b>المنتج:</b> ${order.productName}
 📋 <b>التفاصيل:</b> ${order.order_details || 'لا يوجد'}
 📌 <b>الحالة الجديدة:</b> ${newStatus}
-🔐 <b>معلومات حسابك:</b> ${order.admin_reply || 'لا يوجد'}
+🔐 <b>معلومات حسابك:</b>\n${(order.admin_reply || 'لا يوجد').replace(/\\n/g, '\n')}
+
 
 🤖 شكراً لاستخدامك منصتنا 💖
 `.trim();
