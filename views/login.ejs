@@ -91,16 +91,24 @@
 
       const data = await res.json();
 
-      const errorBox = document.getElementById("error-message");
-      if (data.success && data.redirectUrl) {
-        window.location.href = data.redirectUrl;
-      } else {
-        errorBox.textContent = data.message || "Login failed.";
-        errorBox.classList.remove("d-none");
+     const errorBox = document.getElementById("error-message");
 
-        if (data.showCaptcha) {
-          document.getElementById("captcha-wrapper").style.display = "block";
-        }
+if (data.success && data.redirectUrl) {
+  window.location.href = data.redirectUrl;
+} else {
+  errorBox.textContent = data.message || "Login failed.";
+  errorBox.classList.remove("d-none");
+
+  if (data.showCaptcha) {
+    document.getElementById("captcha-wrapper").style.display = "block";
+
+    // ✅ Reset reCAPTCHA token for next attempt
+    if (typeof grecaptcha !== "undefined") {
+      grecaptcha.reset();
+    }
+  }
+
+
       }
     });
   </script>
