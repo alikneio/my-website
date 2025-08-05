@@ -38,7 +38,7 @@
         <div class="card product-card" 
              data-id="<%= product.product_id %>" 
              data-source="<%= product.source || 'api' %>">
-          <img src="<%= product.custom_image || '/images/default-product.png' %>" class="card-img-top" style="height: 150px; object-fit: cover;">
+          <img src="<%= product.custom_image || '/images/webp/default-product.webp' %>" class="card-img-top" style="height: 150px; object-fit: cover;">
           <div class="card-body text-center">
             <h5><%= product.custom_name %></h5>
             <% if (product.variable_quantity === 1) { %>
