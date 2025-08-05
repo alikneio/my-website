@@ -30,6 +30,9 @@ async function sendOrderStatusTelegram(orderId, newStatus) {
       return;
     }
 
+    const formattedReply = order.admin_reply?.replace(/\\n/g, '\n') || 'لا يوجد';
+
+
     // 2. إعداد الرسالة بالتفاصيل
    const message = `
 <b>📦 تم تحديث حالة طلبك!</b>
@@ -38,7 +41,8 @@ async function sendOrderStatusTelegram(orderId, newStatus) {
 🛍️ <b>المنتج:</b> ${order.productName}
 📋 <b>التفاصيل:</b> ${order.order_details || 'لا يوجد'}
 📌 <b>الحالة الجديدة:</b> ${newStatus}
-🔐 <b>معلومات حسابك:</b>\n${(order.admin_reply || 'لا يوجد').replace(/\\n/g, '\n')}
+🔐 <b>معلومات حسابك:</b> ${formattedReply}
+
 
 
 🤖 شكراً لاستخدامك منصتنا 💖
