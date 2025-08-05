@@ -20,6 +20,10 @@ const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
 const uploadNone = multer();
+const bot = new TelegramBot(token, { polling: true });
+require('./telegram/saveChatId');
+
+
 
 console.log("🧾 ENV DUMP:", process.env);
 
