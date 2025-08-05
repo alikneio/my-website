@@ -90,14 +90,15 @@
 
             <!-- إدخال معرف اللاعب -->
             <% if (product.requires_player_id) { %>
-              <div class="mb-3 text-start">
-                <label class="form-label">Player ID</label>
-              <div class="input-group">
-  <input type="text" class="form-control" id="playerIdInput" placeholder="Enter Player ID" required style="height: 52px; font-size: 18px;">
-  <button type="button" class="btn btn-outline-primary" onclick="verifyPlayer()" style="height: 52px;">Verify</button>
+           <div class="mb-3">
+  <label class="form-label">Player ID</label>
+  <div class="d-flex gap-2">
+    <input type="text" class="form-control" id="playerIdInput" placeholder="Enter Player ID" required style="height: 50px; font-size: 18px;">
+    <button type="button" class="btn btn-outline-primary" onclick="verifyPlayer()" style="height: 50px; white-space: nowrap;">Verify</button>
+  </div>
+  <div id="verifyResult" class="small mt-1 text-muted"></div>
 </div>
-                <div id="verifyResult" class="small mt-1 text-muted"></div>
-              </div>
+
             <% } %>
 
             <!-- زر الشراء -->
