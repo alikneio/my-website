@@ -124,15 +124,21 @@
 <% if (showTelegramToast) { %>
 <div id="telegram-toast" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
   <div class="toast show align-items-center text-white bg-primary border-0 shadow" role="alert">
-    <div class="d-flex">
+    <div class="d-flex align-items-center">
       <div class="toast-body">
-        📢 فعل التنبيهات عبر تيليغرام: افتح البوت واضغط /start
+        📢 <strong>فعل التنبيهات عبر تيليغرام</strong><br>
+        لتصلك حالة طلبك  مباشرة على تليفونك!
+        <br>
+        👉 <a href="https://t.me/AKorder_notifier_bot" target="_blank" class="text-warning fw-bold text-decoration-underline">
+          افتح البوت واضغط /start
+        </a>
       </div>
       <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>
   </div>
 </div>
 <% } %>
+
  <%- include('partials/footer') %>
 
 
