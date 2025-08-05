@@ -70,11 +70,30 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json()); // Important for API routes
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cookieParser());
+const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
+
+// إعدادات MySQLStore
+const sessionStore = new MySQLStore({
+  host: 'nozomi.proxy.rlwy.net',
+  port: 25474,
+  user: 'root',
+  password: 'GrYyLrtHsllLcgVUYAsDoZReIwJodGaQ',
+  database: 'railway'
+});
+
+// تفعيل الجلسات باستخدام MySQLStore
 app.use(session({
-  secret: 'a_very_secret_key_that_you_should_change',
+  key: 'akcell_sid',
+  secret: 'AKCELL_SUPER_SECRET_2025', // غيرها لشي قوي خاص فيك!
+  store: sessionStore,
   resave: false,
-  saveUninitialized: false // ✅ كما نصحتك سابقًا
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24 // مدة الجلسة = يوم
+  }
 }));
+
 
 
 const setTelegramChatId = require('./telegram/setTelegramChatId');
