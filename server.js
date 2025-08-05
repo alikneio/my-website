@@ -631,8 +631,11 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 app.get('/register', (req, res) => {
-    res.render('register');
+  const error = req.session.error;
+  delete req.session.error;
+  res.render('register', { error });
 });
+
 
 
 
@@ -642,47 +645,46 @@ app.post('/register', (req, res) => {
   const { username, email, password, phone } = req.body;
 
   // تحقق من كلمة المرور
-  if (password.length < 8 || !/[A-Z]/.test(password) || !/\d/.test(password)) {
-    return res.status(400).send(`
-      <script>
-        alert("❌ كلمة المرور يجب أن تكون على الأقل 8 أحرف وتحتوي على حرف كبير ورقم.");
-        window.history.back();
-      </script>
-    `);
+  const isPasswordValid =
+    password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password);
+
+  if (!isPasswordValid) {
+    req.session.error = "❌ كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.";
+    return res.redirect('/register');
   }
 
-  // تحقق من تكرار الاسم أو الإيميل
+  // تحقق من التكرار
   const checkSql = `SELECT * FROM users WHERE username = ? OR email = ?`;
   db.query(checkSql, [username, email], (err, results) => {
     if (err) {
-      console.error("🔴 Error checking existing users:", err);
-      return res.status(500).send(`<script>alert("⚠️ خطأ داخلي."); window.history.back();</script>`);
+      console.error("🔴 DB Error:", err);
+      req.session.error = "⚠️ حصل خطأ في الخادم.";
+      return res.redirect('/register');
     }
 
     if (results.length > 0) {
-      return res.status(400).send(`
-        <script>
-          alert("⚠️ اسم المستخدم أو البريد الإلكتروني مسجل مسبقاً.");
-          window.history.back();
-        </script>
-      `);
+      req.session.error = "⚠️ اسم المستخدم أو البريد الإلكتروني مستخدم مسبقاً.";
+      return res.redirect('/register');
     }
 
-    // تشفير كلمة المرور
+    // تشفير وحفظ
     bcrypt.hash(password, saltRounds, (err, hash) => {
       if (err) {
-        console.error("🔴 Hash error:", err);
-        return res.status(500).send(`<script>alert("⚠️ خطأ في التشفير."); window.history.back();</script>`);
+        console.error("🔴 Hash Error:", err);
+        req.session.error = "⚠️ خطأ في التشفير.";
+        return res.redirect('/register');
       }
 
       const insertSql = `INSERT INTO users (username, email, password, phone) VALUES (?, ?, ?, ?)`;
       db.query(insertSql, [username, email, hash, phone], (err, result) => {
         if (err) {
-          console.error("🔴 Register error:", err);
-          return res.status(500).send(`<script>alert("⚠️ خطأ أثناء إنشاء الحساب."); window.history.back();</script>`);
+          console.error("🔴 Insert Error:", err);
+          req.session.error = "❌ لم يتم إنشاء الحساب. حاول لاحقاً.";
+          return res.redirect('/register');
         }
 
-        // توجيه المستخدم لصفحة تسجيل الدخول بعد النجاح
+        // نجاح
+        req.session.success = "✅ تم إنشاء الحساب بنجاح! سجل دخولك الآن.";
         return res.redirect('/login');
       });
     });
