@@ -9,7 +9,6 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
-const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const multer = require('multer');
 
