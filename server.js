@@ -635,28 +635,60 @@ app.get('/register', (req, res) => {
 });
 
 
+
+
+
 app.post('/register', (req, res) => {
-    const { username, email, password, phone } = req.body; // <-- إضافة phone
+  const { username, email, password, phone } = req.body;
 
-    if (password.length < 8 || !/[A-Z]/.test(password) || !/\d/.test(password)) {
-  return res.status(400).send("Password must be at least 8 characters and include a capital letter and number.");
-}
+  // تحقق من كلمة المرور
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/\d/.test(password)) {
+    return res.status(400).send(`
+      <script>
+        alert("❌ كلمة المرور يجب أن تكون على الأقل 8 أحرف وتحتوي على حرف كبير ورقم.");
+        window.history.back();
+      </script>
+    `);
+  }
 
-    
-    const sql = `INSERT INTO users (username, email, password, phone) VALUES (?, ?, ?, ?)`; // <-- إضافة phone
-    
+  // تحقق من تكرار الاسم أو الإيميل
+  const checkSql = `SELECT * FROM users WHERE username = ? OR email = ?`;
+  db.query(checkSql, [username, email], (err, results) => {
+    if (err) {
+      console.error("🔴 Error checking existing users:", err);
+      return res.status(500).send(`<script>alert("⚠️ خطأ داخلي."); window.history.back();</script>`);
+    }
+
+    if (results.length > 0) {
+      return res.status(400).send(`
+        <script>
+          alert("⚠️ اسم المستخدم أو البريد الإلكتروني مسجل مسبقاً.");
+          window.history.back();
+        </script>
+      `);
+    }
+
+    // تشفير كلمة المرور
     bcrypt.hash(password, saltRounds, (err, hash) => {
-        if (err) throw err;
-        db.query(sql, [username, email, hash, phone], (err, result) => { // <-- إضافة phone
-            if (err) {
-    console.error("🔴 Register error:", err);  // اطبع الخطأ
-    return res.status(400).send("Error registering user.");
-}
+      if (err) {
+        console.error("🔴 Hash error:", err);
+        return res.status(500).send(`<script>alert("⚠️ خطأ في التشفير."); window.history.back();</script>`);
+      }
 
-            res.redirect('/login');
-        });
+      const insertSql = `INSERT INTO users (username, email, password, phone) VALUES (?, ?, ?, ?)`;
+      db.query(insertSql, [username, email, hash, phone], (err, result) => {
+        if (err) {
+          console.error("🔴 Register error:", err);
+          return res.status(500).send(`<script>alert("⚠️ خطأ أثناء إنشاء الحساب."); window.history.back();</script>`);
+        }
+
+        // توجيه المستخدم لصفحة تسجيل الدخول بعد النجاح
+        return res.redirect('/login');
+      });
     });
+  });
 });
+
 
 app.get('/notifications', checkUser, (req, res) => {
   const userId = req.session.user.id;
