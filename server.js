@@ -151,19 +151,23 @@ app.use((req, res, next) => {
 // --- الصفحة الرئيسية ---
 app.get('/', (req, res) => {
   try {
+    const user = req.session?.user || null;
+
+    // التحقق من إذا تم تسجيل الدخول للتو
     const justLoggedIn = req.session?.justLoggedIn || false;
     if (req.session) req.session.justLoggedIn = false;
 
-    const user = req.session?.user || null;
-    const showTelegramNotice = justLoggedIn && user && !user.telegram_chat_id;
+    // عرض التنبيه فقط إذا تم تسجيل الدخول حديثاً ولا يوجد telegram_chat_id
+    const showTelegramToast = justLoggedIn && user && !user.telegram_chat_id;
 
     console.log("✅ Rendering home page...");
-    res.render('index', { user, justLoggedIn, showTelegramNotice });
+    res.render('index', { user, showTelegramToast });
   } catch (error) {
     console.error("🔥 Error rendering /:", error);
     res.status(500).send("Error rendering home page");
   }
 });
+
 
 app.get('/test', (req, res) => {
   res.send("Test is working ✅");

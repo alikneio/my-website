@@ -121,42 +121,18 @@
 </div>
 
 <!-- Telegram Notice -->
-<% if (showTelegramNotice) { %>
-  <div class="alert alert-info text-center">
-    <p>📲 لتصلك إشعارات حالة الطلب على تيليغرام</p>
-    <a href="https://t.me/AKorder_notifier_bot" class="btn btn-primary" target="_blank">اضغط هنا لفتح البوت</a>
+<% if (showTelegramToast) { %>
+<div id="telegram-toast" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+  <div class="toast show align-items-center text-white bg-primary border-0 shadow" role="alert">
+    <div class="d-flex">
+      <div class="toast-body">
+        📢 فعل التنبيهات عبر تيليغرام: افتح البوت واضغط /start
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
   </div>
+</div>
 <% } %>
-
-<%- include('partials/footer') %>
-
-<script src="/main.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/swiper/swiper-bundle.min.js"></script>
-<script>
-  const swiper = new Swiper(".mySwiper", {
-    effect: 'coverflow',
-    grabCursor: true,
-    centeredSlides: true,
-    slidesPerView: 'auto',
-    coverflowEffect: {
-      rotate: 30,
-      stretch: 0,
-      depth: 100,
-      modifier: 1,
-      slideShadows: true,
-    },
-    loop: true,
-    autoplay: {
-      delay: 3000,
-      disableOnInteraction: false,
-    },
-    pagination: {
-      el: ".swiper-pagination",
-      clickable: true,
-    },
-  });
-</script>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
