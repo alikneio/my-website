@@ -84,11 +84,15 @@
   <label for="password" class="form-label">Password</label>
   <div class="input-group">
     <input type="password" id="password" name="password" class="form-control" required />
-    <button type="button" class="btn btn-outline-secondary" id="togglePassword" tabindex="-1">
-      👁️
-    </button>
+    <span class="input-group-text" style="cursor: pointer;" id="togglePassword">
+      <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#444" class="bi bi-eye" viewBox="0 0 16 16">
+        <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8z"/>
+        <path d="M8 5.5A2.5 2.5 0 1 1 5.5 8 2.5 2.5 0 0 1 8 5.5z"/>
+      </svg>
+    </span>
   </div>
 </div>
+
 
       <div id="passwordError" class="alert alert-warning text-center fw-bold d-none">
         كلمة المرور يجب أن تكون على الأقل 8 أحرف، وتحتوي على حرف كبير ورقم.
@@ -120,6 +124,24 @@
     }
   });
 </script>
+<script>
+  document.getElementById("togglePassword").addEventListener("click", function () {
+    const passwordInput = document.getElementById("password");
+    const eyeIcon = document.getElementById("eyeIcon");
+
+    const type = passwordInput.getAttribute("type") === "password" ? "text" : "password";
+    passwordInput.setAttribute("type", type);
+
+    // Toggle icon SVG
+    eyeIcon.setAttribute("class", type === "password" ? "bi bi-eye" : "bi bi-eye-slash");
+    eyeIcon.innerHTML = type === "password"
+      ? `<path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8z"/>
+         <path d="M8 5.5A2.5 2.5 0 1 1 5.5 8 2.5 2.5 0 0 1 8 5.5z"/>`
+      : `<path d="M13.359 11.238l2.122 2.122a.5.5 0 0 0 .707-.708l-14-14a.5.5 0 1 0-.707.708l1.763 1.763C1.629 3.93.553 5.435.114 6.364a1.714 1.714 0 0 0 0 1.272C1.22 9.825 4.355 13 8 13c1.38 0 2.695-.37 3.84-1.018l1.519 1.519z"/>
+         <path d="M11.297 9.177L5.823 3.703A3 3 0 0 1 11.297 9.177z"/>`;
+  });
+</script>
+
 
 </body>
 </html>
