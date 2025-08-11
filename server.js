@@ -27,6 +27,8 @@ require('./telegram/saveChatId');
 
 
 
+
+
 console.log("🧾 ENV DUMP:", process.env);
 
 
@@ -95,6 +97,8 @@ app.use(session({
 
 
 
+
+
 const setTelegramChatId = require('./telegram/setTelegramChatId');
 app.use('/', setTelegramChatId);
 
@@ -127,6 +131,13 @@ function checkUser(req, res, next) {
   } else {
     res.redirect('/login'); // أو أي صفحة تسجيل الدخول عندك
   }
+}
+
+function withTimeout(promise, ms = 4000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram timeout')), ms))
+  ]);
 }
 
 
@@ -1792,13 +1803,18 @@ app.get('/admin/orders', checkAdmin, (req, res) => {
 // مسار لتحديث حالة الطلب والرد
 app.post('/admin/order/update/:id', checkAdmin, (req, res) => {
   const orderId = req.params.id;
-  const { status, admin_reply } = req.body;
+  const { status: rawStatus, admin_reply } = req.body;
+
+  // توحيد القيمة (احتياط)
+  const status = (rawStatus || '').trim().toLowerCase() === 'accepted' ? 'Accepted'
+              : (rawStatus || '').trim().toLowerCase() === 'rejected' ? 'Rejected'
+              : rawStatus;
 
   const findOrderSql = `SELECT * FROM orders WHERE id = ?`;
 
   db.query(findOrderSql, [orderId], (err, results) => {
     if (err || results.length === 0) {
-      return res.send('Order not found.');
+      return res.status(404).send('Order not found.');
     }
 
     const order = results[0];
@@ -1807,7 +1823,6 @@ app.post('/admin/order/update/:id', checkAdmin, (req, res) => {
     const userId = order.userId;
 
     if (status === 'Rejected' && oldStatus !== 'Rejected') {
-      // ✅ استبدال beginTransaction/commit/rollback باتصال من الـ pool مع وعود
       (async () => {
         const conn = await promisePool.getConnection();
         try {
@@ -1833,17 +1848,14 @@ app.post('/admin/order/update/:id', checkAdmin, (req, res) => {
             [status, admin_reply, orderId]
           );
 
-          // ✅ طبقًا لمنطقك الأصلي: ما نعمل COMMIT إلا إذا نجح إرسال التلغرام
-          try {
-            await sendOrderStatusTelegram(orderId, status, admin_reply);
-            await conn.commit();
-            console.log(`✅ Order #${orderId} rejected and refunded.`);
-            return res.redirect('/admin/orders');
-          } catch (tgErr) {
-            console.error("❌ Telegram Error:", tgErr);
-            await conn.rollback();
-            return res.status(500).send("Error sending Telegram notification.");
-          }
+          // ✅ أهم شي: كمِّت وردّ فورًا — ما تنطر تيليغرام
+          await conn.commit();
+          console.log(`✅ Order #${orderId} rejected and refunded.`);
+          res.redirect('/admin/orders');
+
+          // 🔔 بعد الرد: بلّغ تيليغرام بخلفية وبـ timeout (ما مننتظر)
+          withTimeout(sendOrderStatusTelegram(orderId, status, admin_reply))
+            .catch(tgErr => console.error("⚠️ Telegram (rejected) error:", tgErr.message));
 
         } catch (txErr) {
           console.error("❌ Error during reject/refund:", txErr);
@@ -1855,20 +1867,25 @@ app.post('/admin/order/update/:id', checkAdmin, (req, res) => {
       })();
 
     } else {
-      // ✔️ المسار الآخر يبقى كما هو بدون تعديل
-      db.query(`UPDATE orders SET status = ?, admin_reply = ? WHERE id = ?`, [status, admin_reply, orderId], (err) => {
-        if (err) return console.error(err.message);
+      db.query(
+        `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ?`,
+        [status, admin_reply, orderId],
+        (err) => {
+          if (err) {
+            console.error(err.message);
+            return res.status(500).send("DB error while updating order.");
+          }
 
-        sendOrderStatusTelegram(orderId, status, admin_reply)
-          .then(() => {
-            console.log(`✅ Order #${orderId} updated to ${status}`);
-            res.redirect('/admin/orders');
-          })
-          .catch(err => {
-            console.error("❌ Telegram Error:", err);
-            res.redirect('/admin/orders');
-          });
-      });
+          console.log(`✅ Order #${orderId} updated to ${status}`);
+          // ✅ ردّ فوري
+          res.redirect('/admin/orders');
+
+          // 🔔 بلّغ تيليغرام بخلفية وبـ timeout
+          withTimeout(sendOrderStatusTelegram(orderId, status, admin_reply))
+            .then(() => console.log(`📨 Telegram queued for order #${orderId}`))
+            .catch(tgErr => console.error("⚠️ Telegram (update) error:", tgErr.message));
+        }
+      );
     }
   });
 });
