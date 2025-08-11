@@ -56,7 +56,7 @@ const app = express();
 // 2. إعداد محرك القوالب
 app.set('view engine', 'ejs');
 
-const db = require('./database');
+const { pool: db, promisePool, query } = require('./database');
 
 
 
@@ -781,14 +781,14 @@ app.post('/admin/balance-requests/update/:id', async (req, res) => {
 
   try {
     // تحديث الطلب
-    await db.promise().query(`
+    await promisePool.query(`
       UPDATE balance_requests
       SET status = ?, admin_note = ?
       WHERE id = ?
     `, [status, admin_note || null, requestId]);
 
     // جلب معلومات الطلب كاملة
-    const [reqRows] = await db.promise().query(`
+    const [rows] = await promisePool.query(`
       SELECT br.amount, br.currency, br.user_id, u.telegram_chat_id
       FROM balance_requests br
       JOIN users u ON br.user_id = u.id
@@ -1224,7 +1224,6 @@ app.post('/profile/update-email', checkAuth, (req, res) => {
 
 
 
-
 app.post('/buy', checkAuth, uploadNone.none(), (req, res) => {
 
   const { productId, playerId } = req.body;
@@ -1262,71 +1261,64 @@ app.post('/buy', checkAuth, uploadNone.none(), (req, res) => {
     `;
     const notifMsg = `✅ تم استلام طلبك (${product.name}) بنجاح. سيتم معالجته قريبًا.`;
 
-    db.beginTransaction(err => {
-      if (err) {
-        console.error('Transaction error:', err);
-        return res.status(500).json({ success: false, message: 'Transaction failed' });
-      }
+    // ✅ النسخة الجديدة المعتمدة على Pool + Transaction
+    (async () => {
+      const conn = await promisePool.getConnection();
+      try {
+        await conn.beginTransaction();
 
-      db.query(updateUserSql, [newBalance, user.id], err => {
-        if (err) {
-          return db.rollback(() => {
-            console.error('Balance update failed:', err);
-            res.status(500).json({ success: false, message: 'Balance update failed' });
-          });
-        }
+        // خصم الرصيد
+        await conn.query(updateUserSql, [newBalance, user.id]);
 
-        db.query(insertOrderSql, [user.id, product.name, purchasePrice, now, orderDetails], (err, result) => {
-          if (err) {
-            return db.rollback(() => {
-              console.error('Order insertion failed:', err);
-              res.status(500).json({ success: false, message: 'Order insertion failed' });
-            });
-          }
+        // إدخال الطلب
+        const [orderResult] = await conn.query(
+          insertOrderSql,
+          [user.id, product.name, purchasePrice, now, orderDetails]
+        );
+        const orderId = orderResult.insertId;
 
-          const orderId = result.insertId;
+        // إشعار داخلي
+        await conn.query(notifSql, [user.id, notifMsg]);
 
-          // إشعار داخلي
-          db.query(notifSql, [user.id, notifMsg], (err) => {
-            if (err) console.error('⚠️ Failed to save notification:', err);
-          });
+        // إنهاء المعاملة
+        await conn.commit();
 
-          // إشعار تيليغرام للزبون
-          db.query("SELECT telegram_chat_id FROM users WHERE id = ?", [user.id], async (err, rows) => {
-            if (err) {
-              console.error("❌ Error fetching chat_id from DB:", err.message);
-              return;
-            }
+        // 🔔 إشعارات تيليغرام بعد الـ COMMIT (نفس منطقك)
+        try {
+          // جلب chat_id
+          const [rows] = await promisePool.query(
+            "SELECT telegram_chat_id FROM users WHERE id = ?",
+            [user.id]
+          );
+          const chatId = rows[0]?.telegram_chat_id;
 
-            const chatId = rows[0]?.telegram_chat_id;
-
-            if (chatId) {
-              const msg = `
+          if (chatId) {
+            const msg = `
 📥 *تم استلام طلبك بنجاح*
 
 🛍️ *المنتج:* ${product.name}
 💰 *السعر:* ${purchasePrice}$
 📌 *الحالة:* جاري المعالجة
-              `.trim();
+            `.trim();
 
-              try {
-                await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                  chat_id: chatId,
-                  text: msg,
-                  parse_mode: 'Markdown'
-                });
-               // console.log("✅ Telegram message sent to user:", chatId);
-              } catch (e) {
-                console.warn("⚠️ Failed to send Telegram to user:", e.message);
-              }
-            } else {
-              console.log("ℹ️ No valid telegram_chat_id found, or user hasn't messaged bot yet.");
-            }
-
-            // إشعار تيليغرام للإدمن
             try {
-              const adminChatId = '2096387191'; // ← غيّره إذا لزم
-              const adminMsg = `
+              await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: msg,
+                parse_mode: 'Markdown'
+              });
+              // console.log("✅ Telegram message sent to user:", chatId);
+            } catch (e) {
+              console.warn("⚠️ Failed to send Telegram to user:", e.message);
+            }
+          } else {
+            console.log("ℹ️ No valid telegram_chat_id found, or user hasn't messaged bot yet.");
+          }
+
+          // إشعار تيليغرام للإدمن
+          try {
+            const adminChatId = '2096387191'; // ← غيّره إذا لزم
+            const adminMsg = `
 🆕 <b>طلب جديد!</b>
 
 👤 <b>الزبون:</b> ${user.username}
@@ -1336,38 +1328,35 @@ app.post('/buy', checkAuth, uploadNone.none(), (req, res) => {
 🕒 <b>الوقت:</b> ${now.toLocaleString()}
 
 افتح لوحة الإدارة لمتابعة الطلب 👨‍💻
-              `.trim();
+            `.trim();
 
-              await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                chat_id: adminChatId,
-                text: adminMsg,
-                parse_mode: 'HTML'
-              });
-              console.log("📢 Admin notified via Telegram");
-            } catch (e) {
-              console.warn("⚠️ Failed to notify admin via Telegram:", e.message);
-            }
-
-            // إنهاء المعاملة
-            db.commit(err => {
-              if (err) {
-                return db.rollback(() => {
-                  console.error('Commit failed:', err);
-                  res.status(500).json({ success: false, message: 'Commit failed' });
-                });
-              }
-
-              // تحديث الرصيد في السيشن
-              req.session.user.balance = newBalance;
-
-              // توجيه المستخدم لصفحة المعالجة
-              return res.json({ success: true });
-
+            await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+              chat_id: adminChatId,
+              text: adminMsg,
+              parse_mode: 'HTML'
             });
-          });
-        });
-      });
-    });
+            console.log("📢 Admin notified via Telegram");
+          } catch (e) {
+            console.warn("⚠️ Failed to notify admin via Telegram:", e.message);
+          }
+        } catch (e) {
+          console.warn("⚠️ Telegram notification flow error:", e.message);
+        }
+
+        // تحديث الرصيد في السيشن
+        req.session.user.balance = newBalance;
+
+        // رد النجاح
+        return res.json({ success: true });
+
+      } catch (e) {
+        try { await conn.rollback(); } catch (_) {}
+        console.error('Transaction failed:', e);
+        return res.status(500).json({ success: false, message: 'Transaction failed' });
+      } finally {
+        conn.release();
+      }
+    })();
   });
 });
 
@@ -1741,50 +1730,55 @@ app.post('/admin/order/update/:id', checkAdmin, (req, res) => {
     const userId = order.userId;
 
     if (status === 'Rejected' && oldStatus !== 'Rejected') {
-      db.beginTransaction(err => {
-        if (err) throw err;
+      // ✅ استبدال beginTransaction/commit/rollback باتصال من الـ pool مع وعود
+      (async () => {
+        const conn = await promisePool.getConnection();
+        try {
+          await conn.beginTransaction();
 
-        db.query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [orderPrice, userId], (err) => {
-          if (err) return db.rollback(() => { throw err; });
+          await conn.query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [orderPrice, userId]);
 
-          db.query(`
-            INSERT INTO transactions (user_id, type, amount, reason)
-            VALUES (?, 'credit', ?, ?)
-          `, [userId, orderPrice, `Refund for rejected order #${orderId}`], (err) => {
-            if (err) return db.rollback(() => { throw err; });
+          await conn.query(
+            `INSERT INTO transactions (user_id, type, amount, reason)
+             VALUES (?, 'credit', ?, ?)`,
+            [userId, orderPrice, `Refund for rejected order #${orderId}`]
+          );
 
-            const notifMsg = `❌ تم رفض طلبك (${order.productName})، وتم استرجاع المبلغ (${order.price}$) إلى رصيدك.`;
-            db.query(`
-              INSERT INTO notifications (user_id, message, created_at, is_read)
-              VALUES (?, ?, NOW(), 0)
-            `, [userId, notifMsg], (err) => {
-              if (err) console.warn("⚠️ Failed to insert internal notification:", err);
+          const notifMsg = `❌ تم رفض طلبك (${order.productName})، وتم استرجاع المبلغ (${order.price}$) إلى رصيدك.`;
+          await conn.query(
+            `INSERT INTO notifications (user_id, message, created_at, is_read)
+             VALUES (?, ?, NOW(), 0)`,
+            [userId, notifMsg]
+          );
 
-              db.query(`UPDATE orders SET status = ?, admin_reply = ? WHERE id = ?`,
-                [status, admin_reply, orderId], (err) => {
-                  if (err) return db.rollback(() => { throw err; });
+          await conn.query(
+            `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ?`,
+            [status, admin_reply, orderId]
+          );
 
-                  sendOrderStatusTelegram(orderId, status, admin_reply)
-                    .then(() => {
-                      db.commit(err => {
-                        if (err) return db.rollback(() => { throw err; });
-                        console.log(`✅ Order #${orderId} rejected and refunded.`);
-                        res.redirect('/admin/orders');
-                      });
-                    })
-                    .catch(err => {
-                      console.error("❌ Telegram Error:", err);
-                      db.rollback(() => {
-                        res.status(500).send("Error sending Telegram notification.");
-                      });
-                    });
-                });
-            });
-          });
-        });
-      });
+          // ✅ طبقًا لمنطقك الأصلي: ما نعمل COMMIT إلا إذا نجح إرسال التلغرام
+          try {
+            await sendOrderStatusTelegram(orderId, status, admin_reply);
+            await conn.commit();
+            console.log(`✅ Order #${orderId} rejected and refunded.`);
+            return res.redirect('/admin/orders');
+          } catch (tgErr) {
+            console.error("❌ Telegram Error:", tgErr);
+            await conn.rollback();
+            return res.status(500).send("Error sending Telegram notification.");
+          }
+
+        } catch (txErr) {
+          console.error("❌ Error during reject/refund:", txErr);
+          try { await conn.rollback(); } catch (_) {}
+          return res.status(500).send("Error updating request");
+        } finally {
+          conn.release();
+        }
+      })();
 
     } else {
+      // ✔️ المسار الآخر يبقى كما هو بدون تعديل
       db.query(`UPDATE orders SET status = ?, admin_reply = ? WHERE id = ?`, [status, admin_reply, orderId], (err) => {
         if (err) return console.error(err.message);
 
@@ -1801,6 +1795,7 @@ app.post('/admin/order/update/:id', checkAdmin, (req, res) => {
     }
   });
 });
+
 
 
 
