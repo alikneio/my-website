@@ -441,3 +441,5 @@ service-card .card {
     padding-top: 100%; /* Ensure it's a square on mobile too */
   }
 }
+
+#searchResults .card { border-radius: 16px; overflow: hidden; }

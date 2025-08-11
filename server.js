@@ -924,6 +924,83 @@ app.post('/verify-player', checkAuth, async (req, res) => {
   }
 });
 
+// GET /search/json?q=...
+app.get('/search/json', async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.json([]);
+
+    const like = `%${q}%`;
+
+    // 1) SQL products
+    const sqlProducts = await query(
+      `SELECT 
+         id,
+         name,
+         price,
+         image,
+         main_category AS category,
+         sub_category AS subcategory
+       FROM products
+       WHERE name LIKE ? OR sub_category LIKE ? OR main_category LIKE ?
+       LIMIT 100`,
+      [like, like, like]
+    );
+
+    // 2) API (selected_api_products الفعّالة)
+    const apiCustom = await query(
+      `SELECT 
+         product_id AS id,
+         COALESCE(custom_name, NULL) AS custom_name,
+         custom_price, custom_image, category,
+         variable_quantity, unit_price
+       FROM selected_api_products
+       WHERE active = 1
+         AND (custom_name LIKE ? OR category LIKE ?)
+       LIMIT 100`,
+      [like, like]
+    );
+
+    // تطبيع + روابط
+    const results = [
+      ...sqlProducts.map(p => ({
+        id: p.id,
+        title: p.name,
+        price: p.price,
+        image: p.image || '/images/default-product.png',
+        category: p.category,
+        subcategory: p.subcategory,
+        source: 'sql',
+        href: `/checkout/${p.id}`
+      })),
+      ...apiCustom.map(p => ({
+        id: p.id,
+        title: p.custom_name || `API Product #${p.id}`,
+        price: p.custom_price || p.unit_price || null,
+        image: p.custom_image || '/images/default-product.png',
+        category: p.category,
+        subcategory: null,
+        source: 'api',
+        href: `/api-checkout/${p.id}`
+      })),
+    ];
+
+    // ترتيب: الأقرب للاسم أولاً
+    const needle = q.toLowerCase();
+    results.sort((a, b) => {
+      const ai = (a.title||'').toLowerCase().indexOf(needle);
+      const bi = (b.title||'').toLowerCase().indexOf(needle);
+      return (ai === -1 ? 1e9 : ai) - (bi === -1 ? 1e9 : bi);
+    });
+
+    res.json(results.slice(0, 60));
+  } catch (e) {
+    console.error('❌ /search/json error:', e);
+    res.json([]);
+  }
+});
+
+
 
 app.post('/buy-quantity-product', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
