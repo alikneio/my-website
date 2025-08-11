@@ -29,9 +29,6 @@ require('./telegram/saveChatId');
 
 
 
-console.log("🧾 ENV DUMP:", process.env);
-
-
 
 const storage = multer.diskStorage({
   destination: './public/uploads/whish',

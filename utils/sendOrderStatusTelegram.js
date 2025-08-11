@@ -1,64 +1,101 @@
-const db = require('../database'); // الاتصال بقاعدة البيانات
-const axios = require('axios');
+// utils/sendOrderStatusTelegram.js
+const { query } = require('../database');            // Promise-based query
+const sendTelegramMessage = require('./sendTelegramMessage');
 
-// بيانات البوت
-const BOT_TOKEN = '8205085707:AAFCb4bsiwEIXDMe4pGYEruMBsK4aWSp40I';
-const BASE_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;      // من ENV
+const ADMIN_CHAT  = process.env.ADMIN_TELEGRAM_CHAT_ID;  // من ENV
+
+function escapeHtml(s = '') {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 /**
- * إرسال رسالة إلى الزبون في حال تغيّر حالة طلبه
- * @param {number} orderId - رقم الطلب
- * @param {string} newStatus - الحالة الجديدة (Accepted / Rejected / Waiting)
+ * يبعت تحديث حالة الطلب على تيليغرام للمستخدم (ولو موجود) للأدمن.
+ * newStatus: Accepted / Rejected / Waiting ...
+ * يرجّع true/false وما بيفشّل الراوت.
  */
-async function sendOrderStatusTelegram(orderId, newStatus) {
+async function sendOrderStatusTelegram(orderId, newStatus, adminReplyFromRoute = '') {
   try {
-    // 1. جلب معلومات الطلب مع chat_id
-    const [order] = await new Promise((resolve, reject) => {
-      db.query(`
-        SELECT o.id, o.productName, o.order_details, o.admin_reply, u.telegram_chat_id
-        FROM orders o
-        JOIN users u ON o.userId = u.id
-        WHERE o.id = ?
-      `, [orderId], (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      });
-    });
+    // جيب الطلب + chat_id
+    const rows = await query(
+      `SELECT o.id, o.productName, o.order_details, o.admin_reply, u.telegram_chat_id, u.id AS userId
+       FROM orders o
+       JOIN users u ON o.userId = u.id
+       WHERE o.id = ?`,
+      [orderId]
+    );
 
-    if (!order || !order.telegram_chat_id) {
-      console.log(`ℹ️ No telegram_chat_id found for order #${orderId}`);
-      return;
+    if (!rows.length) {
+      console.warn(`sendOrderStatusTelegram: order not found #${orderId}`);
+      return true;
     }
 
-    const formattedReply = order.admin_reply?.replace(/\\n/g, '\n') || 'لا يوجد';
+    if (!BOT_TOKEN) {
+      console.warn('sendOrderStatusTelegram: TELEGRAM_BOT_TOKEN missing');
+      return true;
+    }
 
+    const o = rows[0];
 
-    // 2. إعداد الرسالة بالتفاصيل
-   const message = `
-<b>📦 تم تحديث حالة طلبك!</b>
+    // لو الإدمن عدّل الملاحظة بهالراوت ومش بعدّلت بعد بالـ SELECT
+    const rawReply  = (adminReplyFromRoute || o.admin_reply || '').replace(/\\n/g, '\n');
 
-🔢 <b>رقم الطلب:</b> ${order.id}
-🛍️ <b>المنتج:</b> ${order.productName}
-📋 <b>التفاصيل:</b> ${order.order_details || 'لا يوجد'}
-📌 <b>الحالة الجديدة:</b> ${newStatus}
-🔐 <b>معلومات حسابك:</b> ${formattedReply}
+    const safeProduct = escapeHtml(o.productName || '');
+    const safeDetails = escapeHtml(o.order_details || 'لا يوجد');
+    const safeReply   = escapeHtml(rawReply || 'لا يوجد');
+    const safeStatus  = escapeHtml(newStatus || '');
 
+    // رسالة المستخدم
+    const userMsg = (
+`<b>📦 تم تحديث حالة طلبك!</b>
 
+🔢 <b>رقم الطلب:</b> ${o.id}
+🛍️ <b>المنتج:</b> ${safeProduct}
+📋 <b>التفاصيل:</b> ${safeDetails}
+📌 <b>الحالة الجديدة:</b> ${safeStatus}
+📝 <b>ملاحظة:</b> ${safeReply}
 
-🤖 شكراً لاستخدامك منصتنا 💖
-`.trim();
+🤖 شكراً لاستخدامك منصتنا 💖`
+    );
 
+    // رسالة الأدمن (اختياري)
+    const adminMsg =
+`📝 <b>تحديث حالة طلب</b>
+#${o.id} • ${safeProduct}
+👤 UID: ${o.userId}
+📌 الحالة: <b>${safeStatus}</b>${rawReply ? `\n📝 ملاحظة: ${escapeHtml(rawReply)}` : ''}`;
 
-    // 3. إرسال الرسالة
-    await axios.post(`${BASE_URL}/sendMessage`, {
-      chat_id: order.telegram_chat_id,
-      text: message,
-      parse_mode: 'HTML'
-    });
+    const tasks = [];
 
-    console.log(`✅ Telegram message sent for order #${orderId}`);
+    // أرسل للمستخدم إذا عنده chat id
+    if (o.telegram_chat_id) {
+      tasks.push(
+        sendTelegramMessage(o.telegram_chat_id, userMsg, BOT_TOKEN, { timeoutMs: 4000, parseMode: 'HTML' })
+      );
+    }
+
+    // وأرسل للأدمن إذا معرّف
+    if (ADMIN_CHAT) {
+      tasks.push(
+        sendTelegramMessage(ADMIN_CHAT, adminMsg, BOT_TOKEN, { timeoutMs: 4000, parseMode: 'HTML' })
+      );
+    }
+
+    if (tasks.length === 0) {
+      console.log('ℹ️ No Telegram targets for order', orderId);
+      return true;
+    }
+
+    // مننتظر الكل لكن ما منرمي خطأ — منشان ما يعلّق الراوت
+    await Promise.allSettled(tasks);
+    return true;
+
   } catch (err) {
-    console.error("❌ Error sending Telegram message:", err.response?.data || err.message);
+    console.error('sendOrderStatusTelegram failed:', err.message);
+    return false;
   }
 }
 
