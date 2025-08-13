@@ -3163,7 +3163,6 @@ app.post('/admin/api-categories/:id/delete', checkAdmin, async (req, res) => {
   }
 });
 
-const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 
 app.get('/apps/:slug', async (req, res) => {
   const slug = req.params.slug;
