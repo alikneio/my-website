@@ -63,6 +63,13 @@
   <input type="text" class="form-control" id="player_id_label" name="player_id_label" value="<%= product.player_id_label || '' %>">
 </div>
 
+<div class="form-group">
+    <label>
+        <input type="checkbox" name="is_out_of_stock" value="1" <%= product.is_out_of_stock ? 'checked' : '' %> >
+        Out of Stock
+    </label>
+</div>
+
       <!-- Requires Player ID -->
       <div class="form-check mb-4">
         <input type="checkbox" class="form-check-input" id="requiresPlayerId" name="requires_player_id" value="1"
