@@ -11,58 +11,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
+  <%- include('partials/header') %>
 
-    <%- include('partials/header') %>
+  <div class="container my-5">
+    <h1 class="text-center mb-4">Games Categories</h1>
 
-    <div class="hero-section">
-        <h1 class="display-4">Accounts Services</h1>
-        <p class="lead col-lg-8 mx-auto">
-            All available accounts and subscriptions in one place.
-        </p>
-    </div>
+    <% if (!categories || categories.length === 0) { %>
+      <p class="text-center text-muted">No categories to show.</p>
+    <% } else { %>
+      <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
+        <% categories.forEach(c => { %>
+          <div class="col">
+            <a href="/games/<%= c.slug %>" class="text-decoration-none">
+              <div class="card cat-card shadow-sm text-center p-3 h-100">
+                <img src="<%= c.image_url || '/images/default-category.png' %>" alt="<%= c.label %>" class="cat-img mb-2">
+                <div class="fw-semibold text-dark"><%= c.label %></div>
+                <small class="text-muted"><%= c.products_count %> products</small>
+              </div>
+            </a>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
 
-     <div class="container my-5 ">
-    <div class="search-bar-container">
-        <form id="searchForm" action="#" method="GET" role="search">
-            <input type="search" id="searchInput" class="search-input" placeholder="Search for any service...">
-            <button type="submit" class="search-btn">
-                <i class="bi bi-search"></i>
-            </button>
-        </form>
-    </div>
-</div>
-
-    <div class="container my-5 py-5">
-        <h2 class="text-center section-title">Select a Service</h2>
-        <div class="row row-cols-2 row-cols-sm-4 row-cols-lg-3 g-4">
-            
-            <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/free-fire-section" class="category-card">
-                    <img src="/images/webp/free-fire.webp" class="card-img" alt="free-fire">
-                    <div class="card-body">free fire</div>
-                </a>
-            </div>
-
-            <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/jawaker-section" class="category-card">
-                    <img src="/images/webp/jawaker-logo.webp" class="card-img" alt="jawaker">
-                    <div class="card-body">jawaker</div>
-                </a>
-            </div>
- <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/pubg-section" class="category-card">
-                    <img src="/images/webp/pubglogo.webp" class="card-img" alt="pubg">
-                    <div class="card-body">pubg</div>
-                </a>
-            </div>
-
-         
-               
-
-            </div>
-    </div>
-</div>
-    <%- include('partials/footer') %>
+  <%- include('partials/footer') %>
 
     <script>
 document.addEventListener("DOMContentLoaded", function () {

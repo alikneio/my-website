@@ -398,14 +398,13 @@ app.get('/accounts', (req, res) => {
 });
 app.get('/games', async (req, res) => {
   const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
-
   try {
     const categories = await q(`
       SELECT
         c.id,
         c.label,
         c.slug,
-        c.image AS image_url,         -- alias
+        c.image AS image_url,
         c.sort_order,
         c.active,
         COUNT(sap.product_id) AS products_count
@@ -419,13 +418,17 @@ app.get('/games', async (req, res) => {
 
     res.render('games-section', {
       user: req.session.user || null,
-      categories
+      categories: categories.map(c => ({
+        ...c,
+        image_url: c.image_url || '/images/default-category.png'
+      }))
     });
   } catch (err) {
     console.error('Load /games error:', err);
     res.status(500).send('Failed to load games categories');
   }
 });
+
 
 
 app.get('/communication', (req, res) => {
@@ -446,14 +449,13 @@ app.get('/communication', (req, res) => {
 // صفحة اختيار الخدمة (Accounts / Apps)
 app.get('/apps-section', async (req, res) => {
   const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
-
   try {
     const categories = await q(`
       SELECT
         c.id,
         c.label,
         c.slug,
-        c.image AS image_url,         -- alias ليتوافق مع الواجهة
+        c.image AS image_url,
         c.sort_order,
         c.active,
         COUNT(sap.product_id) AS products_count
@@ -467,7 +469,10 @@ app.get('/apps-section', async (req, res) => {
 
     res.render('apps-section', {
       user: req.session.user || null,
-      categories
+      categories: categories.map(c => ({
+        ...c,
+        image_url: c.image_url || '/images/default-category.png'
+      }))
     });
   } catch (err) {
     console.error('Load /apps-section error:', err);
@@ -3212,73 +3217,13 @@ app.post('/admin/api-categories/:id/delete', checkAdmin, async (req, res) => {
 // صفحة قائمة منتجات كاتيجوري واحدة (ديناميكي)
 app.get('/apps/:slug', async (req, res) => {
   const { slug } = req.params;
-  const q = (sql, p = []) =>
-    new Promise((ok, no) => db.query(sql, p, (e, r) => (e ? no(e) : ok(r))));
+  const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
 
   try {
-    // 1) نتأكد إن الكاتيجوري موجود وفعّال
-    const rows = await q(
-      `SELECT * FROM api_categories WHERE slug = ? AND active = 1 LIMIT 1`,
-      [slug]
-    );
-    if (!rows.length) return res.status(404).send('Category not found');
-
-    // نبني كائن الكاتيجوري مع صورة مرِنة (image ثم image_url ثم default)
-    const category = {
-      id: rows[0].id,
-      label: rows[0].label,
-      slug: rows[0].slug,
-      image: rows[0].image || rows[0].image_url || '/images/default-category.png',
-    };
-
-    // 2) نجيب الإعدادات المختارة من DB
-    const selected = await q(
-      `SELECT * FROM selected_api_products WHERE active = 1 AND category = ?`,
-      [slug]
-    );
-    const selectedMap = new Map(selected.map(p => [Number(p.product_id), p]));
-
-    // 3) نجيب منتجات المزود من الكاش
-    const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
-    const apiProducts = await getCachedAPIProducts();
-
-    // 4) نركّب الناتج النهائي
-    const products = apiProducts
-      .filter(p => selectedMap.has(p.id))
-      .map(p => {
-        const c = selectedMap.get(p.id);
-        const isQty = c.variable_quantity === 1;
-        return {
-          id: p.id,
-          name: c.custom_name || p.name,
-          image: c.custom_image || p.image || '/images/default-product.png',
-          price: isQty ? null : Number(c.custom_price || p.price),
-          variable_quantity: isQty,
-          requires_player_id: (c.player_check ?? p.player_check) ? 1 : 0,
-          is_out_of_stock: c.is_out_of_stock === 1,
-        };
-      });
-
-    return res.render('api-category-list', {
-      user: req.session.user || null,
-      category,
-      products,
-    });
-  } catch (err) {
-    console.error('Load /apps/:slug error:', err.response?.data || err.message || err);
-    return res.status(500).send('Failed to load category products');
-  }
-});
-app.get('/games/:slug', async (req, res) => {
-  const { slug } = req.params;
-  const q = (sql, p=[]) => new Promise((ok,no)=>db.query(sql,p,(e,r)=>e?no(e):ok(r)));
-
-  try {
-    // تأكد أن الكاتيجوري من قسم الألعاب
     const [category] = await q(
       `SELECT id, label, slug, image AS image_url
        FROM api_categories
-       WHERE slug = ? AND section = 'games' AND active = 1
+       WHERE slug = ? AND active = 1 AND section = 'apps'
        LIMIT 1`, [slug]
     );
     if (!category) return res.status(404).send('Category not found');
@@ -3287,15 +3232,15 @@ app.get('/games/:slug', async (req, res) => {
       `SELECT * FROM selected_api_products WHERE active = 1 AND category = ?`,
       [slug]
     );
-    const selectedMap = new Map(selected.map(p => [Number(p.product_id), p]));
+    const map = new Map(selected.map(p => [Number(p.product_id), p]));
 
     const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
     const apiProducts = await getCachedAPIProducts();
 
     const products = apiProducts
-      .filter(p => selectedMap.has(p.id))
+      .filter(p => map.has(p.id))
       .map(p => {
-        const c = selectedMap.get(p.id);
+        const c = map.get(p.id);
         const isQty = c.variable_quantity === 1;
         return {
           id: p.id,
@@ -3310,14 +3255,64 @@ app.get('/games/:slug', async (req, res) => {
 
     res.render('api-category-list', {
       user: req.session.user || null,
-      category,
+      category: { ...category, image_url: category.image_url || '/images/default-category.png' },
       products
     });
   } catch (err) {
-    console.error('Load /games/:slug error:', err.response?.data || err.message || err);
+    console.error('Load /apps/:slug error:', err);
     res.status(500).send('Failed to load category products');
   }
 });
+
+app.get('/games/:slug', async (req, res) => {
+  const { slug } = req.params;
+  const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
+
+  try {
+    const [category] = await q(
+      `SELECT id, label, slug, image AS image_url
+       FROM api_categories
+       WHERE slug = ? AND active = 1 AND section = 'games'
+       LIMIT 1`, [slug]
+    );
+    if (!category) return res.status(404).send('Category not found');
+
+    const selected = await q(
+      `SELECT * FROM selected_api_products WHERE active = 1 AND category = ?`,
+      [slug]
+    );
+    const map = new Map(selected.map(p => [Number(p.product_id), p]));
+
+    const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
+    const apiProducts = await getCachedAPIProducts();
+
+    const products = apiProducts
+      .filter(p => map.has(p.id))
+      .map(p => {
+        const c = map.get(p.id);
+        const isQty = c.variable_quantity === 1;
+        return {
+          id: p.id,
+          name: c.custom_name || p.name,
+          image: c.custom_image || p.image || '/images/default-product.png',
+          price: isQty ? null : Number(c.custom_price || p.price),
+          variable_quantity: isQty,
+          requires_player_id: (c.player_check ?? p.player_check) ? 1 : 0,
+          is_out_of_stock: c.is_out_of_stock === 1
+        };
+      });
+
+    res.render('api-category-list', {
+      user: req.session.user || null,
+      category: { ...category, image_url: category.image_url || '/images/default-category.png' },
+      products
+    });
+  } catch (err) {
+    console.error('Load /games/:slug error:', err);
+    res.status(500).send('Failed to load category products');
+  }
+});
+
 
 
 

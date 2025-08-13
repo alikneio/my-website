@@ -6,58 +6,68 @@
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    .out-card { position: relative; }
-    .out-card .overlay {
-      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      background:rgba(220,53,69,.6); color:#fff; font-weight:700; letter-spacing:.5px;
-      border-radius:1rem;
+    .product-card{border:0; transition:.2s}
+    .product-card:hover{transform:translateY(-2px)}
+    .product-image{height:140px; object-fit:contain}
+    .oos-overlay{
+      position:absolute; inset:0; background:rgba(0,0,0,.55);
+      display:flex; align-items:center; justify-content:center;
+      color:#fff; font-weight:700; border-radius:1rem;
+      text-transform:uppercase; letter-spacing:.5px
     }
-    .out-card a.disabled-link { pointer-events:none; filter: grayscale(30%); opacity:.9; }
+    .oos-card{opacity:.8}
   </style>
 </head>
 <body>
   <%- include('partials/header') %>
 
   <div class="container my-5">
-    <h1 class="text-center mb-4"><%= category.label %></h1>
+    <div class="d-flex align-items-center mb-4">
+      <img src="<%= category.image_url || '/images/default-category.png' %>" alt="<%= category.label %>" style="height:42px; width:auto" class="me-2">
+      <h1 class="h3 m-0"><%= category.label %> Products</h1>
+    </div>
 
-    <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-      <% if (products && products.length) { %>
-        <% products.forEach(p => { 
-             const href = user ? `/api-checkout/${p.id}` : '/login';
-             const disabled = p.is_out_of_stock ? 'disabled-link' : '';
-        %>
+    <% if (!products || products.length === 0) { %>
+      <p class="text-center text-muted">No products available in this category.</p>
+    <% } else { %>
+      <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
+        <% products.forEach(p => { %>
           <div class="col">
-            <div class="card shadow-sm h-100 border-0 rounded-4 overflow-hidden text-center out-card">
-              <a href="<%= href %>" class="d-block <%= disabled %>">
-                <div class="p-3">
-                  <img src="<%= category.image %>" onerror="this.src='/images/default-category.png'" alt="<%= category.label %>">
-
-                </div>
-                <div class="card-body">
-                  <h6 class="fw-semibold text-dark mb-1"><%= p.name %></h6>
-                  <% if (p.variable_quantity) { %>
-                    <div class="text-primary fw-bold">Variable price</div>
-                  <% } else { %>
-                    <div class="text-primary fw-bold">$<%= Number(p.price).toFixed(2) %></div>
-                  <% } %>
-                </div>
-              </a>
-
+            <div class="card product-card shadow-sm rounded-4 overflow-hidden position-relative <%= p.is_out_of_stock ? 'oos-card' : '' %>">
               <% if (p.is_out_of_stock) { %>
-                <div class="overlay">OUT OF STOCK</div>
+                <div class="oos-overlay">Out of Stock</div>
               <% } %>
+
+              <div class="bg-white text-center p-3">
+                <img src="<%= p.image %>" alt="<%= p.name %>" class="product-image w-100">
+              </div>
+
+              <div class="card-body text-center">
+                <h6 class="fw-semibold text-dark mb-1"><%= p.name %></h6>
+
+                <% if (p.price === null || typeof p.price === 'undefined') { %>
+                  <div class="text-muted small mb-2">Variable quantity</div>
+                <% } else { %>
+                  <div class="text-primary fw-bold mb-2">$<%= Number(p.price).toFixed(2) %></div>
+                <% } %>
+
+                <% if (user) { %>
+                  <% const btnText = p.variable_quantity ? 'Choose Quantity' : (p.requires_player_id ? 'Enter Details' : 'Buy Now'); %>
+                  <a href="<%= p.is_out_of_stock ? '#' : ('/api-checkout/' + p.id) %>"
+                     class="btn btn-primary w-100 <%= p.is_out_of_stock ? 'disabled' : '' %>"
+                     <%= p.is_out_of_stock ? 'aria-disabled="true" tabindex="-1"' : '' %>>
+                    <%= btnText %>
+                  </a>
+                <% } else { %>
+                  <a href="/login" class="btn btn-secondary w-100">Login to Buy</a>
+                <% } %>
+              </div>
             </div>
           </div>
         <% }) %>
-      <% } else { %>
-        <div class="col-12 text-center text-muted py-5">
-          No products in this category.
-        </div>
-      <% } %>
-    </div>
+      </div>
+    <% } %>
   </div>
 
   <%- include('partials/footer') %>
