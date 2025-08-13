@@ -1,489 +1,297 @@
-/* === Global Styles & Dark Theme === */
-body {
-    font-family: 'Cairo', sans-serif;
-    background-color: #f8f9fa; /* لون خلفية فاتح وافتراضي */
-    color: #212529; /* لون النص الأساسي */
-    overflow-x: hidden;
-    background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
-  background-attachment: fixed;
+/* ==========================================================================
+   AK Cell – Custom CSS (full, optimized)
+   ========================================================================== */
+
+/* ---------- CSS Variables ---------- */
+:root{
+  --primary: #0d6efd;
+  --primary-600:#0b5ed7;
+  --text: #212529;
+  --muted:#6c757d;
+  --bg1:#f5f7fa;
+  --bg2:#c3cfe2;
+  --card-radius: 16px;
+  --shadow-sm: 0 6px 16px rgba(0,0,0,0.10);
+  --shadow-md: 0 10px 30px rgba(0,0,0,0.12);
 }
 
-/* === Hero Section (بدل الـ Jumbotron) === */
-.hero-section {
-    background-color: #e9ecef; /* خلفية رمادية فاتحة */
-    padding: 4rem 1rem;
-    text-align: center;
+/* ---------- Base ---------- */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Cairo',sans-serif;
+  color:var(--text);
+  overflow-x:hidden;
+  background:linear-gradient(135deg,var(--bg1),var(--bg2));
+  background-attachment:fixed;
 }
 
-.hero-section h1 {
-    font-weight: 700;
+/* ---------- Hero / Headings ---------- */
+.hero-section{
+  background:#e9ecef;
+  padding:4rem 1rem;
+  text-align:center;
+}
+.hero-section h1{font-weight:700;margin:0}
+.section-title{
+  font-weight:700;
+  margin-bottom:3rem;
+  color:var(--text);
 }
 
-/* === Section Title Styling === */
-.section-title {
-    font-weight: 700;
-    margin-bottom: 3rem;
-    color: #212529;
+/* ==========================================================================
+   CATEGORY CARDS (sections like Accounts / Apps / Games)
+   ========================================================================== */
+.category-card{
+  display:block;
+  background:#fff;
+  border:1px solid #dee2e6;
+  border-radius:12px;
+  overflow:hidden;
+  text-decoration:none;
+  color:var(--text);
+  transition:transform .25s ease, box-shadow .25s ease;
+}
+.category-card:hover{
+  transform:translateY(-6px);
+  box-shadow:var(--shadow-md);
+  color:var(--primary);
+}
+.category-card .card-img{
+  width:100%;
+  height:220px;
+  object-fit:cover;
+  display:block;
+}
+@media (max-width:576px){
+  .category-card .card-img{height:200px}
+}
+.category-card .card-body{
+  padding:1.25rem;
+  font-weight:700;
+  text-align:center;
+}
+.category-card .title{transition:color .15s ease}
+.category-card:hover .title{color:var(--primary)}
+
+/* ==========================================================================
+   PRODUCT CARDS (Unified – Netflix style)
+   Works for internal listing pages (accounts/games/apps…)
+   ========================================================================== */
+.product-card{
+  background:#fff;
+  border:1px solid #eee;
+  border-radius:17px;
+  padding:10px;
+  text-align:center;
+  transition:transform .25s ease, box-shadow .25s ease;
+}
+.product-card:hover{
+  transform:scale(1.03);
+  box-shadow:var(--shadow-sm);
 }
 
-/* === Custom Card Design for Categories === */
-.category-card {
-    background-color: white;
-    border: 1px solid #dee2e6;
-    border-radius: 10px;
-    overflow: hidden;
-    text-align: center;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    text-decoration: none;
-    display: block;
-    color: #212529;
+/* Image wrapper – square/clear like Netflix */
+.product-image-wrapper{
+  /* Fix for all pages to avoid thin stripe images */
+  height:220px;               /* adjust 220–260 if you want bigger/smaller */
+  padding-top:0;
+  border-radius:12px;
+  background:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+@media (min-width:992px){
+  .product-image-wrapper{height:240px}
+}
+.product-image-wrapper img{
+  position:static;            /* explicit: no absolute */
+  max-width:100%;
+  max-height:100%;
+  width:auto;
+  height:auto;
+  object-fit:contain;
+  display:block;
 }
 
-.category-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    color: #0d6efd;
+/* Titles & price */
+.product-card h6,
+.product-title{
+  font-size:14.5px;
+  margin:10px 0 6px;
+  min-height:40px;
+  line-height:1.35;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.product-price{
+  color:var(--primary);
+  font-weight:700;
+  margin:0 0 6px;
+  font-size:16px;
+}
+.product-btn{
+  width:100%;
+  padding:8px 12px;
+  font-size:14px;
 }
 
-.category-card .card-img {
-    opacity: 0.9;
-    transition: opacity 0.3s ease;
+/* Optional responsive grid (can be used where needed) */
+.products-grid{
+  display:grid;
+  gap:18px;
+  grid-template-columns:repeat(auto-fill, minmax(180px,1fr));
+}
+@media (min-width:768px){
+  .products-grid{grid-template-columns:repeat(auto-fill, minmax(200px,1fr))}
+}
+@media (min-width:992px){
+  .products-grid{grid-template-columns:repeat(auto-fill, minmax(240px,1fr))}
 }
 
-.category-card:hover .card-img {
-    opacity: 1;
+/* ==========================================================================
+   SEARCH BAR (Professional)
+   ========================================================================== */
+.search-bar-container{
+  max-width:700px;
+  margin:2.5rem auto 2rem;
+  position:relative;
+}
+.search-input{
+  width:100%;
+  height:60px;
+  padding:10px 65px 10px 22px;
+  border-radius:50px;
+  border:1px solid #e0e0e0;
+  font-size:1.05rem;
+  transition:all .25s ease;
+  background:#fff;
+}
+.search-input:focus{
+  outline:none;
+  border-color:var(--primary);
+  box-shadow:0 0 15px rgba(13,110,253,.18);
+}
+.search-btn{
+  position:absolute;
+  top:50%;
+  right:10px;
+  transform:translateY(-50%);
+  height:40px;width:40px;
+  border:none;border-radius:50%;
+  background:var(--primary);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.15rem;cursor:pointer;
+  transition:background .2s ease;
+}
+.search-btn:hover{background:var(--primary-600)}
+
+.search-wrapper{max-width:400px;width:100%;padding:0 12px}
+@media (max-width:576px){
+  .search-wrapper{max-width:90%}
+  .search-wrapper input,.search-wrapper button{font-size:1rem}
 }
 
-.category-card .card-body {
-    padding: 1.5rem;
-    font-weight: bold;
+/* ==========================================================================
+   SERVICE CARDS (Bootstrap cards used in some pages like products.ejs)
+   ========================================================================== */
+/* fix selector: needed the dot before .service-card */
+.service-card .card{
+  height:100%;
+  border-radius:16px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  overflow:hidden;
+  background:#fff;
+  transition:transform .2s ease-in-out, box-shadow .2s ease-in-out;
 }
-
-/* === Product Cards Design === */
-
-.product-card {
-    background: white;
-    border: 1px solid #eee;
-    border-radius: 12px;
-    padding: 10px;
-    text-align: center;
-    transition: all 0.3s;
+.service-card .card:hover{
+  transform:translateY(-5px);
+  box-shadow:0 6px 16px rgba(0,0,0,.15);
 }
-
-.product-card-img {
-    width: 100%;
-    height: 120px;
-    object-fit: contain;
-    margin-bottom: 10px;
+.card-img-top{
+  width:100%;
+  height:190px;
+  object-fit:cover;
+  display:block;
+  margin:0;padding:0;border-radius:0;
 }
-
-.product-card-title {
-    font-size: 14px;
-    margin: 8px 0;
-    height: 40px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+@media (max-width:576px){
+  .card-img-top{height:220px}
 }
+.card-title{font-size:1rem;margin:0 8px 6px;min-height:40px;line-height:1.3}
+.card-text{font-size:1rem;font-weight:bold;color:#007bff;margin-bottom:6px}
+.card .btn{font-size:.95rem;padding:8px 12px;margin:0 8px 8px}
 
-.product-card-price {
-    font-size: 16px;
-    font-weight: bold;
-    color: #0d6efd;
-    margin: 8px 0;
-}
-
-.product-card-btn {
-    width: 100%;
-    padding: 8px;
-    font-size: 14px;
-}
-
-/* === Grid Layout === */
-.products-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); /* عرض ثابت للجوال */
-    gap: 15px;
-    padding: 10px;
-}
-
-@media (max-width: 768px) {
-    .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    }
-}
-@media (min-width: 768px) {
-    .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* عرض أكبر للتابلت */
-        gap: 20px;
-    }
-    
-    .product-card-img {
-        height: 140px;
-    }
-}
-
-@media (min-width: 992px) {
-    .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); /* عرض أكبر للابتوب */
-        gap: 25px;
-    }
-    
-    .product-card-img {
-        height: 160px;
-    }
-    
-    .product-card-title {
-        font-size: 15px;
-    }
-    
-    .product-card-price {
-        font-size: 18px;
-    }
-}
-
-/* === Why Choose Us Section === */
-.feature-icon {
-    font-size: 2.5rem;
-    color: #0d6efd; /* لون أزرق مميز */
-}
-
-/* --- Ticker Styles --- */
-.ticker-wrap {
-  width: 90%;
-  margin: auto;
-  overflow: hidden;
-  background-color: #212529;
-  color: white;
-  padding: 1rem 0;
-  border-radius: 50px;
-}
-
-.ticker-text {
-  display: inline-block;
-  white-space: nowrap;
-  animation: ticker-animation 30s linear infinite;
-}
-
-@keyframes ticker-animation {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
-}
-
-/* --- Professional Footer --- */
-.footer-dark {
-    background-color: #212529;
-    color: #c9d1d9;
-}
-
-.footer-link {
-    color: #8b949e;
-    text-decoration: none;
-    transition: color 0.2s ease-in-out;
-}
-
-.footer-link:hover {
-    color: #1f6feb;
-}
-
-.social-icon {
-    font-size: 1.5rem;
-    color: #8b949e;
-    transition: color 0.2s ease-in-out;
-}
-
-.social-icon:hover {
-    color: white;
-}
-
-/* --- Fixed Back to Home Button --- */
-.btn-back-to-home {
-  position: fixed;
-  top: 15px;
-  right: 15px;
-  z-index: 1031;
-  background-color: rgba(255, 255, 255, 0.8);
-  color: #0d1117;
-  font-weight: bold;
-  padding: 8px 15px;
-  border-radius: 50px;
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  transition: all 0.2s ease-in-out;
-  backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.btn-back-to-home:hover {
-  background-color: white;
-  transform: scale(1.05);
-  color: black;
-}
-/* --- Professional Search Bar --- */
-.search-bar-container {
-    max-width: 700px;
-    margin: 4rem auto;
-    position: relative;
-}
-
-.search-input {
-    width: 100%;
-    height: 60px;
-    padding: 10px 65px 10px 25px; /* مسافة لليسار ولليمين (لمكان الأيقونة) */
-    border-radius: 50px; /* زوايا دائرية بالكامل */
-    border: 1px solid #e0e0e0;
-    font-size: 1.1rem;
-    transition: all 0.3s ease;
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: #0d6efd;
-    box-shadow: 0 0 15px rgba(13, 110, 253, 0.2);
-}
-
-.search-btn {
-    position: absolute;
-    top: 50%;
-    right: 10px;
-    transform: translateY(-50%);
-    height: 40px;
-    width: 40px;
-    background-color: #0d6efd;
-    color: white;
-    border: none;
-    border-radius: 50%; /* زر دائري */
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    transition: background-color 0.2s;
-}
-
-.search-btn:hover {
-    background-color: #0b5ed7;
-}
-
-@media (max-width: 576px) {
-  .card-body {
-    padding: 1.2rem;
-  }
-
-  .card-body h4 {
-    font-size: 1.1rem;
-  }
-
-  .card-body p {
-    font-size: 1rem;
-  }
-
-  .input-group {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .input-group input {
-    width: 100%;
-    margin-bottom: 10px;
-  }
-
-  .input-group button {
-    width: 100%;
-  }
-
-  #submitResult {
-    font-size: 0.9rem;
-  }
-
-  .container.py-5 {
-    padding-bottom: 8rem !important; /* حتى ما يطلع الفوتر فوق */
-  }
-}
-
-.search-wrapper {
-  max-width: 400px;
-  width: 100%;
-  padding: 0 12px;
-}
-
-@media (max-width: 576px) {
-  .search-wrapper {
-    max-width: 90%;
-  }
-
-  .search-wrapper input {
-    font-size: 1rem;
-  }
-
-  .search-wrapper button {
-    font-size: 1rem;
-  }
-}
-form.d-flex input:focus {
-  box-shadow: none;
-  outline: none;
-}
-
-@media (max-width: 576px) {
-  .form-control {
-    font-size: 0.95rem;
-  }
-
-  .btn {
-    font-size: 0.95rem;
-  }
-}
-
-/* حركة خفيفة عند التحويم */
-.card {
-  transition: transform 0.2s ease-in-out;
-}
-.card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-}
-
-/* إعداد الكارد الأساسي */
-service-card .card {
-  height: 100%;
-  border-radius: 16px;
-  padding: 0; /* شلنا البادينغ */
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  overflow: hidden;
-  background: #fff;
-}
-
-/* الصورة داخل الكارد */
-.card-img-top {
-  width: 100%;
-  height: 190px;
-  object-fit: cover;
-  display: block;
-  margin: 0;
-  padding: 0;
-  border-radius: 0;
-}
-
-/* موبايل فقط: نكبر الصورة شوي */
-@media (max-width: 576px) {
-  .card-img-top {
-    height: 220px;
-  }
-}
-
-/* تنسيق عنوان المنتج */
-.card-title {
-  font-size: 1rem;
-  margin: 0 8px 6px;
-  min-height: 40px;
-  line-height: 1.3;
-}
-
-/* تنسيق السعر */
-.card-text {
-  font-size: 1rem;
-  font-weight: bold;
-  color: #007bff;
-  margin-bottom: 6px;
-}
-
-/* زر الشراء أو تسجيل الدخول */
-.card .btn {
-  font-size: 0.95rem;
-  padding: 8px 12px;
-  margin: 0 8px 8px;
-}
-
-/* --- تنسيقات الكارد التي تم نقلها من الـ HTML --- */
-.product-card {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border-radius: 17px;
-  overflow: hidden;
-}
-
-.product-card:hover {
-  transform: scale(1.03);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-}
-
-/* تنسيقات حاوية الصورة (Image Wrapper) */
-.product-image-wrapper {
-    position: relative; /* مهم لـ position: absolute للصورة */
-    width: 100%;
-    padding-top: 100%; /* يجعل الارتفاع مساوياً للعرض، لإنشاء مربع */
-    background-color: #f8f9fa; /* لون رمادي فاتح للخلفية */
-    overflow: hidden;
-}
-
-/* تنسيقات الصورة (Image) */
-.product-image-wrapper img {
-  position: absolute; /* وضع الصورة داخل المربع */
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain; /* نستخدم 'contain' لمنع القص */
-}
-
-/* تنسيقات body الكارد */
-.product-card .card-body {
-  padding-top: 0;
-}
-
-/* Media query for mobile only */
-@media (max-width: 576px) {
-  .product-image-wrapper {
-    padding-top: 100%; /* Ensure it's a square on mobile too */
-  }
-}
-
-#searchResults .card { border-radius: 16px; overflow: hidden; }
-
-.out-of-stock-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 0, 0, 0.6);
-    color: white;
-    font-weight: bold;
-    font-size: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 5;
-    text-transform: uppercase;
-}
-
-/* تعطيل الروابط لما المنتج Out of Stock */
-.disabled-link { pointer-events: none; opacity: .65; }
-
-/* للـ overlay */
-.card.position-relative { overflow: hidden; }
+/* ==========================================================================
+   OUT OF STOCK / DISABLED
+   ========================================================================== */
+.card.position-relative,
+.product-card.position-relative{overflow:hidden}
 .out-of-stock-overlay{
-  position:absolute; top:0; left:0; width:100%; height:100%;
-  background:rgba(255,0,0,.6); color:#fff; font-weight:700;
-  font-size:1.1rem; display:flex; align-items:center; justify-content:center;
-  text-transform:uppercase; z-index:5; border-radius:.75rem;
+  position:absolute; inset:0;
+  background:rgba(255,0,0,.6);
+  color:#fff; font-weight:700; text-transform:uppercase;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.1rem; z-index:5; border-radius:.75rem;
+}
+.disabled-link{pointer-events:none;opacity:.65}
+
+/* ==========================================================================
+   Ticker (optional)
+   ========================================================================== */
+.ticker-wrap{
+  width:90%; margin:auto; overflow:hidden;
+  background:#212529; color:#fff; padding:1rem 0; border-radius:50px;
+}
+.ticker-text{
+  display:inline-block; white-space:nowrap;
+  animation:ticker 30s linear infinite;
+}
+@keyframes ticker{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+.footer-dark{background:#212529;color:#c9d1d9}
+.footer-link{color:#8b949e;text-decoration:none;transition:color .2s}
+.footer-link:hover{color:#1f6feb}
+.social-icon{font-size:1.5rem;color:#8b949e;transition:color .2s}
+.social-icon:hover{color:#fff}
+
+/* ==========================================================================
+   Back to home button (optional)
+   ========================================================================== */
+.btn-back-to-home{
+  position:fixed;top:15px;right:15px;z-index:1031;
+  background:rgba(255,255,255,.85);color:#0d1117;font-weight:700;
+  padding:8px 15px;border-radius:50px;text-decoration:none;
+  display:flex;align-items:center;gap:8px;
+  border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(5px);
+  transition:all .2s;
+}
+.btn-back-to-home:hover{background:#fff;transform:scale(1.05);color:#000}
+
+/* ==========================================================================
+   Forms minor polish
+   ========================================================================== */
+form.d-flex input:focus{box-shadow:none;outline:none}
+@media (max-width:576px){
+  .form-control,.btn{font-size:.95rem}
 }
 
-/* تعطيل النقر لما يكون المنتج مقفول */
-.disabled-link { pointer-events: none; opacity: .65; }
+/* Small utility hover on generic .card (used around the site) */
+.card{transition:transform .2s ease-in-out}
+.card:hover{transform:translateY(-5px)}
 
-/* Overlay موحّد */
-.card.position-relative, .product-card.position-relative { overflow: hidden; }
-.out-of-stock-overlay{
-  position:absolute; top:0; left:0; width:100%; height:100%;
-  background:rgba(255,0,0,.6); color:#fff; font-weight:700;
-  font-size:1.1rem; display:flex; align-items:center; justify-content:center;
-  text-transform:uppercase; z-index:5; border-radius:.75rem;
-}
+/* Keep results list cards rounded */
+#searchResults .card{border-radius:16px;overflow:hidden}
 
-.category-card .title { transition: color .15s ease; }
-.category-card:hover .title { color: #0d6efd; } /* نفس Bootstrap primary */
+/* ==========================================================================
+   END
+   ========================================================================== */
