@@ -3,13 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <title>Apps - AK Cell</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+
   <style>
-    .cat-card{transition:.2s; border:0}
-    .cat-card:hover{transform:translateY(-2px)}
-    .cat-img{height:120px; object-fit:contain}
+    /* نفس ستايل كروت نتفلكس */
+    .cat-card{ border:0; transition:transform .2s ease, box-shadow .2s ease; border-radius:16px; overflow:hidden; }
+    .cat-card:hover{ transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.1); }
+
+    /* صورة مربّعة بدون ضغط */
+    .cat-image-wrapper{
+      position:relative; width:100%; aspect-ratio:1/1;
+      background:#fff; overflow:hidden; border-radius:12px;
+    }
+    .cat-image-wrapper img{
+      position:absolute; inset:0; width:100%; height:100%;
+      object-fit:contain; display:block;
+    }
+
+    /* شارة عدد المنتجات */
+    .cat-meta{ display:flex; align-items:center; justify-content:center; gap:.5rem; }
+    .cat-count{ font-size:.85rem; color:#6c757d; background:#f1f5f9; border-radius:999px; padding:.2rem .6rem; }
   </style>
 </head>
 <body>
@@ -18,17 +35,34 @@
   <div class="container my-5">
     <h1 class="text-center mb-4">Apps Categories</h1>
 
+    <!-- Search بنفس ستايل نتفلكس (يعتمد على custom.css عندك) -->
+    <div class="container my-5">
+      <div class="search-bar-container">
+        <form id="catsSearchForm" role="search">
+          <input type="search" id="catsSearchInput" class="search-input" placeholder="Search for any service...">
+          <button type="submit" class="search-btn"><i class="bi bi-search"></i></button>
+        </form>
+      </div>
+    </div>
+
     <% if (!categories || categories.length === 0) { %>
       <p class="text-center text-muted">No categories to show.</p>
     <% } else { %>
       <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
         <% categories.forEach(c => { %>
-          <div class="col">
+          <div class="col" data-cat="<%= (c.label||'').toLowerCase() %>">
             <a href="/apps/<%= c.slug %>" class="text-decoration-none">
               <div class="card cat-card shadow-sm text-center p-3 h-100">
-                <img src="<%= c.image_url || '/images/default-category.png' %>" alt="<%= c.label %>" class="cat-img mb-2">
-                <div class="fw-semibold text-dark"><%= c.label %></div>
-                <small class="text-muted"><%= c.products_count %> products</small>
+                <!-- الصورة المربّعة -->
+                <div class="cat-image-wrapper mb-2">
+                  <img src="<%= c.image_url || '/images/default-category.png' %>" alt="<%= c.label %>">
+                </div>
+
+                <!-- العنوان والعداد -->
+                <div class="fw-semibold text-dark mb-1"><%= c.label %></div>
+                <div class="cat-meta">
+                  <span class="cat-count"><i class="bi bi-boxes me-1"></i><%= c.products_count %> products</span>
+                </div>
               </div>
             </a>
           </div>
@@ -39,5 +73,22 @@
 
   <%- include('partials/footer') %>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // فلترة الكروت بالبحث
+    (function(){
+      const form = document.getElementById('catsSearchForm');
+      const input = document.getElementById('catsSearchInput');
+      if (!input) return;
+      if (form) form.addEventListener('submit', e => e.preventDefault());
+
+      input.addEventListener('input', function(){
+        const q = this.value.trim().toLowerCase();
+        document.querySelectorAll('[data-cat]').forEach(col => {
+          col.style.display = q === '' || col.dataset.cat.includes(q) ? '' : 'none';
+        });
+      });
+    })();
+  </script>
 </body>
 </html>
