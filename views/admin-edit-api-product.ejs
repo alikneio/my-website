@@ -17,7 +17,7 @@
         <p><strong>Requires Player ID:</strong> <%= product.player_check ? 'Yes' : 'No' %></p>
         <p><strong>Product ID:</strong> <%= product.id %></p>
 
-        <% if (custom && (custom.is_out_of_stock == 1 || custom.is_out_of_stock === '1')) { %>
+        <% if (custom && (custom.is_out_of_stock == 1)) { %>
           <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
             <i class="bi bi-exclamation-triangle-fill"></i>
             This product is currently marked as <strong>OUT OF STOCK</strong>. Users will not be able to purchase it.
@@ -41,57 +41,49 @@
             <input type="text" name="custom_image" class="form-control" value="<%= (custom && custom.custom_image) || '' %>">
           </div>
 
-        <div class="mb-3">
-  <label class="form-label">Category</label>
-  <select name="category" class="form-select" required>
-    <option value="">-- Select Category --</option>
-    <option value="freefire"  <%= (custom && custom.category === 'freefire')  ? 'selected' : '' %>>Free Fire</option>
-    <option value="pubg"      <%= (custom && custom.category === 'pubg')      ? 'selected' : '' %>>PUBG</option>
-    <option value="bigo"      <%= (custom && custom.category === 'bigo')      ? 'selected' : '' %>>BIGO</option>
-    <option value="hiyachat"  <%= (custom && custom.category === 'hiyachat')  ? 'selected' : '' %>>Hiya Chat</option>
-    <option value="jawaker"   <%= (custom && custom.category === 'jawaker')   ? 'selected' : '' %>>Jawaker</option>
-    <option value="soulchill" <%= (custom && custom.category === 'soulchill') ? 'selected' : '' %>>Soul Chill</option>
-    <option value="likee"     <%= (custom && custom.category === 'likee')     ? 'selected' : '' %>>Likee</option>
-  </select>
-</div>
+          <!-- ✅ التصنيفات ديناميكياً من DB -->
+          <div class="mb-3">
+            <label class="form-label">Category</label>
+            <select name="category" class="form-select" required>
+              <option value="">-- Select Category --</option>
+              <% (categories || []).forEach(function(c){ %>
+                <option value="<%= c.slug %>" <%= (custom && custom.category === c.slug) ? 'selected' : '' %>>
+                  <%= c.label %>
+                </option>
+              <% }) %>
+            </select>
+            <div class="form-text">Manage categories in Admin → API Categories.</div>
+          </div>
 
           <div class="form-check mb-3">
             <input type="checkbox" name="variable_quantity" value="1" class="form-check-input" id="quantityCheck"
-              <%= (custom && custom.variable_quantity === 1) ? 'checked' : '' %>>
+              <%= (custom && custom.variable_quantity == 1) ? 'checked' : '' %>>
             <label class="form-check-label" for="quantityCheck">Enable Quantity Checkout</label>
           </div>
 
           <div class="form-check mb-3">
             <input type="checkbox" name="player_check" value="1" class="form-check-input" id="playerCheck"
-              <%= (custom && custom.player_check === 1) ? 'checked' : '' %>>
+              <%= (custom && custom.player_check == 1) ? 'checked' : '' %>>
             <label class="form-check-label" for="playerCheck">Requires Player ID</label>
           </div>
 
           <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" id="requires_verification" name="requires_verification"
               <%= (custom && custom.requires_verification == 1) ? 'checked' : '' %>>
-            <label class="form-check-label" for="requires_verification">
-              Requires Verification
-            </label>
+            <label class="form-check-label" for="requires_verification">Requires Verification</label>
           </div>
 
-          <!-- ✅ NEW: Out of Stock -->
-         <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" id="is_out_of_stock" name="is_out_of_stock" value="1"
-    <%= (custom && (custom.is_out_of_stock == 1 || custom.is_out_of_stock === '1')) ? 'checked' : '' %>>
-  <label class="form-check-label" for="is_out_of_stock">
-    Out of Stock
-  </label>
-</div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="is_out_of_stock" name="is_out_of_stock" value="1"
+              <%= (custom && custom.is_out_of_stock == 1) ? 'checked' : '' %>>
+            <label class="form-check-label" for="is_out_of_stock">Out of Stock</label>
+          </div>
 
-
-          <!-- Unit Price field -->
           <div class="mb-3">
             <label class="form-label">Unit Price ($)</label>
             <input type="number" name="unit_price" step="any" class="form-control" value="<%= (custom && custom.unit_price) || '' %>">
           </div>
 
-          <!-- Unit Quantity field -->
           <div class="mb-3">
             <label class="form-label">Unit Quantity</label>
             <input type="number" step="any" name="unit_quantity" class="form-control" value="<%= (custom && custom.unit_quantity) || '' %>">
@@ -110,17 +102,12 @@
 
           <div class="mb-3">
             <label class="form-label">Unit Label (مثال: coins, points, UC)</label>
-            <input type="text" name="unit_label" class="form-control"
-               value="<%= (custom && custom.unit_label) || '' %>" placeholder="units">
+            <input type="text" name="unit_label" class="form-control" value="<%= (custom && custom.unit_label) || '' %>" placeholder="units">
           </div>
 
           <div class="d-flex justify-content-between mt-4">
-            <button type="submit" class="btn btn-success">
-              💾 Save Changes
-            </button>
-            <a href="/admin/api-products" class="btn btn-secondary">
-              ← Back
-            </a>
+            <button type="submit" class="btn btn-success">💾 Save Changes</button>
+            <a href="/admin/api-products" class="btn btn-secondary">← Back</a>
           </div>
         </form>
       </div>
