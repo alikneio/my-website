@@ -41,19 +41,19 @@
             <input type="text" name="custom_image" class="form-control" value="<%= (custom && custom.custom_image) || '' %>">
           </div>
 
-          <div class="mb-3">
-            <label class="form-label">Category</label>
-            <select name="category" class="form-select">
-              <option value="">-- Select Category --</option>
-              <option value="freefire"  <%= (custom && custom.category === 'freefire')  ? 'selected' : '' %>>Free Fire</option>
-              <option value="pubg"      <%= (custom && custom.category === 'pubg')      ? 'selected' : '' %>>PUBG</option>
-              <option value="bigo"      <%= (custom && custom.category === 'bigo')      ? 'selected' : '' %>>BIGO</option>
-              <option value="hiyachat"  <%= (custom && custom.category === 'hiyachat')  ? 'selected' : '' %>>Hiya Chat</option>
-              <option value="jawaker"   <%= (custom && custom.category === 'jawaker')   ? 'selected' : '' %>>Jawaker</option>
-              <option value="soulchill" <%= (custom && custom.category === 'soulchill') ? 'selected' : '' %>>Soul Chill</option>
-              <option value="Likee Live" <%= (custom && custom.category === 'Likee Live') ? 'selected' : '' %>>Likee</option>
-            </select>
-          </div>
+        <div class="mb-3">
+  <label class="form-label">Category</label>
+  <select name="category" class="form-select" required>
+    <option value="">-- Select Category --</option>
+    <option value="freefire"  <%= (custom && custom.category === 'freefire')  ? 'selected' : '' %>>Free Fire</option>
+    <option value="pubg"      <%= (custom && custom.category === 'pubg')      ? 'selected' : '' %>>PUBG</option>
+    <option value="bigo"      <%= (custom && custom.category === 'bigo')      ? 'selected' : '' %>>BIGO</option>
+    <option value="hiyachat"  <%= (custom && custom.category === 'hiyachat')  ? 'selected' : '' %>>Hiya Chat</option>
+    <option value="jawaker"   <%= (custom && custom.category === 'jawaker')   ? 'selected' : '' %>>Jawaker</option>
+    <option value="soulchill" <%= (custom && custom.category === 'soulchill') ? 'selected' : '' %>>Soul Chill</option>
+    <option value="likee"     <%= (custom && custom.category === 'likee')     ? 'selected' : '' %>>Likee</option>
+  </select>
+</div>
 
           <div class="form-check mb-3">
             <input type="checkbox" name="variable_quantity" value="1" class="form-check-input" id="quantityCheck"
