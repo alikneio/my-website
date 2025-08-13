@@ -443,3 +443,21 @@ service-card .card {
 }
 
 #searchResults .card { border-radius: 16px; overflow: hidden; }
+
+.out-of-stock-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 0, 0, 0.6);
+    color: white;
+    font-weight: bold;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    text-transform: uppercase;
+}
+
