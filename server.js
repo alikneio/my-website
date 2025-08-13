@@ -244,7 +244,7 @@ app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
                 `💰 Amount: ${amount} ${currency}`;
 
       if (proofImage) {
-        const imageUrl = `https://akcells.store/uploads/whish/${proofImage}`;
+        const imageUrl = `https://akcell.store/uploads/whish/${proofImage}`;
  
         msg += `\n🖼 [Proof Image](${imageUrl})`;
       }
@@ -660,7 +660,6 @@ const saltRounds = 10; // درجة تعقيد التشفير
 
 
 
-app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 app.get('/register', (req, res) => {
@@ -670,6 +669,7 @@ app.get('/register', (req, res) => {
 });
 
 
+cd/
 
 
 
@@ -2372,19 +2372,6 @@ app.get('/anghami-section', (req, res) => {
     });
 });
 
-app.get('/touch-section', (req, res) => {
-    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Touch'";
-    db.query(sql, [], (err, products) => {
-        if (err) {
-            console.error("Database error:", err);
-            return res.status(500).send("Server error");
-        }
-        res.render('touch-section', { 
-            user: req.session.user || null,
-            products: products  // تأكد من تمرير المنتجات
-        });
-    });
-});
 
 // ✅ هذا هو الراوت المصحح لشراء BIGO:
 app.post('/bigolive-section', async (req, res) => {
@@ -2968,9 +2955,9 @@ app.get('/db-test', (req, res) => {
     res.send("✅ DB OK!");
   });
 });
-app.get("/", (req, res) => {
-  res.send("✅ الموقع شغال!");
-});
+//app.get("/", (req, res) => {
+//  res.send("✅ الموقع شغال!");
+//});
 
 
 // =============================================
