@@ -414,23 +414,27 @@ app.get('/communication', (req, res) => {
 });
 
 // قائمة الأقسام (تظهر للزائر)
-app.get('/apps-section', (req, res) => {
-  const sql = `
-    SELECT label, slug, image_url, sort_order
-    FROM api_categories
-    WHERE is_active = 1
-    ORDER BY sort_order ASC, label ASC
-  `;
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error('List api_categories error:', err);
-      return res.status(500).send('Failed to load categories');
-    }
-    res.render('apps-section', {
+// صفحة اختيار الخدمة (Accounts / Apps)
+app.get('/apps-section', async (req, res) => {
+  const q = (sql, p=[]) => new Promise((ok, no) => db.query(sql, p, (e,r)=> e?no(e):ok(r)));
+
+  try {
+    const categories = await q(`
+      SELECT id, label, slug, image_url, sort_order, active, products_count
+      FROM api_categories
+      WHERE active = 1
+      ORDER BY sort_order ASC, label ASC
+    `);
+
+    // لاحظ: الملف اللي عدّلناه قبل شوي
+    return res.render('accounts', {
       user: req.session.user || null,
-      categories: rows
+      categories
     });
-  });
+  } catch (err) {
+    console.error('Load /apps-section error:', err);
+    return res.status(500).send('Failed to load categories');
+  }
 });
 
 
@@ -3164,58 +3168,55 @@ app.post('/admin/api-categories/:id/delete', checkAdmin, async (req, res) => {
 });
 
 
+// صفحة قائمة منتجات كاتيجوري واحدة (ديناميكي)
 app.get('/apps/:slug', async (req, res) => {
-  const slug = req.params.slug;
-
-  const q = (sql, params) =>
-    new Promise((resolve, reject) =>
-      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
-    );
+  const { slug } = req.params;
+  const q = (sql, p=[]) => new Promise((ok, no) => db.query(sql, p, (e,r)=> e?no(e):ok(r)));
 
   try {
-    // تأكيد القسم موجود وفعّال
+    // 1) نتأكد إن الكاتيجوري موجود وفعّال
     const [category] = await q(
-      `SELECT * FROM api_categories WHERE slug = ? AND is_active = 1 LIMIT 1`,
+      `SELECT id, label, slug, image_url FROM api_categories WHERE slug = ? AND active = 1 LIMIT 1`,
       [slug]
     );
-    if (!category) return res.status(404).send('Category not found.');
+    if (!category) return res.status(404).send('Category not found');
 
-    // المنتجات المختارة لهذا القسم
+    // 2) نجيب الإعدادات المختارة من DB
     const selected = await q(
-      `SELECT * FROM selected_api_products WHERE category = ? AND active = 1 ORDER BY custom_name, name`,
+      `SELECT * FROM selected_api_products WHERE active = 1 AND category = ?`,
       [slug]
     );
+    const selectedMap = new Map(selected.map(p => [Number(p.product_id), p]));
 
-    // بيانات المزود
+    // 3) نجيب منتجات المزود من الكاش
+    const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
     const apiProducts = await getCachedAPIProducts();
-    const byId = new Map(apiProducts.map(p => [p.id, p]));
 
-    const products = selected
-      .filter(s => byId.has(s.product_id))
-      .map(s => {
-        const p = byId.get(s.product_id);
-        const isVar = s.variable_quantity === 1;
-        const price = isVar ? null : parseFloat(s.custom_price || s.unit_price || p.price);
-
+    // 4) نركّب الناتج النهائي
+    const products = apiProducts
+      .filter(p => selectedMap.has(p.id))
+      .map(p => {
+        const c = selectedMap.get(p.id);
+        const isQty = c.variable_quantity === 1;
         return {
           id: p.id,
-          name: s.custom_name || p.name,
-          image: s.custom_image || p.image || '/images/default-product.png',
-          price,
-          variable_quantity: isVar,
-          requires_player_id: s.player_check === 1,
-          is_out_of_stock: s.is_out_of_stock === 1
+          name: c.custom_name || p.name,
+          image: c.custom_image || p.image || '/images/default-product.png',
+          price: isQty ? null : Number(c.custom_price || p.price),
+          variable_quantity: isQty,
+          requires_player_id: (c.player_check ?? p.player_check) ? 1 : 0,
+          is_out_of_stock: c.is_out_of_stock === 1
         };
       });
 
-    res.render('api-category-products', {
+    return res.render('api-category-list', {
       user: req.session.user || null,
       category,
       products
     });
-  } catch (e) {
-    console.error('Category page error:', e);
-    res.status(500).send('Server error');
+  } catch (err) {
+    console.error('Load /apps/:slug error:', err.response?.data || err.message || err);
+    return res.status(500).send('Failed to load category products');
   }
 });
 
