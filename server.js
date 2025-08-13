@@ -2156,51 +2156,50 @@ app.post('/admin/api-products/toggle', checkAdmin, (req, res) => {
 // مسار لعرض صفحة تعديل منتج API معين
 // GET: Edit API Product (with dynamic categories list)
 app.get('/admin/api-products/edit/:id', checkAdmin, async (req, res) => {
+  const productId = Number(req.params.id);
+
   try {
-    const productId = Number.parseInt(req.params.id, 10);
-    if (Number.isNaN(productId)) {
-      return res.status(400).send('❌ Invalid product id');
-    }
-
-    // 1) من الكاش
     const apiProducts = await getCachedAPIProducts();
-    const product = apiProducts.find(p => Number(p.id) === productId);
-    if (!product) return res.status(404).send('❌ Product not found in API');
+    const selectedProduct = apiProducts.find(p => p.id === productId);
+    if (!selectedProduct) return res.status(404).send("❌ Product not found in API");
 
-    // 2) التخصيص من DB
-    const qCustom = 'SELECT * FROM selected_api_products WHERE product_id = ?';
-    db.query(qCustom, [productId], (err1, rows) => {
-      if (err1) {
-        console.error('❌ DB Error (custom):', err1);
-        return res.status(500).send('❌ Database Error');
-      }
-      const custom = rows && rows[0] ? rows[0] : null;
-
-      // 3) التصنيفات (Active) من DB
-      const qCats = `
-        SELECT slug, label
-        FROM api_categories
-        WHERE active = 1
-        ORDER BY sort ASC, label ASC
-      `;
-      db.query(qCats, (err2, categories) => {
-        if (err2) {
-          console.error('❌ DB Error (categories):', err2);
-          return res.status(500).send('❌ Database Error');
+    // 1) customization للمنتج
+    db.query(
+      "SELECT * FROM selected_api_products WHERE product_id = ? LIMIT 1",
+      [productId],
+      (err, rows) => {
+        if (err) {
+          console.error("❌ DB Error (custom):", err);
+          return res.status(500).send("❌ Database Error");
         }
+        const custom = rows?.[0] || {};
 
-        // 4) الريندر مع إرسال التصنيفات
-        res.render('admin-edit-api-product', {
-          product,
-          custom,
-          categories: categories || [],
-          user: req.session.user
+        // 2) جلب التصنيفات الفعّالة (الترتيب على sort_order)
+        const catsSql = `
+          SELECT slug, label
+          FROM api_categories
+          WHERE active = 1
+          ORDER BY (sort_order IS NULL), sort_order ASC, label ASC
+        `;
+        db.query(catsSql, (err2, categories) => {
+          if (err2) {
+            console.error("❌ DB Error (categories):", err2);
+            return res.status(500).send("❌ Database Error");
+          }
+
+          // 3) عرض الصفحة
+          res.render('admin-edit-api-product', {
+            product: selectedProduct,
+            custom,
+            categories,          // <<< مهم
+            user: req.session.user
+          });
         });
-      });
-    });
+      }
+    );
   } catch (e) {
-    console.error('❌ Error in /admin/api-products/edit:', e.stack || e.message);
-    res.status(500).send('❌ Internal Server Error');
+    console.error("❌ Error in /admin/api-products/edit:", e);
+    res.status(500).send("❌ Internal Server Error");
   }
 });
 
