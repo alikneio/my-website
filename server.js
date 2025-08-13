@@ -3264,54 +3264,41 @@ app.get('/apps/:slug', async (req, res) => {
   }
 });
 
-app.get('/games/:slug', async (req, res) => {
-  const { slug } = req.params;
-  const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
+app.get('/games', async (req, res) => {
+  const q = (sql, p = []) =>
+    new Promise((ok, no) => db.query(sql, p, (e, r) => (e ? no(e) : ok(r))));
 
   try {
-    const [category] = await q(
-      `SELECT id, label, slug, image AS image_url
-       FROM api_categories
-       WHERE slug = ? AND active = 1 AND section = 'games'
-       LIMIT 1`, [slug]
-    );
-    if (!category) return res.status(404).send('Category not found');
+    const categories = await q(`
+      SELECT
+        c.id,
+        c.label,
+        c.slug,
+        c.image AS image_url,
+        c.sort_order,
+        c.active,
+        COUNT(sap.product_id) AS products_count
+      FROM api_categories c
+      LEFT JOIN selected_api_products sap
+        ON sap.category = c.slug AND sap.active = 1
+      WHERE c.active = 1 AND c.section = 'games'
+      GROUP BY c.id, c.label, c.slug, c.image, c.sort_order, c.active
+      ORDER BY c.sort_order ASC, c.label ASC
+    `);
 
-    const selected = await q(
-      `SELECT * FROM selected_api_products WHERE active = 1 AND category = ?`,
-      [slug]
-    );
-    const map = new Map(selected.map(p => [Number(p.product_id), p]));
-
-    const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
-    const apiProducts = await getCachedAPIProducts();
-
-    const products = apiProducts
-      .filter(p => map.has(p.id))
-      .map(p => {
-        const c = map.get(p.id);
-        const isQty = c.variable_quantity === 1;
-        return {
-          id: p.id,
-          name: c.custom_name || p.name,
-          image: c.custom_image || p.image || '/images/default-product.png',
-          price: isQty ? null : Number(c.custom_price || p.price),
-          variable_quantity: isQty,
-          requires_player_id: (c.player_check ?? p.player_check) ? 1 : 0,
-          is_out_of_stock: c.is_out_of_stock === 1
-        };
-      });
-
-    res.render('api-category-list', {
+    res.render('games', {
       user: req.session.user || null,
-      category: { ...category, image_url: category.image_url || '/images/default-category.png' },
-      products
+      categories: categories.map(c => ({
+        ...c,
+        image_url: c.image_url || '/images/default-category.png'
+      }))
     });
   } catch (err) {
-    console.error('Load /games/:slug error:', err);
-    res.status(500).send('Failed to load category products');
+    console.error('Load /games error:', err);
+    res.status(500).send('Failed to load games categories');
   }
 });
+
 
 
 
