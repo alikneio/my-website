@@ -419,14 +419,22 @@ app.get('/apps-section', async (req, res) => {
   const q = (sql, p=[]) => new Promise((ok, no) => db.query(sql, p, (e,r)=> e?no(e):ok(r)));
 
   try {
-    const categories = await q(`
-      SELECT id, label, slug, image_url, sort_order, active, products_count
+    const rows = await q(`
+      SELECT * 
       FROM api_categories
       WHERE active = 1
       ORDER BY sort_order ASC, label ASC
     `);
 
-    // لاحظ: الملف اللي عدّلناه قبل شوي
+    // نبني صورة الكاتيجوري من أي عمود متوفر
+    const categories = rows.map(r => ({
+      id: r.id,
+      label: r.label,
+      slug: r.slug,
+      image: r.image_url || r.image || '/images/default-category.png',
+      products_count: r.products_count ?? 0
+    }));
+
     return res.render('accounts', {
       user: req.session.user || null,
       categories
@@ -436,6 +444,7 @@ app.get('/apps-section', async (req, res) => {
     return res.status(500).send('Failed to load categories');
   }
 });
+
 
 
 app.get('/logout', (req, res) => {
@@ -3171,15 +3180,24 @@ app.post('/admin/api-categories/:id/delete', checkAdmin, async (req, res) => {
 // صفحة قائمة منتجات كاتيجوري واحدة (ديناميكي)
 app.get('/apps/:slug', async (req, res) => {
   const { slug } = req.params;
-  const q = (sql, p=[]) => new Promise((ok, no) => db.query(sql, p, (e,r)=> e?no(e):ok(r)));
+  const q = (sql, p = []) =>
+    new Promise((ok, no) => db.query(sql, p, (e, r) => (e ? no(e) : ok(r))));
 
   try {
     // 1) نتأكد إن الكاتيجوري موجود وفعّال
-    const [category] = await q(
-      `SELECT id, label, slug, image_url FROM api_categories WHERE slug = ? AND active = 1 LIMIT 1`,
+    const rows = await q(
+      `SELECT * FROM api_categories WHERE slug = ? AND active = 1 LIMIT 1`,
       [slug]
     );
-    if (!category) return res.status(404).send('Category not found');
+    if (!rows.length) return res.status(404).send('Category not found');
+
+    // نبني كائن الكاتيجوري مع صورة مرِنة (image ثم image_url ثم default)
+    const category = {
+      id: rows[0].id,
+      label: rows[0].label,
+      slug: rows[0].slug,
+      image: rows[0].image || rows[0].image_url || '/images/default-category.png',
+    };
 
     // 2) نجيب الإعدادات المختارة من DB
     const selected = await q(
@@ -3205,21 +3223,20 @@ app.get('/apps/:slug', async (req, res) => {
           price: isQty ? null : Number(c.custom_price || p.price),
           variable_quantity: isQty,
           requires_player_id: (c.player_check ?? p.player_check) ? 1 : 0,
-          is_out_of_stock: c.is_out_of_stock === 1
+          is_out_of_stock: c.is_out_of_stock === 1,
         };
       });
 
     return res.render('api-category-list', {
       user: req.session.user || null,
       category,
-      products
+      products,
     });
   } catch (err) {
     console.error('Load /apps/:slug error:', err.response?.data || err.message || err);
     return res.status(500).send('Failed to load category products');
   }
 });
-
 
 
 
