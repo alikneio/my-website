@@ -46,12 +46,13 @@
                 class="card-img"
                 alt="<%= cat.label %>"
                 onerror="this.src='/images/default-category.png'">
-              <div class="card-body">
-                <%= cat.label %>
-                <% if (typeof cat.products_count !== 'undefined') { %>
-                  <div class="small"><%= cat.products_count %> products</div>
-                <% } %>
-              </div>
+             <div class="card-body">
+  <div class="title"><%= cat.label %></div>
+  <% if (typeof cat.products_count !== 'undefined') { %>
+    <div class="small"><%= cat.products_count %> products</div>
+  <% } %>
+</div>
+
             </a>
           </div>
         <% }) %>
