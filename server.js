@@ -2127,30 +2127,29 @@ app.get('/admin/api-products', checkAdmin, async (req, res) => {
 
 // مسار لإضافة أو إزالة منتج من الـ API
 app.post('/admin/api-products/toggle', checkAdmin, (req, res) => {
-    const { productId, isActive } = req.body;
-    
-    // تم تصحيح الشرط هنا من 'true' إلى true (boolean)
-    if (isActive) { 
-        // إذا كان المنتج يُضاف الآن
-        const sql = "INSERT INTO selected_api_products (product_id, active) VALUES (?, TRUE) ON DUPLICATE KEY UPDATE active = TRUE";
-        db.query(sql, [productId], (err, result) => {
-            if (err) {
-                console.error(err);
-                return res.json({ success: false });
-            }
-            res.json({ success: true, status: 'activated' });
-        });
-    } else {
-        // إذا كان المنتج يُزال الآن
-        const sql = "DELETE FROM selected_api_products WHERE product_id = ?";
-        db.query(sql, [productId], (err, result) => {
-            if (err) {
-                console.error(err);
-                return res.json({ success: false });
-            }
-            res.json({ success: true, status: 'deactivated' });
-        });
-    }
+  const { productId, isActive } = req.body;
+
+  // تأكيد البوليان
+  const on = (isActive === true || isActive === 'true' || isActive === 1 || isActive === '1');
+
+  if (on) {
+    const sql = `
+      INSERT INTO selected_api_products (product_id, active)
+      VALUES (?, TRUE)
+      ON DUPLICATE KEY UPDATE active = TRUE
+    `;
+    db.query(sql, [productId], (err) => {
+      if (err) return res.json({ success: false });
+      res.json({ success: true, status: 'activated' });
+    });
+  } else {
+    // ❌ لا تحذف! ✅ عطّل فقط
+    const sql = `UPDATE selected_api_products SET active = FALSE WHERE product_id = ?`;
+    db.query(sql, [productId], (err) => {
+      if (err) return res.json({ success: false });
+      res.json({ success: true, status: 'deactivated' });
+    });
+  }
 });
 
 
