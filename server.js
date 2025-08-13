@@ -413,9 +413,26 @@ app.get('/communication', (req, res) => {
     });
 });
 
+// قائمة الأقسام (تظهر للزائر)
 app.get('/apps-section', (req, res) => {
-    res.render('apps-section', { user: req.session.user || null });
+  const sql = `
+    SELECT label, slug, image_url, sort_order
+    FROM api_categories
+    WHERE is_active = 1
+    ORDER BY sort_order ASC, label ASC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error('List api_categories error:', err);
+      return res.status(500).send('Failed to load categories');
+    }
+    res.render('apps-section', {
+      user: req.session.user || null,
+      categories: rows
+    });
+  });
 });
+
 
 app.get('/logout', (req, res) => {
   req.session.destroy(err => {
@@ -3145,6 +3162,64 @@ app.post('/admin/api-categories/:id/delete', checkAdmin, async (req, res) => {
     res.redirect('/admin/api-categories');
   }
 });
+
+const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
+
+app.get('/apps/:slug', async (req, res) => {
+  const slug = req.params.slug;
+
+  const q = (sql, params) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
+  try {
+    // تأكيد القسم موجود وفعّال
+    const [category] = await q(
+      `SELECT * FROM api_categories WHERE slug = ? AND is_active = 1 LIMIT 1`,
+      [slug]
+    );
+    if (!category) return res.status(404).send('Category not found.');
+
+    // المنتجات المختارة لهذا القسم
+    const selected = await q(
+      `SELECT * FROM selected_api_products WHERE category = ? AND active = 1 ORDER BY custom_name, name`,
+      [slug]
+    );
+
+    // بيانات المزود
+    const apiProducts = await getCachedAPIProducts();
+    const byId = new Map(apiProducts.map(p => [p.id, p]));
+
+    const products = selected
+      .filter(s => byId.has(s.product_id))
+      .map(s => {
+        const p = byId.get(s.product_id);
+        const isVar = s.variable_quantity === 1;
+        const price = isVar ? null : parseFloat(s.custom_price || s.unit_price || p.price);
+
+        return {
+          id: p.id,
+          name: s.custom_name || p.name,
+          image: s.custom_image || p.image || '/images/default-product.png',
+          price,
+          variable_quantity: isVar,
+          requires_player_id: s.player_check === 1,
+          is_out_of_stock: s.is_out_of_stock === 1
+        };
+      });
+
+    res.render('api-category-products', {
+      user: req.session.user || null,
+      category,
+      products
+    });
+  } catch (e) {
+    console.error('Category page error:', e);
+    res.status(500).send('Server error');
+  }
+});
+
 
 
 
