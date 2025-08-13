@@ -488,30 +488,3 @@ service-card .card {
 .category-card .title { transition: color .15s ease; }
 .category-card:hover .title { color: #0d6efd; } /* نفس Bootstrap primary */
 
-/* ===== FIX product images everywhere (force like Netflix cards) ===== */
-.product-card .product-image-wrapper{
-  /* تجاهل حيلة padding-top اللي ممكن تنلغي بقواعد ثانية */
-  height: 220px !important;       /* زوّدها 240–260 إذا بدك صورة أكبر */
-  padding-top: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: #fff;
-  border-radius: .75rem;
-  overflow: hidden;
-}
-
-.product-card .product-image-wrapper img{
-  position: static !important;     /* لا تستخدم absolute */
-  max-height: 100% !important;
-  width: auto !important;
-  height: auto !important;
-  object-fit: contain !important;
-  display: block !important;
-  margin: 0 auto;
-}
-
-/* تكبير بسيط على الشاشات الكبيرة */
-@media (min-width: 992px){
-  .product-card .product-image-wrapper{ height: 240px !important; }
-}
