@@ -423,7 +423,7 @@ app.get('/games', async (req, res) => {
       `
     );
 
-    res.render('games-section', {
+    res.render('games', {
       user: req.session.user || null,
       categories: rows.map(c => ({
         ...c,
