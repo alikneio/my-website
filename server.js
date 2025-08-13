@@ -559,20 +559,18 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
 
 
 
-
 app.get('/api-checkout/:id', checkAuth, async (req, res) => {
-  const productId = parseInt(req.params.id);
+  const productId = parseInt(req.params.id, 10);
 
   const query = (sql, params) => new Promise((resolve, reject) => {
     db.query(sql, params, (err, rows) => err ? reject(err) : resolve(rows));
   });
 
   try {
-    // 1. جلب المنتج من جدول selected_api_products
-    const sql = "SELECT * FROM selected_api_products WHERE product_id = ? AND active = 1";
-    const results = await query(sql, [productId]);
+    // 1) جلب المنتج
+    const sqlSel = "SELECT * FROM selected_api_products WHERE product_id = ? AND active = 1";
+    const results = await query(sqlSel, [productId]);
     const error = req.query.error || null;
-
 
     if (results.length === 0) {
       return res.status(404).send("❌ Product not found or not activated.");
@@ -580,40 +578,47 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
 
     const product = results[0];
 
-    // 2. تجهيز بيانات المنتج بناءً على نوعه
-    const isQuantity = product.variable_quantity === 1;
+    // ✅ منع العرض لو أوت-أوف-ستوك
+    if (Number(product.is_out_of_stock) === 1) {
+      return res.status(403).send('This product is currently out of stock.');
+    }
+
+    // 2) تجهيز الداتا
+    const isQuantity = Number(product.variable_quantity) === 1;
+
+    const unitQty = isQuantity ? Math.max(parseInt(product.unit_quantity || 1, 10) || 1, 1) : undefined;
+    const minQty  = isQuantity ? parseInt(product.min_quantity || 1, 10) || 1 : undefined;
+    const maxQty  = isQuantity ? parseInt(product.max_quantity || 999999, 10) || 999999 : undefined;
+
+    const unitPriceNum = parseFloat(product.custom_price || product.unit_price || 0) || 0;
 
     const productData = {
       id: product.product_id,
       name: product.custom_name || 'API Product',
       image: product.custom_image || '/images/default-product.png',
-      price: isQuantity
-        ? null // سيتم حساب السعر لاحقًا حسب الكمية
-        : parseFloat(product.custom_price || product.unit_price || 0).toFixed(2),
-      unit_price: isQuantity
-        ? parseFloat(product.custom_price || product.unit_price || 0)
-        : undefined,
-      unit_quantity: isQuantity ? parseInt(product.unit_quantity || 1) : undefined,
-      min_quantity: isQuantity ? parseInt(product.min_quantity || 1) : undefined,
-      max_quantity: isQuantity ? parseInt(product.max_quantity || 999999) : undefined,
-      requires_player_id: product.player_check === 1,
-       requires_verification: product.requires_verification === 1,
+      price: isQuantity ? null : unitPriceNum.toFixed(2),
+      unit_price: isQuantity ? unitPriceNum : undefined,
+      unit_quantity: unitQty,
+      min_quantity: minQty,
+      max_quantity: maxQty,
+      requires_player_id: Number(product.player_check) === 1,
+      requires_verification: Number(product.requires_verification) === 1,
       variable_quantity: isQuantity,
-      unit_label: isQuantity ? product.unit_label || 'units' : undefined,
+      unit_label: isQuantity ? (product.unit_label || 'units') : undefined,
     };
 
-    // 3. التوجيه حسب النوع
+    // 3) التوجيه حسب النوع + تمرير error للطرفين
     if (isQuantity) {
       return res.render('api-checkout-quantity', {
-  user: req.session.user || null,
-  product: productData,
-  error // ✅ تمرير الخطأ إلى EJS
-});
-
+        user: req.session.user || null,
+        product: productData,
+        error
+      });
     } else {
       return res.render('api-checkout-fixed', {
         user: req.session.user || null,
-        product: productData
+        product: productData,
+        error
       });
     }
 
@@ -1009,13 +1014,16 @@ app.get('/search/json', async (req, res) => {
 
 // ✅ يرجّع IDs المنتجات المقفولة من جدول products
 app.get('/api/out-of-stock', (req, res) => {
-  const sql = 'SELECT id FROM products WHERE is_out_of_stock = 1';
+  const sql = `
+    SELECT CAST(id AS CHAR) AS id FROM products WHERE is_out_of_stock = 1
+    UNION
+    SELECT CAST(product_id AS CHAR) AS id FROM selected_api_products WHERE is_out_of_stock = 1
+  `;
   db.query(sql, [], (err, rows) => {
     if (err) { console.error('❌ OOS API error:', err); return res.json([]); }
     res.json(rows.map(r => String(r.id)));
   });
 });
-
 
 
 app.post('/buy-quantity-product', checkAuth, async (req, res) => {
@@ -1029,20 +1037,30 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
   });
 
   try {
-    // جلب بيانات المنتج
+    // جلب بيانات المنتج (متغير الكمية)
     const [product] = await query(
-      "SELECT * FROM selected_api_products WHERE product_id = ? AND active = 1 AND variable_quantity = 1",
+      `SELECT *
+         FROM selected_api_products
+        WHERE product_id = ? AND active = 1 AND variable_quantity = 1`,
       [productId]
     );
+
     if (!product) return res.redirect(`/api-checkout/${productId}?error=notfound`);
 
-    const qty = parseInt(quantity);
-    const min = parseInt(product.min_quantity);
-    const max = parseInt(product.max_quantity);
-    const unitQty = parseInt(product.unit_quantity);
-    const unitPrice = parseFloat(product.unit_price);
+    // ✅ منع الشراء إذا أوت-أوف-ستوك
+    if (product.is_out_of_stock === 1 || product.is_out_of_stock === '1' || product.is_out_of_stock === true) {
+      return res.redirect(`/api-checkout/${productId}?error=out_of_stock`);
+    }
 
-    if (isNaN(qty) || qty < min || qty > max) {
+    // أرقام آمنة
+    const qty       = parseInt(quantity, 10);
+    const unitQty   = parseInt(product.unit_quantity ?? 1, 10) || 1; // لا تقسيم على 0
+    const unitPrice = Number(product.unit_price) || 0;
+
+    const min = Number.isFinite(parseInt(product.min_quantity, 10)) ? parseInt(product.min_quantity, 10) : 1;
+    const max = Number.isFinite(parseInt(product.max_quantity, 10)) ? parseInt(product.max_quantity, 10) : 999999;
+
+    if (!Number.isFinite(qty) || qty < min || qty > max) {
       return res.redirect(`/api-checkout/${productId}?error=invalid_quantity`);
     }
 
@@ -1071,14 +1089,15 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     await query("UPDATE users SET balance = balance - ? WHERE id = ?", [total, userId]);
 
     // تسجيل معاملة الخصم
-    await query(`
-      INSERT INTO transactions (user_id, type, amount, reason)
-      VALUES (?, 'debit', ?, ?)
-    `, [userId, total, `Purchase: ${product.custom_name || `API Product ${productId}`}`]);
+    await query(
+      `INSERT INTO transactions (user_id, type, amount, reason)
+       VALUES (?, 'debit', ?, ?)`,
+      [userId, total, `Purchase: ${product.custom_name || `API Product ${productId}`}`]
+    );
 
     // إرسال الطلب إلى DailyCard
     const orderBody = {
-      product: parseInt(productId),
+      product: parseInt(productId, 10),
       quantity: qty,
       ...(player_id ? { account_id: player_id } : {})
     };
@@ -1087,17 +1106,18 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     const orderId = result?.id || result?.data?.id;
 
     if (!orderId) {
+      // رجّع الرصيد إذا فشل الإنشاء عند المزوّد
       await query("UPDATE users SET balance = balance + ? WHERE id = ?", [total, userId]);
-      await query(`
-        INSERT INTO transactions (user_id, type, amount, reason)
-        VALUES (?, 'credit', ?, ?)
-      `, [userId, total, `Refund: ${product.custom_name || `API Product ${productId}`}`]);
+      await query(
+        `INSERT INTO transactions (user_id, type, amount, reason)
+         VALUES (?, 'credit', ?, ?)`,
+        [userId, total, `Refund: ${product.custom_name || `API Product ${productId}`}`]
+      );
 
-      const msg = JSON.stringify(result.message || '');
+      const msg = JSON.stringify(result?.message || '');
       if (msg.includes("Insufficient balance")) {
         return res.redirect(`/api-checkout/${productId}?error=balance`);
       }
-
       return res.redirect(`/api-checkout/${productId}?error=order_failed`);
     }
 
@@ -1120,13 +1140,11 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     const insertId = insertResult.insertId || insertResult[0]?.insertId;
 
     // إشعار داخل النظام
-    await query(`
-      INSERT INTO notifications (user_id, message, created_at, is_read)
-      VALUES (?, ?, NOW(), 0)
-    `, [
-      userId,
-      `✅ تم استلام طلبك (${product.custom_name || `API Product ${productId}`}) بنجاح. سيتم معالجته قريبًا.`
-    ]);
+    await query(
+      `INSERT INTO notifications (user_id, message, created_at, is_read)
+       VALUES (?, ?, NOW(), 0)`,
+      [userId, `✅ تم استلام طلبك (${product.custom_name || `API Product ${productId}`}) بنجاح. سيتم معالجته قريبًا.`]
+    );
 
     // إشعار تيليغرام للمستخدم
     if (user.telegram_chat_id) {
@@ -1165,6 +1183,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     return res.redirect(`/api-checkout/${productId}?error=server`);
   }
 });
+
 
 
 
@@ -2041,8 +2060,10 @@ app.get('/admin/api-products/edit/:id', checkAdmin, async (req, res) => {
 });
 
 
+// ✅ EDIT API PRODUCT (FULL REPLACEMENT)
 app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
   const productId = req.params.id;
+
   const {
     custom_price,
     custom_image,
@@ -2056,47 +2077,48 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
     unit_label
   } = req.body;
 
-  // ✅ تحضير القيم المدخلة
-  const priceToSave = custom_price ? parseFloat(custom_price) : null;
-  const imageToSave = custom_image || null;
-  const nameToSave = custom_name || null;
+  // Flags
+  const variableQtyFlag       = (variable_quantity === '1' || variable_quantity === 'on') ? 1 : 0;
+  const player_check          = (req.body.player_check === '1' || req.body.player_check === 'on') ? 1 : 0;
+  const requires_verification = (req.body.requires_verification === '1' || req.body.requires_verification === 'on') ? 1 : 0;
+  const is_out_of_stock       = (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
+
+  // Values
+  const priceToSave    = custom_price ? parseFloat(custom_price) : null;
+  const imageToSave    = custom_image || null;
+  const nameToSave     = custom_name || null;
   const categoryToSave = category || null;
-  const labelToSave = unit_label || 'units';
+  const labelToSave    = unit_label || 'units';
 
-  const variableQtyFlag = variable_quantity === '1' || variable_quantity === 'on' ? 1 : 0;
-  const player_check = req.body.player_check === '1' || req.body.player_check === 'on' ? 1 : 0;
-  const requiresVerification = req.body.requires_verification === '1' || req.body.requires_verification === 'on' ? 1 : 0;
+  const unitPriceToSave    = variableQtyFlag ? (parseFloat(unit_price) || null)    : null;
+  const unitQuantityToSave = variableQtyFlag ? (parseFloat(unit_quantity) || null) : null;
+  const minQtyToSave       = variableQtyFlag ? (parseInt(min_quantity) || null)    : null;
+  const maxQtyToSave       = variableQtyFlag ? (parseInt(max_quantity) || null)    : null;
 
-  const unitPriceToSave = variableQtyFlag ? parseFloat(unit_price) || null : null;
-  const unitQuantityToSave = variableQtyFlag ? parseFloat(unit_quantity) || null : null;
-  const minQtyToSave = variableQtyFlag ? parseInt(min_quantity) || null : null;
-  const maxQtyToSave = variableQtyFlag ? parseInt(max_quantity) || null : null;
-
-  // ✅ جملة الإدخال والتحديث
   const sql = `
     INSERT INTO selected_api_products (
       product_id, custom_price, custom_image, custom_name, category, active,
       variable_quantity, unit_price, unit_quantity, min_quantity, max_quantity,
-      player_check, unit_label, requires_verification
+      player_check, unit_label, requires_verification, is_out_of_stock
     )
-    VALUES (?, ?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
-      custom_price = VALUES(custom_price),
-      custom_image = VALUES(custom_image),
-      custom_name = VALUES(custom_name),
-      category = VALUES(category),
-      active = TRUE,
-      variable_quantity = VALUES(variable_quantity),
-      unit_price = VALUES(unit_price),
-      unit_quantity = VALUES(unit_quantity),
-      min_quantity = VALUES(min_quantity),
-      max_quantity = VALUES(max_quantity),
-      player_check = VALUES(player_check),
-      unit_label = VALUES(unit_label),
-      requires_verification = VALUES(requires_verification)
+      custom_price          = VALUES(custom_price),
+      custom_image          = VALUES(custom_image),
+      custom_name           = VALUES(custom_name),
+      category              = VALUES(category),
+      active                = TRUE,
+      variable_quantity     = VALUES(variable_quantity),
+      unit_price            = VALUES(unit_price),
+      unit_quantity         = VALUES(unit_quantity),
+      min_quantity          = VALUES(min_quantity),
+      max_quantity          = VALUES(max_quantity),
+      player_check          = VALUES(player_check),
+      unit_label            = VALUES(unit_label),
+      requires_verification = VALUES(requires_verification),
+      is_out_of_stock       = VALUES(is_out_of_stock)
   `;
 
-  // ✅ القيم المطلوبة للإدخال
   const params = [
     productId,
     priceToSave,
@@ -2110,14 +2132,14 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
     maxQtyToSave,
     player_check,
     labelToSave,
-    requiresVerification
+    requires_verification,
+    is_out_of_stock
   ];
 
-  // ✅ تنفيذ الاستعلام
-  db.query(sql, params, (err, result) => {
+  db.query(sql, params, (err) => {
     if (err) {
-      console.error("❌ Error saving custom product data:", err);
-      return res.send("❌ Error saving changes.");
+      console.error("❌ Error saving custom API product:", err);
+      return res.status(500).send("❌ Error saving changes.");
     }
     res.redirect('/admin/api-products');
   });
@@ -2138,23 +2160,35 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
   });
 
   try {
-    const [product] = await query(`
-      SELECT * FROM selected_api_products 
-      WHERE product_id = ? 
-      AND active = 1 
-      AND (variable_quantity IS NULL OR variable_quantity = 0)
-    `, [productId]);
+    const [product] = await query(
+      `SELECT * FROM selected_api_products
+        WHERE product_id = ?
+          AND active = 1
+          AND (variable_quantity IS NULL OR variable_quantity = 0)`,
+      [productId]
+    );
 
-    if (!product) return res.status(404).json({ success: false, message: "Product not found." });
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found." });
+    }
 
-    const price = parseFloat(product.custom_price || product.unit_price || 0).toFixed(2);
+    // ✅ منع الشراء إذا المنتج Out of Stock
+    if (product.is_out_of_stock === 1 || product.is_out_of_stock === '1' || product.is_out_of_stock === true) {
+      return res.status(400).json({ success: false, message: "Product is out of stock." });
+    }
+
+    // نتأكد من السعر كرقم
+    const priceNum = parseFloat(product.custom_price || product.unit_price || 0) || 0;
+    const price = priceNum.toFixed(2);
+
     const [user] = await query("SELECT username, balance, telegram_chat_id FROM users WHERE id = ?", [userId]);
     const balance = parseFloat(user?.balance || 0);
 
-    if (balance < price) {
+    if (balance < priceNum) {
       return res.status(400).json({ success: false, message: "Insufficient balance." });
     }
 
+    // تحقق الحساب إذا مطلوب
     if (product.requires_verification) {
       if (!player_id || player_id.trim() === "") {
         return res.status(400).json({ success: false, message: "Missing player ID." });
@@ -2166,15 +2200,19 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       }
     }
 
-    await query("UPDATE users SET balance = balance - ? WHERE id = ?", [price, userId]);
+    // خصم الرصيد
+    await query("UPDATE users SET balance = balance - ? WHERE id = ?", [priceNum, userId]);
 
-    await query(`
-      INSERT INTO transactions (user_id, type, amount, reason)
-      VALUES (?, 'debit', ?, ?)
-    `, [userId, price, `Purchase: ${product.custom_name || `API Product ${productId}`}`]);
+    // تسجيل معاملة الخصم
+    await query(
+      `INSERT INTO transactions (user_id, type, amount, reason)
+       VALUES (?, 'debit', ?, ?)`,
+      [userId, priceNum, `Purchase: ${product.custom_name || `API Product ${productId}`}`]
+    );
 
+    // إنشاء الطلب عند المزوّد
     const orderBody = {
-      product: parseInt(productId),
+      product: parseInt(productId, 10),
       ...(player_id ? { account_id: player_id } : {})
     };
 
@@ -2182,40 +2220,48 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
     const orderIdFromAPI = result?.id || result?.data?.id;
 
     if (!orderIdFromAPI) {
-      await query("UPDATE users SET balance = balance + ? WHERE id = ?", [price, userId]);
-      await query(`
-        INSERT INTO transactions (user_id, type, amount, reason)
-        VALUES (?, 'credit', ?, ?)
-      `, [userId, price, `Refund: ${product.custom_name || `API Product ${productId}`}`]);
+      // استرجاع الرصيد إذا فشل الإنشاء
+      await query("UPDATE users SET balance = balance + ? WHERE id = ?", [priceNum, userId]);
+      await query(
+        `INSERT INTO transactions (user_id, type, amount, reason)
+         VALUES (?, 'credit', ?, ?)`,
+        [userId, priceNum, `Refund: ${product.custom_name || `API Product ${productId}`}`]
+      );
 
       return res.status(500).json({ success: false, message: "Order failed, refund issued." });
     }
 
+    // حفظ الطلب داخليًا
     const orderDetails = player_id ? `User ID: ${player_id}` : '';
-    const insertResult = await query(`
-      INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status)
-      VALUES (?, ?, ?, NOW(), ?, 'Waiting')
-    `, [userId, product.custom_name || `API Product ${productId}`, price, orderDetails]);
+    const insertResult = await query(
+      `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status)
+       VALUES (?, ?, ?, NOW(), ?, 'Waiting')`,
+      [userId, product.custom_name || `API Product ${productId}`, price, orderDetails]
+    );
 
     const insertId = insertResult.insertId || insertResult[0]?.insertId;
 
-    await query(`
-      INSERT INTO notifications (user_id, message, created_at, is_read)
-      VALUES (?, ?, NOW(), 0)
-    `, [userId, `✅ Your order for (${product.custom_name || product.name}) was received and is being processed.`]);
+    // إشعار داخلي
+    await query(
+      `INSERT INTO notifications (user_id, message, created_at, is_read)
+       VALUES (?, ?, NOW(), 0)`,
+      [userId, `✅ Your order for (${product.custom_name || product.name || `API Product ${productId}`}) was received and is being processed.`]
+    );
 
+    // تيليغرام للمستخدم
     if (user.telegram_chat_id) {
       await sendTelegramMessage(
         user.telegram_chat_id,
-        `📥 <b>Your order has been received</b>\n\n🛍️ <b>Product:</b> ${product.custom_name || product.name}\n💰 <b>Price:</b> ${price}$\n📌 <b>Status:</b> Processing`,
+        `📥 <b>Your order has been received</b>\n\n🛍️ <b>Product:</b> ${product.custom_name || product.name || `API Product ${productId}`}\n💰 <b>Price:</b> ${price}$\n📌 <b>Status:</b> Processing`,
         process.env.TELEGRAM_BOT_TOKEN
       );
     }
 
+    // تيليغرام للإدارة
     if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
       await sendTelegramMessage(
         process.env.ADMIN_TELEGRAM_CHAT_ID,
-        `🆕 New Order!\n👤 User: ${user.username}\n🎁 Product: ${product.custom_name || product.name}\n💰 Price: ${price}$\n🕓 Time: ${new Date().toLocaleString('en-US', { hour12: false })}`,
+        `🆕 New Order!\n👤 User: ${user.username}\n🎁 Product: ${product.custom_name || product.name || `API Product ${productId}`}\n💰 Price: ${price}$\n🕓 Time: ${new Date().toLocaleString('en-US', { hour12: false })}`,
         process.env.TELEGRAM_BOT_TOKEN
       );
     }
@@ -2229,7 +2275,6 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error. Please try again later." });
   }
 });
-
 
 
 

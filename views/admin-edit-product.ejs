@@ -64,9 +64,11 @@
 </div>
 
 <div class="form-check mb-3">
-  <input type="checkbox" class="form-check-input" id="is_out_of_stock" name="is_out_of_stock" value="1"
-         <%= product.is_out_of_stock ? 'checked' : '' %> >
-  <label class="form-check-label" for="is_out_of_stock">Out of Stock</label>
+  <input class="form-check-input" type="checkbox" id="is_out_of_stock" name="is_out_of_stock" value="1"
+    <%= Number(product.is_out_of_stock) === 1 ? 'checked' : '' %>>
+  <label class="form-check-label" for="is_out_of_stock">
+    Out of Stock
+  </label>
 </div>
 
       <!-- Requires Player ID -->

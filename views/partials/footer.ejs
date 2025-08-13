@@ -59,48 +59,35 @@
       const resp = await fetch('/api/out-of-stock', { credentials: 'same-origin' });
       const ids = await resp.json();
       if (!Array.isArray(ids) || ids.length === 0) return;
-
       const idSet = new Set(ids.map(String));
 
-      // مسك كل روابط الشراء (ثابت + API)
       const anchors = document.querySelectorAll('a[href*="/checkout/"], a[href*="/api-checkout/"]');
-
       anchors.forEach(function (a) {
-        const href = a.getAttribute('href') || '';
-        const m = href.match(/\/(?:api-)?checkout\/(\d+)/);
+        const m = (a.getAttribute('href')||'').match(/\/(?:api-)?checkout\/(\d+)/);
         if (!m) return;
         const id = m[1];
         if (!idSet.has(id)) return;
 
-        // عطّل الرابط
         a.classList.add('disabled-link');
-        a.setAttribute('aria-disabled', 'true');
-        a.setAttribute('tabIndex', '-1');
+        a.setAttribute('aria-disabled','true');
+        a.setAttribute('tabIndex','-1');
 
-        // دور على الكرت لإضافة الـ overlay
-        var card =
-          a.querySelector('.product-card, .card') ||
-          a.closest('.product-card, .card') || a;
-
-        if (card) {
+        var card = a.querySelector('.product-card, .card') || a.closest('.product-card, .card') || a;
+        if (card && !card.querySelector('.out-of-stock-overlay')) {
           card.classList.add('position-relative');
-          if (!card.querySelector('.out-of-stock-overlay')) {
-            var ov = document.createElement('div');
-            ov.className = 'out-of-stock-overlay';
-            ov.textContent = 'OUT OF STOCK';
-            card.appendChild(ov);
-          }
+          var ov = document.createElement('div');
+          ov.className = 'out-of-stock-overlay';
+          ov.textContent = 'OUT OF STOCK';
+          card.appendChild(ov);
         }
 
-        // إن وُجد زر داخل الرابط عطّله
         var btn = a.querySelector('button[type="submit"]');
         if (btn) btn.disabled = true;
       });
 
-      // لو في فورم يبعث product_id مباشرة
       document.querySelectorAll('form').forEach(function (form) {
-        var pidInput = form.querySelector('input[name="product_id"]');
-        var pid = pidInput && pidInput.value;
+        var el = form.querySelector('input[name="product_id"], input[name="productId"]');
+        var pid = el && el.value;
         if (pid && idSet.has(String(pid))) {
           var btn = form.querySelector('button[type="submit"]');
           if (btn) btn.disabled = true;
@@ -119,3 +106,16 @@
   }
 })();
 </script>
+
+<style>
+.out-of-stock-overlay{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(255,0,0,.18);
+  color:#7a1a1a; font-weight:800; letter-spacing:.5px;
+  border-radius:1rem; backdrop-filter: blur(1px);
+  text-shadow:0 1px 1px rgba(255,255,255,.6);
+}
+.disabled-link { pointer-events:none; cursor:not-allowed; }
+</style>
+
