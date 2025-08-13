@@ -43,11 +43,13 @@
               <div class="product-card border-0 shadow-sm rounded-4 overflow-hidden text-center bg-white h-100 animate-zoom">
 
                 <!-- الصورة (تمامًا مثل نتفلكس: wrapper مربع + img-fluid) -->
-                <div class="product-image-wrapper mb-2 position-relative p-2">
+                <div class="product-image-wrapper mb-2 position-relative">
                   <% if (p.is_out_of_stock) { %>
                     <div class="out-of-stock-overlay">OUT OF STOCK</div>
                   <% } %>
-                  <img src="<%= p.image %>" alt="<%= title %>" class="img-fluid rounded-3">
+                  <img src="<%= p.image %>" alt="<%= p.name %>" class="product-image rounded-3">
+
+
                 </div>
 
                 <!-- الاسم -->
