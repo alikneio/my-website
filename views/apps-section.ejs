@@ -30,8 +30,9 @@
             <a href="/apps/<%= c.slug %>" class="category-card d-block text-decoration-none h-100">
               <div class="card shadow-sm h-100 border-0 rounded-4 overflow-hidden text-center">
                 <div class="p-3">
-                  <img
-                    src="<%= c.image_url || '/images/default-category.png' %>"
+                  <img src="<%= c.image_url || '/images/default-product.png' %>" ...>
+<small><%= c.products_count %> products</small>
+
                     class="card-img img-fluid rounded-3"
                     alt="<%= c.label %>"
                     onerror="this.src='/images/default-category.png'">

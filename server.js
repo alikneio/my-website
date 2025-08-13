@@ -397,27 +397,36 @@ app.get('/accounts', (req, res) => {
     res.render('accounts', { user: req.session.user || null });
 });
 app.get('/games', async (req, res) => {
-  const q = (s,p=[]) => new Promise((ok,no)=>db.query(s,p,(e,r)=>e?no(e):ok(r)));
+  const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
+
   try {
-    const rows = await q(`
-      SELECT id, label, slug, image AS image_url, sort_order, active, products_count
-      FROM api_categories
-      WHERE active = 1 AND section = 'games'
-      ORDER BY sort_order ASC, label ASC
+    const categories = await q(`
+      SELECT
+        c.id,
+        c.label,
+        c.slug,
+        c.image AS image_url,         -- alias
+        c.sort_order,
+        c.active,
+        COUNT(sap.product_id) AS products_count
+      FROM api_categories c
+      LEFT JOIN selected_api_products sap
+        ON sap.category = c.slug AND sap.active = 1
+      WHERE c.active = 1 AND c.section = 'games'
+      GROUP BY c.id, c.label, c.slug, c.image, c.sort_order, c.active
+      ORDER BY c.sort_order ASC, c.label ASC
     `);
 
-    res.render('games', {
+    res.render('games-section', {
       user: req.session.user || null,
-      categories: rows.map(r => ({
-        ...r,
-        image_url: r.image_url || '/images/default-category.png'
-      }))
+      categories
     });
   } catch (err) {
     console.error('Load /games error:', err);
-    res.status(500).send('Failed to load categories');
+    res.status(500).send('Failed to load games categories');
   }
 });
+
 
 app.get('/communication', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Communication'";
@@ -436,27 +445,36 @@ app.get('/communication', (req, res) => {
 // قائمة الأقسام (تظهر للزائر)
 // صفحة اختيار الخدمة (Accounts / Apps)
 app.get('/apps-section', async (req, res) => {
-  const q = (s,p=[]) => new Promise((ok,no)=>db.query(s,p,(e,r)=>e?no(e):ok(r)));
+  const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
+
   try {
-    const rows = await q(`
-      SELECT id, label, slug, image AS image_url, sort_order, active, products_count
-      FROM api_categories
-      WHERE active = 1 AND section = 'apps'
-      ORDER BY sort_order ASC, label ASC
+    const categories = await q(`
+      SELECT
+        c.id,
+        c.label,
+        c.slug,
+        c.image AS image_url,         -- alias ليتوافق مع الواجهة
+        c.sort_order,
+        c.active,
+        COUNT(sap.product_id) AS products_count
+      FROM api_categories c
+      LEFT JOIN selected_api_products sap
+        ON sap.category = c.slug AND sap.active = 1
+      WHERE c.active = 1 AND c.section = 'apps'
+      GROUP BY c.id, c.label, c.slug, c.image, c.sort_order, c.active
+      ORDER BY c.sort_order ASC, c.label ASC
     `);
 
     res.render('apps-section', {
       user: req.session.user || null,
-      categories: rows.map(r => ({
-        ...r,
-        image_url: r.image_url || '/images/default-category.png'
-      }))
+      categories
     });
   } catch (err) {
     console.error('Load /apps-section error:', err);
-    res.status(500).send('Failed to load categories');
+    res.status(500).send('Failed to load apps categories');
   }
 });
+
 
 
 
