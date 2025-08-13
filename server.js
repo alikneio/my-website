@@ -2221,8 +2221,8 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
   const priceToSave    = custom_price ? parseFloat(custom_price) : null;
   const imageToSave    = custom_image || null;
   const nameToSave     = custom_name || null;
-  const categoryToSave = category || null;
   const labelToSave    = unit_label || 'units';
+    const categoryToSave = category ? toSlug(category) : null;
 
   const unitPriceToSave    = variableQtyFlag ? (parseFloat(unit_price) || null)    : null;
   const unitQuantityToSave = variableQtyFlag ? (parseFloat(unit_quantity) || null) : null;
