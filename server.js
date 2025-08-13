@@ -396,39 +396,6 @@ app.get('/login', (req, res) => {
 app.get('/accounts', (req, res) => {
     res.render('accounts', { user: req.session.user || null });
 });
-app.get('/games', async (req, res) => {
-  const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
-  try {
-    const categories = await q(`
-      SELECT
-        c.id,
-        c.label,
-        c.slug,
-        c.image AS image_url,
-        c.sort_order,
-        c.active,
-        COUNT(sap.product_id) AS products_count
-      FROM api_categories c
-      LEFT JOIN selected_api_products sap
-        ON sap.category = c.slug AND sap.active = 1
-      WHERE c.active = 1 AND c.section = 'games'
-      GROUP BY c.id, c.label, c.slug, c.image, c.sort_order, c.active
-      ORDER BY c.sort_order ASC, c.label ASC
-    `);
-
-    res.render('games-section', {
-      user: req.session.user || null,
-      categories: categories.map(c => ({
-        ...c,
-        image_url: c.image_url || '/images/default-category.png'
-      }))
-    });
-  } catch (err) {
-    console.error('Load /games error:', err);
-    res.status(500).send('Failed to load games categories');
-  }
-});
-
 
 
 app.get('/communication', (req, res) => {
