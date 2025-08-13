@@ -1007,6 +1007,15 @@ app.get('/search/json', async (req, res) => {
   }
 });
 
+// ✅ يرجّع IDs المنتجات المقفولة من جدول products
+app.get('/api/out-of-stock', (req, res) => {
+  const sql = 'SELECT id FROM products WHERE is_out_of_stock = 1';
+  db.query(sql, [], (err, rows) => {
+    if (err) { console.error('❌ OOS API error:', err); return res.json([]); }
+    res.json(rows.map(r => String(r.id)));
+  });
+});
+
 
 
 app.post('/buy-quantity-product', checkAuth, async (req, res) => {

@@ -50,3 +50,72 @@
     © 2025 <span class="text-info">AK Cell</span>. All Rights Reserved.
   </div>
 </footer>
+
+<!-- ===== OOS overlay script (runs on all pages that include this footer) ===== -->
+<script>
+(function () {
+  async function applyOutOfStockOverlay() {
+    try {
+      const resp = await fetch('/api/out-of-stock', { credentials: 'same-origin' });
+      const ids = await resp.json();
+      if (!Array.isArray(ids) || ids.length === 0) return;
+
+      const idSet = new Set(ids.map(String));
+
+      // مسك كل روابط الشراء (ثابت + API)
+      const anchors = document.querySelectorAll('a[href*="/checkout/"], a[href*="/api-checkout/"]');
+
+      anchors.forEach(function (a) {
+        const href = a.getAttribute('href') || '';
+        const m = href.match(/\/(?:api-)?checkout\/(\d+)/);
+        if (!m) return;
+        const id = m[1];
+        if (!idSet.has(id)) return;
+
+        // عطّل الرابط
+        a.classList.add('disabled-link');
+        a.setAttribute('aria-disabled', 'true');
+        a.setAttribute('tabIndex', '-1');
+
+        // دور على الكرت لإضافة الـ overlay
+        var card =
+          a.querySelector('.product-card, .card') ||
+          a.closest('.product-card, .card') || a;
+
+        if (card) {
+          card.classList.add('position-relative');
+          if (!card.querySelector('.out-of-stock-overlay')) {
+            var ov = document.createElement('div');
+            ov.className = 'out-of-stock-overlay';
+            ov.textContent = 'OUT OF STOCK';
+            card.appendChild(ov);
+          }
+        }
+
+        // إن وُجد زر داخل الرابط عطّله
+        var btn = a.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+      });
+
+      // لو في فورم يبعث product_id مباشرة
+      document.querySelectorAll('form').forEach(function (form) {
+        var pidInput = form.querySelector('input[name="product_id"]');
+        var pid = pidInput && pidInput.value;
+        if (pid && idSet.has(String(pid))) {
+          var btn = form.querySelector('button[type="submit"]');
+          if (btn) btn.disabled = true;
+          form.style.opacity = '.65';
+        }
+      });
+    } catch (e) {
+      console.warn('OOS overlay error:', e);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyOutOfStockOverlay);
+  } else {
+    applyOutOfStockOverlay();
+  }
+})();
+</script>
