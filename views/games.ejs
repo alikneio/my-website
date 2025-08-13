@@ -3,38 +3,62 @@
 <head>
   <meta charset="UTF-8">
   <title>Games - AK Cell</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- ستايل محلي خفيف لضمان نفس شكل accounts حتى لو custom.css ما عطى نفس النتيجة -->
   <style>
-    .cat-card{transition:.2s; border:0}
-    .cat-card:hover{transform:translateY(-2px)}
-    .cat-img{height:120px; object-fit:contain}
+    .category-card{
+      display:block; text-decoration:none; background:#fff; border-radius:18px;
+      overflow:hidden; box-shadow:0 8px 20px rgba(0,0,0,.08); transition:transform .15s ease;
+    }
+    .category-card:hover{ transform: translateY(-3px); }
+    .category-card .card-img{ width:100%; height:220px; object-fit:cover; display:block; }
+    .category-card .card-body{
+      text-align:center; font-weight:600; padding:12px 14px; color:#111;
+    }
+    .category-card .card-body .small{ font-weight:400; color:#6c757d; margin-top:4px; }
+    .section-title{ font-weight:700; }
+    .hero-section{ text-align:center; padding:48px 12px 0; }
   </style>
 </head>
 <body>
   <%- include('partials/header') %>
 
-  <div class="container my-5">
-    <h1 class="text-center mb-4">Games Categories</h1>
+  <div class="hero-section">
+    <h1 class="display-4">Games Categories</h1>
+    <p class="lead col-lg-8 mx-auto">Choose a game to browse products.</p>
+  </div>
 
-    <% if (!categories || categories.length === 0) { %>
-      <p class="text-center text-muted">No categories to show.</p>
-    <% } else { %>
-      <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
-        <% categories.forEach(c => { %>
+  <div class="container my-5 py-5">
+    <h2 class="text-center section-title">Select a Game</h2>
+
+    <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+      <% if (categories && categories.length) { %>
+        <% categories.forEach(cat => { %>
           <div class="col">
-            <a href="/games/<%= c.slug %>" class="text-decoration-none">
-              <div class="card cat-card shadow-sm text-center p-3 h-100">
-                <img src="<%= c.image_url || '/images/default-category.png' %>" alt="<%= c.label %>" class="cat-img mb-2">
-                <div class="fw-semibold text-dark"><%= c.label %></div>
-                <small class="text-muted"><%= c.products_count %> products</small>
+            <a href="/games/<%= cat.slug %>" class="category-card">
+              <img
+                src="<%= cat.image_url || '/images/default-category.png' %>"
+                class="card-img"
+                alt="<%= cat.label %>"
+                onerror="this.src='/images/default-category.png'">
+              <div class="card-body">
+                <%= cat.label %>
+                <% if (typeof cat.products_count !== 'undefined') { %>
+                  <div class="small"><%= cat.products_count %> products</div>
+                <% } %>
               </div>
             </a>
           </div>
         <% }) %>
-      </div>
-    <% } %>
+      <% } else { %>
+        <div class="col-12 text-center text-muted">No categories found.</div>
+      <% } %>
+    </div>
   </div>
 
   <%- include('partials/footer') %>
