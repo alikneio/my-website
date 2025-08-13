@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title><%= mode === 'create' ? 'Add' : 'Edit' %> API Category</title>
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+
+  <%- include('partials/header') %>
+
+  <div class="container my-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h4 class="mb-3">
+          <%= mode === 'create' ? 'Add New' : 'Edit' %> Category
+        </h4>
+
+        <form method="POST" action="<%= mode === 'create'
+          ? '/admin/api-categories/new'
+          : '/admin/api-categories/' + cat.id + '/edit' %>">
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Label</label>
+              <input type="text" name="label" class="form-control" required value="<%= cat.label || '' %>">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Slug (optional)</label>
+              <input type="text" name="slug" class="form-control" value="<%= cat.slug || '' %>" placeholder="auto-from-label if empty">
+              <div class="form-text">حروف وأرقام وشرطات فقط. مثال: bigo, hiyachat</div>
+            </div>
+
+            <div class="col-md-8">
+              <label class="form-label">Image URL</label>
+              <input type="text" name="image" class="form-control" value="<%= cat.image || '' %>" placeholder="/images/categories/bigo.png">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Sort Order</label>
+              <input type="number" name="sort_order" class="form-control" value="<%= cat.sort_order || 0 %>">
+            </div>
+
+            <div class="col-12">
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="active" name="active" <%= cat.active ? 'checked' : '' %> >
+                <label class="form-check-label" for="active">Active</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between mt-4">
+            <a href="/admin/api-categories" class="btn btn-secondary">← Back</a>
+            <button class="btn btn-success">
+              <i class="bi bi-save me-1"></i> Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <% if (cat.image) { %>
+      <div class="text-center mt-3">
+        <img src="<%= cat.image %>" alt="" style="max-width:220px; border-radius:12px;">
+      </div>
+    <% } %>
+  </div>
+
+  <%- include('partials/footer') %>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

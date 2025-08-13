@@ -3011,6 +3011,144 @@ app.get('/db-test', (req, res) => {
     res.send("✅ DB OK!");
   });
 });
+
+
+// =================== API CATEGORIES (Admin) ===================
+function slugify(str = '') {
+  return String(str)
+    .toLowerCase()
+    .trim()
+    .replace(/[^\u0600-\u06FF\w\s-]/g, '') // يسمح بالعربي والأحرف/الأرقام والفراغ والـ -
+    .replace(/\s+/g, '-')                   // فراغات -> -
+    .replace(/-+/g, '-');                   // دمج - المتتالية
+}
+
+const q = (sql, params = []) =>
+  new Promise((resolve, reject) => db.query(sql, params, (err, rows) => err ? reject(err) : resolve(rows)));
+
+// لائحة الفئات
+app.get('/admin/api-categories', checkAdmin, async (req, res) => {
+  try {
+    const rows = await q(`
+      SELECT c.*, COUNT(sap.product_id) AS products_count
+      FROM api_categories c
+      LEFT JOIN selected_api_products sap ON sap.category = c.slug
+      GROUP BY c.id
+      ORDER BY c.sort_order ASC, c.label ASC
+    `);
+    res.render('admin-api-categories', { user: req.session.user || null, categories: rows, flash: req.session.flash || null });
+    req.session.flash = null;
+  } catch (e) {
+    console.error('List api_categories error:', e);
+    res.status(500).send('Failed to load categories');
+  }
+});
+
+// فورم إضافة
+app.get('/admin/api-categories/new', checkAdmin, (req, res) => {
+  res.render('admin-api-category-form', {
+    user: req.session.user || null,
+    mode: 'create',
+    cat: { label: '', slug: '', image: '', sort_order: 0, active: 1 }
+  });
+});
+
+// حفظ الإضافة
+app.post('/admin/api-categories/new', checkAdmin, async (req, res) => {
+  try {
+    const { label, slug, image, sort_order, active } = req.body;
+    const s = slug ? slugify(slug) : slugify(label);
+    if (!label || !s) {
+      req.session.flash = { type: 'danger', msg: 'Label/Slug مطلوبين.' };
+      return res.redirect('/admin/api-categories/new');
+    }
+    await q(
+      `INSERT INTO api_categories (label, slug, image, sort_order, active)
+       VALUES (?, ?, ?, ?, ?)`,
+      [label, s, image || null, parseInt(sort_order || 0), active ? 1 : 0]
+    );
+    req.session.flash = { type: 'success', msg: 'تم إنشاء الفئة بنجاح.' };
+    res.redirect('/admin/api-categories');
+  } catch (e) {
+    console.error('Create api_category error:', e);
+    req.session.flash = { type: 'danger', msg: e.code === 'ER_DUP_ENTRY' ? 'Slug مستخدم من قبل.' : 'فشل إنشاء الفئة.' };
+    res.redirect('/admin/api-categories/new');
+  }
+});
+
+// فورم تعديل
+app.get('/admin/api-categories/:id/edit', checkAdmin, async (req, res) => {
+  try {
+    const [cat] = await q(`SELECT * FROM api_categories WHERE id = ?`, [req.params.id]);
+    if (!cat) return res.status(404).send('Category not found');
+    res.render('admin-api-category-form', {
+      user: req.session.user || null,
+      mode: 'edit',
+      cat
+    });
+  } catch (e) {
+    console.error('Edit form api_category error:', e);
+    res.status(500).send('Failed to load form');
+  }
+});
+
+// حفظ التعديل
+app.post('/admin/api-categories/:id/edit', checkAdmin, async (req, res) => {
+  try {
+    const { label, slug, image, sort_order, active } = req.body;
+    const s = slug ? slugify(slug) : slugify(label);
+    await q(
+      `UPDATE api_categories
+       SET label = ?, slug = ?, image = ?, sort_order = ?, active = ?
+       WHERE id = ?`,
+      [label, s, image || null, parseInt(sort_order || 0), active ? 1 : 0, req.params.id]
+    );
+    req.session.flash = { type: 'success', msg: 'تم تحديث الفئة.' };
+    res.redirect('/admin/api-categories');
+  } catch (e) {
+    console.error('Update api_category error:', e);
+    req.session.flash = { type: 'danger', msg: e.code === 'ER_DUP_ENTRY' ? 'Slug مستخدم من قبل.' : 'فشل التحديث.' };
+    res.redirect(`/admin/api-categories/${req.params.id}/edit`);
+  }
+});
+
+// تفعيل/تعطيل سريع
+app.post('/admin/api-categories/:id/toggle', checkAdmin, async (req, res) => {
+  try {
+    await q(`UPDATE api_categories SET active = IF(active=1,0,1) WHERE id = ?`, [req.params.id]);
+    res.redirect('/admin/api-categories');
+  } catch (e) {
+    console.error('Toggle api_category error:', e);
+    res.status(500).send('Toggle failed');
+  }
+});
+
+// حذف (يمنع الحذف إذا عليها منتجات)
+app.post('/admin/api-categories/:id/delete', checkAdmin, async (req, res) => {
+  try {
+    const [cat] = await q(`SELECT * FROM api_categories WHERE id = ?`, [req.params.id]);
+    if (!cat) {
+      req.session.flash = { type: 'warning', msg: 'الفئة غير موجودة.' };
+      return res.redirect('/admin/api-categories');
+    }
+    const [{ cnt }] = await q(`SELECT COUNT(*) AS cnt FROM selected_api_products WHERE category = ?`, [cat.slug]);
+    if (cnt > 0) {
+      req.session.flash = { type: 'warning', msg: 'لا يمكن الحذف لأن هناك منتجات مرتبطة. عطّلها بدلًا من ذلك.' };
+      return res.redirect('/admin/api-categories');
+    }
+    await q(`DELETE FROM api_categories WHERE id = ?`, [req.params.id]);
+    req.session.flash = { type: 'success', msg: 'تم الحذف.' };
+    res.redirect('/admin/api-categories');
+  } catch (e) {
+    console.error('Delete api_category error:', e);
+    req.session.flash = { type: 'danger', msg: 'فشل الحذف.' };
+    res.redirect('/admin/api-categories');
+  }
+});
+
+
+
+
 //app.get("/", (req, res) => {
 //  res.send("✅ الموقع شغال!");
 //});

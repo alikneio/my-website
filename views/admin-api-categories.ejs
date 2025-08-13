@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>API Categories</title>
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+
+  <%- include('partials/header') %>
+
+  <div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="m-0">API Categories</h3>
+      <a href="/admin/api-categories/new" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i> Add Category
+      </a>
+    </div>
+
+    <% if (flash) { %>
+      <div class="alert alert-<%= flash.type %>"><%= flash.msg %></div>
+    <% } %>
+
+    <div class="table-responsive shadow-sm">
+      <table class="table table-hover align-middle bg-white">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Label</th>
+            <th>Slug</th>
+            <th>Image</th>
+            <th>Sort</th>
+            <th>Active</th>
+            <th>Products</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (categories && categories.length) { %>
+            <% categories.forEach((c, i) => { %>
+              <tr>
+                <td><%= i+1 %></td>
+                <td><strong><%= c.label %></strong></td>
+                <td><code><%= c.slug %></code></td>
+                <td>
+                  <% if (c.image) { %>
+                    <img src="<%= c.image %>" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;">
+                  <% } else { %>
+                    <span class="text-muted">—</span>
+                  <% } %>
+                </td>
+                <td><%= c.sort_order %></td>
+                <td>
+                  <span class="badge <%= c.active ? 'bg-success' : 'bg-secondary' %>">
+                    <%= c.active ? 'Active' : 'Disabled' %>
+                  </span>
+                </td>
+                <td><%= c.products_count || 0 %></td>
+                <td class="text-end">
+                  <a href="/admin/api-categories/<%= c.id %>/edit" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                  <form action="/admin/api-categories/<%= c.id %>/toggle" method="post" class="d-inline">
+                    <button class="btn btn-sm btn-outline-warning" title="Toggle">
+                      <i class="bi bi-power"></i>
+                    </button>
+                  </form>
+                  <form action="/admin/api-categories/<%= c.id %>/delete" method="post" class="d-inline"
+                        onsubmit="return confirm('Delete this category? (سيُمنع الحذف إذا كانت مرتبطة بمنتجات)');">
+                    <button class="btn btn-sm btn-outline-danger" title="Delete">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          <% } else { %>
+            <tr><td colspan="8" class="text-center text-muted py-4">No categories yet.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <%- include('partials/footer') %>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
