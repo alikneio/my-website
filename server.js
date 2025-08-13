@@ -396,9 +396,29 @@ app.get('/login', (req, res) => {
 app.get('/accounts', (req, res) => {
     res.render('accounts', { user: req.session.user || null });
 });
-app.get('/games', (req, res) => {
-    res.render('games', { user: req.session.user || null });
+app.get('/games', async (req, res) => {
+  const q = (s,p=[]) => new Promise((ok,no)=>db.query(s,p,(e,r)=>e?no(e):ok(r)));
+  try {
+    const rows = await q(`
+      SELECT id, label, slug, image AS image_url, sort_order, active, products_count
+      FROM api_categories
+      WHERE active = 1 AND section = 'games'
+      ORDER BY sort_order ASC, label ASC
+    `);
+
+    res.render('games', {
+      user: req.session.user || null,
+      categories: rows.map(r => ({
+        ...r,
+        image_url: r.image_url || '/images/default-category.png'
+      }))
+    });
+  } catch (err) {
+    console.error('Load /games error:', err);
+    res.status(500).send('Failed to load categories');
+  }
 });
+
 app.get('/communication', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Communication'";
     db.query(sql, [], (err, products) => {
@@ -416,34 +436,28 @@ app.get('/communication', (req, res) => {
 // قائمة الأقسام (تظهر للزائر)
 // صفحة اختيار الخدمة (Accounts / Apps)
 app.get('/apps-section', async (req, res) => {
-  const q = (sql, p=[]) => new Promise((ok, no) => db.query(sql, p, (e,r)=> e?no(e):ok(r)));
-
+  const q = (s,p=[]) => new Promise((ok,no)=>db.query(s,p,(e,r)=>e?no(e):ok(r)));
   try {
     const rows = await q(`
-      SELECT * 
+      SELECT id, label, slug, image AS image_url, sort_order, active, products_count
       FROM api_categories
-      WHERE active = 1
+      WHERE active = 1 AND section = 'apps'
       ORDER BY sort_order ASC, label ASC
     `);
 
-    // نبني صورة الكاتيجوري من أي عمود متوفر
-    const categories = rows.map(r => ({
-      id: r.id,
-      label: r.label,
-      slug: r.slug,
-      image: r.image_url || r.image || '/images/default-category.png',
-      products_count: r.products_count ?? 0
-    }));
-
-    return res.render('accounts', {
+    res.render('apps-section', {
       user: req.session.user || null,
-      categories
+      categories: rows.map(r => ({
+        ...r,
+        image_url: r.image_url || '/images/default-category.png'
+      }))
     });
   } catch (err) {
     console.error('Load /apps-section error:', err);
-    return res.status(500).send('Failed to load categories');
+    res.status(500).send('Failed to load categories');
   }
 });
+
 
 
 
@@ -3237,6 +3251,56 @@ app.get('/apps/:slug', async (req, res) => {
     return res.status(500).send('Failed to load category products');
   }
 });
+app.get('/games/:slug', async (req, res) => {
+  const { slug } = req.params;
+  const q = (sql, p=[]) => new Promise((ok,no)=>db.query(sql,p,(e,r)=>e?no(e):ok(r)));
+
+  try {
+    // تأكد أن الكاتيجوري من قسم الألعاب
+    const [category] = await q(
+      `SELECT id, label, slug, image AS image_url
+       FROM api_categories
+       WHERE slug = ? AND section = 'games' AND active = 1
+       LIMIT 1`, [slug]
+    );
+    if (!category) return res.status(404).send('Category not found');
+
+    const selected = await q(
+      `SELECT * FROM selected_api_products WHERE active = 1 AND category = ?`,
+      [slug]
+    );
+    const selectedMap = new Map(selected.map(p => [Number(p.product_id), p]));
+
+    const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
+    const apiProducts = await getCachedAPIProducts();
+
+    const products = apiProducts
+      .filter(p => selectedMap.has(p.id))
+      .map(p => {
+        const c = selectedMap.get(p.id);
+        const isQty = c.variable_quantity === 1;
+        return {
+          id: p.id,
+          name: c.custom_name || p.name,
+          image: c.custom_image || p.image || '/images/default-product.png',
+          price: isQty ? null : Number(c.custom_price || p.price),
+          variable_quantity: isQty,
+          requires_player_id: (c.player_check ?? p.player_check) ? 1 : 0,
+          is_out_of_stock: c.is_out_of_stock === 1
+        };
+      });
+
+    res.render('api-category-list', {
+      user: req.session.user || null,
+      category,
+      products
+    });
+  } catch (err) {
+    console.error('Load /games/:slug error:', err.response?.data || err.message || err);
+    res.status(500).send('Failed to load category products');
+  }
+});
+
 
 
 
