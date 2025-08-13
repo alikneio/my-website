@@ -1739,6 +1739,7 @@ app.get('/admin/products/edit/:id', checkAdmin, (req, res) => {
 
 app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
   const productId = req.params.id;
+
   const {
     name,
     price,
@@ -1747,15 +1748,18 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
     sub_category,
     sub_category_image,
     player_id_label,
-    notes // ← الحقل الجديد
+    notes
   } = req.body;
 
-  const requires_player_id = req.body.requires_player_id ? 1 : 0;
+  // قيم من الشيك بوكسات
+  const requires_player_id = (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on') ? 1 : 0;
+  const is_out_of_stock   = (req.body.is_out_of_stock   === '1' || req.body.is_out_of_stock   === 'on') ? 1 : 0;
 
   const sql = `
     UPDATE products
     SET name = ?, price = ?, image = ?, main_category = ?, sub_category = ?, 
-        sub_category_image = ?, requires_player_id = ?, player_id_label = ?, notes = ?
+        sub_category_image = ?, requires_player_id = ?, player_id_label = ?, notes = ?,
+        is_out_of_stock = ?
     WHERE id = ?
   `;
 
@@ -1768,20 +1772,19 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
     sub_category_image,
     requires_player_id,
     player_id_label,
-    notes, // ← أضفناها ضمن القيم
+    notes || null,
+    is_out_of_stock,
     productId
   ];
 
-  db.query(sql, values, (err, result) => {
+  db.query(sql, values, (err) => {
     if (err) {
       console.error("❌ Error updating product:", err);
       return res.status(500).send("Database error during update.");
     }
-
-    res.redirect('/admin/products'); // الرجوع بعد الحفظ
+    res.redirect('/admin/products');
   });
 });
-
 
 
 // مسار لعرض كل الطلبات في لوحة تحكم الأدمن
