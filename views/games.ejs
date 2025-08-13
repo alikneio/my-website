@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Apps - AK Cell</title>
+  <title>Games - AK Cell</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="/css/bootstrap.css">
@@ -35,11 +35,11 @@
   <div class="container my-5">
     <h1 class="text-center mb-4">Games Categories</h1>
 
-    <!-- Search بنفس ستايل نتفلكس (يعتمد على custom.css عندك) -->
+    <!-- Search بنفس ستايل نتفلكس -->
     <div class="container my-5">
       <div class="search-bar-container">
         <form id="catsSearchForm" role="search">
-          <input type="search" id="catsSearchInput" class="search-input" placeholder="Search for any service...">
+          <input type="search" id="catsSearchInput" class="search-input" placeholder="Search for any game...">
           <button type="submit" class="search-btn"><i class="bi bi-search"></i></button>
         </form>
       </div>
@@ -51,7 +51,7 @@
       <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
         <% categories.forEach(c => { %>
           <div class="col" data-cat="<%= (c.label||'').toLowerCase() %>">
-            <a href="/apps/<%= c.slug %>" class="text-decoration-none">
+            <a href="/games/<%= c.slug %>" class="text-decoration-none">
               <div class="card cat-card shadow-sm text-center p-3 h-100">
                 <!-- الصورة المربّعة -->
                 <div class="cat-image-wrapper mb-2">
