@@ -3354,6 +3354,28 @@ app.get('/apps/:slug', async (req, res) => {
 });
 
 
+// DEV: dump jawaker-ish items to find the custom-quantity ID
+app.get('/admin/dev/find-jawaker', checkAdmin, async (req, res) => {
+  try {
+    const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
+    const all = await getCachedAPIProducts();
+
+    const needles = ['jawaker', 'جواكر', 'jawakr', 'jwkr', 'كمية', 'مخصصة', 'custom'];
+    const hits = all.filter(p => {
+      const s = `${p.name || ''} ${p.category || ''}`.toLowerCase();
+      return needles.some(n => s.includes(n.toLowerCase()));
+    });
+
+    res.type('json').send(hits.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      product_type: p.product_type || null
+    })));
+  } catch (e) {
+    res.status(500).send({ error: e.message });
+  }
+});
 
 
 
