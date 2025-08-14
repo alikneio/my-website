@@ -3385,6 +3385,19 @@ app.get('/admin/dev/list-quantity', checkAdmin, async (req, res) => {
   }
 });
 
+app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
+  try {
+    const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
+    const list = await getCachedAPIProducts();
+    const id = Number(req.params.id);
+    const product = list.find(p => p.id === id);
+    res.json({ found: !!product, product: product || null });
+  } catch (e) {
+    res.status(500).json({ found: false, error: e.message });
+  }
+});
+
+
 
 
 
