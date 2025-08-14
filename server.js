@@ -2084,39 +2084,49 @@ app.get('/admin/api-products', checkAdmin, async (req, res) => {
       db.query(sql, params, (err, rows) => err ? reject(err) : resolve(rows));
     });
 
-    const page = parseInt(req.query.page) || 1;
+    const page  = parseInt(req.query.page) || 1;
     const limit = 20;
     const offset = (page - 1) * limit;
 
+    // 🔎 جديد: خذ نص البحث (لو موجود)
+    const qRaw = (req.query.q || '').trim();
+    const q = qRaw.toLowerCase();
+
     const apiProducts = await getCachedAPIProducts();
 
-    // ب. جلب التعديلات المحفوظة من قاعدة البيانات
     const customSql = "SELECT * FROM selected_api_products";
     const customProducts = await query(customSql);
     const customProductMap = new Map(customProducts.map(p => [parseInt(p.product_id), p]));
-
-    
 
     const displayProducts = apiProducts.map(apiProduct => {
       const customData = customProductMap.get(apiProduct.id) || {};
       return {
         ...apiProduct,
-        is_selected: customData.active || false,
+        is_selected: !!customData.active,
         custom_price: customData.custom_price,
         custom_image: customData.custom_image
       };
     });
 
-    // د. تطبيق التصفية حسب الصفحة
-    const totalProducts = displayProducts.length;
-    const totalPages = Math.ceil(totalProducts / limit);
-    const paginatedProducts = displayProducts.slice(offset, offset + limit);
+    // 🔎 جديد: فلترة على الكل قبل التقطيع
+    const filtered = q
+      ? displayProducts.filter(p =>
+          (p.name || '').toLowerCase().includes(q) ||
+          String(p.id).includes(q)
+        )
+      : displayProducts;
+
+    // التقطيع بعد الفلترة
+    const totalProducts = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalProducts / limit));
+    const paginatedProducts = filtered.slice(offset, offset + limit);
 
     res.render('admin-api-products', {
       user: req.session.user,
       products: paginatedProducts,
       currentPage: page,
-      totalPages
+      totalPages,
+      q: qRaw,              // 🔎 جديد: مرّر نص البحث للواجهة
     });
 
   } catch (error) {
@@ -2124,6 +2134,7 @@ app.get('/admin/api-products', checkAdmin, async (req, res) => {
     res.status(500).send("❌ Error loading API products.");
   }
 });
+
 
 // مسار لإضافة أو إزالة منتج من الـ API
 app.post('/admin/api-products/toggle', checkAdmin, (req, res) => {

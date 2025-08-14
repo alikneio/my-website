@@ -1,113 +1,134 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Manage API Products</title>
-    <link rel="stylesheet" href="/css/bootstrap.css">
-    <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-
+  <meta charset="UTF-8">
+  <title>Manage API Products</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
 <div class="d-flex">
-    <%- include('partials/admin-sidebar') %>
-    <div class="container-fluid p-4">
-        <h1>Manage API Products</h1>
-        <p>Select which products from DailyCard you want to display on your site.</p>
-        
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Show on Site</th>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Price (Original / Custom)</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% if (products && products.length > 0) { %>
-                        <% products.forEach(product => { %>
-                            <tr>
-                                <td>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input product-toggle" type="checkbox" 
-                                               data-id="<%= product.id %>" 
-                                               <%= product.is_selected ? 'checked' : '' %>>
-                                    </div>
-                                </td>
-                                <td><%= product.id %></td>
-                                <td><%= product.name %></td>
-                               <td>
-    <% if (product.product_type === 'quantity') { %>
-        <span class="text-warning">🔢 Quantity-based</span>
-    <% } else { %>
-        <span class="text-primary">💲 Fixed Price</span>
-    <% } %>
+  <%- include('partials/admin-sidebar') %>
 
-    <br>
-    Original: $<%= parseFloat(product.price).toFixed(2) %>
+  <div class="container-fluid p-4">
+    <h1 class="mb-1">Manage API Products</h1>
+    <p class="text-muted">Select which products from DailyCard you want to display on your site.</p>
 
-    <% if (product.custom_price) { %>
-        <br>
-        <strong class="text-success">Custom: $<%= parseFloat(product.custom_price).toFixed(2) %></strong>
-    <% } %>
-</td>
+    <!-- Search (filters across all pages) -->
+    <form class="d-flex gap-2 mb-3" method="GET" action="/admin/api-products">
+      <input
+        type="search"
+        name="q"
+        class="form-control"
+        placeholder="ابحث بالاسم أو رقم المنتج"
+        value="<%= typeof q !== 'undefined' ? q : '' %>">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> بحث</button>
+      <% if (q) { %>
+        <a class="btn btn-outline-secondary" href="/admin/api-products"><i class="bi bi-x-circle"></i> مسح</a>
+      <% } %>
+    </form>
 
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+        <tr>
+          <th>Show on Site</th>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Price (Original / Custom)</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        <% if (products && products.length > 0) { %>
+          <% products.forEach(product => { %>
+            <tr>
+              <td>
+                <div class="form-check form-switch">
+                  <input
+                    class="form-check-input product-toggle"
+                    type="checkbox"
+                    data-id="<%= product.id %>"
+                    <%= product.is_selected ? 'checked' : '' %>>
+                </div>
+              </td>
+              <td><%= product.id %></td>
+              <td><%= product.name %></td>
+              <td>
+                <% if (product.product_type === 'quantity') { %>
+                  <span class="text-warning">🔢 Quantity-based</span>
+                <% } else { %>
+                  <span class="text-primary">💲 Fixed Price</span>
+                <% } %>
+                <br>
+                Original: $<%= parseFloat(product.price).toFixed(2) %>
+                <% if (product.custom_price) { %>
+                  <br>
+                  <strong class="text-success">Custom: $<%= parseFloat(product.custom_price).toFixed(2) %></strong>
+                <% } %>
+              </td>
+              <td>
+                <a href="/admin/api-products/edit/<%= product.id %>" class="btn btn-warning btn-sm">Edit</a>
+              </td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr>
+            <td colspan="5" class="text-center py-4">
+              <% if (q) { %>
+                لا توجد نتائج لِ "<strong><%= q %></strong>"
+              <% } else { %>
+                No products found from API.
+              <% } %>
+            </td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
 
-                                <td>
-                                    <a href="/admin/api-products/edit/<%= product.id %>" class="btn btn-warning btn-sm">Edit</a>
-                                </td>
-                            </tr>
-                        <% }) %>
-                    <% } else { %>
-                        <tr>
-                            <td colspan="5" class="text-center">No products found from API.</td>
-                        </tr>
-                    <% } %>
-                </tbody>
-            </table>
-            <div class="mt-4 d-flex justify-content-center">
-    <nav>
-        <ul class="pagination">
+      <!-- Pagination -->
+      <div class="mt-4 d-flex justify-content-center">
+        <nav>
+          <ul class="pagination">
             <% for (let i = 1; i <= totalPages; i++) { %>
-                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
-                    <a class="page-link" href="/admin/api-products?page=<%= i %>"><%= i %></a>
-                </li>
+              <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                <a class="page-link"
+                   href="/admin/api-products?page=<%= i %><%= q ? '&q=' + encodeURIComponent(q) : '' %>">
+                  <%= i %>
+                </a>
+              </li>
             <% } %>
-        </ul>
-    </nav>
-</div>
-
-        </div>
+          </ul>
+        </nav>
+      </div>
     </div>
+  </div>
 </div>
-
 
 <script>
-    document.querySelectorAll('.product-toggle').forEach(toggle => {
-        toggle.addEventListener('change', async (e) => {
-            const productId = e.target.dataset.id;
-            const isActive = e.target.checked;
+  document.querySelectorAll('.product-toggle').forEach(toggle => {
+    toggle.addEventListener('change', async (e) => {
+      const productId = e.target.dataset.id;
+      const isActive = e.target.checked;
 
-            try {
-                const response = await fetch('/admin/api-products/toggle', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ productId, isActive })
-                });
-                const result = await response.json();
-                if (!result.success) {
-                    alert('Failed to update product status.');
-                    e.target.checked = !isActive; // Revert checkbox on error
-                }
-            } catch (error) {
-                alert('Connection error.');
-                e.target.checked = !isActive;
-            }
+      try {
+        const response = await fetch('/admin/api-products/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId, isActive })
         });
-        
+        const result = await response.json();
+        if (!result.success) {
+          alert('Failed to update product status.');
+          e.target.checked = !isActive;
+        }
+      } catch (error) {
+        alert('Connection error.');
+        e.target.checked = !isActive;
+      }
     });
+  });
 </script>
 </body>
 </html>
