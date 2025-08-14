@@ -3366,6 +3366,25 @@ app.get('/admin/dev/flush-api-cache', checkAdmin, async (req, res) => {
   }
 });
 
+app.get('/admin/dev/list-quantity', checkAdmin, async (req, res) => {
+  try {
+    // احصل على نسخة "طازة" من دون كاش
+    const products = await getCachedAPIProducts(/* fresh = */ true);
+    const list = (products || [])
+      .filter(p => (p.product_type === 'quantity'))
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        category_id: p.parent_id || null,
+        player_check: !!p.player_check
+      }));
+    res.json(list);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 
 
 
