@@ -3354,22 +3354,37 @@ app.get('/apps/:slug', async (req, res) => {
 });
 
 
-// GET /admin/dev/find-by-ids?ids=107,108,109,110,111
-app.get('/admin/dev/find-by-ids', checkAdmin, async (req, res) => {
+// ابحث عن كل المنتجات غير "package" (غالباً كمية/حساب) أو أي شي فيه min/max غير 1
+// GET /admin/dev/find-quantity-products?term=tokens
+app.get('/admin/dev/find-quantity-products', checkAdmin, async (req, res) => {
   try {
-    const ids = String(req.query.ids || '')
-      .split(',')
-      .map(n => parseInt(n, 10))
-      .filter(Boolean);
+    const term = (req.query.term || '').toLowerCase();
 
     const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
     const all = await getCachedAPIProducts();
 
-    const byId = new Map(all.map(p => [p.id, p]));
-    const out = ids.map(id => ({
-      id,
-      found: byId.has(id),
-      product: byId.get(id) || null
+    const isMatch = (p) => {
+      const name = String(p.name || '').toLowerCase();
+      return !term || name.includes(term);
+    };
+
+    const out = all.filter(p => {
+      const min = p?.qty_values?.min;
+      const max = p?.qty_values?.max;
+      return (
+        isMatch(p) &&
+        (
+          p.product_type !== 'package' ||             // أي نوع غير package
+          (typeof min === 'number' && min !== 1) ||   // أو حدود كمية مختلفة
+          (typeof max === 'number' && max !== 1)
+        )
+      );
+    }).map(p => ({
+      id: p.id,
+      name: p.name,
+      product_type: p.product_type,
+      qty_values: p.qty_values || null,
+      player_check: !!p.player_check
     }));
 
     res.json(out);
