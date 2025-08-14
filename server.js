@@ -3353,6 +3353,19 @@ app.get('/apps/:slug', async (req, res) => {
   }
 });
 
+// Flush API cache
+app.get('/admin/dev/flush-api-cache', checkAdmin, async (req, res) => {
+  try {
+    // لو عندك كاش داخلي بالذاكرة
+    if (global.__apiProductsCache) global.__apiProductsCache = null;
+
+    // ولو بتستخدم ملف/خانة كاش… امسحه هنا لو موجود
+    res.send({ ok: true, flushed: true });
+  } catch (e) {
+    res.status(500).send({ ok: false, error: e.message });
+  }
+});
+
 
 
 
