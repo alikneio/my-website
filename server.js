@@ -3354,30 +3354,29 @@ app.get('/apps/:slug', async (req, res) => {
 });
 
 
-// DEV: dump jawaker-ish items to find the custom-quantity ID
-app.get('/admin/dev/find-jawaker', checkAdmin, async (req, res) => {
+// GET /admin/dev/find-by-ids?ids=107,108,109,110,111
+app.get('/admin/dev/find-by-ids', checkAdmin, async (req, res) => {
   try {
+    const ids = String(req.query.ids || '')
+      .split(',')
+      .map(n => parseInt(n, 10))
+      .filter(Boolean);
+
     const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
     const all = await getCachedAPIProducts();
 
-    const needles = ['jawaker', 'جواكر', 'jawakr', 'jwkr', 'كمية', 'مخصصة', 'custom'];
-    const hits = all.filter(p => {
-      const s = `${p.name || ''} ${p.category || ''}`.toLowerCase();
-      return needles.some(n => s.includes(n.toLowerCase()));
-    });
+    const byId = new Map(all.map(p => [p.id, p]));
+    const out = ids.map(id => ({
+      id,
+      found: byId.has(id),
+      product: byId.get(id) || null
+    }));
 
-    res.type('json').send(hits.map(p => ({
-      id: p.id,
-      name: p.name,
-      price: p.price,
-      product_type: p.product_type || null
-    })));
+    res.json(out);
   } catch (e) {
-    res.status(500).send({ error: e.message });
+    res.status(500).json({ error: e.message });
   }
 });
-
-
 
 
 
