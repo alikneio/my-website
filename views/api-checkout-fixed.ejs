@@ -12,7 +12,6 @@
       background: #f8f9fa;
       font-family: 'Segoe UI', sans-serif;
     }
-
     .checkout-card {
       background: #fff;
       border-radius: 16px;
@@ -20,7 +19,6 @@
       box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
       margin: 0 auto;
     }
-
     @media (max-width: 576px) {
       .checkout-card {
         width: 100% !important;
@@ -45,6 +43,9 @@
       <p class="text-success fs-5 mb-0">
         $<%= (parseFloat(product.custom_price || product.price || 0)).toFixed(2) %>
       </p>
+      <div class="small text-muted mt-1">
+        Balance: $<%= (user ? Number(user.balance || 0).toFixed(2) : '0.00') %>
+      </div>
     </div>
 
     <input type="hidden" id="productId" value="<%= product.id %>">
@@ -84,6 +85,13 @@
       </div>
     <% } %>
 
+    <% 
+      // افتراضات آمنة لو السيرفر ما مرّر canVerify/minCost
+      const _canVerify = (typeof canVerify !== 'undefined') ? !!canVerify : true;
+      const _minCostRaw = (typeof minCost !== 'undefined') ? Number(minCost) : Number(product.price || product.custom_price || 0);
+      const _minCost = isNaN(_minCostRaw) ? 0 : _minCostRaw;
+    %>
+
     <% if (product.requires_verification) { %>
       <div class="mb-3">
         <label class="form-label fw-semibold">Player ID</label>
@@ -92,9 +100,25 @@
             <input type="text" class="form-control form-control-lg" id="playerIdInput" placeholder="Enter Player ID" required>
           </div>
           <div class="col-12 col-md-3 d-grid">
-            <button type="button" class="btn btn-outline-primary btn-lg" onclick="verifyPlayer()">Verify</button>
+            <button 
+              type="button" 
+              id="btnVerify"
+              class="btn btn-outline-primary btn-lg" 
+              onclick="verifyPlayer()"
+              <%= _canVerify ? '' : 'disabled' %>
+              title="<%= _canVerify ? '' : ('Requires balance ≥ $' + Number(_minCost).toFixed(2)) %>">
+              Verify
+            </button>
           </div>
         </div>
+
+        <% if (!_canVerify) { %>
+          <div class="alert alert-warning mt-2 py-2">
+            To verify player ID, your balance must be at least 
+            <strong>$<%= Number(_minCost).toFixed(2) %></strong>.
+          </div>
+        <% } %>
+
         <div id="verifyResult" class="mt-2 small text-muted"></div>
       </div>
     <% } else if (product.requires_player_id) { %>
@@ -110,7 +134,9 @@
 
     <div id="productData"
          data-product-id="<%= product.id %>"
-         data-requires-verification="<%= product.requires_verification ? '1' : '0' %>">
+         data-requires-verification="<%= product.requires_verification ? '1' : '0' %>"
+         data-can-verify="<%= _canVerify ? '1' : '0' %>"
+         data-min-cost="<%= Number(_minCost).toFixed(2) %>">
     </div>
 
   </div>
@@ -122,9 +148,17 @@
 
 <script>
   async function verifyPlayer() {
-    const playerId = document.getElementById("playerIdInput").value.trim();
-    const productId = document.getElementById("productData").dataset.productId;
+    const meta = document.getElementById("productData")?.dataset || {};
+    const canVerify = (meta.canVerify === '1');
+    const minCost = Number(meta.minCost || 0);
+    const playerId = document.getElementById("playerIdInput")?.value.trim();
+    const productId = meta.productId;
     const resultBox = document.getElementById("verifyResult");
+
+    if (!canVerify) {
+      resultBox.innerHTML = "<span class='text-warning'>Balance too low to verify (requires ≥ $"+ (minCost.toFixed ? minCost.toFixed(2) : minCost) +").</span>";
+      return;
+    }
 
     if (!playerId) {
       resultBox.innerHTML = "<span class='text-danger'>Please enter a Player ID first.</span>";

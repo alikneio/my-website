@@ -704,7 +704,6 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
 
 
 
-
 app.get('/api-checkout/:id', checkAuth, async (req, res) => {
   const productId = parseInt(req.params.id, 10);
 
@@ -753,19 +752,50 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
       unit_label: isQuantity ? (product.unit_label || 'units') : undefined,
     };
 
-    // 3) التوجيه حسب النوع + تمرير error للطرفين
+    // 2.1) حساب أقل كلفة لازمة للطلب (minCost) + تحديد إنو مسموح يتحقق أو لأ (canVerify)
+    const floor = Number(process.env.VERIFY_BALANCE_FLOOR || 0) || 0;
+    let minCost = 0;
+
     if (isQuantity) {
-      return res.render('api-checkout-quantity', {
-        user: req.session.user || null,
-        product: productData,
-        error
-      });
+      const uPrice = Number(product.unit_price) || 0;
+      const uQty   = Math.max(1, parseInt(product.unit_quantity || 1, 10));
+      const mQty   = Math.max(1, parseInt(product.min_quantity || 1, 10));
+      const blocks = Math.ceil(mQty / uQty);
+      minCost = parseFloat((blocks * uPrice).toFixed(2));
     } else {
-      return res.render('api-checkout-fixed', {
-        user: req.session.user || null,
-        product: productData,
-        error
-      });
+      // سعر ثابت من التخصيص (أو unit_price إذا مستخدمه كسعر)
+      minCost = Number(product.custom_price || product.unit_price || 0) || 0;
+
+      // لو صفر… جرّب تاخد سعر المزود من الكاش كـ fallback
+      if (minCost === 0) {
+        try {
+          const list = await getCachedAPIProducts();
+          const apiItem = list.find(p => Number(p.id) === Number(productId));
+          if (apiItem) minCost = Number(apiItem.price) || 0;
+        } catch (_) { /* تجاهل */ }
+      }
+    }
+
+    // طبّق أرضية دنيا اختيارية من .env
+    minCost = Math.max(minCost, floor);
+
+    // رصيد المستخدم الحالي من السيشن
+    const userBalance = Number(req.session.user?.balance || 0);
+    const canVerify = userBalance >= minCost;
+
+    // 3) التوجيه حسب النوع + تمرير error + minCost/canVerify للطرفين
+    const viewData = {
+      user: req.session.user || null,
+      product: productData,
+      error,
+      minCost,
+      canVerify
+    };
+
+    if (isQuantity) {
+      return res.render('api-checkout-quantity', viewData);
+    } else {
+      return res.render('api-checkout-fixed', viewData);
     }
 
   } catch (error) {
@@ -1052,14 +1082,73 @@ app.get('/free-fire-section', async (req, res) => {
 // هذا المسار رح يستخدم من خلال AJAX (fetch)
 
 
+// ✅ تحقّق اللاعب: مسموح فقط إذا الرصيد ≥ أقل كلفة للطلب
 app.post('/verify-player', checkAuth, async (req, res) => {
   const { player_id, product_id } = req.body;
+  const userId = req.session.user?.id;
+
+  if (!player_id || !product_id) {
+    return res.status(400).json({ success: false, message: "Missing player_id or product_id" });
+  }
 
   try {
+    // جِب المستخدم + رصيده
+    const [userRow] = await promisePool.query(
+      "SELECT balance FROM users WHERE id = ? LIMIT 1",
+      [userId]
+    );
+    const userBalance = parseFloat(userRow?.[0]?.balance || 0);
+
+    // جِب إعدادات المنتج المختار (لو موجودة)
+    const [selRows] = await promisePool.query(
+      "SELECT * FROM selected_api_products WHERE product_id = ? AND active = 1 LIMIT 1",
+      [product_id]
+    );
+    const sel = selRows?.[0];
+
+    // لو ما في تخصيص، استعن بالكاش تبع المزود
+    let apiPrice = 0, productType = 'package';
+    if (!sel) {
+      const list = await getCachedAPIProducts();
+      const p = list.find(x => Number(x.id) === Number(product_id));
+      if (p) {
+        apiPrice = parseFloat(p.price || 0) || 0;
+        productType = p.product_type || 'package';
+      }
+    }
+
+    // احسب أقل كلفة لازمة للطلب
+    let minCost = 0;
+
+    if (sel && Number(sel.variable_quantity) === 1) {
+      // كمية متغيرة
+      const unitPrice = Number(sel.unit_price) || 0;
+      const unitQty   = Math.max(1, parseInt(sel.unit_quantity || 1, 10));
+      const minQty    = Math.max(1, parseInt(sel.min_quantity || 1, 10));
+      const blocks    = Math.ceil(minQty / unitQty);
+      minCost = parseFloat((blocks * unitPrice).toFixed(2));
+    } else if (sel) {
+      // سعر ثابت
+      minCost = Number(sel.custom_price || sel.unit_price || apiPrice || 0) || 0;
+    } else {
+      // ما عندي تخصيص؟ خُد سعر المزود (ثابت)
+      minCost = apiPrice;
+    }
+
+    // خيار إضافي: أرضية دنيا من .env لو بدك (افتراضي 0)
+    const floor = Number(process.env.VERIFY_BALANCE_FLOOR || 0) || 0;
+    minCost = Math.max(minCost, floor);
+
+    if (userBalance < minCost) {
+      return res.status(403).json({
+        success: false,
+        reason: 'balance',
+        message: `You need at least $${minCost.toFixed(2)} to verify this ID.`
+      });
+    }
+
+    // ✅ مسموح… كمّل التحقق من المزود
     const result = await verifyPlayerId(product_id, player_id);
-
-    console.log("🔽 API Raw Response:", result); // تأكيد بالكونسول
-
     if (result.success === true || result.success === "true") {
       return res.json({
         success: true,
@@ -1069,7 +1158,7 @@ app.post('/verify-player', checkAuth, async (req, res) => {
     } else {
       return res.json({
         success: false,
-        message: "Invalid Player ID."
+        message: result.message || "Invalid Player ID."
       });
     }
 
@@ -1081,6 +1170,7 @@ app.post('/verify-player', checkAuth, async (req, res) => {
     });
   }
 });
+
 
 // GET /search/json?q=...
 app.get('/search/json', async (req, res) => {

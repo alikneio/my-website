@@ -67,7 +67,10 @@
             <img src="<%= product.image %>" class="img-fluid mb-3 mx-auto d-block" style="max-height: 100px;" alt="<%= product.name %>">
           <% } %>
 
-          <h4 class="text-center text-primary fw-bold mb-3"><%= product.name %></h4>
+          <h4 class="text-center text-primary fw-bold mb-1"><%= product.name %></h4>
+          <div class="text-center small text-muted mb-3">
+            Balance: $<%= (user ? Number(user.balance || 0).toFixed(2) : '0.00') %>
+          </div>
 
           <div class="alert alert-light border small text-center">
             <div>
@@ -123,8 +126,15 @@
   </div>
 <% } %>
 
-
-
+          <%
+            // حسابات أوليّة للحد الأدنى والتفعيل المبدئي
+            const _userBalance = user && typeof user.balance !== 'undefined' ? Number(user.balance) : 0;
+            const _unitPrice = Number(product.unit_price || 0) || 0;
+            const _unitQty   = parseInt(product.unit_quantity || 1, 10) || 1;
+            const _minQty    = parseInt(product.min_quantity || _unitQty, 10) || _unitQty;
+            const _minCost   = Number((( _minQty / _unitQty) * _unitPrice).toFixed(2));
+            const _canVerifyInit = _userBalance >= _minCost;
+          %>
 
           <form method="POST" action="/buy-quantity-product">
             <input type="hidden" name="productId" value="<%= product.id %>">
@@ -132,8 +142,16 @@
 
             <div class="mb-3">
               <label class="form-label">Enter quantity</label>
-              <input type="number" class="form-control" id="quantityInput" name="quantity"
-                    value="<%= product.min_quantity %>" min="<%= product.min_quantity %>" max="<%= product.max_quantity %>" required>
+              <input
+                type="number"
+                class="form-control"
+                id="quantityInput"
+                name="quantity"
+                value="<%= product.min_quantity %>"
+                min="<%= product.min_quantity %>"
+                max="<%= product.max_quantity %>"
+                required
+              >
             </div>
 
             <div class="mb-3 fw-semibold text-center">
@@ -155,13 +173,25 @@
     </div>
     <div class="col-4 col-sm-3">
       <button type="button"
+              id="btnVerify"
               class="btn btn-outline-primary w-100"
               onclick="verifyPlayer()"
-              style="height: 42px;">
+              style="height: 42px;"
+              <%= _canVerifyInit ? '' : 'disabled' %>
+              title="<%= _canVerifyInit ? '' : ('Requires balance ≥ $' + _minCost.toFixed(2)) %>">
         Verify
       </button>
     </div>
   </div>
+
+  <% if (!_canVerifyInit) { %>
+    <div id="verifyHint" class="alert alert-warning mt-2 py-2">
+      To verify player ID, your balance must be at least
+      <strong>$<%= _minCost.toFixed(2) %></strong>.
+    </div>
+  <% } else { %>
+    <div id="verifyHint" class="mt-2 small text-muted"></div>
+  <% } %>
 
   <div id="verifyResult" class="mt-2 small text-muted"></div>
 </div>
@@ -185,7 +215,9 @@
   <div id="productData"
        data-product-id="<%= product.id %>"
        data-unit-price="<%= parseFloat(product.unit_price || 0) %>"
-       data-unit-qty="<%= parseInt(product.unit_quantity || 1) %>">
+       data-unit-qty="<%= parseInt(product.unit_quantity || 1) %>"
+       data-user-balance="<%= _userBalance %>"
+       data-min-qty="<%= _minQty %>">
   </div>
 
   <script>
@@ -193,15 +225,37 @@
     const totalPriceEl = document.getElementById('totalPrice');
 
     function calculateTotal() {
-      const unitPrice = parseFloat(document.getElementById('productData').dataset.unitPrice);
-      const unitQty = parseInt(document.getElementById('productData').dataset.unitQty);
-      const qty = parseInt(qtyInput.value);
+      const meta = document.getElementById('productData').dataset;
+      const unitPrice = parseFloat(meta.unitPrice || 0);
+      const unitQty   = parseInt(meta.unitQty || 1);
+      const qty       = parseInt(qtyInput.value);
 
-      if (!isNaN(qty) && qty >= 0) {
-        const total = ((qty / unitQty) * unitPrice).toFixed(2);
-        totalPriceEl.innerText = total;
+      if (!isNaN(qty) && qty >= 0 && unitQty > 0) {
+        const total = (qty / unitQty) * unitPrice;
+        totalPriceEl.innerText = (isFinite(total) ? total.toFixed(2) : '0.00');
+        updateVerifyState(total);
       } else {
         totalPriceEl.innerText = "0.00";
+        updateVerifyState(0);
+      }
+    }
+
+    function updateVerifyState(currentTotal) {
+      const btn = document.getElementById('btnVerify');
+      const hint = document.getElementById('verifyHint');
+      if (!btn) return; // لا يوجد تحقق مطلوب
+
+      const userBalance = parseFloat(document.getElementById('productData').dataset.userBalance || 0) || 0;
+
+      if (userBalance >= currentTotal) {
+        btn.disabled = false;
+        if (hint) hint.innerHTML = "";
+      } else {
+        btn.disabled = true;
+        if (hint) {
+          hint.classList.add('small');
+          hint.innerHTML = "To verify player ID, your balance must be ≥ $" + (isFinite(currentTotal) ? currentTotal.toFixed(2) : '0.00');
+        }
       }
     }
 
@@ -217,12 +271,27 @@
     }
 
     async function verifyPlayer() {
-      const playerId = document.getElementById("playerIdInput")?.value.trim();
-      const productId = document.getElementById("productData").dataset.productId;
-      const resultBox = document.getElementById("verifyResult");
+      const meta = document.getElementById('productData').dataset;
+      const userBalance = parseFloat(meta.userBalance || 0) || 0;
 
+      const unitPrice = parseFloat(meta.unitPrice || 0);
+      const unitQty   = parseInt(meta.unitQty || 1);
+      const qty       = parseInt(qtyInput.value || 0);
+      const required  = (unitQty > 0) ? (qty / unitQty) * unitPrice : Infinity;
+
+      const resultBox = document.getElementById("verifyResult");
+      const btn = document.getElementById("btnVerify");
+
+      const playerId = document.getElementById("playerIdInput")?.value.trim();
       if (!playerId) {
         resultBox.innerHTML = "<span class='text-danger'>Please enter a Player ID first.</span>";
+        return;
+      }
+
+      // حارس رصيد قبل الإرسال
+      if (userBalance < required) {
+        resultBox.innerHTML = "<span class='text-warning'>Balance too low to verify (requires ≥ $" + (isFinite(required) ? required.toFixed(2) : '0.00') + ").</span>";
+        if (btn) btn.disabled = true;
         return;
       }
 
@@ -232,7 +301,7 @@
         const res = await fetch('/verify-player', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ player_id: playerId, product_id: productId })
+          body: JSON.stringify({ player_id: playerId, product_id: meta.productId })
         });
 
         const data = await res.json();
