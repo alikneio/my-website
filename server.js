@@ -71,26 +71,37 @@ app.use(cookieParser());
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
 
+// خلف Proxy (Railway/NGINX) لازم نثق بالـ proxy للـ secure cookies
+app.set('trust proxy', 1);
+
+const isProd = process.env.NODE_ENV === 'production';
+
 // إعدادات MySQLStore
 const sessionStore = new MySQLStore({
-  host: 'nozomi.proxy.rlwy.net',
-  port: 25474,
-  user: 'root',
-  password: 'GrYyLrtHsllLcgVUYAsDoZReIwJodGaQ',
-  database: 'railway'
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT),   // تأكد أنها رقم
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  // createDatabaseTable: true,       // اختياري: ينشئ جدول الجلسات تلقائياً إذا مش موجود
+  // schema: { tableName: 'sessions' } // اختياري: اسم الجدول
 });
 
 // تفعيل الجلسات باستخدام MySQLStore
 app.use(session({
-  key: 'akcell_sid',
-  secret: 'AKCELL_SUPER_SECRET_2025', // غيرها لشي قوي خاص فيك!
+  name: process.env.SESSION_NAME || 'akcell_sid',
+  secret: process.env.SESSION_SECRET,      // ⚠️ لازم تضيفه في .env
   store: sessionStore,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: 1000 * 60 * 60 * 24 // مدة الجلسة = يوم
+    maxAge: 1000 * 60 * 60 * 24,           // يوم
+    httpOnly: true,                         // يمنع الوصول من الجافاسكربت
+    sameSite: 'lax',                        // جيّد لمعظم الحالات (عدّل لـ 'none' مع secure لو عندك cross-site)
+    secure: isProd                          // true فقط على https (production)
   }
 }));
+
 
 
 
@@ -235,7 +246,7 @@ app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
       }
 
       // إرسال إشعار عبر تلغرام للأدمن
-      const botToken = '8205085707:AAFCb4bsiwEIXDMe4pGYEruMBsK4aWSp40I';
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
       const adminChatId = '2096387191';
       const username = req.session.user.username;
 
@@ -331,7 +342,7 @@ app.post('/add-balance/whish/lbp', upload.single('proofImage'), (req, res) => {
       }
 
       // إشعار تلغرام للأدمن
-      const botToken = '8205085707:AAFCb4bsiwEIXDMe4pGYEruMBsK4aWSp40I';
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;;
       const adminChatId = '2096387191';
       const username = req.session.user.username;
 
@@ -947,7 +958,7 @@ app.post('/admin/balance-requests/update/:id', async (req, res) => {
     const { amount, currency, telegram_chat_id: chatId } = reqRows[0];
     if (!chatId) return res.redirect('/admin/balance-requests');
 
-    const botToken = '8205085707:AAFCb4bsiwEIXDMe4pGYEruMBsK4aWSp40I';
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;;
     
     const msg = status === 'approved'
       ? `✅ *تمت الموافقة على طلب تعبئة الرصيد الخاص بك*\n\n💰 القيمة: ${amount} ${currency}\n📌 الحالة: تم القبول.`
