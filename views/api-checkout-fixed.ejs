@@ -8,23 +8,13 @@
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
-    body {
-      background: #f8f9fa;
-      font-family: 'Segoe UI', sans-serif;
-    }
+    body { background: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
     .checkout-card {
-      background: #fff;
-      border-radius: 16px;
-      max-width: 600px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
-      margin: 0 auto;
+      background: #fff; border-radius: 16px; max-width: 600px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.08); margin: 0 auto;
     }
     @media (max-width: 576px) {
-      .checkout-card {
-        width: 100% !important;
-        padding-left: 12px;
-        padding-right: 12px;
-      }
+      .checkout-card { width: 100% !important; padding-left: 12px; padding-right: 12px; }
     }
   </style>
 </head>
@@ -55,38 +45,21 @@
     <% if (safeError || finalMsg) {
       let alertMsg = '';
       switch (safeError) {
-        case 'balance':
-          alertMsg = '❌ Insufficient balance to complete the order.';
-          break;
-        case 'notfound':
-          alertMsg = '❌ Product not found or is disabled.';
-          break;
+        case 'balance': alertMsg = '❌ Insufficient balance to complete the order.'; break;
+        case 'notfound': alertMsg = '❌ Product not found or is disabled.'; break;
         case 'failed':
-        case 'order_failed':
-          alertMsg = '❌ Failed to place your order. Please try again.';
-          break;
-        case 'missing_player':
-          alertMsg = '❌ Player ID is required for this product.';
-          break;
-        case 'verify':
-          alertMsg = `❌ ${decodeURIComponent(finalMsg || 'Player ID verification failed.')}`;
-          break;
-        case 'network':
-          alertMsg = '❌ Network issue. Please try again shortly.';
-          break;
+        case 'order_failed': alertMsg = '❌ Failed to place your order. Please try again.'; break;
+        case 'missing_player': alertMsg = '❌ Player ID is required for this product.'; break;
+        case 'verify': alertMsg = `❌ ${decodeURIComponent(finalMsg || 'Player ID verification failed.')}`; break;
+        case 'network': alertMsg = '❌ Network issue. Please try again shortly.'; break;
         case 'server':
-        default:
-          alertMsg = '❌ An unexpected server error occurred.';
-          break;
+        default: alertMsg = '❌ An unexpected server error occurred.'; break;
       }
     %>
-      <div class="alert alert-danger small text-center my-2">
-        <%= alertMsg %>
-      </div>
+      <div class="alert alert-danger small text-center my-2"><%= alertMsg %></div>
     <% } %>
 
-    <% 
-      // افتراضات آمنة لو السيرفر ما مرّر canVerify/minCost
+    <%
       const _canVerify = (typeof canVerify !== 'undefined') ? !!canVerify : true;
       const _minCostRaw = (typeof minCost !== 'undefined') ? Number(minCost) : Number(product.price || product.custom_price || 0);
       const _minCost = isNaN(_minCostRaw) ? 0 : _minCostRaw;
@@ -100,10 +73,10 @@
             <input type="text" class="form-control form-control-lg" id="playerIdInput" placeholder="Enter Player ID" required>
           </div>
           <div class="col-12 col-md-3 d-grid">
-            <button 
-              type="button" 
+            <button
+              type="button"
               id="btnVerify"
-              class="btn btn-outline-primary btn-lg" 
+              class="btn btn-outline-primary btn-lg"
               onclick="verifyPlayer()"
               <%= _canVerify ? '' : 'disabled' %>
               title="<%= _canVerify ? '' : ('Requires balance ≥ $' + Number(_minCost).toFixed(2)) %>">
@@ -112,12 +85,7 @@
           </div>
         </div>
 
-        <% if (!_canVerify) { %>
-          <div class="alert alert-warning mt-2 py-2">
-            To verify player ID, your balance must be at least 
-            <strong>$<%= Number(_minCost).toFixed(2) %></strong>.
-          </div>
-        <% } %>
+        <!-- تم حذف مربع التحذير الأصفر هنا -->
 
         <div id="verifyResult" class="mt-2 small text-muted"></div>
       </div>
@@ -173,7 +141,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ player_id: playerId, product_id: productId })
       });
-
       const data = await res.json();
 
       if (data.success) {
@@ -201,7 +168,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId, player_id })
       });
-
       const data = await res.json();
 
       if (data.success && data.redirectUrl) {

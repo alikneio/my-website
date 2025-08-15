@@ -9,40 +9,16 @@
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 
   <style>
-    body {
-      background: #f8f9fa;
-      font-family: 'Segoe UI', sans-serif;
-    }
-
+    body { background: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
     .checkout-card {
-      border-radius: 16px;
-      padding: 30px;
-      background: #fff;
-      width: 100%;
-      max-width: 100%;
-      box-shadow: 0 0 20px rgba(0,0,0,0.05);
+      border-radius: 16px; padding: 30px; background: #fff;
+      width: 100%; max-width: 100%; box-shadow: 0 0 20px rgba(0,0,0,0.05);
     }
-
     @media (max-width: 576px) {
-      .checkout-card {
-        width: 100% !important;
-        padding-left: 12px;
-        padding-right: 12px;
-        margin: 0 auto;
-      }
+      .checkout-card { width: 100% !important; padding-left: 12px; padding-right: 12px; margin: 0 auto; }
     }
-
-    .alert-icon {
-      font-size: 1.2rem;
-      margin-right: 6px;
-    }
-
-    .back-link {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      text-decoration: none;
-    }
+    .alert-icon { font-size: 1.2rem; margin-right: 6px; }
+    .back-link { position: absolute; top: 20px; left: 20px; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -92,32 +68,16 @@
 <% if (error || finalMsg) {
   let alertMsg = '';
   switch (error) {
-    case 'balance':
-      alertMsg = '❌ Insufficient balance to complete the order.';
-      break;
-    case 'invalid_quantity':
-      alertMsg = '❌ The quantity you entered is invalid.';
-      break;
-    case 'notfound':
-      alertMsg = '❌ Product not found or is disabled.';
-      break;
+    case 'balance': alertMsg = '❌ Insufficient balance to complete the order.'; break;
+    case 'invalid_quantity': alertMsg = '❌ The quantity you entered is invalid.'; break;
+    case 'notfound': alertMsg = '❌ Product not found or is disabled.'; break;
     case 'failed':
-    case 'order_failed':
-      alertMsg = '❌ Failed to place your order. Please try again.';
-      break;
-    case 'missing_player':
-      alertMsg = `❌ ${decodeURIComponent(finalMsg || 'Player ID is required for this product.')}`;
-      break;
-    case 'verify':
-      alertMsg = `❌ ${decodeURIComponent(finalMsg || 'Player ID verification failed.')}`;
-      break;
-    case 'network':
-      alertMsg = '❌ Network issue. Please try again shortly.';
-      break;
+    case 'order_failed': alertMsg = '❌ Failed to place your order. Please try again.'; break;
+    case 'missing_player': alertMsg = `❌ ${decodeURIComponent(finalMsg || 'Player ID is required for this product.')}`; break;
+    case 'verify': alertMsg = `❌ ${decodeURIComponent(finalMsg || 'Player ID verification failed.')}`; break;
+    case 'network': alertMsg = '❌ Network issue. Please try again shortly.'; break;
     case 'server':
-    default:
-      alertMsg = '❌ An unexpected server error occurred.';
-      break;
+    default: alertMsg = '❌ An unexpected server error occurred.'; break;
   }
 %>
   <div class="alert alert-danger d-flex align-items-center" role="alert">
@@ -127,7 +87,7 @@
 <% } %>
 
           <%
-            // حسابات أوليّة للحد الأدنى والتفعيل المبدئي
+            // حسابات أوليّة للحد الأدنى والتفعيل المبدئي (منطق كما هو)
             const _userBalance = user && typeof user.balance !== 'undefined' ? Number(user.balance) : 0;
             const _unitPrice = Number(product.unit_price || 0) || 0;
             const _unitQty   = parseInt(product.unit_quantity || 1, 10) || 1;
@@ -184,14 +144,8 @@
     </div>
   </div>
 
-  <% if (!_canVerifyInit) { %>
-    <div id="verifyHint" class="alert alert-warning mt-2 py-2">
-      To verify player ID, your balance must be at least
-      <strong>$<%= _minCost.toFixed(2) %></strong>.
-    </div>
-  <% } else { %>
-    <div id="verifyHint" class="mt-2 small text-muted"></div>
-  <% } %>
+  <!-- أزلنا المربع الأصفر نهائياً، وخلّينا مُلمّح بسيط محايد -->
+  <div id="verifyHint" class="mt-2 small text-muted"></div>
 
   <div id="verifyResult" class="mt-2 small text-muted"></div>
 </div>
@@ -254,6 +208,7 @@
         btn.disabled = true;
         if (hint) {
           hint.classList.add('small');
+          // بدون أي ستايل alert أصفر
           hint.innerHTML = "To verify player ID, your balance must be ≥ $" + (isFinite(currentTotal) ? currentTotal.toFixed(2) : '0.00');
         }
       }
@@ -288,7 +243,7 @@
         return;
       }
 
-      // حارس رصيد قبل الإرسال
+      // حارس رصيد قبل الإرسال (منطق كما هو)
       if (userBalance < required) {
         resultBox.innerHTML = "<span class='text-warning'>Balance too low to verify (requires ≥ $" + (isFinite(required) ? required.toFixed(2) : '0.00') + ").</span>";
         if (btn) btn.disabled = true;
