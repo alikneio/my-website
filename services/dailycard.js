@@ -40,24 +40,45 @@ async function verifyPlayerId(productId, playerId) {
   }
 }
 
-async function getOrderStatus(providerOrderId) {
+async function getOrderStatusFromDailycard(providerOrderId) {
   try {
-    // ⛳️ قد يلزم تعديل المسار حسب وثيقة DailyCard (احتمال: /api-keys/orders/status/)
-    const { data } = await dailycardAPI.post('/api-keys/orders/status/', {
-      id: providerOrderId
+    // بعض المزودين بدهم body، وبعضهم querystring. جرّب اللي تحت أولاً:
+    const { data } = await dailycardAPI.post('/api-keys/orders/details/', {
+      id: Number(providerOrderId)
     });
 
-    // توحيد الاستاتسات لأسماء بسيطة
-    const raw = (data?.status || data?.data?.status || '').toString().toLowerCase();
-    return { ok: true, status: raw, raw };
+    // توقّعات شكل الرد (عدّل المابينغ تحت حسب اللي بيرجع):
+    // مثال: { success:true, data:{ id:..., status:"completed" | "processing" | "canceled", message:"..." } }
+    const raw = data?.data || data;
+
+    const statusText = String(raw?.status || '').toLowerCase();
+    let mapped = { local: 'Waiting', adminReply: null };
+
+    if (['completed', 'done', 'success', 'finished'].includes(statusText)) {
+      mapped.local = 'Accepted';
+      mapped.adminReply = 'Your order has been approved and completed successfully.';
+    } else if (['canceled', 'rejected', 'failed', 'error'].includes(statusText)) {
+      mapped.local = 'Rejected';
+      // لو في سبب من المزود ضمّنه:
+      const reason = raw?.message || raw?.reason || 'Your order has been rejected.';
+      mapped.adminReply = /^[A-Za-z0-9]/.test(reason)
+        ? reason
+        : 'Your order has been rejected.'; // ضمان إنكليزي قصير
+    } else {
+      mapped.local = 'Waiting'; // لسه قيد التنفيذ
+      mapped.adminReply = null;
+    }
+
+    return { ok: true, mapped, raw };
   } catch (err) {
-    console.error('❌ getOrderStatus error:', err.response?.data || err.message);
-    return { ok: false, status: null };
+    console.error('❌ DailyCard status error:', err.response?.data || err.message);
+    return { ok: false, error: err.response?.data || err.message };
   }
 }
+
 
 module.exports = {
   dailycardAPI,
   verifyPlayerId,
-  getOrderStatus
+    getOrderStatusFromDailycard,
 };

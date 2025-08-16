@@ -3767,16 +3767,13 @@ app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
 });
 
 
-// ===== Auto-sync provider orders (every 2 minutes) =====
 const makeSyncJob = require('./jobs/syncProviderOrders');
 const syncJob = makeSyncJob(db, promisePool);
 
-// من دون مكتبات إضافية:
 setInterval(() => {
   syncJob().catch(() => {});
 }, 2 * 60 * 1000);
 
-// كمان وفّر مسار يدوي للتجربة
 app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
   try {
     await syncJob();
@@ -3785,7 +3782,6 @@ app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
     res.status(500).send('❌ Sync error: ' + e.message);
   }
 });
-
 
 
 
