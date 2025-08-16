@@ -182,6 +182,13 @@ app.use((req, res, next) => {
         next(); // If no user is logged in, just continue
     }
 });
+app.use((req, res, next) => {
+  const hour = new Date().getHours();
+  if (hour >= 3 && hour < 7) {
+    return res.send('<h1 style="text-align:center;margin-top:50px;">🚧 الموقع في الصيانة من 3 صباحاً إلى 7 صباحاً</h1>');
+  }
+  next();
+});
 
 
 const { isMaintenance, MAINT_START, MAINT_END, MAINT_TZ } = require('./utils/maintenance');
@@ -192,7 +199,7 @@ const EXEMPT = [
   /^\/css\//, /^\/js\//, /^\/images\//, /^\/assets\//,
   /^\/favicon\.ico$/,
   // إذا بدك تسمح للأدمن يفتح دايمًا، فعّل هالسطر:
-  // /^\/admin/
+   /^\/admin/,
 ];
 
 app.use((req, res, next) => {
