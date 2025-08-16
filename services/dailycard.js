@@ -165,3 +165,10 @@ async function getOrderStatusFromDailycard(providerOrderId) {
 
   return { ok: false, error: 'All status endpoint attempts returned no result' };
 }
+
+
+module.exports = {
+  dailycardAPI,
+  verifyPlayerId,
+  getOrderStatusFromDailycard,
+};
