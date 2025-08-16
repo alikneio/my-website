@@ -3524,6 +3524,27 @@ app.get('/order-details/:id', (req, res) => {
 });
 
 
+// Lightweight JSON status for live updates
+app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
+  const orderId = req.params.id;
+  db.query(
+    "SELECT status, admin_reply, order_details, updatedAt FROM orders WHERE id = ?",
+    [orderId],
+    (err, rows) => {
+      if (err || rows.length === 0) return res.status(404).json({ ok:false });
+      const o = rows[0];
+      res.json({
+        ok: true,
+        status: o.status,
+        admin_reply: o.admin_reply || '',
+        order_details: o.order_details || '',
+        updatedAt: o.updatedAt || null
+      });
+    }
+  );
+});
+
+
 app.get('/order-status/:orderId', (req, res) => {
   const orderId = req.params.orderId;
   res.redirect(`/order-details/${orderId}`);
