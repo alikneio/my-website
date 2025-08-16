@@ -40,79 +40,66 @@ async function verifyPlayerId(productId, playerId) {
   }
 }
 
+// =================== getOrderStatusFromDailycard ==================
+// دالة مرنة تجرب عدة مسارات/طرق حتى تجد واحد يشتغل.
 async function getOrderStatusFromDailycard(providerOrderId) {
   const id = String(providerOrderId).trim();
-  // المرشّحات اللي رح نجربها بالترتيب
-  const attempts = [
-    // POST body
-    { method: 'post', url: '/api-keys/orders/details/', data: { order_id: id } },
-    { method: 'post', url: '/api-keys/orders/details',  data: { order_id: id } },
-    { method: 'post', url: '/api-keys/order/details/',  data: { order_id: id } }, // بعض الأنظمة تستعمل المفرد
-    { method: 'post', url: '/api-keys/order/details',   data: { order_id: id } },
 
-    // GET path param
-    { method: 'get',  url: `/api-keys/orders/details/${encodeURIComponent(id)}/` },
-    { method: 'get',  url: `/api-keys/orders/details/${encodeURIComponent(id)}` },
-    { method: 'get',  url: `/api-keys/order/details/${encodeURIComponent(id)}/` },
-    { method: 'get',  url: `/api-keys/order/details/${encodeURIComponent(id)}` },
-  ];
-
-  // دالة مساعدة لاستخراج الحالة من أشكال ردود مختلفة
-  const extractStatus = (payload) => {
-    if (!payload || typeof payload !== 'object') return null;
-    // محاولات شائعة
-    if (payload.status && typeof payload.status === 'string') return payload.status;
-    if (payload.order_status) return payload.order_status;
-    if (payload.data && typeof payload.data.status === 'string') return payload.data.status;
-    if (payload.result && typeof payload.result.status === 'string') return payload.result.status;
-    if (payload.order && typeof payload.order.status === 'string') return payload.order.status;
-    // fallback: إذا كلشي فشل، رجّع النص كله
-    return null;
+  // دوال صغيرة تساعدنا نلتقط الحالة من أي شكل رد
+  const pickStatus = (data) => {
+    if (!data) return null;
+    // احتمالات شائعة
+    return (
+      data.status ||                  // { status: "Accepted" }
+      data.order_status ||            // { order_status: "Completed" }
+      data.state ||                   // { state: "success" }
+      data?.data?.status ||           // { data: { status: "..." } }
+      data?.result?.status ||         // { result: { status: "..." } }
+      null
+    );
   };
 
-  let lastErr = null;
+  // محاولات مختلفة (ترتيب مدروس):
+  const attempts = [
+    // 1) POST body variants لنفس المسار
+    { method: 'post', url: '/api-keys/orders/details/', data: { order_id: id } },
+    { method: 'post', url: '/api-keys/orders/details/', data: { id } },
+    { method: 'post', url: '/api-keys/orders/details/', data: { order: id } },
 
-  for (const a of attempts) {
+    // 2) GET مع Path Param مع/بدون سلاش
+    { method: 'get', url: `/api-keys/orders/details/${id}/` },
+    { method: 'get', url: `/api-keys/orders/details/${id}` },
+
+    // 3) مسارات بديلة محتملة
+    { method: 'post', url: '/api-keys/orders/status/', data: { order_id: id } },
+    { method: 'post', url: '/api-keys/order/status/',  data: { order_id: id } },
+    { method: 'post', url: '/api-keys/orders/view/',   data: { order_id: id } },
+    { method: 'post', url: '/api-keys/orders/get/',    data: { order_id: id } },
+  ];
+
+  for (const attempt of attempts) {
     try {
-      const res = await dailycardAPI.request({
-        method: a.method,
-        url: a.url,
-        ...(a.data ? { data: a.data } : {}),
-        timeout: 20000,
-      });
-
-      // إذا الـ API بيرجع success بوَجه آخر
-      const data = res?.data;
-      const status = extractStatus(data) || (typeof data === 'string' ? data : null);
+      const res = await dailycardAPI.request(attempt);
+      const status = pickStatus(res.data);
       if (status) {
-        console.log(`ℹ️ DailyCard status via ${a.method.toUpperCase()} ${a.url}:`, status);
-        return { ok: true, status, raw: data };
+        return { ok: true, status, raw: res.data };
       }
-
-      // أحياناً بيرجع {success: true, message: "..."} وفيها كلمة النجاح
-      if (data && data.success && data.message) {
-        console.log(`ℹ️ DailyCard msg via ${a.method.toUpperCase()} ${a.url}:`, data.message);
-        return { ok: true, status: String(data.message), raw: data };
-      }
-
-      // إذا وصلنا لهون وما عرفنا نقرأ الحالة، جرّب محاولة تانية
-      lastErr = new Error('Unrecognized status shape');
-    } catch (e) {
-      const body = e?.response?.data;
-      const http = e?.response?.status;
-      // useful logs للتشخيص
-      console.error(`❌ DailyCard status error on ${a.method.toUpperCase()} ${a.url} [${http || 'no-http'}]:`,
-        typeof body === 'string' ? body.slice(0, 200) : body || e.message);
-      lastErr = e;
-      // كمّل لباقي المحاولات
+      // إذا ما لقينا status واضح، خلّيها محاولة فاشلة لنجرب اللي بعدها
+      console.warn(`⚠️ DailyCard details ambiguous on ${attempt.method.toUpperCase()} ${attempt.url}:`, JSON.stringify(res.data).slice(0, 300));
+    } catch (err) {
+      const code = err.response?.status || 'ERR';
+      const body = typeof err.response?.data === 'string'
+        ? err.response.data.slice(0, 200)
+        : JSON.stringify(err.response?.data || '').slice(0, 200);
+      console.error(`❌ DailyCard status error on ${attempt.method.toUpperCase()} ${attempt.url} [${code}]: ${body}`);
     }
   }
 
-  return { ok: false, status: null, error: lastErr?.message || 'All attempts failed' };
+  return { ok: false, error: 'All status endpoint attempts returned no result' };
 }
 
 module.exports = {
   dailycardAPI,
   verifyPlayerId,
-  getOrderStatusFromDailycard, // ⬅️ مهم
+  getOrderStatusFromDailycard,
 };
