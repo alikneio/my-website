@@ -1,94 +1,118 @@
-const { getOrderStatus } = require('../services/dailycard');
+// jobs/syncProviderOrders.js
+const { getOrderStatusFromDailycard } = require('../services/dailycard');
 const sendTelegramMessage = require('../utils/sendTelegramNotification');
 
 module.exports = function makeSyncJob(db, promisePool) {
-  // رسائل الإنكليزي بحسب طلبك
+  // رسائل ثابتة بالإنكليزي
   const APPROVE_MSG_EN = "✅ Your order has been approved and completed successfully.";
   const REJECT_MSG_EN  = "❌ Your order has been rejected. The amount has been refunded to your balance.";
+
+  function withTimeout(promise, ms = 4000) {
+    return Promise.race([
+      promise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+    ]);
+  }
+
+  async function notifyUser(orderId, title, body) {
+    try {
+      const [rows] = await promisePool.query(
+        `SELECT u.telegram_chat_id, o.productName 
+           FROM orders o 
+           JOIN users u ON u.id = o.userId 
+          WHERE o.id = ?`,
+        [orderId]
+      );
+      const chatId = rows?.[0]?.telegram_chat_id;
+      const productName = rows?.[0]?.productName || 'Your product';
+      if (!chatId) return;
+
+      const text = `${title}\n\n🛍️ <b>Product:</b> ${productName}\n${body}`;
+      await withTimeout(
+        sendTelegramMessage(chatId, text, process.env.TELEGRAM_BOT_TOKEN),
+        4000
+      );
+    } catch (e) {
+      console.warn('⚠️ Telegram notify failed:', e.message);
+    }
+  }
 
   async function handleOrder(row) {
     const orderId = row.id;
     const providerOrderId = row.provider_order_id;
     if (!providerOrderId) return;
 
-    const { ok, status } = await getOrderStatus(providerOrderId);
-    if (!ok || !status) return;
+    // نسحب حالة الطلب من المزوّد
+    const res = await getOrderStatusFromDailycard(providerOrderId);
+    if (!res?.ok || !res.mapped) return;
 
-    // توحيد أشهر الحالات
-    const s = status.toLowerCase();
-    const isDone =
-      s.includes('success') || s.includes('completed') || s.includes('done') || s === 'accepted';
-    const isFail =
-      s.includes('fail') || s.includes('canceled') || s.includes('rejected') || s.includes('cancelled');
+    const { local, adminReply } = res.mapped; // local ∈ {Waiting, Accepted, Rejected}
 
-    if (isDone) {
-      // تحديث الحالة إلى Accepted
+    // Waiting → ما منعمل شي
+    if (local === 'Waiting') return;
+
+    if (local === 'Accepted') {
+      // حدّث الحالة والردّ
       await promisePool.query(
-        `UPDATE orders SET status = 'Accepted', admin_reply = ? WHERE id = ?`,
-        [APPROVE_MSG_EN, orderId]
+        `UPDATE orders 
+            SET status = 'Accepted', admin_reply = ? 
+          WHERE id = ?`,
+        [adminReply || APPROVE_MSG_EN, orderId]
       );
 
-      // إشعار تلغرام للمستخدم
-      const [rows] = await promisePool.query(
-        `SELECT u.telegram_chat_id, o.productName 
-           FROM orders o JOIN users u ON u.id = o.userId WHERE o.id = ?`,
-        [orderId]
+      // تيليغرام للمستخدم
+      await notifyUser(
+        orderId,
+        '✅ <b>Order Approved</b>',
+        '📌 <b>Status:</b> Completed'
       );
-      const chatId = rows?.[0]?.telegram_chat_id;
-      const productName = rows?.[0]?.productName || 'Your product';
-      if (chatId) {
-        await sendTelegramMessage(
-          chatId,
-          `✅ <b>Order Approved</b>\n\n🛍️ <b>Product:</b> ${productName}\n📌 <b>Status:</b> Completed`,
-          process.env.TELEGRAM_BOT_TOKEN
-        );
-      }
+
       return;
     }
 
-    if (isFail) {
-      // استرجاع المبلغ + رفض الطلب
+    if (local === 'Rejected') {
+      // حدد صاحب الطلب والمبلغ
       const [[o]] = await promisePool.query(
         `SELECT userId, price FROM orders WHERE id = ? LIMIT 1`,
         [orderId]
       );
-      const userId = o.userId;
-      const price  = parseFloat(o.price || 0) || 0;
+      const userId = o?.userId;
+      const price  = parseFloat(o?.price || 0) || 0;
 
-      await promisePool.query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [price, userId]);
-      await promisePool.query(
-        `INSERT INTO transactions (user_id, type, amount, reason)
-         VALUES (?, 'credit', ?, ?)`,
-        [userId, price, `Refund: Provider rejected order #${orderId}`]
-      );
-      await promisePool.query(
-        `UPDATE orders SET status = 'Rejected', admin_reply = ? WHERE id = ?`,
-        [REJECT_MSG_EN, orderId]
-      );
-
-      // إشعار تلغرام
-      const [rows] = await promisePool.query(
-        `SELECT u.telegram_chat_id, o.productName 
-           FROM orders o JOIN users u ON u.id = o.userId WHERE o.id = ?`,
-        [orderId]
-      );
-      const chatId = rows?.[0]?.telegram_chat_id;
-      const productName = rows?.[0]?.productName || 'Your product';
-      if (chatId) {
-        await sendTelegramMessage(
-          chatId,
-          `❌ <b>Order Rejected</b>\n\n🛍️ <b>Product:</b> ${productName}\n💵 <b>Refund:</b> Added to your balance`,
-          process.env.TELEGRAM_BOT_TOKEN
+      // ارجاع الرصيد + تسجيل حركة + تحديث الطلب
+      if (userId && price > 0) {
+        await promisePool.query(
+          `UPDATE users SET balance = balance + ? WHERE id = ?`,
+          [price, userId]
+        );
+        await promisePool.query(
+          `INSERT INTO transactions (user_id, type, amount, reason)
+           VALUES (?, 'credit', ?, ?)`,
+          [userId, price, `Refund: Provider rejected order #${orderId}`]
         );
       }
+
+      await promisePool.query(
+        `UPDATE orders 
+            SET status = 'Rejected', admin_reply = ? 
+          WHERE id = ?`,
+        [adminReply || REJECT_MSG_EN, orderId]
+      );
+
+      // تيليغرام للمستخدم
+      await notifyUser(
+        orderId,
+        '❌ <b>Order Rejected</b>',
+        '💵 <b>Refund:</b> Added to your balance'
+      );
+
       return;
     }
-
-    // باقي الحالات (processing/pending) → نتركها لمرّة لاحقة
   }
 
   return async function runOnce() {
     try {
+      // التقط فقط طلبات API/dailycard المعلّقة
       const [rows] = await promisePool.query(
         `SELECT id, provider_order_id
            FROM orders
@@ -101,7 +125,11 @@ module.exports = function makeSyncJob(db, promisePool) {
       );
 
       for (const row of rows) {
-        await handleOrder(row);
+        try {
+          await handleOrder(row);
+        } catch (e) {
+          console.error('⚠️ handleOrder error for id', row.id, ':', e.message);
+        }
       }
     } catch (e) {
       console.error('❌ syncProviderOrders runOnce error:', e.message);
