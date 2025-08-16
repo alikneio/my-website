@@ -20,8 +20,14 @@ module.exports = function makeSyncJob(_db, promisePool) {
   const REJECT_MSG_EN  = '❌ Your order has been rejected. The amount has been refunded to your balance.';
 
   // الكلمات الدالة لتحديد الحالة
-  const ACCEPT_KEYWORDS = ['success', 'completed', 'done', 'accepted', 'approved', 'finish', 'finished'];
-  const REJECT_KEYWORDS = ['fail', 'failed', 'canceled', 'cancelled', 'rejected', 'error'];
+  const ACCEPT_KEYWORDS = [
+  'success', 'completed', 'done', 'accepted', 'approved', 'finish', 'finished',
+  'مكتمل', 'ناجح'
+];
+  const REJECT_KEYWORDS = [
+  'fail', 'failed', 'canceled', 'cancelled', 'rejected', 'error',
+  'ملغي', 'مرفوض', 'أُلغي', 'الغيت'
+];
 
   // قالب رسالة التيليغرام (العربية) — نفس القالب اللي عطيتني ياه
   async function sendOrderUpdateTelegram(orderId, statusLabel) {
