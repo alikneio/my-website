@@ -40,10 +40,24 @@ async function verifyPlayerId(productId, playerId) {
   }
 }
 
+async function getOrderStatus(providerOrderId) {
+  try {
+    // ⛳️ قد يلزم تعديل المسار حسب وثيقة DailyCard (احتمال: /api-keys/orders/status/)
+    const { data } = await dailycardAPI.post('/api-keys/orders/status/', {
+      id: providerOrderId
+    });
 
-
+    // توحيد الاستاتسات لأسماء بسيطة
+    const raw = (data?.status || data?.data?.status || '').toString().toLowerCase();
+    return { ok: true, status: raw, raw };
+  } catch (err) {
+    console.error('❌ getOrderStatus error:', err.response?.data || err.message);
+    return { ok: false, status: null };
+  }
+}
 
 module.exports = {
   dailycardAPI,
-  verifyPlayerId
+  verifyPlayerId,
+  getOrderStatus
 };

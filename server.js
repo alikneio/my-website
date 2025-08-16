@@ -1339,9 +1339,9 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     };
 
     const { data: result } = await dailycardAPI.post('/api-keys/orders/create/', orderBody);
-    const orderId = result?.id || result?.data?.id;
+    const providerOrderId = result?.id || result?.data?.id || result?.order_id;
 
-    if (!orderId) {
+    if (!providerOrderId) {
       // رجّع الرصيد إذا فشل الإنشاء عند المزوّد
       await query("UPDATE users SET balance = balance + ? WHERE id = ?", [total, userId]);
       await query(
@@ -1350,8 +1350,8 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
         [userId, total, `Refund: ${product.custom_name || `API Product ${productId}`}`]
       );
 
-      const msg = JSON.stringify(result?.message || '');
-      if (msg.includes("Insufficient balance")) {
+      const msg = JSON.stringify(result || '').toLowerCase();
+      if (msg.includes("insufficient")) {
         return res.redirect(`/api-checkout/${productId}?error=balance`);
       }
       return res.redirect(`/api-checkout/${productId}?error=order_failed`);
@@ -1362,16 +1362,18 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       ? `User ID: ${player_id}, Quantity: ${qty}`
       : `Quantity: ${qty}`;
 
+    // ✅ حفظ الطلب داخليًا + تخزين provider_order_id / provider / source
     const insertSql = `
-      INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status)
-      VALUES (?, ?, ?, NOW(), ?, ?)
+      INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status, provider_order_id, provider, source)
+      VALUES (?, ?, ?, NOW(), ?, ?, ?, 'dailycard', 'api')
     `;
     const insertResult = await query(insertSql, [
       userId,
       product.custom_name || `API Product ${productId}`,
       total,
       orderDetails,
-      orderStatus
+      orderStatus,
+      providerOrderId
     ]);
     const insertId = insertResult.insertId || insertResult[0]?.insertId;
 
@@ -1419,7 +1421,6 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     return res.redirect(`/api-checkout/${productId}?error=server`);
   }
 });
-
 
 
 
@@ -2438,7 +2439,10 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
     const priceNum = parseFloat(product.custom_price || product.unit_price || 0) || 0;
     const price = priceNum.toFixed(2);
 
-    const [user] = await query("SELECT username, balance, telegram_chat_id FROM users WHERE id = ?", [userId]);
+    const [user] = await query(
+      "SELECT username, balance, telegram_chat_id FROM users WHERE id = ?",
+      [userId]
+    );
     const balance = parseFloat(user?.balance || 0);
 
     if (balance < priceNum) {
@@ -2474,9 +2478,9 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
     };
 
     const { data: result } = await dailycardAPI.post('/api-keys/orders/create/', orderBody);
-    const orderIdFromAPI = result?.id || result?.data?.id;
+    const providerOrderId = result?.id || result?.data?.id || result?.order_id;
 
-    if (!orderIdFromAPI) {
+    if (!providerOrderId) {
       // استرجاع الرصيد إذا فشل الإنشاء
       await query("UPDATE users SET balance = balance + ? WHERE id = ?", [priceNum, userId]);
       await query(
@@ -2488,15 +2492,15 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       return res.status(500).json({ success: false, message: "Order failed, refund issued." });
     }
 
-    // حفظ الطلب داخليًا
+    // حفظ الطلب داخليًا (أضفنا provider_order_id + provider + source)
     const orderDetails = player_id ? `User ID: ${player_id}` : '';
     const insertResult = await query(
-      `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status)
-       VALUES (?, ?, ?, NOW(), ?, 'Waiting')`,
-      [userId, product.custom_name || `API Product ${productId}`, price, orderDetails]
+      `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status, provider_order_id, provider, source)
+       VALUES (?, ?, ?, NOW(), ?, 'Waiting', ?, 'dailycard', 'api')`,
+      [userId, product.custom_name || `API Product ${productId}`, price, orderDetails, providerOrderId]
     );
 
-    const insertId = insertResult.insertId || insertResult[0]?.insertId;
+    const insertId = insertResult.insertId || insertResult?.[0]?.insertId;
 
     // إشعار داخلي
     await query(
@@ -2532,6 +2536,7 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error. Please try again later." });
   }
 });
+
 
 
 
@@ -3762,14 +3767,28 @@ app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
 });
 
 
+// ===== Auto-sync provider orders (every 2 minutes) =====
+const makeSyncJob = require('./jobs/syncProviderOrders');
+const syncJob = makeSyncJob(db, promisePool);
+
+// من دون مكتبات إضافية:
+setInterval(() => {
+  syncJob().catch(() => {});
+}, 2 * 60 * 1000);
+
+// كمان وفّر مسار يدوي للتجربة
+app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
+  try {
+    await syncJob();
+    res.send('✅ Sync done');
+  } catch (e) {
+    res.status(500).send('❌ Sync error: ' + e.message);
+  }
+});
 
 
 
 
-
-//app.get("/", (req, res) => {
-//  res.send("✅ الموقع شغال!");
-//});
 
 
 // =============================================
