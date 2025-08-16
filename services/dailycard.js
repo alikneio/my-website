@@ -41,44 +41,78 @@ async function verifyPlayerId(productId, playerId) {
 }
 
 async function getOrderStatusFromDailycard(providerOrderId) {
-  try {
-    // بعض المزودين بدهم body، وبعضهم querystring. جرّب اللي تحت أولاً:
-    const { data } = await dailycardAPI.post('/api-keys/orders/details/', {
-      id: Number(providerOrderId)
-    });
+  const id = String(providerOrderId).trim();
+  // المرشّحات اللي رح نجربها بالترتيب
+  const attempts = [
+    // POST body
+    { method: 'post', url: '/api-keys/orders/details/', data: { order_id: id } },
+    { method: 'post', url: '/api-keys/orders/details',  data: { order_id: id } },
+    { method: 'post', url: '/api-keys/order/details/',  data: { order_id: id } }, // بعض الأنظمة تستعمل المفرد
+    { method: 'post', url: '/api-keys/order/details',   data: { order_id: id } },
 
-    // توقّعات شكل الرد (عدّل المابينغ تحت حسب اللي بيرجع):
-    // مثال: { success:true, data:{ id:..., status:"completed" | "processing" | "canceled", message:"..." } }
-    const raw = data?.data || data;
+    // GET path param
+    { method: 'get',  url: `/api-keys/orders/details/${encodeURIComponent(id)}/` },
+    { method: 'get',  url: `/api-keys/orders/details/${encodeURIComponent(id)}` },
+    { method: 'get',  url: `/api-keys/order/details/${encodeURIComponent(id)}/` },
+    { method: 'get',  url: `/api-keys/order/details/${encodeURIComponent(id)}` },
+  ];
 
-    const statusText = String(raw?.status || '').toLowerCase();
-    let mapped = { local: 'Waiting', adminReply: null };
+  // دالة مساعدة لاستخراج الحالة من أشكال ردود مختلفة
+  const extractStatus = (payload) => {
+    if (!payload || typeof payload !== 'object') return null;
+    // محاولات شائعة
+    if (payload.status && typeof payload.status === 'string') return payload.status;
+    if (payload.order_status) return payload.order_status;
+    if (payload.data && typeof payload.data.status === 'string') return payload.data.status;
+    if (payload.result && typeof payload.result.status === 'string') return payload.result.status;
+    if (payload.order && typeof payload.order.status === 'string') return payload.order.status;
+    // fallback: إذا كلشي فشل، رجّع النص كله
+    return null;
+  };
 
-    if (['completed', 'done', 'success', 'finished'].includes(statusText)) {
-      mapped.local = 'Accepted';
-      mapped.adminReply = 'Your order has been approved and completed successfully.';
-    } else if (['canceled', 'rejected', 'failed', 'error'].includes(statusText)) {
-      mapped.local = 'Rejected';
-      // لو في سبب من المزود ضمّنه:
-      const reason = raw?.message || raw?.reason || 'Your order has been rejected.';
-      mapped.adminReply = /^[A-Za-z0-9]/.test(reason)
-        ? reason
-        : 'Your order has been rejected.'; // ضمان إنكليزي قصير
-    } else {
-      mapped.local = 'Waiting'; // لسه قيد التنفيذ
-      mapped.adminReply = null;
+  let lastErr = null;
+
+  for (const a of attempts) {
+    try {
+      const res = await dailycardAPI.request({
+        method: a.method,
+        url: a.url,
+        ...(a.data ? { data: a.data } : {}),
+        timeout: 20000,
+      });
+
+      // إذا الـ API بيرجع success بوَجه آخر
+      const data = res?.data;
+      const status = extractStatus(data) || (typeof data === 'string' ? data : null);
+      if (status) {
+        console.log(`ℹ️ DailyCard status via ${a.method.toUpperCase()} ${a.url}:`, status);
+        return { ok: true, status, raw: data };
+      }
+
+      // أحياناً بيرجع {success: true, message: "..."} وفيها كلمة النجاح
+      if (data && data.success && data.message) {
+        console.log(`ℹ️ DailyCard msg via ${a.method.toUpperCase()} ${a.url}:`, data.message);
+        return { ok: true, status: String(data.message), raw: data };
+      }
+
+      // إذا وصلنا لهون وما عرفنا نقرأ الحالة، جرّب محاولة تانية
+      lastErr = new Error('Unrecognized status shape');
+    } catch (e) {
+      const body = e?.response?.data;
+      const http = e?.response?.status;
+      // useful logs للتشخيص
+      console.error(`❌ DailyCard status error on ${a.method.toUpperCase()} ${a.url} [${http || 'no-http'}]:`,
+        typeof body === 'string' ? body.slice(0, 200) : body || e.message);
+      lastErr = e;
+      // كمّل لباقي المحاولات
     }
-
-    return { ok: true, mapped, raw };
-  } catch (err) {
-    console.error('❌ DailyCard status error:', err.response?.data || err.message);
-    return { ok: false, error: err.response?.data || err.message };
   }
-}
 
+  return { ok: false, status: null, error: lastErr?.message || 'All attempts failed' };
+}
 
 module.exports = {
   dailycardAPI,
   verifyPlayerId,
-    getOrderStatusFromDailycard,
+  getOrderStatusFromDailycard, // ⬅️ مهم
 };
