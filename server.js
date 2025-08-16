@@ -184,6 +184,48 @@ app.use((req, res, next) => {
 });
 
 
+const { isMaintenance, MAINT_START, MAINT_END, MAINT_TZ } = require('./utils/maintenance');
+
+// مسارات/طلبات بنستثنيها من الصيانة (صحة، ستاتيك، أدمن اختياري)
+const EXEMPT = [
+  /^\/healthz$/,
+  /^\/css\//, /^\/js\//, /^\/images\//, /^\/assets\//,
+  /^\/favicon\.ico$/,
+  // إذا بدك تسمح للأدمن يفتح دايمًا، فعّل هالسطر:
+  // /^\/admin/
+];
+
+app.use((req, res, next) => {
+  if (EXEMPT.some(rx => rx.test(req.path))) return next();
+
+  if (isMaintenance()) {
+    // لو طلب JSON أو XHR رجّع JSON 503
+    const wantsJSON =
+      req.xhr ||
+      req.headers.accept?.includes('application/json') ||
+      req.path.startsWith('/api');
+
+    if (wantsJSON) {
+      return res.status(503).json({
+        success: false,
+        message: 'Service under scheduled maintenance. Please try again later.',
+        maintenance: { tz: MAINT_TZ, fromHour: MAINT_START, toHour: MAINT_END }
+      });
+    }
+
+    // صفحة صيانة جميلة
+    return res.status(503).render('maintenance', {
+      tz: MAINT_TZ,
+      fromHour: MAINT_START.toString().padStart(2, '0') + ':00',
+      toHour: MAINT_END.toString().padStart(2, '0') + ':00'
+    });
+  }
+
+  next();
+});
+
+
+
 // =============================================
 //                  PAGE ROUTES
 // =============================================
@@ -3792,10 +3834,17 @@ const makeSyncJob = require('./jobs/syncProviderOrders');
 const syncJob = makeSyncJob(db, promisePool);
 
 setInterval(() => {
+  if (isMaintenance()) {
+    // ما نعمل sync خلال الصيانة لتوفير موارد
+    return;
+  }
   syncJob().catch(() => {});
 }, 2 * 60 * 1000);
 
 app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
+  if (isMaintenance()) {
+    return res.status(503).send('⛔ Maintenance window — try after it ends.');
+  }
   try {
     await syncJob();
     res.send('✅ Sync done');
@@ -3803,7 +3852,6 @@ app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
     res.status(500).send('❌ Sync error: ' + e.message);
   }
 });
-
 
 
 
