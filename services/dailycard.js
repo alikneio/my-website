@@ -42,57 +42,112 @@ async function verifyPlayerId(productId, playerId) {
 
 // =================== getOrderStatusFromDailycard ==================
 // دالة مرنة تجرب عدة مسارات/طرق حتى تجد واحد يشتغل.
+// داخل services/dailycard.js
+
 async function getOrderStatusFromDailycard(providerOrderId) {
   const id = String(providerOrderId).trim();
 
-  // دوال صغيرة تساعدنا نلتقط الحالة من أي شكل رد
   const pickStatus = (data) => {
     if (!data) return null;
-    // احتمالات شائعة
     return (
-      data.status ||                  // { status: "Accepted" }
-      data.order_status ||            // { order_status: "Completed" }
-      data.state ||                   // { state: "success" }
-      data?.data?.status ||           // { data: { status: "..." } }
-      data?.result?.status ||         // { result: { status: "..." } }
+      data.status ||
+      data.order_status ||
+      data.state ||
+      data?.data?.status ||
+      data?.result?.status ||
       null
     );
   };
 
-  // محاولات مختلفة (ترتيب مدروس):
+  // محاولات جديدة مبنية على اللوج (GET مسموح على /orders/status/)
   const attempts = [
-    // 1) POST body variants لنفس المسار
-    { method: 'post', url: '/api-keys/orders/details/', data: { order_id: id } },
-    { method: 'post', url: '/api-keys/orders/details/', data: { id } },
-    { method: 'post', url: '/api-keys/orders/details/', data: { order: id } },
+    // 1) GET /orders/status/ مع باراميترات
+    { method: 'get', url: '/api-keys/orders/status/', params: { order_id: id } },
+    { method: 'get', url: '/api-keys/orders/status/', params: { id } },
+    { method: 'get', url: '/api-keys/orders/status/', params: { order: id } },
 
-    // 2) GET مع Path Param مع/بدون سلاش
-    { method: 'get', url: `/api-keys/orders/details/${id}/` },
-    { method: 'get', url: `/api-keys/orders/details/${id}` },
+    // 2) نفس الشي بدون السلاش الختامي
+    { method: 'get', url: '/api-keys/orders/status', params: { order_id: id } },
+    { method: 'get', url: '/api-keys/orders/status', params: { id } },
+    { method: 'get', url: '/api-keys/orders/status', params: { order: id } },
 
-    // 3) مسارات بديلة محتملة
-    { method: 'post', url: '/api-keys/orders/status/', data: { order_id: id } },
-    { method: 'post', url: '/api-keys/order/status/',  data: { order_id: id } },
-    { method: 'post', url: '/api-keys/orders/view/',   data: { order_id: id } },
-    { method: 'post', url: '/api-keys/orders/get/',    data: { order_id: id } },
+    // 3) احتمال يكون في اندبوينت لائحة + تصفية
+    { method: 'get', url: '/api-keys/orders/', params: { order_id: id } },
+    { method: 'get', url: '/api-keys/orders',  params: { order_id: id } },
+    { method: 'get', url: '/api-keys/orders/', params: { id } },
+    { method: 'get', url: '/api-keys/orders',  params: { id } },
   ];
 
   for (const attempt of attempts) {
     try {
       const res = await dailycardAPI.request(attempt);
-      const status = pickStatus(res.data);
+      // جرّب نقرأ الحالة مباشرة
+      let status = pickStatus(res.data);
+
+      // إذا الرد عبارة عن لائحة، جرّب لاقي الطلب ونقرأ حالته
+      if (!status && Array.isArray(res.data)) {
+        const match = res.data.find(
+          (o) =>
+            String(o.id) === id ||
+            String(o.order_id) === id ||
+            String(o.provider_order_id) === id
+        );
+        if (match) status = pickStatus(match) || match.status || match.order_status || match.state || null;
+      }
+
+      // أحيانًا بيرجع {data: {...}} أو {result: {...}}
+      if (!status && res.data?.data) {
+        status = pickStatus(res.data.data);
+      }
+      if (!status && res.data?.result) {
+        status = pickStatus(res.data.result);
+      }
+
       if (status) {
         return { ok: true, status, raw: res.data };
       }
-      // إذا ما لقينا status واضح، خلّيها محاولة فاشلة لنجرب اللي بعدها
-      console.warn(`⚠️ DailyCard details ambiguous on ${attempt.method.toUpperCase()} ${attempt.url}:`, JSON.stringify(res.data).slice(0, 300));
+
+      console.warn(
+        `⚠️ DailyCard status ambiguous on ${attempt.method.toUpperCase()} ${attempt.url} params=${JSON.stringify(attempt.params || {})}:`,
+        JSON.stringify(res.data).slice(0, 300)
+      );
     } catch (err) {
       const code = err.response?.status || 'ERR';
-      const body = typeof err.response?.data === 'string'
+      const body =
+        typeof err.response?.data === 'string'
+          ? err.response.data.slice(0, 200)
+          : JSON.stringify(err.response?.data || '').slice(0, 200);
+      console.error(
+        `❌ DailyCard status error on ${attempt.method.toUpperCase()} ${attempt.url} [${code}]: ${body}`
+      );
+    }
+  }
+
+  // محاولة أخيرة: جيب لستة عامة (من غير باراميترات) وفتّش
+  try {
+    const res = await dailycardAPI.get('/api-keys/orders/');
+    if (Array.isArray(res.data)) {
+      const match = res.data.find(
+        (o) =>
+          String(o.id) === id ||
+          String(o.order_id) === id ||
+          String(o.provider_order_id) === id
+      );
+      const status =
+        pickStatus(match) ||
+        match?.status ||
+        match?.order_status ||
+        match?.state ||
+        null;
+      if (status) return { ok: true, status, raw: match };
+    }
+  } catch (err) {
+    const code = err.response?.status || 'ERR';
+    const body =
+      typeof err.response?.data === 'string'
         ? err.response.data.slice(0, 200)
         : JSON.stringify(err.response?.data || '').slice(0, 200);
-      console.error(`❌ DailyCard status error on ${attempt.method.toUpperCase()} ${attempt.url} [${code}]: ${body}`);
-    }
+    console.error(`❌ DailyCard fallback list error [${code}]: ${body}`);
   }
 
   return { ok: false, error: 'All status endpoint attempts returned no result' };
