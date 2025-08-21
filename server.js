@@ -673,6 +673,16 @@ app.get('/netflixL-section', (req, res) => {
         });
     });
 });
+app.get('/iptv-section', (req, res) => {
+    const sql = "SELECT * FROM products WHERE sub_category = 'IPTV'";
+    db.query(sql, [], (err, products) => {
+        if (err) throw err;
+        res.render('iptv-section', {
+            user: req.session.user || null,
+            products: products
+        });
+    });
+});
 
 
 
