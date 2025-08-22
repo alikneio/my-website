@@ -3669,24 +3669,26 @@ app.get('/admin/api-categories/new', checkAdmin, (req, res) => {
   res.render('admin-api-category-form', {
     user: req.session.user || null,
     mode: 'create',
-    cat: { label: '', slug: '', image: '', sort_order: 0, active: 1 }
+     cat: { label: '', slug: '', image: '', sort_order: 0, active: 1, section: 'games' }
   });
 });
 
 // حفظ الإضافة
 app.post('/admin/api-categories/new', checkAdmin, async (req, res) => {
   try {
-    const { label, slug, image, sort_order, active } = req.body;
+    const { label, slug, image, sort_order, active, section } = req.body;
     const s = slug ? slugify(slug) : slugify(label);
+     const allowed = ['apps', 'games'];
+     const sec = allowed.includes(String(section)) ? section : 'games';
     if (!label || !s) {
       req.session.flash = { type: 'danger', msg: 'Label/Slug مطلوبين.' };
       return res.redirect('/admin/api-categories/new');
     }
-    await q(
-      `INSERT INTO api_categories (label, slug, image, sort_order, active)
-       VALUES (?, ?, ?, ?, ?)`,
-      [label, s, image || null, parseInt(sort_order || 0), active ? 1 : 0]
-    );
+     await q(
+     `INSERT INTO api_categories (label, slug, section, image, sort_order, active)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+     [label, s, sec, image || null, parseInt(sort_order || 0), active ? 1 : 0]
+   );
     req.session.flash = { type: 'success', msg: 'تم إنشاء الفئة بنجاح.' };
     res.redirect('/admin/api-categories');
   } catch (e) {
@@ -3715,13 +3717,15 @@ app.get('/admin/api-categories/:id/edit', checkAdmin, async (req, res) => {
 // حفظ التعديل
 app.post('/admin/api-categories/:id/edit', checkAdmin, async (req, res) => {
   try {
-    const { label, slug, image, sort_order, active } = req.body;
+    const { label, slug, image, sort_order, active, section } = req.body;
     const s = slug ? slugify(slug) : slugify(label);
+    const allowed = ['apps', 'games'];
+    const sec = allowed.includes(String(section)) ? section : 'games';
     await q(
       `UPDATE api_categories
-       SET label = ?, slug = ?, image = ?, sort_order = ?, active = ?
+       SET label = ?, slug = ?, section = ?, image = ?, sort_order = ?, active = ?
        WHERE id = ?`,
-      [label, s, image || null, parseInt(sort_order || 0), active ? 1 : 0, req.params.id]
+      [label, s, sec, image || null, parseInt(sort_order || 0), active ? 1 : 0, req.params.id]
     );
     req.session.flash = { type: 'success', msg: 'تم تحديث الفئة.' };
     res.redirect('/admin/api-categories');

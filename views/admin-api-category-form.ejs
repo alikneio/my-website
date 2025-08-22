@@ -33,6 +33,14 @@
               <div class="form-text">حروف وأرقام وشرطات فقط. مثال: bigo, hiyachat</div>
             </div>
 
+            <div class="mb-3">
+  <label class="form-label">Section</label>
+  <select name="section" class="form-control">
+    <option value="apps"  <%= cat.section === 'apps'  ? 'selected' : '' %>>Apps</option>
+    <option value="games" <%= cat.section === 'games' ? 'selected' : '' %>>Games</option>
+  </select>
+</div>
+
             <div class="col-md-8">
               <label class="form-label">Image URL</label>
               <input type="text" name="image" class="form-control" value="<%= cat.image || '' %>" placeholder="/images/webp/categories/bigo.webp">
