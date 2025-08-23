@@ -6,8 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
- <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 </head>
 <body>
 
@@ -22,7 +21,7 @@
 
         <!-- اسم المنتج والسعر -->
         <h4 class="fw-bold mb-1"><%= product.name %></h4>
-        <p class="fs-5 text-success mb-3">$<%= parseFloat(product.price).toFixed(2) %></p>
+        <p class="fs-5 text-success mb-3">$<%= Number(product.price).toFixed(2) %></p>
 
         <!-- ملاحظات المنتج إن وجدت -->
         <% if (product.notes) { %>
@@ -35,23 +34,29 @@
         <form id="sql-buy-form" method="POST" enctype="multipart/form-data">
           <input type="hidden" name="productId" value="<%= product.id %>">
 
+          <!-- مفتاح عدم التكرار -->
+          <input type="hidden" name="idempotency_key" value="<%= idemKey %>">
+
           <% if (product.requires_player_id == 1) { %>
             <div class="mb-3">
               <label for="playerId" class="form-label">
                 <%= product.player_id_label || 'Player ID' %>
               </label>
-              <input 
-                type="text" 
-                class="form-control" 
-                id="playerId" 
-                name="playerId" 
-                placeholder="Enter <%= product.player_id_label || 'Player ID' %>" 
+              <input
+                type="text"
+                class="form-control"
+                id="playerId"
+                name="playerId"
+                placeholder="Enter <%= product.player_id_label || 'Player ID' %>"
                 required
               >
             </div>
           <% } %>
 
-          <button type="submit" class="btn btn-success w-100">Buy Now</button>
+          <button id="buyBtn" type="submit" class="btn btn-success w-100">
+            <span class="btn-text">Buy Now</span>
+            <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+          </button>
         </form>
 
       </div>
@@ -60,41 +65,68 @@
 
   <%- include('partials/footer') %>
 
-  <!-- مكتبة SweetAlert2 -->
+  <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
   <!-- Bootstrap -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/main.js"></script>
 
   <!-- سكريبت الشراء -->
   <script>
     const form = document.getElementById('sql-buy-form');
+    const buyBtn = document.getElementById('buyBtn');
+    const btnText = buyBtn.querySelector('.btn-text');
+    const btnSpinner = buyBtn.querySelector('.spinner-border');
+    let submitting = false;
+
+    function setLoading(state) {
+      submitting = state;
+      buyBtn.disabled = state;
+      if (state) {
+        btnSpinner.classList.remove('d-none');
+        btnText.textContent = 'Processing...';
+      } else {
+        btnSpinner.classList.add('d-none');
+        btnText.textContent = 'Buy Now';
+      }
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-
-      const formData = new FormData(form);
+      if (submitting) return;           // حارس إضافي
+      setLoading(true);
 
       try {
-        const res = await fetch('/buy', {
-          method: 'POST',
-          body: formData
-        });
+        const formData = new FormData(form);
+        const res = await fetch('/buy', { method: 'POST', body: formData });
+
+        // بعض السيرفرات قد ترجع Redirect مباشرة (نادر مع fetch+JSON، بس للاحتياط)
+        if (res.redirected) {
+          window.location.href = res.url;
+          return;
+        }
 
         const data = await res.json();
 
         if (!data.success) {
+          setLoading(false);
           Swal.fire({
             icon: 'error',
             title: 'خطأ',
             text: data.message || 'حدث خطأ أثناء تنفيذ العملية.'
           });
+          return;
+        }
+
+        // دعم redirectUrl من السيرفر
+        if (data.redirectUrl) {
+          window.location.href = data.redirectUrl;
         } else {
           window.location.href = '/processing';
         }
 
       } catch (err) {
+        console.error(err);
+        setLoading(false);
         Swal.fire({
           icon: 'error',
           title: 'فشل العملية',

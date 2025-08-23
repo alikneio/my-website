@@ -732,18 +732,29 @@ app.get('/my-orders', checkAuth, (req, res) => {
 
 
 app.get('/checkout/:id', checkAuth, (req, res) => {
-  const productId = parseInt(req.params.id);
+  const productId = parseInt(req.params.id, 10);
   const error = req.query.error || null;
 
-  const sql = "SELECT * FROM products WHERE id = ?";
+  // إذا عندك عمود active بالجدول، استعمله. إذا ما عندك، رجّع للسطر القديم:
+  const sql = "SELECT * FROM products WHERE id = ? /* AND active = 1 */";
+
   db.query(sql, [productId], (err, results) => {
-    if (err || results.length === 0) {
+    if (err || !results || results.length === 0) {
       return res.status(404).send('❌ Product not found.');
     }
 
     const product = results[0];
     product.source = 'sql';
 
+    // (اختياري) لو عندك عمود is_out_of_stock بالجدول
+    if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
+      const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
+      if (oos) {
+        return res.status(403).send('This product is currently out of stock.');
+      }
+    }
+
+    // رسائل الخطأ
     let errorMessage = '';
     if (error === 'balance') {
       errorMessage = 'Insufficient balance.';
@@ -751,16 +762,23 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
       errorMessage = 'Server error during purchase. Please try again.';
     }
 
-    const notes = product.notes && product.notes.trim() !== '' ? product.notes.trim() : null;
+    // ملاحظات المنتج
+    const notes = (product.notes && String(product.notes).trim() !== '') ? String(product.notes).trim() : null;
 
-    res.render('checkout', {
-      user: req.session.user,
+    // ✅ ولادة idempotency key وتمريره للواجهة
+    const idemKey = uuidv4();
+    req.session.idemKey = idemKey;
+
+    return res.render('checkout', {
+      user: req.session.user || null,
       product,
       error: errorMessage,
-      notes
+      notes,
+      idemKey              // ← مهم: استعمله hidden input بالـ EJS
     });
   });
 });
+
 
 
 
@@ -1643,28 +1661,56 @@ app.post('/profile/update-email', checkAuth, (req, res) => {
 
 
 
-app.post('/buy', checkAuth, uploadNone.none(), (req, res) => {
-
-  const { productId, playerId } = req.body;
+app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
+  const { productId, playerId, idempotency_key: bodyIdemKey } = req.body;
   const user = req.session.user;
+  if (!user?.id) return res.status(401).json({ success: false, message: 'Session expired. Please log in.' });
 
-  if (!productId) {
-    return res.status(400).json({ success: false, message: 'Invalid product ID' });
-  }
+  // ✅ Idempotency: من الـ body أو من السيشن (fallback)
+  const idemKey = (bodyIdemKey || req.session.idemKey || '').toString().slice(0, 64);
 
-  const productSql = 'SELECT * FROM products WHERE id = ?';
-  db.query(productSql, [productId], (err, result) => {
-    if (err || result.length === 0) {
+  // helper (وحدة استعلام بالبرومس)
+  const q = (sql, params = []) => new Promise((resolve, reject) => {
+    db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
+  });
+
+  try {
+    // 0) Idempotency gate (اختياري لكنه مفضّل)
+    if (idemKey) {
+      try {
+        await q(`INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`, [user.id, idemKey]);
+        // إذا نجح الإدراج → أول طلب، كمّل طبيعي
+      } catch (e) {
+        // مفتاح مكرر → اعتبر الطلب مكرر: لا خصم، لا إدخال Order
+        return res.json({ success: true, redirectUrl: '/processing' });
+      }
+    }
+
+    if (!productId) {
+      return res.status(400).json({ success: false, message: 'Invalid product ID' });
+    }
+
+    // 1) جلب المنتج
+    const productSql = 'SELECT * FROM products WHERE id = ? AND active = 1';
+    const result = await q(productSql, [productId]);
+    if (!result?.length) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
     const product = result[0];
-    const purchasePrice = parseFloat(product.price);
 
+    // 2) السعر
+    const purchasePrice = Number(product.price || 0);
+    if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
+      return res.status(400).json({ success: false, message: 'Pricing error' });
+    }
+
+    // 3) تحقق رصيد سريع (دليل مبكر فقط؛ الخصم الحقيقي بالترانزاكشن كما هو)
     if (user.balance < purchasePrice) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
+    // 4) قيم جاهزة
     const newBalance = user.balance - purchasePrice;
     const now = new Date();
     const orderDetails = playerId && playerId.trim() !== '' ? playerId.trim() : null;
@@ -1680,64 +1726,64 @@ app.post('/buy', checkAuth, uploadNone.none(), (req, res) => {
     `;
     const notifMsg = `✅ تم استلام طلبك (${product.name}) بنجاح. سيتم معالجته قريبًا.`;
 
-    // ✅ النسخة الجديدة المعتمدة على Pool + Transaction
-    (async () => {
-      const conn = await promisePool.getConnection();
+    // ✅ النسخة المعتمدة على Pool + Transaction (منطقك نفسه)
+    const conn = await promisePool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // خصم الرصيد (تبقي منطقك كما هو)
+      await conn.query(updateUserSql, [newBalance, user.id]);
+
+      // إدخال الطلب
+      const [orderResult] = await conn.query(insertOrderSql, [
+        user.id,
+        product.name,
+        purchasePrice,
+        now,
+        orderDetails
+      ]);
+      const orderId = orderResult.insertId;
+
+      // إشعار داخلي
+      await conn.query(notifSql, [user.id, notifMsg]);
+
+      // إنهاء المعاملة
+      await conn.commit();
+
+      // 🔔 إشعارات تيليغرام بعد الـ COMMIT (منطقك كما هو)
       try {
-        await conn.beginTransaction();
-
-        // خصم الرصيد
-        await conn.query(updateUserSql, [newBalance, user.id]);
-
-        // إدخال الطلب
-        const [orderResult] = await conn.query(
-          insertOrderSql,
-          [user.id, product.name, purchasePrice, now, orderDetails]
+        const [rows] = await promisePool.query(
+          'SELECT telegram_chat_id FROM users WHERE id = ?',
+          [user.id]
         );
-        const orderId = orderResult.insertId;
+        const chatId = rows[0]?.telegram_chat_id;
 
-        // إشعار داخلي
-        await conn.query(notifSql, [user.id, notifMsg]);
-
-        // إنهاء المعاملة
-        await conn.commit();
-
-        // 🔔 إشعارات تيليغرام بعد الـ COMMIT (نفس منطقك)
-        try {
-          // جلب chat_id
-          const [rows] = await promisePool.query(
-            "SELECT telegram_chat_id FROM users WHERE id = ?",
-            [user.id]
-          );
-          const chatId = rows[0]?.telegram_chat_id;
-
-          if (chatId) {
-            const msg = `
+        if (chatId) {
+          const msg = `
 📥 *تم استلام طلبك بنجاح*
 
 🛍️ *المنتج:* ${product.name}
 💰 *السعر:* ${purchasePrice}$
 📌 *الحالة:* جاري المعالجة
-            `.trim();
+          `.trim();
 
-            try {
-              await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                chat_id: chatId,
-                text: msg,
-                parse_mode: 'Markdown'
-              });
-              // console.log("✅ Telegram message sent to user:", chatId);
-            } catch (e) {
-              console.warn("⚠️ Failed to send Telegram to user:", e.message);
-            }
-          } else {
-            console.log("ℹ️ No valid telegram_chat_id found, or user hasn't messaged bot yet.");
-          }
-
-          // إشعار تيليغرام للإدمن
           try {
-            const adminChatId = '2096387191'; // ← غيّره إذا لزم
-            const adminMsg = `
+            await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+              chat_id: chatId,
+              text: msg,
+              parse_mode: 'Markdown'
+            });
+          } catch (e) {
+            console.warn('⚠️ Failed to send Telegram to user:', e.message);
+          }
+        } else {
+          console.log("ℹ️ No valid telegram_chat_id found, or user hasn't messaged bot yet.");
+        }
+
+        // إشعار تيليغرام للإدمن
+        try {
+          const adminChatId = '2096387191'; // ← عدّل إذا لزم
+          const adminMsg = `
 🆕 <b>طلب جديد!</b>
 
 👤 <b>الزبون:</b> ${user.username}
@@ -1745,41 +1791,43 @@ app.post('/buy', checkAuth, uploadNone.none(), (req, res) => {
 💰 <b>السعر:</b> ${purchasePrice}$
 📋 <b>التفاصيل:</b> ${orderDetails || 'لا يوجد'}
 🕒 <b>الوقت:</b> ${now.toLocaleString()}
+          `.trim();
 
-افتح لوحة الإدارة لمتابعة الطلب 👨‍💻
-            `.trim();
-
-            await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-              chat_id: adminChatId,
-              text: adminMsg,
-              parse_mode: 'HTML'
-            });
-            console.log("📢 Admin notified via Telegram");
-          } catch (e) {
-            console.warn("⚠️ Failed to notify admin via Telegram:", e.message);
-          }
+          await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            chat_id: adminChatId,
+            text: adminMsg,
+            parse_mode: 'HTML'
+          });
+          console.log('📢 Admin notified via Telegram');
         } catch (e) {
-          console.warn("⚠️ Telegram notification flow error:", e.message);
+          console.warn('⚠️ Failed to notify admin via Telegram:', e.message);
         }
-
-        // تحديث الرصيد في السيشن
-        req.session.user.balance = newBalance;
-
-        // رد النجاح
-        return res.json({ success: true });
-
       } catch (e) {
-        try { await conn.rollback(); } catch (_) {}
-        console.error('Transaction failed:', e);
-        return res.status(500).json({ success: false, message: 'Transaction failed' });
-      } finally {
-        conn.release();
+        console.warn('⚠️ Telegram notification flow error:', e.message);
       }
-    })();
-  });
+
+      // تحديث الرصيد في السيشن
+      req.session.user.balance = newBalance;
+
+      // (اختياري) مسح المفتاح من السيشن بعد الاستخدام
+      // delete req.session.idemKey;
+
+      // نجاح
+      return res.json({ success: true, redirectUrl: '/processing' });
+
+    } catch (e) {
+      try { await conn.rollback(); } catch (_) {}
+      console.error('Transaction failed:', e);
+      return res.status(500).json({ success: false, message: 'Transaction failed' });
+    } finally {
+      conn.release();
+    }
+
+  } catch (err) {
+    console.error('❌ SQL Product Order Error:', err?.response?.data || err.message || err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
-
-
 
 
 
