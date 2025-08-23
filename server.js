@@ -1323,6 +1323,7 @@ app.get('/api/out-of-stock', (req, res) => {
 
 // شراء منتج كمي (نسبي) بدقة سنت 100%
 // شراء منتج كمي بدقة سنت 100% + حماية من الخصم المزدوج
+// شراء منتج كمي بدقة سنت (Round) + حماية من الخصم المزدوج
 app.post('/buy-quantity-product', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
@@ -1335,16 +1336,15 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     );
 
   try {
-    // 0) Idempotency (اختياري لكن مفضل)
+    // 0) Idempotency (اختياري)
     if (idempotency_key) {
       try {
         await query(
           `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
           [userId, String(idempotency_key).slice(0, 64)]
         );
-        // لو مفتاح مكرر → Unique constraint يرمي error وندخُل على catch تحت
       } catch (e) {
-        // مفتاح مستخدم قبل → اعتبر الطلب مُعالج/مكرر
+        // مفتاح مستخدم قبل → اعتبر الطلب مكرّر
         req.session.pendingOrderId = req.session.pendingOrderId || null;
         return res.redirect('/processing');
       }
@@ -1366,7 +1366,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     // 3) تحقق ومدى
     const qty = parseInt(quantity, 10);
     const unitQty = Math.max(1, parseInt(product.unit_quantity ?? 1, 10));
-    const unitPrice = Number(product.unit_price) || 0; // DECIMAL(10,4) مُستحسن
+    const unitPrice = Number(product.unit_price) || 0; // يفضّل DECIMAL(10,4) في DB
 
     const min = Number.isFinite(parseInt(product.min_quantity, 10)) ? parseInt(product.min_quantity, 10) : 1;
     const max = Number.isFinite(parseInt(product.max_quantity, 10)) ? parseInt(product.max_quantity, 10) : 999999;
@@ -1385,28 +1385,27 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       }
       const verifyRes = await verifyPlayerId(productId, player_id);
       if (!verifyRes.success) {
-        return res.redirect(`/api-checkout/${productId}?error=verify&msg=${encodeURIComponent(verifyRes.message || 'Verification failed')}`);
+        return res.redirect(
+          `/api-checkout/${productId}?error=verify&msg=${encodeURIComponent(verifyRes.message || 'Verification failed')}`
+        );
       }
     }
 
-    // 5) التسعير الدقيق — سياسة "ما نزيد ولا سنت": Math.floor
-    // totalCents = floor(qty * unitPrice * 100 / unitQty)
-    const totalCents = Math.floor((qty * unitPrice * 100) / unitQty);
+    // 5) التسعير الدقيق — أقرب سنت (Math.round)
+    // totalCents = round(qty * unitPrice * 100 / unitQty)
+    const totalCents = Math.round((qty * unitPrice * 100) / unitQty);
     if (!Number.isFinite(totalCents) || totalCents <= 0) {
       return res.redirect(`/api-checkout/${productId}?error=pricing`);
     }
-    const total = totalCents / 100; // للدولار
+    const total = totalCents / 100; // للدولار (يُخزَّن DECIMAL(10,2))
 
-    // 6) خصم ذري يمنع السباق والخصم المزدوج
-    // نخصم فقط إذا balance >= total — كله في جملة واحدة
+    // 6) خصم ذري يمنع السباق/التكرار
     const upd = await query(
       `UPDATE users
          SET balance = balance - ?
        WHERE id = ? AND balance >= ?`,
       [total, userId, total]
     );
-
-    // لو ما تخصم شيء → إمّا رصيد غير كافٍ، أو سباق/تكرار
     if (!upd?.affectedRows) {
       return res.redirect(`/api-checkout/${productId}?error=balance`);
     }
@@ -1418,7 +1417,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       [userId, total, `Purchase: ${product.custom_name || `API Product ${productId}`}`]
     );
 
-    // 8) أرسل الطلب للمزوّد
+    // 8) إرسال الطلب للمزوّد
     const orderBody = {
       product: parseInt(productId, 10),
       quantity: qty,
@@ -1430,7 +1429,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       const { data: result } = await dailycardAPI.post('/api-keys/orders/create/', orderBody);
       providerOrderId = result?.id || result?.data?.id || result?.order_id || null;
     } catch (e) {
-      // لو فشل طلب المزوّد → Refund فوري
+      // فشل الشبكة/المزوّد → Refund
       await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
       await query(
         `INSERT INTO transactions (user_id, type, amount, reason)
@@ -1441,18 +1440,17 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     }
 
     if (!providerOrderId) {
-      // فشل بدون id واضح → Refund
+      // فشل بدون ID → Refund
       await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
       await query(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'credit', ?, ?)`,
         [userId, total, `Refund: ${product.custom_name || `API Product ${productId}`}`]
       );
-
       return res.redirect(`/api-checkout/${productId}?error=order_failed`);
     }
 
-    // 9) احفظ الطلب داخليًا
+    // 9) حفظ الطلب داخليًا
     const orderStatus = 'Waiting';
     const orderDetails = player_id ? `User ID: ${player_id}, Quantity: ${qty}` : `Quantity: ${qty}`;
 
@@ -1475,35 +1473,34 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     const insertResult = await query(insertSql, insertParams);
     const insertId = insertResult.insertId || insertResult[0]?.insertId;
 
-    // 10) إشعارات
+    // 10) إشعارات داخلية
     await query(
       `INSERT INTO notifications (user_id, message, created_at, is_read)
        VALUES (?, ?, NOW(), 0)`,
       [userId, `✅ تم استلام طلبك (${product.custom_name || `API Product ${productId}`}) بنجاح. سيتم معالجته قريبًا.`]
     );
 
-    const [user] = await query(
+    // 11) تيليغرام
+    const [userRow] = await query(
       'SELECT username, telegram_chat_id FROM users WHERE id = ?',
       [userId]
     );
-
-    if (user?.telegram_chat_id) {
+    if (userRow?.telegram_chat_id) {
       await sendTelegramMessage(
-        user.telegram_chat_id,
+        userRow.telegram_chat_id,
         `📥 <b>تم استلام طلبك بنجاح</b>\n\n🛍️ <b>المنتج:</b> ${product.custom_name || `API Product ${productId}`}\n🔢 <b>الكمية:</b> ${qty}\n💰 <b>السعر:</b> ${total}$\n📌 <b>الحالة:</b> جاري المعالجة`,
         process.env.TELEGRAM_BOT_TOKEN
       );
     }
-
     if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
       await sendTelegramMessage(
         process.env.ADMIN_TELEGRAM_CHAT_ID,
-        `🆕 طلب جديد!\n👤 الزبون: ${user?.username}\n🎁 المنتج: ${product.custom_name || `API Product ${productId}`}\n📦 الكمية: ${qty}\n💰 السعر: ${total}$\n🕓 الوقت: ${new Date().toLocaleString('en-US', { hour12: false })}`,
+        `🆕 طلب جديد!\n👤 الزبون: ${userRow?.username}\n🎁 المنتج: ${product.custom_name || `API Product ${productId}`}\n📦 الكمية: ${qty}\n💰 السعر: ${total}$\n🕓 الوقت: ${new Date().toLocaleString('en-US', { hour12: false })}`,
         process.env.TELEGRAM_BOT_TOKEN
       );
     }
 
-    // 11) تجربة موحدة
+    // 12) تجربة موحّدة
     req.session.pendingOrderId = insertId;
     return res.redirect('/processing');
 
@@ -1512,7 +1509,6 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     return res.redirect(`/api-checkout/${productId}?error=server`);
   }
 });
-
 
 
 app.get('/transactions', checkUser, (req, res) => {
