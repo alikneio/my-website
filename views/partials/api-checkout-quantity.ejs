@@ -6,84 +6,52 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
-<link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 
   <style>
-    /* تحسين عرض الموبايل */
     @media (max-width: 576px) {
-      .card {
-        width: 100% !important;
-        margin-bottom: 2rem !important;
-      }
-
-      .card-body {
-        padding: 1.5rem !important;
-      }
-
-      .card-body h4 {
-        font-size: 1.2rem !important;
-      }
-
-      .card-body p {
-        font-size: 1rem !important;
-      }
-
-      .input-group {
-        flex-direction: column !important;
-        align-items: stretch !important;
-      }
-
-      .input-group input {
-        width: 100% !important;
-        margin-bottom: 0.75rem !important;
-      }
-
-      .input-group button {
-        width: 100% !important;
-      }
-
-      #submitResult {
-        font-size: 0.9rem !important;
-      }
-
-      .container.py-5 {
-        padding-bottom: 8rem !important;
-        padding-top: 1rem !important;
-      }
+      .card { width: 100% !important; margin-bottom: 2rem !important; }
+      .card-body { padding: 1.5rem !important; }
+      .card-body h4 { font-size: 1.2rem !important; }
+      .card-body p { font-size: 1rem !important; }
+      .input-group { flex-direction: column !important; align-items: stretch !important; }
+      .input-group input { width: 100% !important; margin-bottom: 0.75rem !important; }
+      .input-group button { width: 100% !important; }
+      #submitResult { font-size: 0.9rem !important; }
+      .container.py-5 { padding-bottom: 8rem !important; padding-top: 1rem !important; }
     }
-      </style>
+  </style>
 </head>
 <body>
 
-   <%- include('partials/header') %>
+  <%- include('partials/header') %>
 
   <div class="container py-5 position-relative">
 
-    <!-- زر الرجوع -->
+    <!-- Back -->
     <div class="mb-3">
-  <a href="/" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
-    <i class="bi bi-arrow-left"></i> Back to Home
-  </a>
-</div>
-
+      <a href="/" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
+        <i class="bi bi-arrow-left"></i> Back to Home
+      </a>
+    </div>
 
     <div class="row justify-content-center">
       <div class="col-md-6">
         <div class="checkout-card shadow">
 
-          <!-- صورة المنتج -->
+          <!-- Image -->
           <% if (product.image) { %>
             <img src="<%= product.image %>" class="img-fluid mb-3 mx-auto d-block" style="max-height: 100px;" alt="<%= product.name %>">
           <% } %>
 
-          <!-- اسم المنتج -->
+          <!-- Name -->
           <h4 class="text-center text-primary fw-bold mb-3"><%= product.name %></h4>
 
-          <!-- السعر والمعلومات -->
+          <!-- Price info -->
           <div class="alert alert-light border small text-center">
             <div>
               <span class="text-success fw-bold fs-5">
-                $<%= parseFloat(product.unit_price || 0).toFixed(2) %>
+                $<%= Number(product.unit_price || 0).toFixed(2) %>
               </span>
               <span class="text-secondary"> per </span>
               <span class="fw-bold"><%= product.unit_quantity || 1 %> <%= product.unit_label || 'units' %></span>
@@ -95,62 +63,73 @@
             <% } %>
           </div>
 
-          <!-- عرض الخطأ في حال وجوده -->
-          <% if (error) { 
-              let alertMsg = '';
-              if (error === 'balance') {
-                alertMsg = '⚠️ Unable to complete your order at the moment. Please try again later.';
-              } else if (error === 'invalid_quantity') {
-                alertMsg = '❌ The quantity you entered is invalid.';
-              } else if (error === 'notfound') {
-                alertMsg = '❌ Product not found or disabled.';
-              } else if (error === 'failed') {
-                alertMsg = '❌ Failed to place your order.';
-              } else if (error === 'server') {
-                alertMsg = '❌ Server error occurred.';
-              }
-          %>
+          <!-- Errors -->
+          <% if (error) {
+               let alertMsg = '';
+               if (error === 'balance') alertMsg = '⚠️ Insufficient balance.';
+               else if (error === 'invalid_quantity') alertMsg = '❌ The quantity you entered is invalid.';
+               else if (error === 'notfound') alertMsg = '❌ Product not found or disabled.';
+               else if (error === 'failed') alertMsg = '❌ Failed to place your order.';
+               else if (error === 'server') alertMsg = '❌ Server error occurred.';
+               else if (error === 'out_of_stock') alertMsg = '❌ Product is out of stock.';
+               else if (error === 'pricing') alertMsg = '❌ Pricing error.';
+            %>
             <div class="alert alert-danger d-flex align-items-center" role="alert">
               <div><%= alertMsg %></div>
             </div>
           <% } %>
 
-          <!-- نموذج الطلب -->
-          <form method="POST" action="/buy-quantity-product">
+          <!-- Form -->
+          <form id="buyForm" method="POST" action="/buy-quantity-product">
             <input type="hidden" name="productId" value="<%= product.id %>">
             <input type="hidden" name="player_id" id="hiddenPlayerId">
+            <!-- idempotency -->
+            <input type="hidden" name="idempotency_key" value="<%= idemKey %>">
 
-            <!-- الكمية -->
+            <!-- Quantity -->
             <div class="mb-3">
               <label class="form-label">Enter quantity</label>
-              <input type="number" class="form-control" id="quantityInput" name="quantity"
-                     value="<%= product.min_quantity %>" min="<%= product.min_quantity %>" max="<%= product.max_quantity %>" required>
+              <input
+                type="number"
+                class="form-control"
+                id="quantityInput"
+                name="quantity"
+                value="<%= product.min_quantity %>"
+                min="<%= product.min_quantity %>"
+                max="<%= product.max_quantity %>"
+                required
+              >
             </div>
 
-            <!-- السعر النهائي -->
+            <!-- Total -->
             <div class="mb-3 fw-semibold text-center">
               Total: $<span id="totalPrice">0.00</span>
             </div>
 
-            <!-- إدخال معرف اللاعب -->
+            <!-- Player ID -->
             <% if (product.requires_player_id) { %>
-       <div class="mb-3 text-start">
-  <label class="form-label">Player ID</label>
-
-  <input type="text" id="playerIdInput" placeholder="Enter Player ID" required
-         class="form-control form-control-lg mb-2"
-         style="height: 56px; font-size: 1.1rem; padding: 12px 16px;">
-
-  <button type="button" class="btn btn-outline-primary w-100"
-          style="height: 50px; font-size: 1.05rem;"
-          onclick="verifyPlayer()">Verify</button>
-
-  <div id="verifyResult" class="small mt-2 text-muted"></div>
-</div>
+              <div class="mb-3 text-start">
+                <label class="form-label">Player ID</label>
+                <input
+                  type="text"
+                  id="playerIdInput"
+                  placeholder="Enter Player ID"
+                  required
+                  class="form-control form-control-lg mb-2"
+                  style="height: 56px; font-size: 1.1rem; padding: 12px 16px;"
+                >
+                <button
+                  type="button"
+                  class="btn btn-outline-primary w-100"
+                  style="height: 50px; font-size: 1.05rem;"
+                  onclick="verifyPlayer()"
+                >Verify</button>
+                <div id="verifyResult" class="small mt-2 text-muted"></div>
+              </div>
             <% } %>
 
-            <!-- زر الشراء -->
-            <button type="submit" class="btn btn-success w-100 mt-3" onclick="beforeSubmit()">
+            <!-- Submit -->
+            <button id="buyBtn" type="submit" class="btn btn-success w-100 mt-3">
               ✅ Complete Purchase
             </button>
           </form>
@@ -160,26 +139,30 @@
     </div>
   </div>
 
-  <!-- بيانات المنتج -->
+  <!-- Product data for JS -->
   <div id="productData"
        data-product-id="<%= product.id %>"
-       data-unit-price="<%= parseFloat(product.unit_price || 0) %>"
-       data-unit-qty="<%= parseInt(product.unit_quantity || 1) %>">
+       data-unit-price="<%= Number(product.unit_price || 0) %>"
+       data-unit-qty="<%= parseInt(product.unit_quantity || 1, 10) %>">
   </div>
 
-  <!-- سكريبتات -->
+  <!-- Scripts -->
   <script>
     const qtyInput = document.getElementById('quantityInput');
     const totalPriceEl = document.getElementById('totalPrice');
+    const buyForm = document.getElementById('buyForm');
+    const buyBtn = document.getElementById('buyBtn');
 
+    // معاينة سعر تُطابق الحساب في السيرفر (Math.round للسنتات)
     function calculateTotal() {
-      const unitPrice = parseFloat(document.getElementById('productData').dataset.unitPrice);
-      const unitQty = parseInt(document.getElementById('productData').dataset.unitQty);
-      const qty = parseInt(qtyInput.value);
+      const holder = document.getElementById('productData');
+      const unitPrice = Number(holder.dataset.unitPrice || 0); // $/unitQty
+      const unitQty = parseInt(holder.dataset.unitQty || '1', 10);
+      const qty = parseInt(qtyInput.value || '0', 10);
 
-      if (!isNaN(qty) && qty >= 0) {
-        const total = ((qty / unitQty) * unitPrice).toFixed(2);
-        totalPriceEl.innerText = total;
+      if (Number.isFinite(qty) && qty >= 0 && unitQty > 0) {
+        const cents = Math.round((qty * unitPrice * 100) / unitQty);
+        totalPriceEl.innerText = (cents / 100).toFixed(2);
       } else {
         totalPriceEl.innerText = "0.00";
       }
@@ -188,16 +171,19 @@
     qtyInput.addEventListener('input', calculateTotal);
     window.addEventListener('DOMContentLoaded', calculateTotal);
 
-    function beforeSubmit() {
+    // مرّر player_id المخفي قبل الإرسال + منع الدبل-كليك
+    buyForm.addEventListener('submit', function() {
       const playerIdField = document.getElementById('playerIdInput');
       const hiddenField = document.getElementById('hiddenPlayerId');
       if (playerIdField && hiddenField) {
         hiddenField.value = playerIdField.value.trim();
       }
-    }
+      buyBtn.disabled = true; // منع النقر المكرر من الواجهة
+    });
 
+    // Verify player (Ajax)
     async function verifyPlayer() {
-      const playerId = document.getElementById("playerIdInput").value.trim();
+      const playerId = (document.getElementById("playerIdInput").value || '').trim();
       const productId = document.getElementById("productData").dataset.productId;
       const resultBox = document.getElementById("verifyResult");
 
@@ -207,16 +193,13 @@
       }
 
       resultBox.innerHTML = "⏳ Verifying...";
-
       try {
         const res = await fetch('/verify-player', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ player_id: playerId, product_id: productId })
         });
-
         const data = await res.json();
-
         if (data.success) {
           resultBox.innerHTML = `<span class="text-success">✔️ Valid ID${data.player_name ? ': ' + data.player_name : ''}</span>`;
         } else {
@@ -227,9 +210,8 @@
         console.error("Verify Error:", error);
       }
     }
-
   </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
