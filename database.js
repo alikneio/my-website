@@ -43,9 +43,10 @@ const pool = mysql.createPool({
 // إعدادات للجلسة + لوج للأخطاء
 pool.on('connection', (conn) => {
   // مدّد مهلة الخمول (مثال: 1 ساعة)
-  conn.query('SET SESSION wait_timeout = 3600;').catch(() => {});
-  conn.query('SET SESSION interactive_timeout = 3600;').catch(() => {});
-  conn.query("SET time_zone = '+00:00';").catch(() => {});
+   conn.query('SET SESSION wait_timeout = 3600;', () => {});
+  conn.query('SET SESSION interactive_timeout = 3600;', () => {});
+    conn.query("SET time_zone = '+00:00';", () => {});
+
 
   conn.on('error', (err) => {
     console.error('MySQL connection error:', err.code, err.message);
