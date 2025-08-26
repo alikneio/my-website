@@ -1,5 +1,5 @@
 // database.js
-// ملاحظة: إذا عم تحمّل dotenv بــ server.js، فيك تشيل هالسطر التالي.
+// NOTE: إذا عم تحمّل dotenv بــ server.js، ما يلزم تحمّله هون.
 // require('dotenv').config();
 
 const mysql = require('mysql2');
@@ -28,7 +28,7 @@ const pool = mysql.createPool({
   enableKeepAlive: true,
   keepAliveInitialDelay: 10_000,
 
-  // Railway/مزودات كثير تطلب SSL بالـ production
+  // بعض المزودين يتطلب SSL بالـ production
   ...(isProduction && {
     ssl: {
       rejectUnauthorized: false,
@@ -42,7 +42,7 @@ const pool = mysql.createPool({
 
 // إعدادات للجلسة + لوج للأخطاء
 pool.on('connection', (conn) => {
-  // مدّد مهلة الخمول لكل اتصال (1 ساعة مثالاً)
+  // مدّد مهلة الخمول (مثال: 1 ساعة)
   conn.query('SET SESSION wait_timeout = 3600;').catch(() => {});
   conn.query('SET SESSION interactive_timeout = 3600;').catch(() => {});
   conn.query("SET time_zone = '+00:00';").catch(() => {});
@@ -57,8 +57,11 @@ const promisePool = pool.promise();
 // Ping دوري حتى ما ينام الاتصال
 const PING_MS = 60_000;
 setInterval(async () => {
-  try { await promisePool.query('SELECT 1'); }
-  catch (e) { console.warn('DB ping failed:', e.code || e.message); }
+  try {
+    await promisePool.query('SELECT 1');
+  } catch (e) {
+    console.warn('DB ping failed:', e.code || e.message);
+  }
 }, PING_MS);
 
 // helper مع إعادة محاولة مرّة واحدة عند أخطاء الاتصال المؤقتة
