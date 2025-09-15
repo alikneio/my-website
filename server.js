@@ -2742,6 +2742,9 @@ app.get('/osn-section', (req, res) => {
         });
     });
 });
+
+
+
 app.get('/primevideo', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'prime video'";
     db.query(sql, [], (err, products) => {
@@ -2755,6 +2758,22 @@ app.get('/primevideo', (req, res) => {
         });
     });
 });
+
+app.get('/Adobe_Creativity_Cloud', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Adobe Creativity Cloud'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('/Adobe_Creativity_Cloud', { 
+            user: req.session.user || null,
+            products: products  // تأكد من تمرير المنتجات
+        });
+    });
+});
+
+
 app.get('/disney-section', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Disney'";
     db.query(sql, [], (err, products) => {
