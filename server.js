@@ -2766,7 +2766,7 @@ app.get('/Adobe_Creativity_Cloud', (req, res) => {
             console.error("Database error:", err);
             return res.status(500).send("Server error");
         }
-        res.render('/Adobe_Creativity_Cloud', { 
+        res.render('Adobe_Creativity_Cloud', { 
             user: req.session.user || null,
             products: products  // تأكد من تمرير المنتجات
         });
