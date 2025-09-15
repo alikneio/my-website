@@ -2827,6 +2827,21 @@ app.get('/canva-section', (req, res) => {
     });
 });
 
+app.get('/chatgpt-section', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Chatgpt'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('chatgpt-section', { 
+            user: req.session.user || null,
+            products: products  // تأكد من تمرير المنتجات
+        });
+    });
+});
+
+
 
 app.get('/anghami-section', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Anghami'";

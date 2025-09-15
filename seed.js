@@ -25,6 +25,7 @@ const products = [
     { name: 'Anghami - 1 Month', price: 8, image: '/images/.png', main_cat: 'Accounts', sub_cat: 'Spotify Normal Quality', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
     { name: 'Anghami - 1 Month', price: 8, image: '/images/.png', main_cat: 'Accounts', sub_cat: 'Spotify High Quality', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
      { name: 'Anghami - 1 Month', price: 8, image: '/images/.png', main_cat: 'Accounts', sub_cat: 'IPTV', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
+     { name: 'Anghami - 1 Month', price: 8, image: '/images/.png', main_cat: 'Accounts', sub_cat: 'Chatgpt', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
 ];
 
 connection.connect(err => {
