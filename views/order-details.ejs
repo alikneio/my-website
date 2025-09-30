@@ -30,6 +30,15 @@
     .btn-brand{
       background:var(--brand); border-color:var(--brand); color:#fff
     }
+    .copy-btn{
+  border-radius: 10px;
+  display:inline-flex; align-items:center; gap:.4rem;
+}
+#order-reply pre{
+  white-space: pre-wrap;     /* يحافظ على سطور الأدمن */
+  word-break: break-word;
+  margin: 0;
+}
     .btn-brand:hover{ filter:brightness(.95); color:#fff }
     .btn-ghost{
       background:#fff; border:1px solid #e6e9ef; color:#222
@@ -98,8 +107,24 @@
             <div class="kv-value"><%= order.order_details %></div>
           <% } %>
 
-          <div class="kv-label">REPLY</div>
-          <div class="kv-value" id="order-reply"><%= order.admin_reply || '—' %></div>
+          <div class="d-flex align-items-center justify-content-between">
+  <div class="order-label m-0">ADMIN REPLY</div>
+
+  <button
+    id="copy-reply"
+    type="button"
+    class="btn btn-outline-secondary btn-sm copy-btn"
+    data-bs-toggle="tooltip"
+    data-bs-title="Copy to clipboard"
+  >
+    <i class="bi bi-clipboard"></i> Copy
+  </button>
+</div>
+
+<div class="order-value" id="order-reply">
+  <pre class="user-select-all"><%= order.admin_reply || '' %></pre>
+</div>
+
         </div>
       </div>
 
@@ -187,5 +212,108 @@
       setInterval(fetchStatus, 5000);
     })();
   </script>
+  <script>
+(function () {
+  // ===== Copy Admin Reply =====
+  const copyBtn   = document.getElementById('copy-reply');
+  const replyPre  = document.querySelector('#order-reply pre');
+
+  // Tooltip احترافي (Bootstrap)
+  let tip = null;
+  if (window.bootstrap && copyBtn) {
+    tip = new bootstrap.Tooltip(copyBtn);
+  }
+
+  async function copyTextToClipboard(text){
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // Fallback لبيئات HTTP أو متصفحات قديمة
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setBtnState(state){
+    // states: 'idle' | 'copying' | 'done' | 'error'
+    if (!copyBtn) return;
+    if (state === 'copying') {
+      copyBtn.disabled = true;
+      copyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Copying…';
+    } else if (state === 'done') {
+      copyBtn.disabled = false;
+      copyBtn.innerHTML = '<i class="bi bi-clipboard-check"></i> Copied';
+      if (tip) {
+        copyBtn.setAttribute('data-bs-title','Copied!');
+        tip.setContent({ '.tooltip-inner': 'Copied!' });
+        tip.show();
+        setTimeout(() => tip.hide(), 900);
+      }
+      setTimeout(() => {
+        copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+        if (tip) {
+          copyBtn.setAttribute('data-bs-title','Copy to clipboard');
+          tip.setContent({ '.tooltip-inner': 'Copy to clipboard' });
+        }
+      }, 1200);
+    } else if (state === 'error') {
+      copyBtn.disabled = false;
+      copyBtn.innerHTML = '<i class="bi bi-x-circle"></i> Failed';
+      if (tip) {
+        copyBtn.setAttribute('data-bs-title','Failed to copy');
+        tip.setContent({ '.tooltip-inner': 'Failed to copy' });
+        tip.show();
+        setTimeout(() => tip.hide(), 1000);
+      }
+      setTimeout(() => {
+        copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+        if (tip) {
+          copyBtn.setAttribute('data-bs-title','Copy to clipboard');
+          tip.setContent({ '.tooltip-inner': 'Copy to clipboard' });
+        }
+      }, 1400);
+    } else {
+      copyBtn.disabled = false;
+      copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+    }
+  }
+
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      const text = (replyPre?.innerText || '').trim();
+      if (!text) {
+        setBtnState('error');
+        return;
+      }
+      setBtnState('copying');
+      const ok = await copyTextToClipboard(text);
+      setBtnState(ok ? 'done' : 'error');
+    });
+  }
+
+  // ===== دمج مع الـ polling الموجود عندك =====
+  // غيّر داخل poll(): بدلاً من الكتابة على $reply.textContent،
+  // اكتب على pre للحفاظ على الأسطر:
+  const $replyBox = document.querySelector('#order-reply pre');
+
+  // إذا عندك داخل poll() السطر:
+  // $reply.textContent = noteText;
+  // غيّره إلى:
+  // if ($replyBox) { $replyBox.textContent = noteText; }
+
+})();
+</script>
+
 </body>
 </html>
