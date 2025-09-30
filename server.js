@@ -394,7 +394,7 @@ app.post('/add-balance/whish/lbp', upload.single('proofImage'), (req, res) => {
                 `💰 Amount: ${amount} ${currency}`;
 
       if (proofImage) {
-       const imageUrl = `https://akcells.store/uploads/whish/${proofImage}`;
+       const imageUrl = `https://akcell.store/uploads/whish/${proofImage}`;
 
         msg += `\n🖼 [Proof Image](${imageUrl})`;
       }
@@ -3919,30 +3919,28 @@ app.get('/order-details/:id', (req, res) => {
 
 
 // Lightweight JSON status for live updates
-app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
-  const orderId = req.params.id;
-  db.query(
-    "SELECT status, admin_reply, order_details, updatedAt FROM orders WHERE id = ?",
-    [orderId],
-    (err, rows) => {
-      if (err || rows.length === 0) return res.status(404).json({ ok:false });
-        // ✅ امنع الكاش كليًا
-      res.set({
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        'Surrogate-Control': 'no-store'
-      });
-      const o = rows[0];
-      res.json({
-        ok: true,
-        status: o.status,
-        admin_reply: o.admin_reply || '',
-        order_details: o.order_details || '',
-        updatedAt: o.updatedAt || null
-      });
-    }
-  );
+// كان بدون checkAuth و بدون تقييد المستخدم
+app.get('/order-details/:id', checkAuth, (req, res) => {
+  const orderId = Number(req.params.id);
+  const userId = req.session.user.id;
+
+  const sql = "SELECT * FROM orders WHERE id = ? AND userId = ?";
+  db.query(sql, [orderId, userId], (err, rows) => {
+    if (err || rows.length === 0) return res.status(404).send("❌ Order not found or access denied.");
+    const order = rows[0];
+    res.render('order-details', {
+      order: {
+        id: order.id,
+        productName: order.productName,
+        price: order.price,
+        purchaseDate: order.purchaseDate,
+        status: order.status,
+        order_details: order.order_details || null,
+        admin_reply: order.admin_reply || null,
+        provider_order_id: order.provider_order_id || null
+      }
+    });
+  });
 });
 
 
