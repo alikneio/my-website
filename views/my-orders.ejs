@@ -1,277 +1,173 @@
-<!-- views/my-orders.ejs -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>My Orders - AK Cell</title>
-
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-
   <style>
-    :root{
-      --bg: #f5f7fb;
-      --card: #ffffff;
-      --text: #333;
-      --muted: #6c757d;
-      --primary: #007bff;
-      --primary-ghost: #e9f2ff;
-      --border: #e2e6ea;
-      --success:#28a745;
-      --danger:#dc3545;
-      --warning:#ffc107;
+    .card-rounded { border-radius: 1rem; }
+    .pill { border-radius: 999px; }
+    .order-item { border-radius: 0.75rem; }
+    .status-badge { font-weight: 600; }
+    /* Mobile: ensure inputs are full width and spaced */
+    @media (max-width: 576px) {
+      .filters .form-control { width: 100%; }
+      .filters .btn { width: 100%; }
+      .filters .btn + .btn { margin-top: .5rem; }
     }
-    body{
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    }
-    h1{
-      font-weight:700;
-      text-align:center;
-      color:#222;
-      margin-bottom: 1.25rem;
-    }
-
-    /* Filter box */
-    .filter-box{
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.05);
-      margin-bottom: 16px;
-    }
-    .filter-title{
-      font-weight:600;
-      margin-bottom: .75rem;
-    }
-    .filter-label{
-      font-size:.9rem; color: var(--muted); margin-bottom: .35rem;
-    }
-    .chip-group .btn{
-      border-radius: 999px;
-      padding: .45rem .9rem;
-      font-weight:600;
-      border:1px solid var(--border);
-      background: var(--card);
-      color: var(--text);
-    }
-    .chip-group .btn.active{
-      background: var(--primary);
-      color: #fff;
-      border-color: var(--primary);
-    }
-    .chip-group .btn:not(.active):hover{
-      background: var(--primary-ghost);
-      border-color: #cfe2ff;
-    }
-
-    /* Total */
-    .total-box{
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px;
-      text-align: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,.04);
-      margin-bottom: 20px;
-      font-weight: 700;
-      color: var(--primary);
-    }
-
-    /* Orders list */
-    .list-group-item{
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      margin-bottom: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,.04);
-      transition: transform .15s ease, box-shadow .15s ease;
-    }
-    .list-group-item:hover{
-      transform: translateY(-2px);
-      box-shadow: 0 6px 14px rgba(0,0,0,.08);
-    }
-    .order-title{
-      font-weight:700;
-      margin:0;
-      font-size:1.05rem;
-      color:#222;
-    }
-    .order-date{
-      color: var(--muted);
-      white-space: nowrap;
-    }
-    .order-price{
-      margin: .2rem 0 0;
-    }
-    .badge{
-      font-size:.82rem;
-      padding:.4rem .65rem;
-      border-radius: 999px;
-    }
-    .badge-success{ background: var(--success)!important; }
-    .badge-danger{ background: var(--danger)!important; }
-    .badge-waiting{ background: var(--warning)!important; color:#222; }
-    .empty{
-      text-align:center; color: var(--muted);
-    }
-
-    /* small helpers */
-    .gap-8{ gap: .5rem; }
   </style>
 </head>
 <body>
-
   <%- include('partials/header') %>
 
-  <div class="container my-4 my-md-5">
-    <h1>My Order History</h1>
-
-    <% const F = (typeof filters !== 'undefined' && filters) || {}; %>
+  <div class="container my-5">
+    <h1 class="text-center mb-4">My Order History</h1>
 
     <!-- Filters -->
-    <form class="filter-box" method="get" action="/my-orders" id="orders-filter-form">
-      <div class="row g-3 align-items-end">
-        <div class="col-12">
-          <div class="filter-title">Filter orders</div>
-        </div>
-
-        <div class="col-12 col-md-3">
-          <label class="filter-label" for="from">From date</label>
-          <input type="date" class="form-control" id="from" name="from" value="<%= F.from || '' %>">
-        </div>
-
-        <div class="col-12 col-md-3">
-          <label class="filter-label" for="to">To date</label>
-          <input type="date" class="form-control" id="to" name="to" value="<%= F.to || '' %>">
-        </div>
-
-        <div class="col-12 col-md-4">
-          <label class="filter-label" for="q">Search (ID or name)</label>
-          <div class="input-group">
-            <input type="text" class="form-control" id="q" name="q" placeholder="e.g. 1542 or Netflix" value="<%= F.q || '' %>">
-            <button class="btn btn-primary" type="submit">
-              <i class="bi bi-search"></i>
-              <span class="d-none d-sm-inline">Search</span>
-            </button>
+    <div class="card shadow-sm card-rounded mb-3">
+      <div class="card-body filters">
+        <form class="row g-3 align-items-end" method="get" action="/my-orders">
+          <div class="col-12 col-md-4">
+            <label class="form-label">From date</label>
+            <input type="date" class="form-control"
+                   name="from"
+                   value="<%= filters?.from || '' %>">
           </div>
-        </div>
 
-        <div class="col-12 col-md-2 text-md-end">
-          <a href="/my-orders" class="btn btn-outline-secondary w-100">
-            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
-          </a>
-        </div>
-
-        <div class="col-12">
-          <div class="filter-label mb-2">Status</div>
-          <div class="chip-group d-flex flex-wrap gap-8">
-            <button type="button" class="btn <%= (!F.status || F.status==='all') ? 'active' : '' %>" data-status="all">All</button>
-            <button type="button" class="btn <%= (F.status==='Accepted') ? 'active' : '' %>" data-status="Accepted">Accepted</button>
-            <button type="button" class="btn <%= (F.status==='Waiting') ? 'active' : '' %>" data-status="Waiting">Waiting</button>
-            <button type="button" class="btn <%= (F.status==='Rejected') ? 'active' : '' %>" data-status="Rejected">Rejected</button>
+          <div class="col-12 col-md-4">
+            <label class="form-label">To date</label>
+            <input type="date" class="form-control"
+                   name="to"
+                   value="<%= filters?.to || '' %>">
           </div>
-          <input type="hidden" name="status" id="status" value="<%= F.status || 'all' %>">
-        </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Search (ID or name)</label>
+            <!-- name="q" is IMPORTANT so backend receives it -->
+            <div class="input-group">
+              <input type="search" class="form-control" name="q"
+                     placeholder="e.g. 1542 or Netflix"
+                     value="<%= filters?.q || '' %>">
+              <button class="btn btn-primary" type="submit">
+                <i class="bi bi-search"></i> Search
+              </button>
+            </div>
+          </div>
+
+          <!-- Status pills -->
+          <div class="col-12">
+            <div class="d-flex flex-wrap gap-2">
+              <% const s = (filters?.status || 'all'); %>
+              <input type="hidden" name="status" id="statusInput" value="<%= s %>">
+
+              <button type="button"
+                      data-status="all"
+                      class="btn pill <%= s==='all' ? 'btn-primary' : 'btn-outline-secondary' %>">
+                All
+              </button>
+              <button type="button"
+                      data-status="Accepted"
+                      class="btn pill <%= s==='Accepted' ? 'btn-primary' : 'btn-outline-secondary' %>">
+                Accepted
+              </button>
+              <button type="button"
+                      data-status="Waiting"
+                      class="btn pill <%= s==='Waiting' ? 'btn-primary' : 'btn-outline-secondary' %>">
+                Waiting
+              </button>
+              <button type="button"
+                      data-status="Rejected"
+                      class="btn pill <%= s==='Rejected' ? 'btn-primary' : 'btn-outline-secondary' %>">
+                Rejected
+              </button>
+
+              <button type="button" id="resetBtn" class="btn btn-outline-secondary ms-auto">
+                <i class="bi bi-arrow-clockwise me-1"></i> Reset
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
-    </form>
+    </div>
 
-    <!-- Total -->
-    <% 
-      let total = 0;
-      if (orders && orders.length) {
-        for (const o of orders) {
-          const p = Number.parseFloat(o.price);
-          if (!Number.isNaN(p)) total += p;
-        }
-      }
-    %>
-    <div class="total-box">
-      <div>Total: $<%= total.toFixed(2) %></div>
-      <small class="text-muted"><%= (orders && orders.length) ? orders.length : 0 %> order(s)</small>
+    <!-- Summary -->
+    <div class="card shadow-sm card-rounded mb-3">
+      <div class="card-body text-center">
+        <div class="fw-semibold">Total: $<%= (Number(total||0)).toFixed(2) %></div>
+        <small class="text-muted"><%= (orders||[]).length %> order(s)</small>
+      </div>
     </div>
 
     <!-- Orders list -->
     <% if (orders && orders.length > 0) { %>
       <div class="list-group">
         <% orders.forEach(order => { %>
-          <a href="/order-details/<%= order.id %>" class="list-group-item list-group-item-action">
-            <div class="d-flex w-100 justify-content-between align-items-start">
-              <h5 class="order-title"><%= order.productName %></h5>
-              <small class="order-date">
-                <i class="bi bi-calendar-event me-1"></i>
-                <%= new Date(order.purchaseDate).toLocaleDateString('en-GB', { year:'numeric', month:'2-digit', day:'2-digit' }) %>
+          <a href="/order-details/<%= order.id %>"
+             class="list-group-item list-group-item-action shadow-sm mb-3 order-item">
+            <div class="d-flex w-100 justify-content-between">
+              <h5 class="mb-1"><%= order.productName %></h5>
+              <small class="text-muted">
+                <%= new Date(order.purchaseDate).toLocaleString('en-US',{year:'numeric',month:'2-digit',day:'2-digit'}) %>
               </small>
             </div>
 
-            <p class="order-price mb-2">
-              Price: <span class="fw-bold">$<%= Number.parseFloat(order.price).toFixed(2) %></span>
+            <p class="mb-2">
+              Price:
+              <span class="fw-bold">$<%= (parseFloat(order.price)||0).toFixed(2) %></span>
             </p>
 
-            <small>
+            <small class="status-badge">
               Status:
               <% if (order.status === 'Accepted') { %>
-                <span class="badge badge-success"><i class="bi bi-check-circle-fill me-1"></i>Accepted</span>
+                <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Accepted</span>
               <% } else if (order.status === 'Rejected') { %>
-                <span class="badge badge-danger"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
+                <span class="badge bg-danger"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
               <% } else { %>
-                <span class="badge badge-waiting"><i class="bi bi-hourglass-split me-1"></i>Waiting</span>
+                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Waiting</span>
               <% } %>
             </small>
 
             <% if (order.order_details) { %>
               <div class="mt-2 text-muted small">
-                <i class="bi bi-info-circle me-1"></i>
-                <%= order.order_details %>
+                <i class="bi bi-info-circle me-1"></i><%= order.order_details %>
               </div>
             <% } %>
           </a>
         <% }) %>
       </div>
     <% } else { %>
-      <div class="empty py-5">
-        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-        <div class="fs-5">No orders found.</div>
-        <div class="small">Try adjusting date range, status, or your search term.</div>
+      <div class="text-center text-muted py-5">
+        <div class="display-6 mb-2"><i class="bi bi-inbox"></i></div>
+        <p class="mb-1">No orders found.</p>
+        <small>Try adjusting date range, status, or your search term.</small>
       </div>
     <% } %>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    (function(){
-      const form = document.getElementById('orders-filter-form');
-      const statusInput = document.getElementById('status');
-      const btns = document.querySelectorAll('.chip-group .btn');
-
-      // Status chips behavior
-      btns.forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          btns.forEach(b=>b.classList.remove('active'));
-          btn.classList.add('active');
-          statusInput.value = btn.dataset.status || 'all';
-          form.submit();
-        });
+    // Status pills behavior
+    const statusInput = document.getElementById('statusInput');
+    document.querySelectorAll('button[data-status]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        statusInput.value = btn.dataset.status;
+        btn.closest('form').submit();
       });
+    });
 
-      // Guard: from <= to
-      const from = document.getElementById('from');
-      const to = document.getElementById('to');
-      function syncMinMax(){
-        if (from && to){
-          if (from.value) to.min = from.value; else to.removeAttribute('min');
-          if (to.value) from.max = to.value; else from.removeAttribute('max');
-        }
-      }
-      if (from) from.addEventListener('change', syncMinMax);
-      if (to) to.addEventListener('change', syncMinMax);
-      syncMinMax();
-    })();
+    // Reset clears fields & shows ALL
+    document.getElementById('resetBtn')?.addEventListener('click', () => {
+      const form = document.querySelector('.filters form');
+      form.querySelector('input[name="from"]').value = '';
+      form.querySelector('input[name="to"]').value   = '';
+      form.querySelector('input[name="q"]').value    = '';
+      form.querySelector('input[name="status"]').value = 'all';
+      form.submit();
+    });
   </script>
 </body>
 </html>

@@ -715,100 +715,59 @@ app.get('/alfa-section', (req, res) => {
 
 // --- صفحات أخرى ---
 // My Orders (with filters, totals, counters, pagination)
-app.get('/my-orders', checkAuth, async (req, res) => {
+// === REPLACE your current /my-orders route with this ===
+app.get('/my-orders', checkAuth, (req, res) => {
   const userId = req.session.user.id;
 
-  // Query params
-  const page  = Math.max(parseInt(req.query.page || '1', 10), 1);
-  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 5), 100);
-  const offset = (page - 1) * limit;
+  // read filters (all optional)
+  const from   = (req.query.from || '').trim();    // yyyy-mm-dd
+  const to     = (req.query.to   || '').trim();    // yyyy-mm-dd
+  const q      = (req.query.q    || '').trim();
+  const status = (req.query.status || 'all').trim(); // all | Accepted | Waiting | Rejected
 
-  const from   = (req.query.from || '').trim();   // YYYY-MM-DD
-  const to     = (req.query.to   || '').trim();   // YYYY-MM-DD
-  const status = (req.query.status || '').trim(); // Accepted | Waiting | Rejected | ''
-  const q      = (req.query.q || '').trim();      // search text
-
-  // WHERE for main list
-  const where = ['userId = ?'];
+  let sql = `SELECT * FROM orders WHERE userId = ?`;
   const params = [userId];
 
-  if (from) { where.push('DATE(purchaseDate) >= ?'); params.push(from); }
-  if (to)   { where.push('DATE(purchaseDate) <= ?'); params.push(to); }
-  if (status) { where.push('status = ?'); params.push(status); }
+  // add clauses ONLY when provided
+  if (from) {
+    sql += ` AND purchaseDate >= ?`;
+    params.push(new Date(from));
+  }
+  if (to) {
+    // include the "to" day fully
+    sql += ` AND purchaseDate < DATE_ADD(?, INTERVAL 1 DAY)`;
+    params.push(new Date(to));
+  }
+  if (status && status !== 'all') {
+    sql += ` AND status = ?`;
+    params.push(status);
+  }
   if (q) {
-    where.push(`(
-      productName LIKE ? OR
-      CAST(id AS CHAR) LIKE ? OR
-      COALESCE(order_details,'') LIKE ? OR
-      COALESCE(provider_order_id,'') LIKE ?
-    )`);
-    const like = `%${q}%`;
-    params.push(like, like, like, like);
+    // search by numeric id OR product name
+    const idCandidate = Number.isFinite(+q) ? +q : -1;
+    sql += ` AND (id = ? OR productName LIKE ?)`;
+    params.push(idCandidate, `%${q}%`);
   }
 
-  const whereSql = where.join(' AND ');
+  sql += ` ORDER BY purchaseDate DESC`;
 
-  // WHERE for counters (same filters BUT بدون status)
-  const whereCounters = where.filter(w => !/^status\s*=/.test(w)).join(' AND ');
-  const paramsCounters = params.filter((_, i) => !/^status\s*=/.test(where[i] || ''));
+  db.query(sql, params, (err, orders = []) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).send('Error loading orders.');
+    }
+    const total = orders.reduce((s, o) => s + (parseFloat(o.price) || 0), 0);
 
-  try {
-    // 1) النتائج (مع ترقيم الصفحات)
-    const [orders] = await promisePool.query(
-      `SELECT * 
-       FROM orders 
-       WHERE ${whereSql}
-       ORDER BY purchaseDate DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
-    );
-
-    // 2) العدد الكلي للصفوف المطابقة (لـ pagination)
-    const [[{ rowsCount }]] = await promisePool.query(
-      `SELECT COUNT(*) AS rowsCount FROM orders WHERE ${whereSql}`,
-      params
-    );
-
-    // 3) العدّادات + الإجمالي لنفس الفترة/البحث (بدون شرط الحالة)
-    const [agg] = await promisePool.query(
-      `SELECT
-         COUNT(*)                                           AS allCount,
-         SUM(CASE WHEN status='Accepted' THEN 1 ELSE 0 END) AS acceptedCount,
-         SUM(CASE WHEN status='Waiting'  THEN 1 ELSE 0 END) AS waitingCount,
-         SUM(CASE WHEN status='Rejected' THEN 1 ELSE 0 END) AS rejectedCount,
-         COALESCE(SUM(price),0)                             AS totalAmount
-       FROM orders
-       WHERE ${whereCounters}`,
-      paramsCounters
-    );
-
-    const totalPages = Math.max(1, Math.ceil(rowsCount / limit));
-
-    return res.render('my-orders', {
+    // pass filters back to the view to keep form state
+    res.render('my-orders', {
       user: req.session.user,
       orders,
-
-      // لواجهة الفلاتر
-      query: { from, to, status, q, page, limit },
-
-      // عدّادات + مجموع
-      statusCounts: {
-        all: Number(agg[0]?.allCount || 0),
-        accepted: Number(agg[0]?.acceptedCount || 0),
-        waiting: Number(agg[0]?.waitingCount || 0),
-        rejected: Number(agg[0]?.rejectedCount || 0),
-      },
-      totalAmount: Number(agg[0]?.totalAmount || 0),
-
-      // ترقيم
-      pagination: { page, totalPages, limit, rowsCount }
+      total,
+      filters: { from, to, q, status }
     });
-
-  } catch (err) {
-    console.error('❌ /my-orders error:', err);
-    return res.status(500).send('Server error loading orders.');
-  }
+  });
 });
+
 
 
 app.get('/checkout/:id', checkAuth, (req, res) => {
