@@ -3926,6 +3926,13 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     [orderId],
     (err, rows) => {
       if (err || rows.length === 0) return res.status(404).json({ ok:false });
+        // ✅ امنع الكاش كليًا
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+      });
       const o = rows[0];
       res.json({
         ok: true,
