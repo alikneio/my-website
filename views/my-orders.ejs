@@ -4,20 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>My Orders - AK Cell</title>
+
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
   <style>
     .card-rounded { border-radius: 1rem; }
     .pill { border-radius: 999px; }
-    .order-item { border-radius: 0.75rem; }
-    .status-badge { font-weight: 600; }
-    /* Mobile: ensure inputs are full width and spaced */
+    .order-item { border-radius: .75rem; }
+    .chip-row { gap: .5rem .5rem; }
+
+    /* فقط أزرار البحث/الريست على الموبايل تكون full-width */
     @media (max-width: 576px) {
-      .filters .form-control { width: 100%; }
-      .filters .btn { width: 100%; }
-      .filters .btn + .btn { margin-top: .5rem; }
+      .filters .search-actions .btn { width: 100%; }
+    }
+
+    /* حجم الأزرار (الحالات) على الموبايل أصغر */
+    .pill.btn { padding: .5rem 1rem; }
+    @media (max-width: 576px) {
+      .pill.btn { 
+        padding: .35rem .9rem;
+        font-size: .95rem;
+        line-height: 1.1;
+      }
     }
   </style>
 </head>
@@ -33,61 +44,45 @@
         <form class="row g-3 align-items-end" method="get" action="/my-orders">
           <div class="col-12 col-md-4">
             <label class="form-label">From date</label>
-            <input type="date" class="form-control"
-                   name="from"
-                   value="<%= filters?.from || '' %>">
+            <input type="date" class="form-control" name="from" value="<%= filters?.from || '' %>">
           </div>
 
           <div class="col-12 col-md-4">
             <label class="form-label">To date</label>
-            <input type="date" class="form-control"
-                   name="to"
-                   value="<%= filters?.to || '' %>">
+            <input type="date" class="form-control" name="to" value="<%= filters?.to || '' %>">
           </div>
 
           <div class="col-12 col-md-4">
             <label class="form-label">Search (ID or name)</label>
-            <!-- name="q" is IMPORTANT so backend receives it -->
-            <div class="input-group">
-              <input type="search" class="form-control" name="q"
-                     placeholder="e.g. 1542 or Netflix"
-                     value="<%= filters?.q || '' %>">
-              <button class="btn btn-primary" type="submit">
-                <i class="bi bi-search"></i> Search
+            <input type="search" class="form-control" name="q" placeholder="e.g. 1542 or Netflix" value="<%= filters?.q || '' %>">
+          </div>
+
+          <!-- أزرار Search/Reset فقط -->
+          <div class="col-12 col-md-8 search-actions">
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-primary"><i class="bi bi-search me-1"></i> Search</button>
+              <button type="button" id="resetBtn" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-clockwise me-1"></i> Reset
               </button>
             </div>
           </div>
 
-          <!-- Status pills -->
+          <!-- Status chips -->
           <div class="col-12">
-            <div class="d-flex flex-wrap gap-2">
-              <% const s = (filters?.status || 'all'); %>
-              <input type="hidden" name="status" id="statusInput" value="<%= s %>">
+            <% const s = (filters?.status || 'all'); %>
+            <input type="hidden" name="status" id="statusInput" value="<%= s %>">
+            <div class="d-flex flex-wrap chip-row">
+              <button type="button" data-status="all"
+                class="btn pill btn-sm <%= s==='all' ? 'btn-primary' : 'btn-outline-primary' %>">All</button>
 
-              <button type="button"
-                      data-status="all"
-                      class="btn pill <%= s==='all' ? 'btn-primary' : 'btn-outline-secondary' %>">
-                All
-              </button>
-              <button type="button"
-                      data-status="Accepted"
-                      class="btn pill <%= s==='Accepted' ? 'btn-primary' : 'btn-outline-secondary' %>">
-                Accepted
-              </button>
-              <button type="button"
-                      data-status="Waiting"
-                      class="btn pill <%= s==='Waiting' ? 'btn-primary' : 'btn-outline-secondary' %>">
-                Waiting
-              </button>
-              <button type="button"
-                      data-status="Rejected"
-                      class="btn pill <%= s==='Rejected' ? 'btn-primary' : 'btn-outline-secondary' %>">
-                Rejected
-              </button>
+              <button type="button" data-status="Accepted"
+                class="btn pill btn-sm <%= s==='Accepted' ? 'btn-success' : 'btn-outline-success' %>">Accepted</button>
 
-              <button type="button" id="resetBtn" class="btn btn-outline-secondary ms-auto">
-                <i class="bi bi-arrow-clockwise me-1"></i> Reset
-              </button>
+              <button type="button" data-status="Waiting"
+                class="btn pill btn-sm <%= s==='Waiting' ? 'btn-warning' : 'btn-outline-warning' %>">Waiting</button>
+
+              <button type="button" data-status="Rejected"
+                class="btn pill btn-sm <%= s==='Rejected' ? 'btn-danger' : 'btn-outline-danger' %>">Rejected</button>
             </div>
           </div>
         </form>
@@ -102,7 +97,7 @@
       </div>
     </div>
 
-    <!-- Orders list -->
+    <!-- Orders -->
     <% if (orders && orders.length > 0) { %>
       <div class="list-group">
         <% orders.forEach(order => { %>
@@ -120,7 +115,7 @@
               <span class="fw-bold">$<%= (parseFloat(order.price)||0).toFixed(2) %></span>
             </p>
 
-            <small class="status-badge">
+            <small class="fw-semibold">
               Status:
               <% if (order.status === 'Accepted') { %>
                 <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Accepted</span>
@@ -150,7 +145,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Status pills behavior
+    // تبديل الحالة + submit
     const statusInput = document.getElementById('statusInput');
     document.querySelectorAll('button[data-status]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -159,7 +154,7 @@
       });
     });
 
-    // Reset clears fields & shows ALL
+    // Reset: نظّف الحقول ورجع ALL
     document.getElementById('resetBtn')?.addEventListener('click', () => {
       const form = document.querySelector('.filters form');
       form.querySelector('input[name="from"]').value = '';
