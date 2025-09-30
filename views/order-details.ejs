@@ -4,164 +4,184 @@
   <meta charset="UTF-8">
   <title>Order Details - #<%= order.id %></title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
 
   <style>
-    body {
-      background-color: #f4f6fa;
-      font-family: 'Cairo', sans-serif;
-      color: #222;
-    }
-
-    .order-wrapper {
-      background-color: #fff;
-      border-radius: 12px;
-      padding: 2rem;
-      box-shadow: 0 0 20px rgba(0,0,0,0.05);
-    }
-
-    .section-title {
-      font-size: 2rem;
-      font-weight: 700;
-      color: #1d3557;
-    }
-
-    .order-label {
-      font-weight: 600;
-      color: #495057;
-    }
-
-    .order-value {
-      background-color: #f1f3f5;
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      font-size: 1rem;
-      margin-bottom: 1.5rem;
-      color: #212529;
-    }
-
-    .badge {
-      font-size: 1rem;
-      padding: 0.4em 1em;
-    }
-
-    .btn-back {
-      margin-top: 1rem;
-    }
-
-    @media (max-width: 768px) {
-      .section-title {
-        font-size: 1.5rem;
-      }
-      .order-value {
-        font-size: 0.95rem;
-      }
+    body { background: #f4f6fa; font-family: 'Cairo', sans-serif; color:#222; }
+    .order-card { background:#fff; border-radius:12px; padding:1.5rem; box-shadow:0 0 20px rgba(0,0,0,.05); }
+    .title { font-size:1.9rem; font-weight:700; color:#1d3557; }
+    .kv-label { font-weight:600; color:#495057; margin-bottom:.35rem; }
+    .kv-value { background:#f1f3f5; border-radius:8px; padding:.75rem 1rem; word-break:break-word; white-space:pre-wrap; }
+    .badge { font-size:1rem; padding:.4em 1em; }
+    .btn-copy { border-radius:999px; }
+    .meta { font-size:.9rem; color:#6c757d; }
+    @media (max-width:768px){
+      .title { font-size:1.6rem; }
+      .badge { font-size:.95rem; }
     }
   </style>
 </head>
 <body>
 
-<%- include('partials/header') %>
+  <%- include('partials/header') %>
 
-<main class="container my-5">
-  <div class="order-wrapper">
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
-      <h2 class="section-title">Order Details</h2>
-      <div id="status-badge">
-        <% if (order.status === 'Accepted') { %>
-          <span class="badge bg-success" id="order-status"><%= order.status %></span>
-        <% } else if (order.status === 'Rejected') { %>
-          <span class="badge bg-danger" id="order-status"><%= order.status %></span>
-        <% } else { %>
-          <span class="badge bg-warning text-dark" id="order-status"><%= order.status %></span>
+  <main class="container my-4 my-md-5">
+    <div class="order-card">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 class="title mb-0">Order Details</h2>
+        <div id="status-badge">
+          <% if (order.status === 'Accepted') { %>
+            <span class="badge bg-success" id="order-status"><i class="bi bi-check-circle-fill me-1"></i>Accepted</span>
+          <% } else if (order.status === 'Rejected') { %>
+            <span class="badge bg-danger" id="order-status"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
+          <% } else { %>
+            <span class="badge bg-warning text-dark" id="order-status"><i class="bi bi-hourglass-split me-1"></i>Waiting</span>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-12 col-md-6">
+          <div class="kv-label">ORDER ID</div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="kv-value flex-grow-1" id="order-id"><%= order.id %></div>
+            <button class="btn btn-outline-secondary btn-sm btn-copy" data-copy-target="#order-id" aria-label="Copy order id">
+              <i class="bi bi-clipboard"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <div class="kv-label">DATE</div>
+          <div class="kv-value" id="order-date">
+            <%= new Date(order.purchaseDate).toLocaleString('en-US',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}) %>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="kv-label">PRODUCT</div>
+          <div class="kv-value"><%= order.productName %></div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <div class="kv-label">PRICE</div>
+          <div class="kv-value">$<%= (parseFloat(order.price)||0).toFixed(2) %></div>
+        </div>
+
+        <% if (order.order_details) { %>
+        <div class="col-12 col-md-6">
+          <div class="kv-label">PLAYER / DETAILS</div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="kv-value flex-grow-1" id="order-details"><%= order.order_details %></div>
+            <button class="btn btn-outline-secondary btn-sm btn-copy" data-copy-target="#order-details" aria-label="Copy details">
+              <i class="bi bi-clipboard"></i>
+            </button>
+          </div>
+        </div>
         <% } %>
+
+        <div class="col-12">
+          <div class="kv-label">REPLY</div>
+          <div class="kv-value text-warning" id="order-reply"><%= order.admin_reply || '—' %></div>
+        </div>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 mt-4">
+        <a href="/my-orders" class="btn btn-outline-primary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+        <button id="refreshBtn" class="btn btn-primary"><i class="bi bi-arrow-repeat me-1"></i>Refresh</button>
+        <span class="meta ms-auto" id="updatedAt"></span>
       </div>
     </div>
+  </main>
 
-    <div>
-      <div class="order-label">ORDER ID</div>
-      <div class="order-value"><%= order.id %></div>
+  <%- include('partials/footer') %>
 
-      <div class="order-label">PRODUCT</div>
-      <div class="order-value"><%= order.productName %></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-      <div class="order-label">PRICE</div>
-      <div class="order-value">$<%= parseFloat(order.price).toFixed(2) %></div>
+  <script>
+  (function () {
+    const orderId = <%- JSON.stringify(order.id) %>;
+    const $status = document.getElementById('order-status');
+    const $reply  = document.getElementById('order-reply');
+    const $updated = document.getElementById('updatedAt');
 
-      <div class="order-label">DATE</div>
-      <div class="order-value"><%= new Date(order.purchaseDate).toLocaleString() %></div>
-
-      <% if (order.order_details) { %>
-        <div class="order-label">PLAYER ID</div>
-        <div class="order-value"><%= order.order_details %></div>
-      <% } %>
-
-      <div class="order-label">REPLY</div>
-      <div class="order-value text-warning" id="order-reply"><%= order.admin_reply || '' %></div>
-
-      <a href="/my-orders" class="btn btn-outline-primary btn-back"><i class="bi bi-arrow-left"></i> Back</a>
-    </div>
-  </div>
-</main>
-
-<%- include('partials/footer') %>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/main.js"></script>
-
-<script>
-(function () {
-  const orderId = <%- JSON.stringify(order.id) %>;
-  const $status = document.getElementById('order-status');
-  const $reply  = document.getElementById('order-reply');
-
-  let lastStatus = $status ? $status.textContent.trim() : '';
-  let lastReply  = $reply  ? $reply.textContent.trim()  : '';
-
-  async function poll() {
-    try {
-      const res = await fetch(`/order-details/${orderId}/status.json`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data.ok) return;
-
-      // تحديث الحالة
-      if (data.status && data.status !== lastStatus) {
-        lastStatus = data.status;
-        $status.textContent = data.status;
-
-        // غيّر لون البادج حسب الحالة
-        const badge = $status;
-        badge.className = 'badge';
-        if (data.status === 'Accepted') {
-          badge.classList.add('bg-success');
-        } else if (data.status === 'Rejected') {
-          badge.classList.add('bg-danger');
-        } else {
-          badge.classList.add('bg-warning', 'text-dark');
-        }
-      }
-
-      // تحديث الملاحظة
-      const noteText = (data.admin_reply || '').trim();
-      if (noteText !== lastReply) {
-        lastReply = noteText;
-        $reply.textContent = noteText;
-      }
-    } catch (e) {
-      // تجاهل الأخطاء
+    function stamp() {
+      const d = new Date();
+      $updated.textContent = 'Last updated: ' + d.toLocaleString('en-US',{hour12:false});
     }
-  }
+    stamp();
 
-  // شغّل أول مرة وكل 5 ثواني
-  poll();
-  setInterval(poll, 5000);
-})();
-</script>
+    // Copy buttons
+    document.querySelectorAll('.btn-copy').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const targetSel = btn.getAttribute('data-copy-target');
+        const el = document.querySelector(targetSel);
+        if (!el) return;
+        try {
+          await navigator.clipboard.writeText(el.textContent.trim());
+          btn.innerHTML = '<i class="bi bi-check2"></i>';
+          setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard"></i>', 1200);
+        } catch (_) {}
+      });
+    });
 
+    let lastStatus = $status ? $status.textContent.trim() : '';
+    let lastReply  = $reply  ? $reply.textContent.trim()  : '';
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch(`/order-details/${orderId}/status.json`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.ok) return;
+
+        // status
+        if (data.status && data.status !== lastStatus) {
+          lastStatus = data.status;
+          const badge = $status;
+          if (!badge) return;
+
+          // label + color
+          badge.className = 'badge';
+          if (data.status === 'Accepted') {
+            badge.classList.add('bg-success');
+            badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Accepted';
+          } else if (data.status === 'Rejected') {
+            badge.classList.add('bg-danger');
+            badge.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Rejected';
+          } else {
+            badge.classList.add('bg-warning','text-dark');
+            badge.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Waiting';
+          }
+        }
+
+        // reply
+        const noteText = (data.admin_reply || '—').trim();
+        if (noteText !== lastReply) {
+          lastReply = noteText;
+          if ($reply) $reply.textContent = noteText;
+        }
+
+        stamp();
+      } catch (_) { /* ignore */ }
+    }
+
+    // manual refresh
+    document.getElementById('refreshBtn')?.addEventListener('click', fetchStatus);
+
+    // auto poll
+    fetchStatus();
+    const iv = setInterval(fetchStatus, 5000);
+
+    // اختياري: وقف البولينغ لما التاب مخفي لتخفيف الحمل
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { clearInterval(iv); }
+    });
+  })();
+  </script>
 </body>
 </html>
