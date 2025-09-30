@@ -714,13 +714,100 @@ app.get('/alfa-section', (req, res) => {
 
 
 // --- صفحات أخرى ---
-app.get('/my-orders', checkAuth, (req, res) => {
-    const userId = req.session.user.id;
-    const sql = `SELECT * FROM orders WHERE userId = ? ORDER BY purchaseDate DESC`;
-    db.query(sql, [userId], (err, orders) => {
-        if (err) return console.error(err.message);
-        res.render('my-orders', { user: req.session.user, orders: orders });
+// My Orders (with filters, totals, counters, pagination)
+app.get('/my-orders', checkAuth, async (req, res) => {
+  const userId = req.session.user.id;
+
+  // Query params
+  const page  = Math.max(parseInt(req.query.page || '1', 10), 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 5), 100);
+  const offset = (page - 1) * limit;
+
+  const from   = (req.query.from || '').trim();   // YYYY-MM-DD
+  const to     = (req.query.to   || '').trim();   // YYYY-MM-DD
+  const status = (req.query.status || '').trim(); // Accepted | Waiting | Rejected | ''
+  const q      = (req.query.q || '').trim();      // search text
+
+  // WHERE for main list
+  const where = ['userId = ?'];
+  const params = [userId];
+
+  if (from) { where.push('DATE(purchaseDate) >= ?'); params.push(from); }
+  if (to)   { where.push('DATE(purchaseDate) <= ?'); params.push(to); }
+  if (status) { where.push('status = ?'); params.push(status); }
+  if (q) {
+    where.push(`(
+      productName LIKE ? OR
+      CAST(id AS CHAR) LIKE ? OR
+      COALESCE(order_details,'') LIKE ? OR
+      COALESCE(provider_order_id,'') LIKE ?
+    )`);
+    const like = `%${q}%`;
+    params.push(like, like, like, like);
+  }
+
+  const whereSql = where.join(' AND ');
+
+  // WHERE for counters (same filters BUT بدون status)
+  const whereCounters = where.filter(w => !/^status\s*=/.test(w)).join(' AND ');
+  const paramsCounters = params.filter((_, i) => !/^status\s*=/.test(where[i] || ''));
+
+  try {
+    // 1) النتائج (مع ترقيم الصفحات)
+    const [orders] = await promisePool.query(
+      `SELECT * 
+       FROM orders 
+       WHERE ${whereSql}
+       ORDER BY purchaseDate DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    // 2) العدد الكلي للصفوف المطابقة (لـ pagination)
+    const [[{ rowsCount }]] = await promisePool.query(
+      `SELECT COUNT(*) AS rowsCount FROM orders WHERE ${whereSql}`,
+      params
+    );
+
+    // 3) العدّادات + الإجمالي لنفس الفترة/البحث (بدون شرط الحالة)
+    const [agg] = await promisePool.query(
+      `SELECT
+         COUNT(*)                                           AS allCount,
+         SUM(CASE WHEN status='Accepted' THEN 1 ELSE 0 END) AS acceptedCount,
+         SUM(CASE WHEN status='Waiting'  THEN 1 ELSE 0 END) AS waitingCount,
+         SUM(CASE WHEN status='Rejected' THEN 1 ELSE 0 END) AS rejectedCount,
+         COALESCE(SUM(price),0)                             AS totalAmount
+       FROM orders
+       WHERE ${whereCounters}`,
+      paramsCounters
+    );
+
+    const totalPages = Math.max(1, Math.ceil(rowsCount / limit));
+
+    return res.render('my-orders', {
+      user: req.session.user,
+      orders,
+
+      // لواجهة الفلاتر
+      query: { from, to, status, q, page, limit },
+
+      // عدّادات + مجموع
+      statusCounts: {
+        all: Number(agg[0]?.allCount || 0),
+        accepted: Number(agg[0]?.acceptedCount || 0),
+        waiting: Number(agg[0]?.waitingCount || 0),
+        rejected: Number(agg[0]?.rejectedCount || 0),
+      },
+      totalAmount: Number(agg[0]?.totalAmount || 0),
+
+      // ترقيم
+      pagination: { page, totalPages, limit, rowsCount }
     });
+
+  } catch (err) {
+    console.error('❌ /my-orders error:', err);
+    return res.status(500).send('Server error loading orders.');
+  }
 });
 
 
