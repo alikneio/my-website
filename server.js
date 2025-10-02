@@ -2833,6 +2833,20 @@ app.get('/disney-section', (req, res) => {
         });
     });
 });
+
+app.get('/disneyhigh-section', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Disney High'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('disneyhigh-section', { 
+            user: req.session.user || null,
+            products: products  // تأكد من تمرير المنتجات
+        });
+    });
+});
 app.get('/youtube-section', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Youtube premuim'";
     db.query(sql, [], (err, products) => {
