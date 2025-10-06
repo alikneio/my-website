@@ -567,6 +567,21 @@ app.get('/communication', (req, res) => {
     });
 });
 
+app.get('/giftcards', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Gift Cards'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('giftcards', { 
+            user: req.session.user || null,
+            products: products
+        });
+    });
+});
+
+
 // قائمة الأقسام (تظهر للزائر)
 // صفحة اختيار الخدمة (Accounts / Apps)
 app.get('/apps-section', async (req, res) => {
