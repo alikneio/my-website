@@ -17,6 +17,7 @@ const products = [
     { name: 'Free Fire - 100 Diamonds', price: 1, image: '/images/ff_diamonds.png', main_cat: 'Games', sub_cat: 'Free Fire', sub_cat_img: '/images/cat_ff.png', req_id: 1 },
     { name: 'youtube- 1 Month', price: 8, image: '/images/.png', main_cat: 'Accounts', sub_cat: 'Youtube premuim', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
    { name: 'alfa - 1 Month', price: 8, image: '/images/.png', main_cat: 'Communication', sub_cat: 'Touch', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
+   { name: 'gift cards', price: 8, image: '/images/.png', main_cat: 'Gift Cards', sub_cat: 'Touch', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
     { name: 'Anghami - 1 Month', price: 8, image: '/images/.png', main_cat: 'Accounts', sub_cat: 'Alfa', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
     { name: 'Canva - 1 Month', price: 8, image: '/images/.png', main_cat: 'Accounts', sub_cat: 'Canva', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
       { name: 'Anghami - 1 Month', price: 8, image: '/images/.png', main_cat: 'Accounts', sub_cat: 'CapCut', sub_cat_img: '/images/cat_shahid.png', req_id: 0 },
