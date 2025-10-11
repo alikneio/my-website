@@ -660,7 +660,7 @@ app.get('/windows-section', (req, res) => {
 });
 
 app.get('/office-section', (req, res) => {
-    const sql = "SELECT * FROM products WHERE sub_category = 'Microsoft office key'";
+    const sql = "SELECT * FROM products WHERE sub_category = 'Microsoft office keys'";
     db.query(sql, [], (err, products) => {
         if (err) throw err;
         res.render('office-section', {
