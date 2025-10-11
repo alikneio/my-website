@@ -648,6 +648,18 @@ app.get('/netflixH-section', (req, res) => {
     });
 });
 
+
+app.get('/cyberghost', (req, res) => {
+    const sql = "SELECT * FROM products WHERE sub_category = 'Cyber Ghost'";
+    db.query(sql, [], (err, products) => {
+        if (err) throw err;
+        res.render('cyberghost', {
+            user: req.session.user || null,
+            products: products
+        });
+    });
+});
+
 app.get('/spotifyN-section', (req, res) => {
     const sql = "SELECT * FROM products WHERE sub_category = 'Spotify Normal Quality'";
     db.query(sql, [], (err, products) => {
