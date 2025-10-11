@@ -659,6 +659,17 @@ app.get('/windows-section', (req, res) => {
     });
 });
 
+app.get('/office-section', (req, res) => {
+    const sql = "SELECT * FROM products WHERE sub_category = 'microsoft office key'";
+    db.query(sql, [], (err, products) => {
+        if (err) throw err;
+        res.render('office-section', {
+            user: req.session.user || null,
+            products: products
+        });
+    });
+});
+
 
 
 
