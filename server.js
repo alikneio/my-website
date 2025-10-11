@@ -649,7 +649,7 @@ app.get('/netflixH-section', (req, res) => {
 });
 
 app.get('/windows-section', (req, res) => {
-    const sql = "SELECT * FROM products WHERE sub_category = 'windows key'";
+    const sql = "SELECT * FROM products WHERE sub_category = 'Windows key'";
     db.query(sql, [], (err, products) => {
         if (err) throw err;
         res.render('windows-section', {
