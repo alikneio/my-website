@@ -2826,6 +2826,8 @@ app.get('/shahid-section', (req, res) => {
         });
     });
 });
+
+
 app.get('/osn-section', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'osn'";
     db.query(sql, [], (err, products) => {
