@@ -761,6 +761,20 @@ app.get('/alfa-section', (req, res) => {
 });
 
 
+app.get('/u-share', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Communication' AND sub_category = 'U-Share'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('u-share', { 
+            user: req.session.user || null,
+            products: products
+        });
+    });
+});
+
 
 
 
