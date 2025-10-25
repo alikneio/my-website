@@ -2928,6 +2928,34 @@ app.get('/youtube-section', (req, res) => {
     });
 });
 
+app.get('/gemini', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Gemini Pro'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('gemini', { 
+            user: req.session.user || null,
+            products: products  // تأكد من تمرير المنتجات
+        });
+    });
+});
+
+app.get('/starzplay', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Starzplay'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('starzplay', { 
+            user: req.session.user || null,
+            products: products  // تأكد من تمرير المنتجات
+        });
+    });
+});
+
 app.get('/crunchyroll-section', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Crunchy Roll'";
     db.query(sql, [], (err, products) => {
