@@ -1000,7 +1000,7 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
     const insertSql = `
       INSERT INTO smm_services
         (provider_service_id, name, category, type, rate, min_qty, max_qty, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         name      = VALUES(name),
         category  = VALUES(category),
@@ -1008,7 +1008,7 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
         rate      = VALUES(rate),
         min_qty   = VALUES(min_qty),
         max_qty   = VALUES(max_qty),
-        is_active = 1
+        is_active = VALUES(is_active)
     `;
 
     for (const s of services) {
@@ -1019,8 +1019,10 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
         s.type || "default",       // type
         s.rate,                    // rate
         s.min,                     // min_qty
-        s.max                      // max_qty
+        s.max,                     // max_qty
+        1                          // is_active
       ];
+
       db.query(insertSql, params);
     }
 
