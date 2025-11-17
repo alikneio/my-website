@@ -996,14 +996,14 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
 
     const insertSql = `
       INSERT INTO smm_services
-      (provider_service_id, name, category, type, rate, min_qty, max_qty, active)
+      (provider_service_id, name, category, type, rate, min_quantity, max_quantity, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?, 1)
       ON DUPLICATE KEY UPDATE
         name = VALUES(name),
         rate = VALUES(rate),
-        min_qty = VALUES(min_qty),
-        max_qty = VALUES(max_qty),
-        active = 1
+        min_quantity = VALUES(min_quantity),
+        max_quantity = VALUES(max_quantity),
+        is_active = 1
     `;
 
     for (const s of services) {
@@ -1011,7 +1011,7 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
         s.service,
         s.name,
         s.category || "Other",
-        s.type || "general",
+        s.type || "default",
         s.rate,
         s.min,
         s.max
@@ -1030,6 +1030,7 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
 // =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
 
 // لائحة الكاتيجوريز
+// لائحة الكاتيجوريز
 app.get('/social-media', async (req, res) => {
   const q = (sql, p = []) =>
     new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
@@ -1043,10 +1044,9 @@ app.get('/social-media', async (req, res) => {
       ORDER BY category ASC
     `);
 
-    // نضيف slug بالـ JS لسهولة الربط
     const categories = rows.map(row => ({
       name: row.category,
-      slug: slugify(row.category || ''), // عندك slugify تحت
+      slug: slugify(row.category || ''),
       services_count: row.services_count
     }));
 
@@ -1060,21 +1060,6 @@ app.get('/social-media', async (req, res) => {
   }
 });
 
-
-app.get("/social-media/:category", async (req, res) => {
-  const cat = req.params.category;
-  db.query(
-    `SELECT * FROM smm_services WHERE category = ? AND active = 1`,
-    [cat],
-    (err, rows) => {
-      res.render("social-services", {
-        user: req.session.user,
-        category: cat,
-        services: rows
-      });
-    }
-  );
-});
 
 // لستة الخدمات ضمن كاتيجوري واحد
 app.get('/social-media/:slug', async (req, res) => {
