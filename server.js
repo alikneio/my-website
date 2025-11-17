@@ -996,14 +996,14 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
 
     const insertSql = `
       INSERT INTO smm_services
-      (provider_service_id, name, category, type, rate, min_quantity, max_quantity, is_active)
+      (provider_service_id, name, category, type, rate, min_qty, max_qty, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?, 1)
       ON DUPLICATE KEY UPDATE
-        name = VALUES(name),
-        rate = VALUES(rate),
-        min_quantity = VALUES(min_quantity),
-        max_quantity = VALUES(max_quantity),
-        is_active = 1
+        name       = VALUES(name),
+        rate       = VALUES(rate),
+        min_qty    = VALUES(min_qty),
+        max_qty    = VALUES(max_qty),
+        is_active  = 1
     `;
 
     for (const s of services) {
@@ -1011,7 +1011,7 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
         s.service,
         s.name,
         s.category || "Other",
-        s.type || "default",
+        s.type || "general",
         s.rate,
         s.min,
         s.max
@@ -1022,10 +1022,11 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
     res.send("✔️ Synced with SMM Provider");
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ SMM Sync Error:", err);
     res.status(500).send("Sync Error");
   }
 });
+
 
 // =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
 
@@ -1036,12 +1037,13 @@ app.get('/social-media', async (req, res) => {
     new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
 
   try {
-  const rows = await q(`
-  SELECT category, COUNT(*) AS services_count
-  FROM smm_services
-  GROUP BY category
-  ORDER BY category ASC
-`);
+    const rows = await q(`
+      SELECT category, COUNT(*) AS services_count
+      FROM smm_services
+      WHERE is_active = 1
+      GROUP BY category
+      ORDER BY category ASC
+    `);
 
     const categories = rows.map(row => ({
       name: row.category,
