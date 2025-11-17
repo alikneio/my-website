@@ -1,7 +1,7 @@
 const axios = require('axios');
 
-const API_URL = process.env.SMMGEN_API_URL || "https://smmgen.com/api/v2";
-const SMM_API_KEY = process.env.SMMGEN_API_KEY;
+const API_URL = "https://smmgen.com/api/v2";
+const API_KEY = process.env.SMMGEN_API_KEY;
 
 
 if (!API_KEY) {
