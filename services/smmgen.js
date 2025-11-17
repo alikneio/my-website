@@ -1,63 +1,56 @@
-const axios = require('axios');
+// /app/services/smmgen.js
+const axios = require("axios");
 
 const API_URL = "https://smmgen.com/api/v2";
 const API_KEY = process.env.SMMGEN_API_KEY;
 
-
 if (!API_KEY) {
-  console.error("❌ Missing SMMGEN_API_KEY in .env");
+  console.warn("⚠️ SMMGEN_API_KEY is not set in .env");
 }
 
-/**
- * جلب جميع الخدمات من SMMGEN
- */
+// دالة صغيرة مشتركة للـ API
+async function callSmmgen(body) {
+  const params = new URLSearchParams({
+    key: API_KEY,
+    ...body,
+  });
+
+  const { data } = await axios.post(API_URL, params);
+  return data;
+}
+
+// 1) جلب الخدمات
 async function getSmmServices() {
-  try {
-    const body = new URLSearchParams({
-      key: API_KEY,       // الانتباه هون!!
-      action: "services"
-    });
-
-    const { data } = await axios.post(API_URL, body);
-
-    if (data.error) {
-      console.error("❌ SMMGEN returned error:", data);
-      throw new Error(data.error);
-    }
-
-    return data;
-  } catch (err) {
-    console.error("❌ getSmmServices() error:", err.message);
-    throw err;
+  const data = await callSmmgen({ action: "services" });
+  if (!Array.isArray(data)) {
+    throw new Error("Invalid SMMGEN services response");
   }
+  return data;
 }
 
-/**
- * إنشاء طلب على SMMGEN
- */
-async function smmAddOrder({ service, link, quantity }) {
-  try {
-    const body = new URLSearchParams({
-      key: API_KEY,
-      action: "add",
-      service,
-      link,
-      quantity
-    });
-
-    const { data } = await axios.post(API_URL, body);
-
-    if (data.error) {
-      throw new Error(data.error);
-    }
-
-    return data.order; // حسب الدوكومنت
-  } catch (err) {
-    throw err;
+// 2) إنشاء طلب جديد
+async function createSmmOrder({ service, link, quantity }) {
+  if (!service || !link || !quantity) {
+    throw new Error("Missing order data");
   }
+
+  const data = await callSmmgen({
+    action: "add",
+    service,
+    link,
+    quantity,
+  });
+
+  // ردّ SMMGEN عادة بيكون { order: 123456 }
+  if (!data || !data.order) {
+    console.error("SMMGEN add response:", data);
+    throw new Error("No order id returned from SMMGEN");
+  }
+
+  return data.order;
 }
 
 module.exports = {
   getSmmServices,
-  smmAddOrder
+  createSmmOrder,
 };

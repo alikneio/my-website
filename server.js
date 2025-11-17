@@ -1167,14 +1167,21 @@ app.post('/buy-social', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
 
+  // من الـ form ممكن يجي الاسم service_id أو serviceId حسب الـ EJS
   const {
     service_id,
+    serviceId,
     link,
     quantity,
-    idempotency_key: rawIdemKey
+    idempotency_key: rawIdemKey,
   } = req.body;
 
-  const idemKey = (rawIdemKey || req.session.idemKey || '').toString().slice(0, 64);
+  const serviceIdNum = parseInt(service_id || serviceId, 10);
+  const qty = parseInt(quantity, 10);
+
+  const idemKey = (rawIdemKey || req.session.idemKey || '')
+    .toString()
+    .slice(0, 64);
 
   const query = (sql, params = []) =>
     new Promise((resolve, reject) =>
@@ -1190,50 +1197,51 @@ app.post('/buy-social', checkAuth, async (req, res) => {
           [userId, idemKey]
         );
       } catch (e) {
-        // مكرر → لا خصم جديد ولا طلب جديد
+        // المفتاح مستعمل سابقًا → لا خصم جديد ولا طلب جديد
         req.session.pendingOrderId = req.session.pendingOrderId || null;
         return res.redirect('/processing');
       }
     }
 
-    // 1) تحقق أساسي
-    if (!service_id || !link || !quantity) {
+    // 1) تحقق أساسي من المدخلات
+    if (!serviceIdNum || !link || !quantity) {
       return res.redirect('/social-media?error=missing_fields');
     }
 
-    const qty = parseInt(quantity, 10);
     if (!Number.isFinite(qty) || qty <= 0) {
-      return res.redirect(`/social-checkout/${service_id}?error=invalid_quantity`);
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=invalid_quantity`);
     }
 
     // 2) جلب الخدمة من DB
     const [service] = await query(
       `SELECT * FROM smm_services WHERE id = ? AND is_active = 1`,
-      [service_id]
+      [serviceIdNum]
     );
+
     if (!service) {
-      return res.redirect(`/social-checkout/${service_id}?error=service_not_found`);
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=service_not_found`);
     }
 
-const minQty = service.min_qty || 0;
-const maxQty = service.max_qty || 0;
+    // 3) تحقق من min / max
+    const minQty = Number(service.min_qty || 0);
+    const maxQty = Number(service.max_qty || 0);
 
-
-   if ((minQty && qty < minQty) || (maxQty && qty > maxQty)) {
-  return res.redirect(
-    `/social-checkout/${service_id}?error=range&min=${minQty}&max=${maxQty}`
-  );
+    if ((minQty && qty < minQty) || (maxQty && qty > maxQty)) {
+      return res.redirect(
+        `/social-checkout/${serviceIdNum}?error=range&min=${minQty}&max=${maxQty}`
+      );
     }
 
     // 4) السعر (rate per 1000)
     const rate = Number(service.rate || 0); // مثال: 0.90 لكل 1000
     if (!Number.isFinite(rate) || rate <= 0) {
-      return res.redirect(`/social-checkout/${service_id}?error=pricing`);
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
 
+    // totalCents = round(qty * rate * 100 / 1000)
     const totalCents = Math.round((qty * rate * 100) / 1000);
     if (!Number.isFinite(totalCents) || totalCents <= 0) {
-      return res.redirect(`/social-checkout/${service_id}?error=pricing`);
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
     const total = totalCents / 100; // DECIMAL(10,2)
 
@@ -1243,10 +1251,10 @@ const maxQty = service.max_qty || 0;
       [total, userId, total]
     );
     if (!upd?.affectedRows) {
-      return res.redirect(`/social-checkout/${service_id}?error=balance`);
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=balance`);
     }
 
-    // 6) Transaction (debit)
+    // 6) تسجيل معاملة الخصم
     await query(
       `INSERT INTO transactions (user_id, type, amount, reason)
        VALUES (?, 'debit', ?, ?)`,
@@ -1257,16 +1265,18 @@ const maxQty = service.max_qty || 0;
     let providerOrderId = null;
     try {
       providerOrderId = await createSmmOrder({
-  service: service.provider_service_id,
-  link,
-  quantity: qty
-});
-
+        service: service.provider_service_id, // من جدول smm_services
+        link,
+        quantity: qty,
+      });
     } catch (apiErr) {
-      console.error('❌ SMMGEN API error:', apiErr.message);
+      console.error('❌ SMMGEN API error:', apiErr.message || apiErr);
 
       // Refund
-      await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
+      await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [
+        total,
+        userId,
+      ]);
       await query(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'credit', ?, ?)`,
@@ -1274,19 +1284,24 @@ const maxQty = service.max_qty || 0;
       );
 
       return res.redirect(
-        `/social-checkout/${service_id}?error=provider&msg=${encodeURIComponent(apiErr.message)}`
+        `/social-checkout/${serviceIdNum}?error=provider&msg=${encodeURIComponent(
+          apiErr.message || 'Provider error'
+        )}`
       );
     }
 
     if (!providerOrderId) {
       // Refund إذا ما رجع ID
-      await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
+      await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [
+        total,
+        userId,
+      ]);
       await query(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'credit', ?, ?)`,
         [userId, total, `Refund (no provider id): ${service.name}`]
       );
-      return res.redirect(`/social-checkout/${service_id}?error=no_provider_id`);
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=no_provider_id`);
     }
 
     // 8) حفظ الطلب في جدول orders (العام)
@@ -1305,7 +1320,7 @@ const maxQty = service.max_qty || 0;
       service.name,
       total,
       orderDetails,
-      providerOrderId
+      providerOrderId,
     ];
     if (idemKey) insertParams.push(idemKey);
 
@@ -1326,7 +1341,10 @@ const maxQty = service.max_qty || 0;
     await query(
       `INSERT INTO notifications (user_id, message, created_at, is_read)
        VALUES (?, ?, NOW(), 0)`,
-      [userId, `✅ تم استلام طلب خدمتك (${service.name}) بنجاح. سيتم تنفيذها قريبًا.`]
+      [
+        userId,
+        `✅ تم استلام طلب خدمتك (${service.name}) بنجاح. سيتم تنفيذها قريبًا.`,
+      ]
     );
 
     // 11) تيليغرام
@@ -1338,14 +1356,22 @@ const maxQty = service.max_qty || 0;
     if (userRow?.telegram_chat_id) {
       await sendTelegramMessage(
         userRow.telegram_chat_id,
-        `📥 <b>تم استلام طلب خدمتك للسوشيال ميديا</b>\n\n🛍️ <b>الخدمة:</b> ${service.name}\n🔗 <b>الرابط:</b> ${link}\n🔢 <b>الكمية:</b> ${qty}\n💰 <b>السعر:</b> ${total}$\n📌 <b>الحالة:</b> جاري المعالجة`,
+        `📥 <b>تم استلام طلب خدمتك للسوشيال ميديا</b>\n\n🛍️ <b>الخدمة:</b> ${
+          service.name
+        }\n🔗 <b>الرابط:</b> ${link}\n🔢 <b>الكمية:</b> ${qty}\n💰 <b>السعر:</b> ${total}$\n📌 <b>الحالة:</b> جاري المعالجة`,
         process.env.TELEGRAM_BOT_TOKEN
       );
     }
+
     if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
       await sendTelegramMessage(
         process.env.ADMIN_TELEGRAM_CHAT_ID,
-        `🆕 طلب Social Media جديد!\n👤 الزبون: ${userRow?.username}\n🛍️ الخدمة: ${service.name}\n🔢 الكمية: ${qty}\n💰 السعر: ${total}$\n🔗 الرابط: ${link}\n🕓 الوقت: ${new Date().toLocaleString('en-US', { hour12: false })}`,
+        `🆕 طلب Social Media جديد!\n👤 الزبون: ${
+          userRow?.username
+        }\n🛍️ الخدمة: ${service.name}\n🔢 الكمية: ${qty}\n💰 السعر: ${total}$\n🔗 الرابط: ${link}\n🕓 الوقت: ${new Date().toLocaleString(
+          'en-US',
+          { hour12: false }
+        )}`,
         process.env.TELEGRAM_BOT_TOKEN
       );
     }
@@ -1353,14 +1379,11 @@ const maxQty = service.max_qty || 0;
     // 12) تجربة موحدة
     req.session.pendingOrderId = orderId;
     return res.redirect('/processing');
-
   } catch (err) {
     console.error('❌ /buy-social error:', err?.response?.data || err.message || err);
-    return res.redirect(`/social-checkout/${service_id}?error=server`);
+    return res.redirect(`/social-checkout/${serviceIdNum}?error=server`);
   }
 });
-
-
 
 
 
