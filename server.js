@@ -1036,28 +1036,26 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
 
 // =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
 
-// لائحة الكاتيجوريز
-// لائحة الكاتيجوريز
 app.get('/social-media', async (req, res) => {
   const q = (sql, p = []) =>
-    new Promise((ok, no) => db.query(sql, p, (e, r) => (e ? no(e) : ok(r))));
+    new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
 
   try {
     const rows = await q(`
       SELECT category, COUNT(*) AS services_count
       FROM smm_services
       WHERE is_active = 1
+        AND category IS NOT NULL
+        AND category <> ''
       GROUP BY category
       ORDER BY category ASC
     `);
 
-    const categories = rows
-      .filter(row => row.category && row.category.trim() !== '')
-      .map(row => ({
-        name: row.category,
-        slug: slugify(row.category),      // 👈 هون منولد slug
-        services_count: row.services_count
-      }));
+    const categories = rows.map(row => ({
+      category: row.category,
+      slug: slugify(row.category || ''),
+      services_count: row.services_count
+    }));
 
     res.render('social-categories', {
       user: req.session.user || null,
@@ -1068,6 +1066,38 @@ app.get('/social-media', async (req, res) => {
     res.status(500).send('Server error loading social media categories.');
   }
 });
+
+app.get('/social-media/:slug', async (req, res) => {
+  const q = (sql, p = []) =>
+    new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
+
+  const { slug } = req.params;
+
+  try {
+    const rows = await q(
+      `SELECT * FROM smm_services WHERE is_active = 1 ORDER BY name ASC`
+    );
+
+    const services = rows.filter(s => slugify(s.category || '') === slug);
+
+    if (!services.length) {
+      return res.status(404).send('Category not found or has no services.');
+    }
+
+    const category = services[0].category;
+
+    res.render('social-services', {
+      user: req.session.user || null,
+      category,   // <-- هيدا اللي رح يستعمله الـ EJS
+      slug,
+      services
+    });
+  } catch (e) {
+    console.error('❌ /social-media/:slug error:', e.message);
+    res.status(500).send('Server error loading social services.');
+  }
+});
+
 
 
 // لستة الخدمات ضمن كاتيجوري واحد
