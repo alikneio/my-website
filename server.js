@@ -1135,7 +1135,8 @@ app.get('/social-media/:slug', async (req, res) => {
 
 
 
-// صفحة Checkout لخدمة واحدة
+const { v4: uuidv4 } = require('uuid'); // تأكد هذا السطر فوق مع باقي الـ requires
+
 app.get('/social-checkout/:id', checkAuth, (req, res) => {
   const serviceId = parseInt(req.params.id, 10);
   if (!Number.isFinite(serviceId)) {
@@ -1150,9 +1151,15 @@ app.get('/social-checkout/:id', checkAuth, (req, res) => {
     }
 
     const service = rows[0];
+
+    // 🔑 نولّد مفتاح عدم التكرار ونخزّنه بالسيشن
+    const idemKey = uuidv4();
+    req.session.idemKey = idemKey;
+
     res.render('social-checkout', {
       user: req.session.user,
-      service
+      service,
+      idemKey         // 👈 هيدا اللي كان ناقص
     });
   });
 });

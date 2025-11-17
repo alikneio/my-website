@@ -14,18 +14,20 @@
 
   <div class="container my-4">
     <div class="row g-3">
+      <!-- ================= LEFT: SERVICE + FORM ================= -->
       <div class="col-lg-7">
         <div class="card shadow-sm mb-3">
           <div class="card-body">
             <h3 class="card-title mb-2"><%= service.name %></h3>
             <p class="text-muted small mb-3">
-              Category: <strong><%= service.category %></strong>
+              Category:
+              <strong><%= service.category || 'Social Media' %></strong>
             </p>
 
             <div class="row text-center mb-3">
               <div class="col-4">
                 <div class="small text-muted">Rate / 1000</div>
-                <div class="fw-bold">$<%= Number(service.rate).toFixed(4) %></div>
+                <div class="fw-bold">$<%= Number(service.rate || 0).toFixed(4) %></div>
               </div>
               <div class="col-4">
                 <div class="small text-muted">Min</div>
@@ -39,9 +41,15 @@
 
             <hr>
 
-            <form id="socialOrderForm">
-              <input type="hidden" name="serviceId" value="<%= service.id %>">
-              <input type="hidden" name="idempotency_key" value="<%= idemKey %>">
+            <!-- ============ ORDER FORM ============ -->
+            <form
+              id="socialOrderForm"
+              action="/buy-social"
+              method="POST"
+            >
+              <!-- مهم: نفس الأسماء اللي السيرفر بيقراها -->
+              <input type="hidden" name="service_id" value="<%= service.id %>">
+              <input type="hidden" name="idempotency_key" value="<%= typeof idemKey !== 'undefined' ? idemKey : '' %>">
 
               <div class="mb-3">
                 <label class="form-label">Link (URL or username)</label>
@@ -78,7 +86,7 @@
                   <div class="small text-muted mb-1">Estimated price</div>
                   <div class="fw-bold" id="pricePreview">$0.00</div>
                   <div class="small text-muted">
-                    Rate: $<%= Number(service.rate).toFixed(4) %> / 1000
+                    Rate: $<%= Number(service.rate || 0).toFixed(4) %> / 1000
                   </div>
                 </div>
                 <% if (user) { %>
@@ -92,18 +100,18 @@
               <div id="orderError" class="alert alert-danger d-none"></div>
 
               <button type="submit" class="btn btn-primary w-100" id="submitBtn">
-                <span class="spinner-border spinner-border-sm me-2 d-none" id="btnSpinner"></span>
                 Confirm Order
               </button>
             </form>
           </div>
         </div>
 
-        <a href="/social-media/<%= encodeURIComponent(service.category) %>" class="btn btn-link">
-          <i class="bi bi-arrow-left"></i> Back to services
+        <a href="/social-media" class="btn btn-link">
+          <i class="bi bi-arrow-left"></i> Back to categories
         </a>
       </div>
 
+      <!-- ================= RIGHT: NOTES ================= -->
       <div class="col-lg-5">
         <div class="card shadow-sm">
           <div class="card-body">
@@ -111,7 +119,7 @@
             <ul class="small text-muted mb-0">
               <li>Make sure the link is correct and public (not private).</li>
               <li>Do not change username / link until the order is fully completed.</li>
-              <li>Delivery time depends on the service speed of the provider.</li>
+              <li>Delivery time depends on the speed of the provider.</li>
               <li>Quantity must be between the allowed min and max.</li>
             </ul>
           </div>
@@ -121,19 +129,19 @@
   </div>
 
   <%- include('partials/footer') %>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
-    (function(){
-      const rate = Number(<%= JSON.stringify(Number(service.rate)) %>);
-      const minQty = Number(<%= JSON.stringify(Number(service.min_qty)) %>);
-      const maxQty = Number(<%= JSON.stringify(Number(service.max_qty)) %>);
+    (function () {
+      const rate   = Number(<%= JSON.stringify(Number(service.rate || 0)) %>);
+      const minQty = Number(<%= JSON.stringify(Number(service.min_qty || 0)) %>);
+      const maxQty = Number(<%= JSON.stringify(Number(service.max_qty || 0)) %>);
 
       const qtyInput = document.getElementById("orderQty");
       const priceEl  = document.getElementById("pricePreview");
       const form     = document.getElementById("socialOrderForm");
       const errBox   = document.getElementById("orderError");
-      const btn      = document.getElementById("submitBtn");
-      const spinner  = document.getElementById("btnSpinner");
 
       function updatePrice() {
         const q = Number(qtyInput.value || 0);
@@ -147,51 +155,26 @@
 
       qtyInput.addEventListener("input", updatePrice);
 
-      form.addEventListener("submit", async function(e){
-        e.preventDefault();
+      // تحقق بسيط قبل الإرسال (السبميت نفسه يروح للسيرفر)
+      form.addEventListener("submit", function (e) {
         errBox.classList.add("d-none");
         errBox.textContent = "";
 
         const link = document.getElementById("orderLink").value.trim();
-        const quantity = Number(qtyInput.value || 0);
-        if (!link || !quantity) return;
+        const q    = Number(qtyInput.value || 0);
 
-        if (quantity < minQty || quantity > maxQty) {
-          errBox.textContent = "Quantity out of allowed range.";
+        if (!link || !q) {
+          e.preventDefault();
+          errBox.textContent = "Please fill all required fields.";
           errBox.classList.remove("d-none");
           return;
         }
 
-        btn.disabled = true;
-        spinner.classList.remove("d-none");
-
-        try {
-          const body = new URLSearchParams();
-          body.append("serviceId", "<%= service.id %>");
-          body.append("quantity", quantity);
-          body.append("link", link);
-          body.append("idempotency_key", "<%= idemKey %>");
-
-          const res = await fetch("/buy-social", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: body.toString()
-          });
-
-          const data = await res.json();
-          if (data.success && data.redirectUrl) {
-            window.location.href = data.redirectUrl;
-          } else {
-            errBox.textContent = data.message || "Failed to place order.";
-            errBox.classList.remove("d-none");
-          }
-        } catch (err) {
-          console.error(err);
-          errBox.textContent = "Server error. Please try again.";
+        if (q < minQty || q > maxQty) {
+          e.preventDefault();
+          errBox.textContent = "Quantity must be between " + minQty + " and " + maxQty + ".";
           errBox.classList.remove("d-none");
-        } finally {
-          btn.disabled = false;
-          spinner.classList.add("d-none");
+          return;
         }
       });
 
@@ -199,6 +182,7 @@
       updatePrice();
     })();
   </script>
+
   <script src="/main.js"></script>
 </body>
 </html>
