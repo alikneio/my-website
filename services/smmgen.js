@@ -1,80 +1,62 @@
-const axios = require("axios");
+const axios = require('axios');
 
-const API_URL = process.env.SMM_API_URL;
-const API_KEY = process.env.SMM_API_KEY;
+const API_URL = process.env.SMMGEN_API_URL || "https://smmgen.com/api/v2";
+const API_KEY = process.env.SMMGEN_API_KEY;
 
-const smmAPI = axios.create({
-  baseURL: 'https://smmgen.com/api/v2',
-  timeout: 15000
-});
-
-// طلب موحد
-async function smmRequest(params) {
-  const body = new URLSearchParams({
-    key: API_KEY,
-    ...params,
-  });
-
-  const { data } = await axios.post(API_URL, body.toString(), {
-    headers: { "Content-Type": "application/x-www-form-urlencoded" }
-  });
-
-  return data;
+if (!API_KEY) {
+  console.error("❌ Missing SMMGEN_API_KEY in .env");
 }
 
-// جلب الخدمات
+/**
+ * جلب جميع الخدمات من SMMGEN
+ */
 async function getSmmServices() {
-  return smmRequest({ action: "services" });
+  try {
+    const body = new URLSearchParams({
+      key: API_KEY,       // الانتباه هون!!
+      action: "services"
+    });
+
+    const { data } = await axios.post(API_URL, body);
+
+    if (data.error) {
+      console.error("❌ SMMGEN returned error:", data);
+      throw new Error(data.error);
+    }
+
+    return data;
+  } catch (err) {
+    console.error("❌ getSmmServices() error:", err.message);
+    throw err;
+  }
 }
 
-// إنشاء طلب
-async function createSmmOrder(service, link, quantity) {
-  return smmRequest({
-    action: "add",
-    service,
-    link,
-    quantity,
-  });
-}
-
-// حالة الطلب
-async function getSmmOrderStatus(orderId) {
-  return smmRequest({
-    action: "status",
-    order: orderId,
-  });
-}
-
-// رصيد المزود
-async function getSmmBalance() {
-  return smmRequest({
-    action: "balance",
-  });
-}
-
+/**
+ * إنشاء طلب على SMMGEN
+ */
 async function smmAddOrder({ service, link, quantity }) {
-  const params = new URLSearchParams({
-    key: process.env.SMMGEN_API_KEY,
-    action: 'add',
-    service: String(service),
-    link,
-    quantity: String(quantity)
-  });
+  try {
+    const body = new URLSearchParams({
+      key: API_KEY,
+      action: "add",
+      service,
+      link,
+      quantity
+    });
 
-  const { data } = await smmAPI.post('', params);
+    const { data } = await axios.post(API_URL, body);
 
-  if (data.error) {
-    throw new Error(data.error);
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    return data.order; // حسب الدوكومنت
+  } catch (err) {
+    throw err;
   }
-  if (!data.order) {
-    throw new Error('No order id returned from SMMGEN');
-  }
-  return data.order; // provider order id
 }
 
 module.exports = {
   getSmmServices,
-  createSmmOrder,
-  getSmmOrderStatus,
-  getSmmBalance
+  smmAddOrder
 };

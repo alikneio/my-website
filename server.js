@@ -1036,13 +1036,12 @@ app.get('/social-media', async (req, res) => {
     new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
 
   try {
-    const rows = await q(`
-      SELECT category, COUNT(*) AS services_count
-      FROM smm_services
-      WHERE is_active = 1
-      GROUP BY category
-      ORDER BY category ASC
-    `);
+  const rows = await q(`
+  SELECT category, COUNT(*) AS services_count
+  FROM smm_services
+  GROUP BY category
+  ORDER BY category ASC
+`);
 
     const categories = rows.map(row => ({
       name: row.category,
