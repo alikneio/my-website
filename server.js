@@ -15,20 +15,18 @@ const multer = require('multer');
 // ثالثاً: تحديد PORT بعد تحميل dotenv
 const PORT = process.env.PORT || 3000;
 
-
 // بعدها استورد أي شيء بيحتاج PORT أو ENV
 const { dailycardAPI, verifyPlayerId } = require('./services/dailycard');
 const { v4: uuidv4 } = require('uuid');
 const TelegramBot = require('node-telegram-bot-api');
-const { getSmmServices } = require("../services/smmgen");
-const { createSmmOrder } = require("./services/smmgen");
-const syncSMM = require("./jobs/syncSMM")(db);
+// 🔽 عدّل هول:
+const { getSmmServices, createSmmOrder } = require('./services/smmgen');
+// (رح نرجع لـ syncSMM بعد شوي)
 const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
 const uploadNone = multer();
 require('./telegram/saveChatId');
-
 
 
 
@@ -60,6 +58,9 @@ const app = express();
 app.set('view engine', 'ejs');
 
 const { pool: db, promisePool, query } = require('./database');
+const makeSyncSMMJob = require('./jobs/syncSMM');
+const syncSMM = makeSyncSMMJob(db, promisePool);
+
 
 
 
