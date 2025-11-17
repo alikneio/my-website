@@ -1040,7 +1040,7 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
 // لائحة الكاتيجوريز
 app.get('/social-media', async (req, res) => {
   const q = (sql, p = []) =>
-    new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
+    new Promise((ok, no) => db.query(sql, p, (e, r) => (e ? no(e) : ok(r))));
 
   try {
     const rows = await q(`
@@ -1051,11 +1051,13 @@ app.get('/social-media', async (req, res) => {
       ORDER BY category ASC
     `);
 
-    const categories = rows.map(row => ({
-      name: row.category,
-      slug: slugify(row.category || ''),
-      services_count: row.services_count
-    }));
+    const categories = rows
+      .filter(row => row.category && row.category.trim() !== '')
+      .map(row => ({
+        name: row.category,
+        slug: slugify(row.category),      // 👈 هون منولد slug
+        services_count: row.services_count
+      }));
 
     res.render('social-categories', {
       user: req.session.user || null,
