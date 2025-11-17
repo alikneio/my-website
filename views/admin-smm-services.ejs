@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin - SMM Services</title>
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+</head>
+<body>
+  <%- include('partials/admin-header') %>
+
+  <div class="container-fluid my-4">
+    <div class="row">
+      <div class="col-lg-10 mx-auto">
+
+        <h2 class="mb-3">SMM Services</h2>
+
+        <% if (flash) { %>
+          <div class="alert alert-<%= flash.type %>"><%= flash.msg %></div>
+        <% } %>
+
+        <!-- Filters -->
+        <form class="row g-2 mb-3" method="get" action="/admin/smm-services">
+          <div class="col-md-4">
+            <input
+              type="text"
+              class="form-control"
+              name="q"
+              placeholder="Search by name, category, or ID"
+              value="<%= filters.q %>"
+            />
+          </div>
+          <div class="col-md-3">
+            <select name="category" class="form-select">
+              <option value="">All categories</option>
+              <% categories.forEach(function(cat){ %>
+                <option value="<%= cat %>" <%= filters.category === cat ? 'selected' : '' %>>
+                  <%= cat %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <select name="active" class="form-select">
+              <option value="">All</option>
+              <option value="1" <%= filters.active === '1' ? 'selected' : '' %>>Active</option>
+              <option value="0" <%= filters.active === '0' ? 'selected' : '' %>>Inactive</option>
+            </select>
+          </div>
+          <div class="col-md-3 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1" type="submit">
+              <i class="bi bi-search"></i> Filter
+            </button>
+            <a href="/admin/smm-services" class="btn btn-outline-secondary">Reset</a>
+          </div>
+        </form>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle table-striped">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Provider ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Rate /1000</th>
+                <th>Min</th>
+                <th>Max</th>
+                <th>Status</th>
+                <th style="width:160px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!services || services.length === 0) { %>
+                <tr>
+                  <td colspan="9" class="text-center text-muted">
+                    No services found.
+                  </td>
+                </tr>
+              <% } else { %>
+                <% services.forEach(function(s){ %>
+                  <tr>
+                    <td><%= s.id %></td>
+                    <td><span class="text-muted"><%= s.provider_service_id %></span></td>
+                    <td><%= s.name %></td>
+                    <td><%= s.category %></td>
+                    <td>$<%= Number(s.rate).toFixed(4) %></td>
+                    <td><%= s.min_qty %></td>
+                    <td><%= s.max_qty %></td>
+                    <td>
+                      <% if (s.is_active) { %>
+                        <span class="badge bg-success">Active</span>
+                      <% } else { %>
+                        <span class="badge bg-secondary">Inactive</span>
+                      <% } %>
+                    </td>
+                    <td>
+                      <a href="/admin/smm-services/<%= s.id %>/edit" class="btn btn-sm btn-outline-primary">
+                        Edit
+                      </a>
+                      <form action="/admin/smm-services/<%= s.id %>/toggle" method="post" class="d-inline">
+                        <button class="btn btn-sm <%= s.is_active ? 'btn-outline-warning' : 'btn-outline-success' %>" type="submit">
+                          <%= s.is_active ? 'Disable' : 'Enable' %>
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

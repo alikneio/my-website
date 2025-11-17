@@ -1256,11 +1256,12 @@ const maxQty = service.max_qty || 0;
     // 7) إنشاء الطلب عند المزود SMMGEN
     let providerOrderId = null;
     try {
-      providerOrderId = await smmAddOrder({
-        service: service.provider_service_id,
-        link,
-        quantity: qty
-      });
+      providerOrderId = await createSmmOrder({
+  service: service.provider_service_id,
+  link,
+  quantity: qty
+});
+
     } catch (apiErr) {
       console.error('❌ SMMGEN API error:', apiErr.message);
 
@@ -1573,6 +1574,152 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
     });
   });
 });
+
+// =============== ADMIN - SMM SERVICES ===============
+const adminQ = (sql, params = []) =>
+  new Promise((ok, no) => db.query(sql, params, (e, r) => (e ? no(e) : ok(r)));
+
+// لستة الخدمات مع فلترة بسيطة
+app.get('/admin/smm-services', checkAdmin, async (req, res) => {
+  const { q, category, active } = req.query;
+
+  try {
+    let where = '1=1';
+    const params = [];
+
+    if (q && q.trim()) {
+      where += ' AND (name LIKE ? OR category LIKE ? OR provider_service_id = ?)';
+      params.push(`%${q.trim()}%`, `%${q.trim()}%`, Number(q) || 0);
+    }
+
+    if (category && category.trim()) {
+      where += ' AND category = ?';
+      params.push(category.trim());
+    }
+
+    if (active === '1') {
+      where += ' AND is_active = 1';
+    } else if (active === '0') {
+      where += ' AND is_active = 0';
+    }
+
+    const services = await adminQ(
+      `
+        SELECT *
+        FROM smm_services
+        WHERE ${where}
+        ORDER BY category ASC, name ASC
+        LIMIT 500
+      `,
+      params
+    );
+
+    // لائحة كاتيجوريز للفلتر
+    const cats = await adminQ(
+      `SELECT DISTINCT category FROM smm_services ORDER BY category ASC`
+    );
+
+    res.render('admin-smm-services', {
+      user: req.session.user || null,
+      services,
+      categories: cats.map(c => c.category).filter(Boolean),
+      filters: { q: q || '', category: category || '', active: active || '' },
+      flash: req.session.flash || null
+    });
+    req.session.flash = null;
+  } catch (e) {
+    console.error('Admin SMM list error:', e);
+    res.status(500).send('Failed to load SMM services list');
+  }
+});
+
+// فورم تعديل خدمة
+app.get('/admin/smm-services/:id/edit', checkAdmin, async (req, res) => {
+  try {
+    const [service] = await adminQ(
+      `SELECT * FROM smm_services WHERE id = ?`,
+      [req.params.id]
+    );
+    if (!service) return res.status(404).send('Service not found');
+
+    res.render('admin-smm-service-form', {
+      user: req.session.user || null,
+      service,
+      flash: req.session.flash || null
+    });
+    req.session.flash = null;
+  } catch (e) {
+    console.error('Admin SMM edit form error:', e);
+    res.status(500).send('Failed to load edit form');
+  }
+});
+
+// حفظ التعديل
+app.post('/admin/smm-services/:id/edit', checkAdmin, async (req, res) => {
+  try {
+    const {
+      name,
+      category,
+      type,
+      rate,
+      min_qty,
+      max_qty,
+      description,
+      is_active
+    } = req.body;
+
+    await adminQ(
+      `
+        UPDATE smm_services
+        SET
+          name = ?,
+          category = ?,
+          type = ?,
+          rate = ?,
+          min_qty = ?,
+          max_qty = ?,
+          description = ?,
+          is_active = ?
+        WHERE id = ?
+      `,
+      [
+        name || '',
+        category || '',
+        type || null,
+        Number(rate) || 0,
+        Number(min_qty) || 0,
+        Number(max_qty) || 0,
+        description || null,
+        is_active ? 1 : 0,
+        req.params.id
+      ]
+    );
+
+    req.session.flash = { type: 'success', msg: 'Service updated successfully.' };
+    res.redirect('/admin/smm-services');
+  } catch (e) {
+    console.error('Admin SMM update error:', e);
+    req.session.flash = { type: 'danger', msg: 'Failed to update service.' };
+    res.redirect(`/admin/smm-services/${req.params.id}/edit`);
+  }
+});
+
+// تفعيل / تعطيل سريع
+app.post('/admin/smm-services/:id/toggle', checkAdmin, async (req, res) => {
+  try {
+    await adminQ(
+      `UPDATE smm_services
+       SET is_active = IF(is_active = 1, 0, 1)
+       WHERE id = ?`,
+      [req.params.id]
+    );
+    res.redirect('/admin/smm-services');
+  } catch (e) {
+    console.error('Admin SMM toggle error:', e);
+    res.status(500).send('Toggle failed');
+  }
+});
+
 
 
 
