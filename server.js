@@ -1577,7 +1577,7 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
 
 // =============== ADMIN - SMM SERVICES ===============
 const adminQ = (sql, params = []) =>
-  new Promise((ok, no) => db.query(sql, params, (e, r) => (e ? no(e) : ok(r)));
+  new Promise((ok, no) => db.query(sql, params, (e, r) => (e ? no(e) : ok(r))));
 
 // لستة الخدمات مع فلترة بسيطة
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
