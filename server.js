@@ -1050,7 +1050,7 @@ app.get('/social-media', async (req, res) => {
       services_count: row.services_count
     }));
 
-    res.render('social-media-categories', {
+    res.render('social-categories', {
       user: req.session.user || null,
       categories
     });
@@ -1082,7 +1082,7 @@ app.get('/social-media/:slug', async (req, res) => {
 
     const categoryName = services[0].category;
 
-    res.render('social-media-services', {
+    res.render('social-services', {
       user: req.session.user || null,
       categoryName,
       categorySlug: slug,
