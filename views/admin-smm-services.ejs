@@ -9,100 +9,223 @@
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .smm-badge-category {
+      font-size: .75rem;
+      border-radius: 999px;
+      padding: 0.15rem .6rem;
+      background: #eef2ff;
+      color: #4338ca;
+      white-space: nowrap;
+    }
+    .smm-stat-card {
+      border-radius: 0.75rem;
+    }
+    .table-sm td, .table-sm th {
+      padding-top: .55rem;
+      padding-bottom: .55rem;
+    }
+    .smm-name {
+      font-size: .9rem;
+      font-weight: 700;
+    }
+    .smm-provider-id {
+      font-size: .75rem;
+    }
+    @media (max-width: 992px) {
+      .admin-main-scroll {
+        padding: 1rem !important;
+      }
+    }
+  </style>
 </head>
 
 <body class="bg-light">
-
   <div class="d-flex" style="min-height:100vh;">
 
     <!-- Sidebar -->
     <%- include('partials/admin-sidebar') %>
 
-    <!-- MAIN CONTENT -->
-    <div class="flex-grow-1">
+    <!-- MAIN AREA -->
+    <div class="flex-grow-1 d-flex flex-column">
 
-      <!-- Top Header -->
+      <!-- Top header -->
       <header class="bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
         <h1 class="h4 m-0">
           <i class="bi bi-instagram"></i> Social Media Services
         </h1>
-
         <% if (user) { %>
-        <div class="small text-muted">
-          Logged in as <b><%= user.username || user.email %></b>
-        </div>
+          <div class="small text-muted">
+            Logged in as <strong><%= user.username || user.email %></strong>
+          </div>
         <% } %>
       </header>
 
-      <!-- Page Content -->
-      <main class="p-4">
+      <!-- Content -->
+      <main class="admin-main-scroll flex-grow-1 p-4">
 
-        <% if (flash) { %>
+        <% 
+          const list = (services || []).slice();
+          let totalActive = 0, totalDisabled = 0;
+          const catsMap = {};
+          list.forEach(s => {
+            if (s.is_active) totalActive++; else totalDisabled++;
+            const c = s.category || 'Other';
+            catsMap[c] = (catsMap[c] || 0) + 1;
+          });
+          const categoryList = Object.keys(catsMap).sort((a,b)=>a.localeCompare(b));
+          const totalServices = list.length;
+          const totalCategories = categoryList.length;
+        %>
+
+        <% if (typeof flash !== 'undefined' && flash) { %>
           <div class="alert alert-<%= flash.type %>"><%= flash.msg %></div>
         <% } %>
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h2 class="h5 mb-0">SMM Services List</h2>
+        <!-- Stats row -->
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3">
+            <div class="card smm-stat-card shadow-sm border-0">
+              <div class="card-body py-2">
+                <div class="small text-muted">Total Services</div>
+                <div class="h5 mb-0"><%= totalServices %></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card smm-stat-card shadow-sm border-0">
+              <div class="card-body py-2">
+                <div class="small text-muted text-success">Active</div>
+                <div class="h5 mb-0"><%= totalActive %></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card smm-stat-card shadow-sm border-0">
+              <div class="card-body py-2">
+                <div class="small text-muted text-secondary">Disabled</div>
+                <div class="h5 mb-0"><%= totalDisabled %></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card smm-stat-card shadow-sm border-0">
+              <div class="card-body py-2">
+                <div class="small text-muted">Categories</div>
+                <div class="h5 mb-0"><%= totalCategories %></div>
+              </div>
+            </div>
+          </div>
+        </div>
 
+        <!-- Header row with sync -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="h5 mb-0">SMM Services List</h2>
           <a href="/admin/smm/sync" class="btn btn-primary btn-sm">
             <i class="bi bi-arrow-repeat"></i> Sync from Provider
           </a>
         </div>
 
+        <!-- Filters -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4 col-lg-3">
+                <label class="form-label small mb-1">Category</label>
+                <select id="filterCategory" class="form-select form-select-sm">
+                  <option value="">All categories</option>
+                  <% categoryList.forEach(function(c){ %>
+                    <option value="<%= c %>"><%= c %> (<%= catsMap[c] %>)</option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div class="col-md-3 col-lg-2">
+                <label class="form-label small mb-1">Status</label>
+                <select id="filterStatus" class="form-select form-select-sm">
+                  <option value="">All</option>
+                  <option value="active">Active</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </div>
+
+              <div class="col-md-5 col-lg-4">
+                <label class="form-label small mb-1">Search</label>
+                <input
+                  id="filterSearch"
+                  type="text"
+                  class="form-control form-control-sm"
+                  placeholder="Search by name or ID...">
+              </div>
+
+              <div class="col-12 col-lg-3 text-lg-end">
+                <div class="small text-muted mb-1" id="filterSummary">
+                  Showing <%= totalServices %> services
+                </div>
+                <button type="button" id="clearFilters" class="btn btn-link btn-sm p-0">
+                  Clear filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
         <div class="card shadow-sm">
           <div class="card-body p-0">
-
             <div class="table-responsive">
-              <table class="table table-hover mb-0 align-middle">
+              <table class="table table-hover table-sm mb-0 align-middle" id="smmTable">
                 <thead class="table-light">
                   <tr>
-                    <th>ID</th>
+                    <th style="width:80px;">ID</th>
                     <th>Name</th>
-                    <th>Category</th>
-                    <th>Rate / 1000</th>
-                    <th>Min / Max</th>
-                    <th>Status</th>
-                    <th style="width:180px;">Actions</th>
+                    <th style="width:220px;">Category</th>
+                    <th style="width:120px;">Rate / 1000</th>
+                    <th style="width:130px;">Min / Max</th>
+                    <th style="width:90px;">Status</th>
+                    <th style="width:190px;">Actions</th>
                   </tr>
                 </thead>
-
                 <tbody>
-                  <% if (!services || services.length === 0) { %>
+                  <% if (!list.length) { %>
                     <tr>
                       <td colspan="7" class="text-center text-muted py-4">
-                        No services found. Click Sync to import from SMMGEN.
+                        No services found.
                       </td>
                     </tr>
-
                   <% } else { %>
-                    <% services.forEach(s => { %>
-                      <tr>
+                    <% list.forEach(function(s){ 
+                         const cat = s.category || 'Other';
+                         const statusText = s.is_active ? 'active' : 'disabled';
+                    %>
+                      <tr class="service-row"
+                          data-category="<%= cat %>"
+                          data-status="<%= statusText %>"
+                          data-name="<%= (s.name || '').toLowerCase() %>"
+                          data-id="<%= s.id %>">
                         <td>#<%= s.id %></td>
-
                         <td>
-                          <b><%= s.name %></b><br>
-                          <small class="text-muted">
+                          <div class="smm-name"><%= s.name %></div>
+                          <div class="smm-provider-id text-muted">
                             Provider ID: <%= s.provider_service_id %>
-                          </small>
+                          </div>
                         </td>
-
                         <td>
-                          <span class="badge bg-secondary">
-                            <%= s.category || 'Other' %>
-                          </span>
+                          <span class="smm-badge-category"><%= cat %></span>
                         </td>
-
                         <td>
                           $<%= Number(s.rate).toFixed(4) %>
                         </td>
-
                         <td>
                           <small>
                             Min: <b><%= s.min_qty %></b><br>
                             Max: <b><%= s.max_qty %></b>
                           </small>
                         </td>
-
                         <td>
                           <% if (s.is_active) { %>
                             <span class="badge bg-success">Active</span>
@@ -110,21 +233,17 @@
                             <span class="badge bg-secondary">Disabled</span>
                           <% } %>
                         </td>
-
                         <td>
                           <div class="d-flex gap-2">
                             <a
                               href="/admin/smm-services/<%= s.id %>/edit"
-                              class="btn btn-sm btn-outline-primary"
-                            >
+                              class="btn btn-sm btn-outline-primary">
                               <i class="bi bi-pencil-square"></i> Edit
                             </a>
-
                             <form
                               action="/admin/smm-services/<%= s.id %>/toggle"
                               method="POST"
-                              onsubmit="return confirm('Are you sure?');"
-                            >
+                              onsubmit="return confirm('Toggle this service?');">
                               <button
                                 type="submit"
                                 class="btn btn-sm <%= s.is_active ? 'btn-outline-warning' : 'btn-outline-success' %>">
@@ -138,22 +257,73 @@
                           </div>
                         </td>
                       </tr>
-                    <% }); %>
+                    <% }) %>
                   <% } %>
-
                 </tbody>
               </table>
             </div>
-
           </div>
         </div>
 
       </main>
     </div>
-
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function(){
+      const catSel   = document.getElementById('filterCategory');
+      const statusSel= document.getElementById('filterStatus');
+      const searchIn = document.getElementById('filterSearch');
+      const clearBtn = document.getElementById('clearFilters');
+      const rows     = Array.from(document.querySelectorAll('#smmTable tbody tr.service-row'));
+      const summary  = document.getElementById('filterSummary');
 
+      function applyFilters() {
+        const cat    = catSel.value;
+        const status = statusSel.value;
+        const q      = searchIn.value.trim().toLowerCase();
+
+        let shown = 0;
+
+        rows.forEach(row => {
+          let ok = true;
+          const rowCat = row.dataset.category || '';
+          const rowStatus = row.dataset.status || '';
+          const rowName = row.dataset.name || '';
+          const rowId   = (row.dataset.id || '').toString();
+
+          if (cat && rowCat !== cat) ok = false;
+          if (status && rowStatus !== status) ok = false;
+
+          if (q) {
+            if (!(rowName.includes(q) || rowId.includes(q))) ok = false;
+          }
+
+          if (ok) shown++;
+          row.style.display = ok ? '' : 'none';
+        });
+
+        summary.textContent = 'Showing ' + shown + ' service' + (shown !== 1 ? 's' : '');
+      }
+
+      catSel.addEventListener('change', applyFilters);
+      statusSel.addEventListener('change', applyFilters);
+      searchIn.addEventListener('input', function(){
+        clearTimeout(searchIn._t);
+        searchIn._t = setTimeout(applyFilters, 200);
+      });
+
+      clearBtn.addEventListener('click', function(){
+        catSel.value = '';
+        statusSel.value = '';
+        searchIn.value = '';
+        applyFilters();
+      });
+
+      // أول مرة
+      applyFilters();
+    })();
+  </script>
 </body>
 </html>
