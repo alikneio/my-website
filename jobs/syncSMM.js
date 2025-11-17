@@ -25,7 +25,7 @@ module.exports = function makeSyncSMM(db) {
           db.query(
             `
               INSERT INTO smm_services
-              (provider_service_id, name, category, rate, min_quantity, max_quantity, type, description, is_active)
+              (provider_service_id, name, category, type, rate, min_qty, max_qty, is_active)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
               ON DUPLICATE KEY UPDATE
                 name = VALUES(name),

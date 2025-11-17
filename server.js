@@ -992,31 +992,34 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
 
 app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
   try {
+    console.log("🔄 Sync SMM Services Started...");
+
     const services = await getSmmServices();
+    console.log(`📦 Received ${services.length} services.`);
 
     const insertSql = `
       INSERT INTO smm_services
-      (provider_service_id, name, category, type, rate, min_qty, max_qty, is_active)
+        (provider_service_id, name, category, type, rate, min_qty, max_qty, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?, 1)
       ON DUPLICATE KEY UPDATE
-        name     = VALUES(name),
-        category = VALUES(category),
-        type     = VALUES(type),
-        rate     = VALUES(rate),
-        min_qty  = VALUES(min_qty),
-        max_qty  = VALUES(max_qty),
+        name      = VALUES(name),
+        category  = VALUES(category),
+        type      = VALUES(type),
+        rate      = VALUES(rate),
+        min_qty   = VALUES(min_qty),
+        max_qty   = VALUES(max_qty),
         is_active = 1
     `;
 
     for (const s of services) {
       const params = [
-        s.service,
-        s.name,
-        s.category || "Other",
-        s.type || "general",
-        s.rate,
-        s.min,
-        s.max,
+        s.service,                 // provider_service_id
+        s.name,                    // name
+        s.category || "Other",     // category
+        s.type || "default",       // type
+        s.rate,                    // rate
+        s.min,                     // min_qty
+        s.max                      // max_qty
       ];
       db.query(insertSql, params);
     }
@@ -1177,10 +1180,10 @@ const minQty = service.min_qty || 0;
 const maxQty = service.max_qty || 0;
 
 
-    if ((minQty && qty < minQty) || (maxQty && qty > maxQty)) {
-      return res.redirect(
-        `/social-checkout/${service_id}?error=range&min=${minQty}&max=${maxQty}`
-      );
+   if ((minQty && qty < minQty) || (maxQty && qty > maxQty)) {
+  return res.redirect(
+    `/social-checkout/${service_id}?error=range&min=${minQty}&max=${maxQty}`
+  );
     }
 
     // 4) السعر (rate per 1000)
