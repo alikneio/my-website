@@ -3029,6 +3029,34 @@ app.get('/canva-section', (req, res) => {
     });
 });
 
+app.get('/autodesk', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'AUTODESK'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('autodesk', { 
+            user: req.session.user || null,
+            products: products  // تأكد من تمرير المنتجات
+        });
+    });
+});
+
+app.get('/tod', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'TOD'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('tod', { 
+            user: req.session.user || null,
+            products: products  // تأكد من تمرير المنتجات
+        });
+    });
+});
+
 app.get('/chatgpt-section', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Chatgpt'";
     db.query(sql, [], (err, products) => {
