@@ -20,6 +20,9 @@ const PORT = process.env.PORT || 3000;
 const { dailycardAPI, verifyPlayerId } = require('./services/dailycard');
 const { v4: uuidv4 } = require('uuid');
 const TelegramBot = require('node-telegram-bot-api');
+const { getSmmServices } = require("../services/smmgen");
+const { createSmmOrder } = require("./services/smmgen");
+const syncSMM = require("./jobs/syncSMM")(db);
 const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
@@ -986,6 +989,346 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
 });
 
 
+app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
+  try {
+    const services = await getSmmServices();
+
+    const insertSql = `
+      INSERT INTO smm_services
+      (provider_service_id, name, category, type, rate, min_qty, max_qty, active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      ON DUPLICATE KEY UPDATE
+        name = VALUES(name),
+        rate = VALUES(rate),
+        min_qty = VALUES(min_qty),
+        max_qty = VALUES(max_qty),
+        active = 1
+    `;
+
+    for (const s of services) {
+      const params = [
+        s.service,
+        s.name,
+        s.category || "Other",
+        s.type || "general",
+        s.rate,
+        s.min,
+        s.max
+      ];
+      db.query(insertSql, params);
+    }
+
+    res.send("✔️ Synced with SMM Provider");
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Sync Error");
+  }
+});
+
+// =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
+
+// لائحة الكاتيجوريز
+app.get('/social-media', async (req, res) => {
+  const q = (sql, p = []) =>
+    new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
+
+  try {
+    const rows = await q(`
+      SELECT category, COUNT(*) AS services_count
+      FROM smm_services
+      WHERE is_active = 1
+      GROUP BY category
+      ORDER BY category ASC
+    `);
+
+    // نضيف slug بالـ JS لسهولة الربط
+    const categories = rows.map(row => ({
+      name: row.category,
+      slug: slugify(row.category || ''), // عندك slugify تحت
+      services_count: row.services_count
+    }));
+
+    res.render('social-media-categories', {
+      user: req.session.user || null,
+      categories
+    });
+  } catch (e) {
+    console.error('❌ /social-media error:', e.message);
+    res.status(500).send('Server error loading social media categories.');
+  }
+});
+
+
+app.get("/social-media/:category", async (req, res) => {
+  const cat = req.params.category;
+  db.query(
+    `SELECT * FROM smm_services WHERE category = ? AND active = 1`,
+    [cat],
+    (err, rows) => {
+      res.render("social-services", {
+        user: req.session.user,
+        category: cat,
+        services: rows
+      });
+    }
+  );
+});
+
+// لستة الخدمات ضمن كاتيجوري واحد
+app.get('/social-media/:slug', async (req, res) => {
+  const q = (sql, p = []) =>
+    new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
+
+  const { slug } = req.params;
+
+  try {
+    const rows = await q(
+      `SELECT * FROM smm_services WHERE is_active = 1 ORDER BY name ASC`
+    );
+
+    // فلترة بالـ JS حسب slugify(category)
+    const services = rows.filter(s => slugify(s.category || '') === slug);
+
+    if (!services.length) {
+      return res.status(404).send('Category not found or has no services.');
+    }
+
+    const categoryName = services[0].category;
+
+    res.render('social-media-services', {
+      user: req.session.user || null,
+      categoryName,
+      categorySlug: slug,
+      services
+    });
+  } catch (e) {
+    console.error('❌ /social-media/:slug error:', e.message);
+    res.status(500).send('Server error loading social services.');
+  }
+});
+
+
+
+// صفحة Checkout لخدمة واحدة
+app.get('/social-checkout/:id', checkAuth, (req, res) => {
+  const serviceId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(serviceId)) {
+    return res.status(400).send('Invalid service ID');
+  }
+
+  const sql = `SELECT * FROM smm_services WHERE id = ? AND is_active = 1`;
+  db.query(sql, [serviceId], (err, rows) => {
+    if (err || !rows.length) {
+      console.error('❌ social-checkout error:', err?.message);
+      return res.status(404).send('Service not found.');
+    }
+
+    const service = rows[0];
+    res.render('social-checkout', {
+      user: req.session.user,
+      service
+    });
+  });
+});
+
+
+app.post('/buy-social', checkAuth, async (req, res) => {
+  const userId = req.session.user?.id;
+  if (!userId) return res.redirect('/login?error=session');
+
+  const {
+    service_id,
+    link,
+    quantity,
+    idempotency_key: rawIdemKey
+  } = req.body;
+
+  const idemKey = (rawIdemKey || req.session.idemKey || '').toString().slice(0, 64);
+
+  const query = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
+  try {
+    // 0) Idempotency
+    if (idemKey) {
+      try {
+        await query(
+          `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
+          [userId, idemKey]
+        );
+      } catch (e) {
+        // مكرر → لا خصم جديد ولا طلب جديد
+        req.session.pendingOrderId = req.session.pendingOrderId || null;
+        return res.redirect('/processing');
+      }
+    }
+
+    // 1) تحقق أساسي
+    if (!service_id || !link || !quantity) {
+      return res.redirect('/social-media?error=missing_fields');
+    }
+
+    const qty = parseInt(quantity, 10);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return res.redirect(`/social-checkout/${service_id}?error=invalid_quantity`);
+    }
+
+    // 2) جلب الخدمة من DB
+    const [service] = await query(
+      `SELECT * FROM smm_services WHERE id = ? AND is_active = 1`,
+      [service_id]
+    );
+    if (!service) {
+      return res.redirect(`/social-checkout/${service_id}?error=service_not_found`);
+    }
+
+    // 3) تحقق من min / max
+    const minQty = service.min_quantity || 0;
+    const maxQty = service.max_quantity || 0;
+
+    if ((minQty && qty < minQty) || (maxQty && qty > maxQty)) {
+      return res.redirect(
+        `/social-checkout/${service_id}?error=range&min=${minQty}&max=${maxQty}`
+      );
+    }
+
+    // 4) السعر (rate per 1000)
+    const rate = Number(service.rate || 0); // مثال: 0.90 لكل 1000
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return res.redirect(`/social-checkout/${service_id}?error=pricing`);
+    }
+
+    const totalCents = Math.round((qty * rate * 100) / 1000);
+    if (!Number.isFinite(totalCents) || totalCents <= 0) {
+      return res.redirect(`/social-checkout/${service_id}?error=pricing`);
+    }
+    const total = totalCents / 100; // DECIMAL(10,2)
+
+    // 5) خصم ذري من الرصيد
+    const upd = await query(
+      `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
+      [total, userId, total]
+    );
+    if (!upd?.affectedRows) {
+      return res.redirect(`/social-checkout/${service_id}?error=balance`);
+    }
+
+    // 6) Transaction (debit)
+    await query(
+      `INSERT INTO transactions (user_id, type, amount, reason)
+       VALUES (?, 'debit', ?, ?)`,
+      [userId, total, `Social Media Service: ${service.name}`]
+    );
+
+    // 7) إنشاء الطلب عند المزود SMMGEN
+    let providerOrderId = null;
+    try {
+      providerOrderId = await smmAddOrder({
+        service: service.provider_service_id,
+        link,
+        quantity: qty
+      });
+    } catch (apiErr) {
+      console.error('❌ SMMGEN API error:', apiErr.message);
+
+      // Refund
+      await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
+      await query(
+        `INSERT INTO transactions (user_id, type, amount, reason)
+         VALUES (?, 'credit', ?, ?)`,
+        [userId, total, `Refund (SMMGEN error): ${service.name}`]
+      );
+
+      return res.redirect(
+        `/social-checkout/${service_id}?error=provider&msg=${encodeURIComponent(apiErr.message)}`
+      );
+    }
+
+    if (!providerOrderId) {
+      // Refund إذا ما رجع ID
+      await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
+      await query(
+        `INSERT INTO transactions (user_id, type, amount, reason)
+         VALUES (?, 'credit', ?, ?)`,
+        [userId, total, `Refund (no provider id): ${service.name}`]
+      );
+      return res.redirect(`/social-checkout/${service_id}?error=no_provider_id`);
+    }
+
+    // 8) حفظ الطلب في جدول orders (العام)
+    const orderDetails = `Link: ${link} | Quantity: ${qty}`;
+
+    const insertOrderSql = `
+      INSERT INTO orders
+        (userId, productName, price, purchaseDate, order_details, status,
+         provider_order_id, provider, source${idemKey ? ', client_token' : ''})
+      VALUES
+        (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smmgen', 'smm'${idemKey ? ', ?' : ''})
+    `;
+
+    const insertParams = [
+      userId,
+      service.name,
+      total,
+      orderDetails,
+      providerOrderId
+    ];
+    if (idemKey) insertParams.push(idemKey);
+
+    const insertRes = await query(insertOrderSql, insertParams);
+    const orderId = insertRes.insertId || insertRes?.[0]?.insertId || null;
+
+    // 9) حفظ في جدول smm_orders (اختياري لكنه مفيد للـ sync)
+    await query(
+      `
+      INSERT INTO smm_orders
+        (user_id, smm_service_id, provider_order_id, status, quantity, charge, link)
+      VALUES (?, ?, ?, 'pending', ?, ?, ?)
+      `,
+      [userId, service.id, providerOrderId, qty, total, link]
+    );
+
+    // 10) إشعار داخلي
+    await query(
+      `INSERT INTO notifications (user_id, message, created_at, is_read)
+       VALUES (?, ?, NOW(), 0)`,
+      [userId, `✅ تم استلام طلب خدمتك (${service.name}) بنجاح. سيتم تنفيذها قريبًا.`]
+    );
+
+    // 11) تيليغرام
+    const [userRow] = await query(
+      `SELECT username, telegram_chat_id FROM users WHERE id = ?`,
+      [userId]
+    );
+
+    if (userRow?.telegram_chat_id) {
+      await sendTelegramMessage(
+        userRow.telegram_chat_id,
+        `📥 <b>تم استلام طلب خدمتك للسوشيال ميديا</b>\n\n🛍️ <b>الخدمة:</b> ${service.name}\n🔗 <b>الرابط:</b> ${link}\n🔢 <b>الكمية:</b> ${qty}\n💰 <b>السعر:</b> ${total}$\n📌 <b>الحالة:</b> جاري المعالجة`,
+        process.env.TELEGRAM_BOT_TOKEN
+      );
+    }
+    if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
+      await sendTelegramMessage(
+        process.env.ADMIN_TELEGRAM_CHAT_ID,
+        `🆕 طلب Social Media جديد!\n👤 الزبون: ${userRow?.username}\n🛍️ الخدمة: ${service.name}\n🔢 الكمية: ${qty}\n💰 السعر: ${total}$\n🔗 الرابط: ${link}\n🕓 الوقت: ${new Date().toLocaleString('en-US', { hour12: false })}`,
+        process.env.TELEGRAM_BOT_TOKEN
+      );
+    }
+
+    // 12) تجربة موحدة
+    req.session.pendingOrderId = orderId;
+    return res.redirect('/processing');
+
+  } catch (err) {
+    console.error('❌ /buy-social error:', err?.response?.data || err.message || err);
+    return res.redirect(`/social-checkout/${service_id}?error=server`);
+  }
+});
+
 
 
 
@@ -1168,6 +1511,16 @@ app.post('/admin/balance-requests/update/:id', async (req, res) => {
     res.status(500).send('Error updating request');
   }
 });
+
+app.get('/admin/dev/sync-smm', checkAdmin, async (req, res) => {
+  try {
+    await syncSMM();
+    res.send("✅ SMM Services Synced Successfully");
+  } catch (err) {
+    res.status(500).send("❌ Sync Failed");
+  }
+});
+
 
 
 app.get('/admin/balance-requests', checkAdmin, (req, res) => {
@@ -4389,7 +4742,8 @@ app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
 
-
+syncSMM();
+setInterval(syncSMM, 12 * 60 * 60 * 1000);
 
    console.log("🔑 API KEY:", process.env.DAILYCARD_API_KEY ? "Loaded" : "Missing");
 console.log("🔐 API SECRET:", process.env.DAILYCARD_API_SECRET ? "Loaded" : "Missing");
