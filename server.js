@@ -999,11 +999,13 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
       (provider_service_id, name, category, type, rate, min_qty, max_qty, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?, 1)
       ON DUPLICATE KEY UPDATE
-        name       = VALUES(name),
-        rate       = VALUES(rate),
-        min_qty    = VALUES(min_qty),
-        max_qty    = VALUES(max_qty),
-        is_active  = 1
+        name     = VALUES(name),
+        category = VALUES(category),
+        type     = VALUES(type),
+        rate     = VALUES(rate),
+        min_qty  = VALUES(min_qty),
+        max_qty  = VALUES(max_qty),
+        is_active = 1
     `;
 
     for (const s of services) {
@@ -1014,13 +1016,12 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
         s.type || "general",
         s.rate,
         s.min,
-        s.max
+        s.max,
       ];
       db.query(insertSql, params);
     }
 
     res.send("✔️ Synced with SMM Provider");
-
   } catch (err) {
     console.error("❌ SMM Sync Error:", err);
     res.status(500).send("Sync Error");
@@ -1172,9 +1173,9 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       return res.redirect(`/social-checkout/${service_id}?error=service_not_found`);
     }
 
-    // 3) تحقق من min / max
-    const minQty = service.min_quantity || 0;
-    const maxQty = service.max_quantity || 0;
+const minQty = service.min_qty || 0;
+const maxQty = service.max_qty || 0;
+
 
     if ((minQty && qty < minQty) || (maxQty && qty > maxQty)) {
       return res.redirect(
