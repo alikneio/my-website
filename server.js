@@ -1135,8 +1135,6 @@ app.get('/social-media/:slug', async (req, res) => {
 
 
 
-const { v4: uuidv4 } = require('uuid'); // تأكد هذا السطر فوق مع باقي الـ requires
-
 app.get('/social-checkout/:id', checkAuth, (req, res) => {
   const serviceId = parseInt(req.params.id, 10);
   if (!Number.isFinite(serviceId)) {
