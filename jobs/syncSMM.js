@@ -14,41 +14,39 @@ module.exports = function makeSyncSMM(db) {
       );
 
       if (!Array.isArray(data)) {
-        console.error("❌ Invalid API response");
+        console.error("❌ Invalid API response (not an array)");
         return;
       }
 
       console.log(`📦 Received ${data.length} services.`);
 
+      const sql = `
+        INSERT INTO smm_services
+        (provider_service_id, name, category, type, rate, min_qty, max_qty, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        ON DUPLICATE KEY UPDATE
+          name     = VALUES(name),
+          category = VALUES(category),
+          type     = VALUES(type),
+          rate     = VALUES(rate),
+          min_qty  = VALUES(min_qty),
+          max_qty  = VALUES(max_qty),
+          is_active = 1
+      `;
+
       for (const srv of data) {
+        const params = [
+          srv.service,
+          srv.name,
+          srv.category || "Other",
+          srv.type || "default",
+          srv.rate,
+          srv.min,
+          srv.max
+        ];
+
         await new Promise((resolve, reject) => {
-          db.query(
-            `
-              INSERT INTO smm_services
-              (provider_service_id, name, category, type, rate, min_qty, max_qty, is_active)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-              ON DUPLICATE KEY UPDATE
-                name = VALUES(name),
-                category = VALUES(category),
-                rate = VALUES(rate),
-                min_quantity = VALUES(min_quantity),
-                max_quantity = VALUES(max_quantity),
-                type = VALUES(type),
-                description = VALUES(description),
-                updated_at = NOW()
-            `,
-            [
-              srv.service,
-              srv.name,
-              srv.category,
-              srv.rate,
-              srv.min,
-              srv.max,
-              srv.type || null,
-              srv.description || null,
-            ],
-            (err) => (err ? reject(err) : resolve())
-          );
+          db.query(sql, params, (err) => (err ? reject(err) : resolve()));
         });
       }
 
