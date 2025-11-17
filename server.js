@@ -1603,58 +1603,96 @@ const adminQ = (sql, params = []) =>
   new Promise((ok, no) => db.query(sql, params, (e, r) => (e ? no(e) : ok(r))));
 
 // لستة الخدمات مع فلترة بسيطة
-app.get('/admin/smm-services', checkAdmin, async (req, res) => {
-  const { q, category, active } = req.query;
+app.get('/admin/smm-services', checkAdmin, (req, res) => {
+  const { cat, status, q } = req.query;
 
-  try {
-    let where = '1=1';
-    const params = [];
+  // نجمع الشروط
+  let where = '1=1';
+  const params = [];
 
-    if (q && q.trim()) {
-      where += ' AND (name LIKE ? OR category LIKE ? OR provider_service_id = ?)';
-      params.push(`%${q.trim()}%`, `%${q.trim()}%`, Number(q) || 0);
-    }
-
-    if (category && category.trim()) {
-      where += ' AND category = ?';
-      params.push(category.trim());
-    }
-
-    if (active === '1') {
-      where += ' AND is_active = 1';
-    } else if (active === '0') {
-      where += ' AND is_active = 0';
-    }
-
-    const services = await adminQ(
-      `
-        SELECT *
-        FROM smm_services
-        WHERE ${where}
-        ORDER BY category ASC, name ASC
-        LIMIT 500
-      `,
-      params
-    );
-
-    // لائحة كاتيجوريز للفلتر
-    const cats = await adminQ(
-      `SELECT DISTINCT category FROM smm_services ORDER BY category ASC`
-    );
-
-    res.render('admin-smm-services', {
-      user: req.session.user || null,
-      services,
-      categories: cats.map(c => c.category).filter(Boolean),
-      filters: { q: q || '', category: category || '', active: active || '' },
-      flash: req.session.flash || null
-    });
-    req.session.flash = null;
-  } catch (e) {
-    console.error('Admin SMM list error:', e);
-    res.status(500).send('Failed to load SMM services list');
+  if (cat) {
+    where += ' AND category = ?';
+    params.push(cat);
   }
+
+  if (status === 'active') {
+    where += ' AND is_active = 1';
+  } else if (status === 'disabled') {
+    where += ' AND is_active = 0';
+  }
+
+  if (q) {
+    where += ' AND name LIKE ?';
+    params.push(`%${q}%`);
+  }
+
+  const listSql = `
+    SELECT *
+    FROM smm_services
+    WHERE ${where}
+    ORDER BY category ASC, name ASC
+  `;
+
+  const catsSql = `
+    SELECT DISTINCT category
+    FROM smm_services
+    ORDER BY category ASC
+  `;
+
+  db.query(catsSql, (errCats, catRows) => {
+    if (errCats) {
+      console.error('Admin SMM cats error:', errCats.message);
+      return res.status(500).send('Failed to load categories');
+    }
+
+    db.query(listSql, params, (errList, rows) => {
+      if (errList) {
+        console.error('Admin SMM list error:', errList.message);
+        return res.status(500).send('Failed to load SMM services');
+      }
+
+      res.render('admin-smm-services', {
+        user: req.session.user || null,
+        services: rows || [],
+        categories: catRows || [],
+        filters: { cat: cat || '', status: status || '', q: q || '' },
+        flash: req.session.flash || null
+      });
+      req.session.flash = null;
+    });
+  });
 });
+
+// bulk enable/disable لكل الخدمات ضمن كاتيجوري معيّنة
+app.post('/admin/smm-services/bulk-category', checkAdmin, (req, res) => {
+  const { category, action } = req.body;
+
+  if (!category || !['enable', 'disable'].includes(action)) {
+    req.session.flash = { type: 'danger', msg: 'Invalid bulk action.' };
+    return res.redirect('/admin/smm-services');
+  }
+
+  const isActive = action === 'enable' ? 1 : 0;
+
+  db.query(
+    'UPDATE smm_services SET is_active = ? WHERE category = ?',
+    [isActive, category],
+    (err, result) => {
+      if (err) {
+        console.error('Admin SMM bulk-category error:', err.message);
+        req.session.flash = { type: 'danger', msg: 'Bulk update failed.' };
+        return res.redirect('/admin/smm-services');
+      }
+
+      req.session.flash = {
+        type: 'success',
+        msg: `Category "${category}" updated (${result.affectedRows} services).`
+      };
+      res.redirect('/admin/smm-services?cat=' + encodeURIComponent(category));
+    }
+  );
+});
+
 
 // فورم تعديل خدمة
 app.get('/admin/smm-services/:id/edit', checkAdmin, async (req, res) => {
