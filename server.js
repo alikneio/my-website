@@ -1616,23 +1616,11 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
 
 // ADMIN – SMM CATEGORIES
 app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
+  const user = req.session.user;
+
   try {
-    // كل الكاتيجوريز الجاية من المزود (من جدول smm_services)
-    const providerRows = await q(
-      `
-      SELECT DISTINCT category AS provider_category
-      FROM smm_services
-      WHERE category IS NOT NULL
-        AND category <> ''
-      ORDER BY category ASC
-      LIMIT 500
-      `
-    );
-
-    const providerCategories = providerRows.map(r => r.provider_category);
-
-    // الكاتيجوريز اللي انت عاملها بجدول smm_categories
-    const categories = await q(
+    // 1) الكاتيجوري اللي عاملها أنت يدويّاً في جدول smm_categories
+    const manualCats = await q(
       `
       SELECT id, name, slug, sort_order, is_active
       FROM smm_categories
@@ -1640,21 +1628,52 @@ app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
       `
     );
 
-    const flash = req.session.adminFlash || null;
-    req.session.adminFlash = null;
+    // 2) الكاتيجوري اللي جاي من الـ provider (من جدول smm_services.category)
+    const providerCats = await q(
+      `
+      SELECT DISTINCT s.category AS provider_category
+      FROM smm_services s
+      WHERE s.category IS NOT NULL AND s.category <> ''
+      ORDER BY provider_category ASC
+      `
+    );
 
+    // 3) حوّل manualCats إلى map بالاسم لنعرف مين موجود
+    const byName = new Map();
+    manualCats.forEach((c) => {
+      if (c.name) byName.set(c.name, c);
+    });
+
+    // 4) دمج: إذا في provider_category مش موجودة كـ manualCat، ضيفها كسطر "افتراضي"
+    const merged = [...manualCats];
+
+    providerCats.forEach((row) => {
+      const name = row.provider_category;
+      if (!name) return;
+
+      if (!byName.has(name)) {
+        merged.push({
+          id: null,                 // ما إلها id بعد
+          name,
+          slug: '',                 // فاضي، لحتى تعمله يدوي إذا بدّك
+          sort_order: 0,
+          is_active: 0,             // disabled افتراضياً
+          provider_category: name,
+        });
+      }
+    });
+
+    // 5) رندر الصفحة
     res.render('admin-smm-categories', {
-      user: req.session.user || null,
-      providerCategories,  // لليسار: لستة الكاتيجوريز الجاية من الـ API
-      categories,          // لليمين: الكاتيجوريز اللي عندك بالـ DB
-      flash
+      user,
+      categories: merged,
+      flash: null,
     });
   } catch (err) {
     console.error('❌ /admin/smm-categories error:', err.message);
-    res.status(500).send('Server error loading SMM categories.');
+    res.status(500).send('Internal server error');
   }
 });
-
 
 
 app.post('/admin/smm-categories/:id/update', checkAdmin, async (req, res) => {
@@ -1815,84 +1834,92 @@ app.post('/admin/smm-services/bulk-category', checkAdmin, (req, res) => {
 
 
 // فورم تعديل خدمة
+// قائمة خدمات الـ SMM
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
-  const search = (req.query.q || '').trim();
-  const filterCategory = req.query.category_id || 'all';
-  const filterStatus   = req.query.status || 'all';
+  const user = req.session.user;
 
-  const where = [];
-  const params = [];
-
-  // 🔹 بس كاتيجوري الـ provider المفعّلة
-  where.push('c.is_active = 1');
-
-  // 🔍 بحث بالاسم أو id أو اسم كاتيجوري المزود
-  if (search) {
-    where.push(`
-      (
-        s.name LIKE ?
-        OR s.provider_service_id = ?
-        OR s.category LIKE ?
-      )
-    `);
-    params.push(`%${search}%`, search, `%${search}%`);
-  }
-
-  // فلتر حسب الـ category_id اللي انت بتعيّنه من الـ dropdown (اختياري)
-  if (filterCategory !== 'all') {
-    where.push('s.category_id = ?');
-    params.push(filterCategory);
-  }
-
-  // فلتر حسب الحالة
-  if (filterStatus === 'active') {
-    where.push('s.is_active = 1');
-  } else if (filterStatus === 'disabled') {
-    where.push('s.is_active = 0');
-  }
-
-  const whereSql = 'WHERE ' + where.join(' AND ');
-
-  // 🔗 الربط بين smm_services و smm_categories على اسم كاتيجوري المزود
-  const sqlServices = `
-    SELECT
-      s.*,
-      c.id   AS category_id,
-      c.name AS category_name
-    FROM smm_services s
-    LEFT JOIN smm_categories c
-      ON c.name = s.category
-    ${whereSql}
-    ORDER BY s.id DESC
-    LIMIT 200
-  `;
-
-  const sqlCategories = `
-    SELECT id, name
-    FROM smm_categories
-    WHERE is_active = 1
-    ORDER BY sort_order, name
-  `;
+  // فلاتر من الـ query string
+  const searchText   = (req.query.q || '').trim();
+  const categoryId   = req.query.category_id || 'all';
+  const statusFilter = req.query.status || 'all';
 
   try {
-    const [services, categories] = await Promise.all([
-      q(sqlServices, params),
-      q(sqlCategories)
-    ]);
+    // 1) جلب الكاتيجوري النشيطة لاستخدامها في الـ dropdown
+    const categories = await q(
+      `
+      SELECT id, name
+      FROM smm_categories
+      ORDER BY sort_order ASC, name ASC
+      `
+    );
 
+    // 2) بناء الـ WHERE ديناميكياً
+    const where = ['1=1'];
+    const params = [];
+
+    // بحث بالاسم أو ID المزود أو الكاتيجوري الأصلية
+    if (searchText) {
+      where.push(`
+        (
+          s.name LIKE ?
+          OR s.provider_service_id = ?
+          OR s.category LIKE ?
+        )
+      `);
+      params.push(`%${searchText}%`, searchText, `%${searchText}%`);
+    }
+
+    // فلتر حسب كاتيجوري داخلية
+    if (categoryId && categoryId !== 'all') {
+      where.push('s.category_id = ?');
+      params.push(categoryId);
+    }
+
+    // فلتر حسب حالة Active / Disabled
+    if (statusFilter === 'active') {
+      where.push('s.is_active = 1');
+    } else if (statusFilter === 'disabled') {
+      where.push('s.is_active = 0');
+    }
+
+    // 3) جلب الخدمات مع الـ JOIN على جدول الكاتيجوري الداخلي
+    const services = await q(
+      `
+      SELECT
+        s.id,
+        s.provider_service_id,
+        s.name,
+        s.category AS provider_category,   -- عمود DB الحقيقي
+        s.rate,
+        s.min_qty,
+        s.max_qty,
+        s.is_active,
+        s.category_id,
+        c.name AS category_name
+      FROM smm_services s
+      LEFT JOIN smm_categories c
+        ON c.id = s.category_id
+      WHERE ${where.join(' AND ')}
+      ORDER BY s.id DESC
+      LIMIT 200
+      `,
+      params
+    );
+
+    // 4) رندر صفحة الـ Admin SMM Services
     res.render('admin-smm-services', {
-      user: req.session.user,
+      user,
       services,
       categories,
       filters: {
-        q:          search,
-        category_id: filterCategory,
-        status:     filterStatus
-      }
+        q: searchText,
+        category_id: categoryId,
+        status: statusFilter,
+      },
     });
   } catch (err) {
     console.error('❌ /admin/smm-services error:', err.message);
-    res.status(500).send('Server error loading SMM services');
+    res.status(500).send('Internal server error');
   }
 });
 
