@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title><%= category %> - Social Media Services</title>
+  <title>
+    <% 
+      const cat =
+        (typeof category !== 'undefined' && category) ||
+        (typeof categoryName !== 'undefined' && categoryName) ||
+        'Social Media';
+    %>
+    <%= cat %> - Social Media Services
+  </title>
 
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
@@ -14,51 +22,69 @@
   <%- include('partials/header') %>
 
   <div class="container my-4">
+    <% 
+      const catTitle =
+        (typeof category !== 'undefined' && category) ||
+        (typeof categoryName !== 'undefined' && categoryName) ||
+        'Social Media';
+    %>
 
     <div class="d-flex align-items-center justify-content-between mb-3">
       <h2 class="section-title mb-0">
-        <i class="bi bi-instagram"></i> <%= category %>
+        <i class="bi bi-instagram"></i>
+        <%= catTitle %> Services
       </h2>
+
       <a href="/social-media" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> Back to categories
       </a>
     </div>
 
-    <% if (!services || services.length === 0) { %>
+    <% if (!services || !services.length) { %>
       <div class="alert alert-warning text-center">
-        No services in this category yet.
+        No services available in this category at the moment.
       </div>
     <% } else { %>
       <div class="row row-cols-1 row-cols-md-3 g-3">
-        <% services.forEach(function(srv) { %>
+        <% services.forEach(function(s){ %>
           <div class="col">
             <div class="card h-100 shadow-sm">
               <div class="card-body d-flex flex-column">
-                <h5 class="card-title"><%= srv.name %></h5>
+                <h5 class="card-title mb-1"><%= s.name %></h5>
 
-                <% if (srv.type) { %>
-                  <span class="badge bg-secondary mb-2"><%= srv.type %></span>
-                <% } %>
+                <p class="text-muted small mb-2">
+                  Category:
+                  <strong><%= s.category || catTitle %></strong>
+                </p>
 
-                <% if (srv.description) { %>
-                  <p class="card-text small text-muted">
-                    <%= srv.description %>
+                <div class="row text-center mb-3">
+                  <div class="col-4">
+                    <div class="small text-muted">Rate / 1000</div>
+                    <div class="fw-bold">$<%= Number(s.rate || 0).toFixed(4) %></div>
+                  </div>
+                  <div class="col-4">
+                    <div class="small text-muted">Min</div>
+                    <div class="fw-bold"><%= s.min_qty || s.min || 0 %></div>
+                  </div>
+                  <div class="col-4">
+                    <div class="small text-muted">Max</div>
+                    <div class="fw-bold"><%= s.max_qty || s.max || 0 %></div>
+                  </div>
+                </div>
+
+                <% if (s.description) { %>
+                  <p class="small text-muted flex-grow-1">
+                    <%= s.description %>
+                  </p>
+                <% } else { %>
+                  <p class="small text-muted flex-grow-1">
+                    High-quality social media service with fast delivery.
                   </p>
                 <% } %>
 
-                <div class="mt-auto">
-                  <div class="fw-bold">
-                    Rate: $<%= Number(srv.rate).toFixed(4) %> / 1000
-                  </div>
-
-                  <div class="text-muted small">
-                    Min: <%= srv.min_qty %> | Max: <%= srv.max_qty %>
-                  </div>
-
-                  <a href="/social-checkout/<%= srv.id %>" class="btn btn-primary w-100 mt-3">
-                    Order now
-                  </a>
-                </div>
+                <a href="/social-checkout/<%= s.id %>" class="btn btn-primary w-100 mt-auto">
+                  Order now
+                </a>
               </div>
             </div>
           </div>
@@ -68,7 +94,6 @@
   </div>
 
   <%- include('partials/footer') %>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/main.js"></script>
 </body>
