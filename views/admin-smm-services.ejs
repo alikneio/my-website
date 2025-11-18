@@ -2,284 +2,253 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin – SMM Services</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <link rel="stylesheet" href="/css/bootstrap.css">
-  <link rel="stylesheet" href="/css/custom.css">
-  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-
-  <style>
-    body {
-      font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    .admin-main {
-      margin-left: 260px; /* نفس عرض الـ sidebar عندك تقريباً */
-      min-height: 100vh;
-      background: #f5f7fb;
-    }
-    @media (max-width: 991.98px) {
-      .admin-main {
-        margin-left: 0;
-      }
-    }
-
-    .admin-card {
-      border-radius: 12px;
-      border: 1px solid #e1e4ee;
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
-      background: #fff;
-    }
-
-    .table thead th {
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: .03em;
-      color: #6b7280;
-      border-bottom-width: 1px;
-    }
-
-    .table tbody td {
-      vertical-align: middle;
-      font-size: 0.9rem;
-    }
-
-    .status-badge {
-      padding: 0.15rem 0.6rem;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-    .status-badge i {
-      font-size: 0.65rem;
-    }
-
-    .badge-provider-cat {
-      background-color: #eef2ff;
-      color: #4338ca;
-      font-size: 0.75rem;
-      border-radius: 999px;
-      padding: 0.15rem 0.6rem;
-    }
-
-    .filter-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      margin-bottom: .25rem;
-    }
-  </style>
+  <link rel="stylesheet" href="/css/bootstrap.css" />
+  <link rel="stylesheet" href="/css/custom.css" />
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap"
+    rel="stylesheet"
+  />
 </head>
 <body>
-
   <!-- Sidebar -->
-  <%- include('partials/admin-sidebar') %>
+  <%- include('partials/admin-sidebar', { user: user }) %>
 
-  <!-- Main content -->
-  <div class="admin-main">
-    <div class="container-fluid py-4">
+  <main class="main-content">
+    <div class="container-fluid py-4" style="max-width: 1300px;">
 
-      <!-- Header + Sync -->
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="h4 mb-0">
+      <!-- Header -->
+      <div class="d-flex align-items-center justify-content-between mb-4">
+        <h1 class="h4 mb-0">
           <i class="bi bi-instagram"></i>
           SMM Services
-        </h2>
+        </h1>
 
-        <a href="/admin/smm/sync" class="btn btn-outline-primary">
-          <i class="bi bi-arrow-repeat me-1"></i>
+        <a href="/admin/smm-services/sync" class="btn btn-primary btn-sm">
+          <i class="bi bi-arrow-repeat"></i>
           Sync from Provider
         </a>
       </div>
 
       <!-- Filters -->
-      <div class="admin-card p-3 mb-3">
-        <form class="row gx-3 gy-2 align-items-end" method="get" action="/admin/smm-services">
-          <!-- Search -->
-          <div class="col-md-5">
-            <div class="filter-label">Search</div>
-            <input
-              type="text"
-              name="search"
-              class="form-control"
-              placeholder="Name, provider category or provider ID"
-              value="<%= (filters && filters.search) ? filters.search : '' %>">
-            <div class="form-text">
-              Showing up to 200 latest services. Use filters لتخفيف العدد.
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <form class="row g-3 align-items-end" method="get" action="/admin/smm-services">
+            <div class="col-md-5">
+              <label class="form-label text-uppercase small text-muted">Search</label>
+              <input
+                type="text"
+                name="search"
+                class="form-control"
+                placeholder="Name, provider category or provider ID"
+                value="<%= filters.search || '' %>"
+              />
+              <div class="form-text">
+                Showing up to 200 latest services. Use filters لتخفيف العدد.
+              </div>
             </div>
-          </div>
 
-          <!-- Category filter -->
-          <div class="col-md-3">
-            <div class="filter-label">Category</div>
-            <select name="category_id" class="form-select">
-              <option value="all" <%= (filters && filters.category_id === 'all') ? 'selected' : '' %>>
-                All
-              </option>
-              <% (categories || []).forEach(function(c){ %>
-                <% if (!c.is_active) { return; } %>
-                <option
-                  value="<%= c.id %>"
-                  <%= (filters && String(filters.category_id) === String(c.id)) ? 'selected' : '' %>>
-                  <%= c.name %>
+            <div class="col-md-3">
+              <label class="form-label text-uppercase small text-muted">Category</label>
+              <select name="category_id" class="form-select">
+                <option value="all" <%= filters.category_id === 'all' ? 'selected' : '' %>>
+                  All
                 </option>
-              <% }) %>
-            </select>
-          </div>
+                <% categories.forEach(function(c){ %>
+                  <option
+                    value="<%= c.id %>"
+                    <%= String(filters.category_id) === String(c.id) ? 'selected' : '' %>>
+                    <%= c.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
 
-          <!-- Status filter -->
-          <div class="col-md-2">
-            <div class="filter-label">Status</div>
-            <select name="status" class="form-select">
-              <option value="all"     <%= (filters && filters.status === 'all')     ? 'selected' : '' %>>All</option>
-              <option value="active"  <%= (filters && filters.status === 'active')  ? 'selected' : '' %>>Active</option>
-              <option value="disabled"<%= (filters && filters.status === 'disabled')? 'selected' : '' %>>Disabled</option>
-            </select>
-          </div>
+            <div class="col-md-2">
+              <label class="form-label text-uppercase small text-muted">Status</label>
+              <select name="status" class="form-select">
+                <option value="all" <%= filters.status === 'all' ? 'selected' : '' %>>All</option>
+                <option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Active</option>
+                <option value="inactive" <%= filters.status === 'inactive' ? 'selected' : '' %>>Inactive</option>
+              </select>
+            </div>
 
-          <!-- Buttons -->
-          <div class="col-md-2 d-flex gap-2">
-            <button type="submit" class="btn btn-primary flex-fill">
-              <i class="bi bi-funnel me-1"></i> Apply
-            </button>
-            <a href="/admin/smm-services" class="btn btn-outline-secondary flex-fill">
-              Reset
-            </a>
-          </div>
-        </form>
-      </div>
-
-      <!-- Services table -->
-      <div class="admin-card p-0">
-        <div class="table-responsive">
-          <table class="table mb-0 align-middle">
-            <thead class="table-light">
-              <tr>
-                <th style="width: 90px;">ID</th>
-                <th>Name</th>
-                <th style="min-width: 220px;">Category</th>
-                <th style="width: 120px;">Rate / 1000</th>
-                <th style="width: 140px;">Min / Max</th>
-                <th style="width: 120px;">Status</th>
-                <th style="width: 140px;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-            <%
-  // خَلّي كل الخدمات اللي جايّة من الراوت تنعرض
-  const visibleServices = services || [];
-%>
-
-              <% if (!visibleServices.length) { %>
-                <tr>
-                  <td colspan="7" class="text-center text-muted py-4">
-                    No services to display. جرّب تغيّر الفلاتر أو فعّل بعض الكاتيجوريز أولاً.
-                  </td>
-                </tr>
-              <% } else { %>
-                <% visibleServices.forEach(function(s){ %>
-                  <tr>
-                    <!-- ID + provider -->
-                    <td>
-                      <div class="fw-semibold">#<%= s.id %></div>
-                      <div class="small text-muted">
-                        Prov ID: <%= s.provider_service_id %>
-                      </div>
-                    </td>
-
-                    <!-- Name + provider category label -->
-                    <td>
-                      <div class="fw-semibold">
-                        <%= s.name %>
-                      </div>
-                      <div class="mt-1">
-                        <% if (s.provider_category) { %>
-                          <span class="badge-provider-cat">
-                            <i class="bi bi-hash"></i>
-                            <%= s.provider_category %>
-                          </span>
-                        <% } else { %>
-                          <span class="text-muted small">No provider category</span>
-                        <% } %>
-                      </div>
-                    </td>
-
-                    <!-- Category dropdown (سميّة) -->
-                    <td>
-                      <form
-                        method="post"
-                        action="/admin/smm-services/<%= s.id %>/update-category"
-                        class="d-flex align-items-center gap-2">
-                          <select name="category_id" class="form-select form-select-sm" style="min-width: 180px;">
-      <option value="none" <%= !s.category_id ? 'selected' : '' %>>— none —</option>
-      <% categories.forEach(function (c) { %>
-        <option
-          value="<%= c.id %>"
-          <%= String(s.category_id) === String(c.id) ? 'selected' : '' %>>
-          <%= c.name %>
-        </option>
-      <% }) %>
-    </select>
-                       <button type="submit" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-save"></i> Save
-    </button>
-  </form>
-                    </td>
-
-                    <!-- Rate -->
-                    <td>
-                      $<%= Number(s.rate || 0).toFixed(4) %>
-                    </td>
-
-                    <!-- Min / Max -->
-                    <td>
-                      <div class="small">Min: <strong><%= s.min_qty %></strong></div>
-                      <div class="small">Max: <strong><%= s.max_qty %></strong></div>
-                    </td>
-
-                    <!-- Status -->
-                    <td>
-                      <% if (s.is_active) { %>
-                        <span class="status-badge bg-success text-white">
-                          <i class="bi bi-check-circle-fill"></i> Active
-                        </span>
-                      <% } else { %>
-                        <span class="status-badge bg-secondary text-white">
-                          <i class="bi bi-slash-circle-fill"></i> Disabled
-                        </span>
-                      <% } %>
-                    </td>
-
-                    <!-- Actions -->
-                    <td>
-                      <form method="post" action="/admin/smm-services/<%= s.id %>/toggle" class="d-inline">
-                        <button
-                          type="submit"
-                          class="btn btn-sm <%= s.is_active ? 'btn-warning' : 'btn-success' %> w-100">
-                          <% if (s.is_active) { %>
-                            <i class="bi bi-eye-slash me-1"></i> Disable
-                          <% } else { %>
-                            <i class="bi bi-eye me-1"></i> Enable
-                          <% } %>
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                <% }); %>
-              <% } %>
-            </tbody>
-          </table>
+            <div class="col-md-2 d-flex gap-2">
+              <button type="submit" class="btn btn-primary flex-grow-1">
+                <i class="bi bi-funnel"></i> Apply
+              </button>
+              <a href="/admin/smm-services" class="btn btn-outline-secondary">
+                Reset
+              </a>
+            </div>
+          </form>
         </div>
       </div>
 
-    </div>
-  </div>
+      <!-- Services table -->
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h6 text-uppercase text-muted mb-0">Services list</h2>
+            <small class="text-muted">
+              <%= services && services.length ? services.length : 0 %> services found.
+            </small>
+          </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 90px;">ID</th>
+                  <th>Name</th>
+                  <th style="width: 260px;">Category</th>
+                  <th style="width: 120px;">Rate / 1000</th>
+                  <th style="width: 140px;">Min / Max</th>
+                  <th style="width: 120px;">Status</th>
+                  <th style="width: 220px;" class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (!services || !services.length) { %>
+                  <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                      No services to display. جرّب تغيير الفلاتر أو فعل بعض الكاتيجوريز أولاً.
+                    </td>
+                  </tr>
+                <% } else { %>
+                  <% services.forEach(function(s) { %>
+                    <tr>
+                      <!-- ID + provider ID -->
+                      <td>
+                        <div class="fw-semibold text-muted">#<%= s.id %></div>
+                        <div class="small text-muted">
+                          Prov ID: <strong><%= s.provider_service_id %></strong>
+                        </div>
+                      </td>
+
+                      <!-- Name + provider category badge -->
+                      <td>
+                        <div class="fw-semibold"><%= s.name %></div>
+
+                        <% if (s.provider_category) { %>
+                          <div class="mt-1">
+                            <span class="badge bg-light text-muted border">
+                              # <%= s.provider_category %>
+                            </span>
+                          </div>
+                        <% } else { %>
+                          <div class="small text-muted">No provider category</div>
+                        <% } %>
+
+                        <% if (s.category_name) { %>
+                          <div class="small text-muted mt-1">
+                            Store category:
+                            <span class="fw-semibold"><%= s.category_name %></span>
+                          </div>
+                        <% } %>
+                      </td>
+
+                      <!-- Category select + quick save -->
+                      <td>
+                        <form
+                          method="post"
+                          action="/admin/smm-services/<%= s.id %>/update-category"
+                          class="d-flex align-items-center gap-2"
+                        >
+                          <select
+                            name="category_id"
+                            class="form-select form-select-sm"
+                          >
+                            <option value="">— none —</option>
+                            <% categories.forEach(function(c){ %>
+                              <option
+                                value="<%= c.id %>"
+                                <%= String(s.category_id || '') === String(c.id) ? 'selected' : '' %>>
+                                <%= c.name %>
+                              </option>
+                            <% }) %>
+                          </select>
+
+                          <button
+                            type="submit"
+                            class="btn btn-sm btn-outline-primary"
+                          >
+                            <i class="bi bi-save"></i>
+                            Save
+                          </button>
+                        </form>
+                      </td>
+
+                      <!-- Rate -->
+                      <td>
+                        $<%= Number(s.rate).toFixed(4) %>
+                      </td>
+
+                      <!-- Min / Max -->
+                      <td>
+                        <div class="small">
+                          <span class="text-muted">Min:</span>
+                          <strong><%= s.min_qty %></strong>
+                        </div>
+                        <div class="small">
+                          <span class="text-muted">Max:</span>
+                          <strong><%= s.max_qty %></strong>
+                        </div>
+                      </td>
+
+                      <!-- Status badge -->
+                      <td>
+                        <% if (s.is_active) { %>
+                          <span class="badge bg-success">
+                            <i class="bi bi-check-circle"></i> Active
+                          </span>
+                        <% } else { %>
+                          <span class="badge bg-secondary">
+                            <i class="bi bi-pause-circle"></i> Disabled
+                          </span>
+                        <% } %>
+                      </td>
+
+                      <!-- Actions: toggle + edit -->
+                      <td class="text-end">
+                        <!-- Toggle status -->
+                        <form
+                          method="post"
+                          action="/admin/smm-services/<%= s.id %>/toggle"
+                          class="d-inline"
+                        >
+                          <button
+                            type="submit"
+                            class="btn btn-sm <%= s.is_active ? 'btn-warning' : 'btn-success' %>"
+                          >
+                            <i class="bi <%= s.is_active ? 'bi-eye-slash' : 'bi-eye' %>"></i>
+                            <%= s.is_active ? 'Disable' : 'Enable' %>
+                          </button>
+                        </form>
+
+                        <!-- Full edit page -->
+                        <a
+                          href="/admin/smm-services/<%= s.id %>/edit"
+                          class="btn btn-sm btn-outline-secondary ms-2"
+                        >
+                          <i class="bi bi-pencil-square"></i>
+                          Edit
+                        </a>
+                      </td>
+                    </tr>
+                  <% }); %>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
