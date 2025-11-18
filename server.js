@@ -1754,88 +1754,86 @@ app.post('/admin/smm-services/bulk-category', checkAdmin, (req, res) => {
 
 // فورم تعديل خدمة
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
-  const search     = (req.query.search || '').trim();
-  const categoryId = req.query.category_id || 'all';
-  const status     = req.query.status || 'all';
+  const search = (req.query.q || '').trim();
+  const filterCategory = req.query.category_id || 'all';
+  const filterStatus   = req.query.status || 'all';
 
-  const q = (sql, params = []) =>
-    new Promise((resolve, reject) =>
-      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
-    );
+  const where = [];
+  const params = [];
+
+  // 🔹 بس كاتيجوري الـ provider المفعّلة
+  where.push('c.is_active = 1');
+
+  // 🔍 بحث بالاسم أو id أو اسم كاتيجوري المزود
+  if (search) {
+    where.push(`
+      (
+        s.name LIKE ?
+        OR s.provider_service_id = ?
+        OR s.category LIKE ?
+      )
+    `);
+    params.push(`%${search}%`, search, `%${search}%`);
+  }
+
+  // فلتر حسب الـ category_id اللي انت بتعيّنه من الـ dropdown (اختياري)
+  if (filterCategory !== 'all') {
+    where.push('s.category_id = ?');
+    params.push(filterCategory);
+  }
+
+  // فلتر حسب الحالة
+  if (filterStatus === 'active') {
+    where.push('s.is_active = 1');
+  } else if (filterStatus === 'disabled') {
+    where.push('s.is_active = 0');
+  }
+
+  const whereSql = 'WHERE ' + where.join(' AND ');
+
+  // 🔗 الربط بين smm_services و smm_categories على اسم كاتيجوري المزود
+  const sqlServices = `
+    SELECT
+      s.*,
+      c.id   AS category_id,
+      c.name AS category_name
+    FROM smm_services s
+    LEFT JOIN smm_categories c
+      ON c.name = s.category
+    ${whereSql}
+    ORDER BY s.id DESC
+    LIMIT 200
+  `;
+
+  const sqlCategories = `
+    SELECT id, name
+    FROM smm_categories
+    WHERE is_active = 1
+    ORDER BY sort_order, name
+  `;
 
   try {
-    // نجيب كل كاتيجوري الـ SMM لفلتر الكاتيجوري (ممكن كلهم أو بس الـ Active)
-    const categories = await q(
-      `SELECT id, name, is_active
-       FROM smm_categories
-       ORDER BY sort_order ASC, name ASC`
-    );
-
-    let where = '1=1';
-    const params = [];
-
-    // فلتر البحث
-    if (search) {
-      const like = `%${search}%`;
-      where += `
-        AND (
-          s.name LIKE ?
-          OR s.provider_service_id LIKE ?
-          OR s.provider_category LIKE ?
-        )`;
-      params.push(like, like, like);
-    }
-
-    // فلتر الكاتيجوري (اختياري)
-    if (categoryId !== 'all') {
-      where += ' AND s.category_id = ?';
-      params.push(categoryId);
-    }
-
-    // فلتر الحالة
-    if (status === 'active') {
-      where += ' AND s.is_active = 1';
-    } else if (status === 'disabled') {
-      where += ' AND s.is_active = 0';
-    }
-
-    // 👈 أهم سطرين:
-    // 1) ما نعرض أي خدمة ما عليها كاتيجوري
-    // 2) الكاتيجوري نفسها لازم تكون مفعّلة
-    where += ' AND s.category_id IS NOT NULL';
-    where += ' AND sc.is_active = 1';
-
-    const services = await q(
-      `
-      SELECT
-        s.*,
-        sc.id        AS category_id,
-        sc.name      AS category_name,
-        sc.is_active AS category_active
-      FROM smm_services s
-      LEFT JOIN smm_categories sc ON sc.id = s.category_id
-      WHERE ${where}
-      ORDER BY s.id DESC
-      LIMIT 200
-      `,
-      params
-    );
+    const [services, categories] = await Promise.all([
+      q(sqlServices, params),
+      q(sqlCategories)
+    ]);
 
     res.render('admin-smm-services', {
       user: req.session.user,
       services,
       categories,
       filters: {
-        search,
-        category_id: categoryId,
-        status
+        q:          search,
+        category_id: filterCategory,
+        status:     filterStatus
       }
     });
   } catch (err) {
-    console.error('❌ /admin/smm-services error:', err.message || err);
-    return res.status(500).send('Server error loading smm services');
+    console.error('❌ /admin/smm-services error:', err.message);
+    res.status(500).send('Server error loading SMM services');
   }
 });
+
 
 // تفعيل / تعطيل سريع
 app.post('/admin/smm-services/:id/toggle', checkAdmin, async (req, res) => {
