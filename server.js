@@ -1036,67 +1036,83 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
 
 // =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
 
-app.get('/social-media', async (req, res) => {
-  const q = (sql, p = []) =>
-    new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
+app.get('/social-media', (req, res) => {
+  const sql = `
+    SELECT
+      c.id,
+      c.name,
+      c.slug,
+      c.is_active,
+      COUNT(s.id) AS services_count
+    FROM smm_categories c
+    LEFT JOIN smm_services s
+      ON s.smm_category_id = c.id
+     AND s.is_active = 1
+    WHERE c.is_active = 1
+    GROUP BY c.id, c.name, c.slug, c.is_active
+    HAVING services_count > 0
+    ORDER BY c.sort_order ASC, c.name ASC
+  `;
 
-  try {
-    const rows = await q(`
-      SELECT category, COUNT(*) AS services_count
-      FROM smm_services
-      WHERE is_active = 1
-        AND category IS NOT NULL
-        AND category <> ''
-      GROUP BY category
-      ORDER BY category ASC
-    `);
-
-    const categories = rows.map(row => ({
-      category: row.category,
-      slug: slugify(row.category || ''),
-      services_count: row.services_count
-    }));
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error('❌ /social-media error:', err.message);
+      return res.status(500).send('Server error');
+    }
 
     res.render('social-categories', {
       user: req.session.user || null,
-      categories
+      categories: rows
     });
-  } catch (e) {
-    console.error('❌ /social-media error:', e.message);
-    res.status(500).send('Server error loading social media categories.');
-  }
+  });
 });
 
-app.get('/social-media/:slug', async (req, res) => {
-  const q = (sql, p = []) =>
-    new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
-
+app.get('/social-media/:slug', (req, res) => {
   const { slug } = req.params;
 
-  try {
-    const rows = await q(
-      `SELECT * FROM smm_services WHERE is_active = 1 ORDER BY name ASC`
-    );
+  const sql = `
+    SELECT
+      c.id            AS cat_id,
+      c.name          AS cat_name,
+      c.slug          AS cat_slug,
+      c.is_active     AS cat_active,
+      s.*
+    FROM smm_categories c
+    LEFT JOIN smm_services s
+      ON s.smm_category_id = c.id
+     AND s.is_active = 1
+    WHERE c.slug = ?
+    ORDER BY s.name ASC
+  `;
 
-    const services = rows.filter(s => slugify(s.category || '') === slug);
+  db.query(sql, [slug], (err, rows) => {
+    if (err) {
+      console.error('❌ /social-media/:slug error:', err.message);
+      return res.status(500).send('Server error');
+    }
+
+    if (!rows.length) {
+      return res.status(404).send('Category not found or has no services.');
+    }
+
+    const cat = rows[0];
+
+    // فلتر الخدمات لو في صفوف بدون خدمة (بسبب LEFT JOIN)
+    const services = rows.filter(r => r.id); // s.id
 
     if (!services.length) {
       return res.status(404).send('Category not found or has no services.');
     }
 
-    const category = services[0].category;
-
     res.render('social-services', {
       user: req.session.user || null,
-      category,   // <-- هيدا اللي رح يستعمله الـ EJS
-      slug,
+      categoryName: cat.cat_name,
+      categorySlug: cat.cat_slug,
       services
     });
-  } catch (e) {
-    console.error('❌ /social-media/:slug error:', e.message);
-    res.status(500).send('Server error loading social services.');
-  }
+  });
 });
+
 
 
 
@@ -1604,64 +1620,142 @@ const adminQ = (sql, params = []) =>
 
 // لستة الخدمات مع فلترة بسيطة
 app.get('/admin/smm-services', checkAdmin, (req, res) => {
-  const { cat, status, q } = req.query;
+  const { q, category_id, status } = req.query;
 
-  // نجمع الشروط
-  let where = '1=1';
   const params = [];
+  let sql = `
+    SELECT
+      s.*,
+      c.name AS smm_category_name
+    FROM smm_services s
+    LEFT JOIN smm_categories c
+      ON c.id = s.smm_category_id
+    WHERE 1=1
+  `;
 
-  if (cat) {
-    where += ' AND category = ?';
-    params.push(cat);
+  if (category_id && category_id !== 'all') {
+    sql += ' AND s.smm_category_id = ?';
+    params.push(parseInt(category_id, 10) || 0);
   }
 
   if (status === 'active') {
-    where += ' AND is_active = 1';
+    sql += ' AND s.is_active = 1';
   } else if (status === 'disabled') {
-    where += ' AND is_active = 0';
+    sql += ' AND s.is_active = 0';
   }
 
-  if (q) {
-    where += ' AND name LIKE ?';
-    params.push(`%${q}%`);
+  if (q && q.trim()) {
+    const term = `%${q.trim()}%`;
+    sql += ' AND (s.name LIKE ? OR s.category LIKE ? OR s.provider_service_id = ?)';
+    params.push(term, term, q.trim());
   }
 
-  const listSql = `
-    SELECT *
-    FROM smm_services
-    WHERE ${where}
-    ORDER BY category ASC, name ASC
-  `;
+  sql += ' ORDER BY s.id DESC LIMIT 200'; // حد 200 عشان الأداء
 
-  const catsSql = `
-    SELECT DISTINCT category
-    FROM smm_services
-    ORDER BY category ASC
-  `;
-
-  db.query(catsSql, (errCats, catRows) => {
-    if (errCats) {
-      console.error('Admin SMM cats error:', errCats.message);
-      return res.status(500).send('Failed to load categories');
+  db.query(sql, params, (err, services) => {
+    if (err) {
+      console.error('❌ /admin/smm-services error:', err.message);
+      return res.status(500).send('DB error');
     }
 
-    db.query(listSql, params, (errList, rows) => {
-      if (errList) {
-        console.error('Admin SMM list error:', errList.message);
-        return res.status(500).send('Failed to load SMM services');
-      }
+    db.query(
+      'SELECT id, name FROM smm_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC',
+      (err2, categories) => {
+        if (err2) {
+          console.error('❌ load smm_categories in admin:', err2.message);
+          return res.status(500).send('DB error');
+        }
 
-      res.render('admin-smm-services', {
-        user: req.session.user || null,
-        services: rows || [],
-        categories: catRows || [],
-        filters: { cat: cat || '', status: status || '', q: q || '' },
-        flash: req.session.flash || null
-      });
-      req.session.flash = null;
-    });
+        res.render('admin-smm-services', {
+          user: req.session.user,
+          services,
+          categories,
+          filters: {
+            q: q || '',
+            category_id: category_id || 'all',
+            status: status || 'all'
+          }
+        });
+      }
+    );
   });
 });
+// ADMIN – SMM CATEGORIES
+app.get('/admin/smm-categories', checkAdmin, (req, res) => {
+  db.query(
+    'SELECT * FROM smm_categories ORDER BY sort_order ASC, name ASC',
+    (err, rows) => {
+      if (err) {
+        console.error('❌ /admin/smm-categories error:', err.message);
+        return res.status(500).send('DB error');
+      }
+      res.render('admin-smm-categories', {
+        user: req.session.user,
+        categories: rows
+      });
+    }
+  );
+});
+
+app.post('/admin/smm-categories/create', checkAdmin, (req, res) => {
+  const { name, sort_order } = req.body;
+  if (!name || !name.trim()) {
+    return res.redirect('/admin/smm-categories?error=name');
+  }
+
+  const slug = slugify(name, { lower: true, strict: true }).slice(0, 190);
+  const sort = parseInt(sort_order || '0', 10) || 0;
+
+  db.query(
+    'INSERT INTO smm_categories (name, slug, sort_order) VALUES (?, ?, ?)',
+    [name.trim(), slug, sort],
+    err => {
+      if (err) {
+        console.error('❌ create smm_category:', err.message);
+      }
+      res.redirect('/admin/smm-categories');
+    }
+  );
+});
+
+
+app.post('/admin/smm-categories/:id/update', checkAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { name, sort_order } = req.body;
+  if (!Number.isFinite(id)) return res.redirect('/admin/smm-categories');
+
+  const slug = slugify(name || '', { lower: true, strict: true }).slice(0, 190);
+  const sort = parseInt(sort_order || '0', 10) || 0;
+
+  db.query(
+    'UPDATE smm_categories SET name = ?, slug = ?, sort_order = ? WHERE id = ?',
+    [name.trim(), slug, sort, id],
+    err => {
+      if (err) {
+        console.error('❌ update smm_category:', err.message);
+      }
+      res.redirect('/admin/smm-categories');
+    }
+  );
+});
+
+app.post('/admin/smm-categories/:id/toggle', checkAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.redirect('/admin/smm-categories');
+
+  db.query(
+    'UPDATE smm_categories SET is_active = 1 - is_active WHERE id = ?',
+    [id],
+    err => {
+      if (err) {
+        console.error('❌ toggle smm_category:', err.message);
+      }
+      res.redirect('/admin/smm-categories');
+    }
+  );
+});
+
+
 
 // bulk enable/disable لكل الخدمات ضمن كاتيجوري معيّنة
 app.post('/admin/smm-services/bulk-category', checkAdmin, (req, res) => {
@@ -1764,6 +1858,54 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, async (req, res) => {
     res.redirect(`/admin/smm-services/${req.params.id}/edit`);
   }
 });
+
+// تحديث خدمة واحدة (اسم / ريت / مين / ماكس / كاتيجوري)
+app.post('/admin/smm-services/:id/update', checkAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.redirect('/admin/smm-services');
+
+  const {
+    name,
+    rate,
+    min_qty,
+    max_qty,
+    smm_category_id
+  } = req.body;
+
+  const catId = smm_category_id && smm_category_id !== 'null'
+    ? parseInt(smm_category_id, 10)
+    : null;
+
+  const sql = `
+    UPDATE smm_services
+    SET
+      name = ?,
+      rate = ?,
+      min_qty = ?,
+      max_qty = ?,
+      smm_category_id = ?
+    WHERE id = ?
+  `;
+
+  db.query(
+    sql,
+    [
+      name || '',
+      Number(rate || 0),
+      parseInt(min_qty || '0', 10) || 0,
+      parseInt(max_qty || '0', 10) || 0,
+      catId,
+      id
+    ],
+    err => {
+      if (err) {
+        console.error('❌ update smm_service:', err.message);
+      }
+      res.redirect('/admin/smm-services');
+    }
+  );
+});
+
 
 // تفعيل / تعطيل سريع
 app.post('/admin/smm-services/:id/toggle', checkAdmin, async (req, res) => {
