@@ -1071,8 +1071,6 @@ app.get('/social-media', async (req, res) => {
   }
 });
 
-------
-
 
 app.get('/social-media/:slug', (req, res) => {
   const slug = req.params.slug;
