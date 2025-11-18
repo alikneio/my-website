@@ -27,10 +27,10 @@
       </a>
     </div>
 
-    <!-- Flash message (اختياري) -->
-    <% if (typeof flash !== 'undefined' && flash && flash.message) { %>
+    <!-- Flash message (success / error) -->
+    <% if (typeof flash !== 'undefined' && flash) { %>
       <div class="alert alert-<%= flash.type || 'info' %>">
-        <%= flash.message %>
+        <%= flash.message || flash.msg || '' %>
       </div>
     <% } %>
 
@@ -110,6 +110,7 @@
                   ></form>
 
                   <tr>
+                    <!-- ID -->
                     <td class="text-muted">#<%= c.id %></td>
 
                     <!-- NAME + provider category -->
