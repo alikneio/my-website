@@ -556,6 +556,10 @@ app.get('/games/:slug', async (req, res) => {
 });
 
 
+  const q = (sql, params = []) => new Promise((resolve, reject) => {
+    db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
+  });
+
 
 app.get('/communication', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Communication'";
@@ -1050,7 +1054,7 @@ app.get('/social-media', async (req, res) => {
       ORDER BY c.sort_order ASC, c.name ASC
     `);
 
-    res.render('social-media-categories', {
+    res.render('social-categories', {
       user: req.session.user || null,
       categories: rows
     });
@@ -2598,11 +2602,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
   // ✅ Idempotency: من الـ body أو من السيشن (fallback)
   const idemKey = (bodyIdemKey || req.session.idemKey || '').toString().slice(0, 64);
-
-  // helper (وحدة استعلام بالبرومس)
-  const q = (sql, params = []) => new Promise((resolve, reject) => {
-    db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
-  });
 
   try {
     // 0) Idempotency gate (اختياري لكنه مفضّل)
