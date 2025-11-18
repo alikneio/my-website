@@ -1041,73 +1041,77 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
 // =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
 
 app.get('/social-media', async (req, res) => {
+  const q = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
   try {
-    const rows = await q(`
-      SELECT c.id, c.name, c.slug, c.sort_order,
-             COUNT(s.id) AS services_count
+    const categories = await q(
+      `
+      SELECT
+        c.id,
+        c.name,
+        c.slug,
+        COUNT(s.id) AS service_count
       FROM smm_categories c
       LEFT JOIN smm_services s
-        ON s.smm_category_id = c.id
+        ON s.category_id = c.id
        AND s.is_active = 1
       WHERE c.is_active = 1
-      GROUP BY c.id, c.name, c.slug, c.sort_order
-      ORDER BY c.sort_order ASC, c.name ASC
-    `);
+      GROUP BY c.id, c.name, c.slug
+      ORDER BY c.sort_order, c.name
+      `
+    );
 
-    res.render('social-categories', {
-      user: req.session.user || null,
-      categories: rows
-    });
-  } catch (e) {
-    console.error('❌ /social-media error:', e.message);
-    res.status(500).send('Server error loading social media categories.');
+    res.render('social-media-categories', { categories });
+  } catch (err) {
+    console.error('❌ /social-media error:', err.message);
+    res.status(500).send('Server error');
   }
 });
 
 
-app.get('/social-media/:slug', async (req, res) => {
-  const { slug } = req.params;
+app.get('/social-media/:slug', (req, res) => {
+  const slug = req.params.slug;
 
-  try {
-    const [cat] = await q(
-      `SELECT id, name FROM smm_categories
-       WHERE slug = ? AND is_active = 1`,
-      [slug]
+  const q = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
-    if (!cat) {
-      return res.status(404).send('Category not found or disabled.');
-    }
+  (async () => {
+    try {
+      const [cat] = await q(
+        `SELECT id, name FROM smm_categories WHERE slug = ? AND is_active = 1`,
+        [slug]
+      );
+      if (!cat) {
+        return res.status(404).send('Category not found or inactive');
+      }
 
-    const services = await q(
-      `SELECT *
-       FROM smm_services
-       WHERE smm_category_id = ?
-         AND is_active = 1
-       ORDER BY name ASC`,
-      [cat.id]
-    );
+      const services = await q(
+        `
+        SELECT *
+        FROM smm_services
+        WHERE category_id = ?
+          AND is_active = 1
+        ORDER BY rate ASC
+        `,
+        [cat.id]
+      );
 
-    if (!services.length) {
-      return res.render('social-services', {
-        user: req.session.user || null,
-        categoryName: cat.name,
-        services: [],
-        empty: true
+      res.render('social-services', {
+        category: cat.name,
+        services,
       });
+    } catch (err) {
+      console.error('❌ /social-media/:slug error:', err.message);
+      res.status(500).send('Server error');
     }
-
-    res.render('social-services', {
-      user: req.session.user || null,
-      categoryName: cat.name,
-      services,
-      empty: false
-    });
-  } catch (e) {
-    console.error('❌ /social-media/:slug error:', e.message);
-    res.status(500).send('Server error loading social services.');
-  }
+  })();
 });
+
 
 
 
@@ -2041,6 +2045,42 @@ app.get('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
     });
   });
 });
+
+
+app.post('/admin/smm-services/:id/save', checkAdmin, (req, res) => {
+  const id = req.params.id;
+  const {
+    name,
+    rate,
+    min_qty,
+    max_qty,
+    category_id,
+  } = req.body;
+
+  const catId = category_id && category_id !== '' ? Number(category_id) : null;
+
+  db.query(
+    `
+    UPDATE smm_services
+    SET
+      name      = ?,
+      rate      = ?,
+      min_qty   = ?,
+      max_qty   = ?,
+      category_id = ?
+    WHERE id = ?
+    `,
+    [name, rate, min_qty, max_qty, catId, id],
+    (err) => {
+      if (err) {
+        console.error('❌ update smm_service:', err.message);
+        return res.redirect('/admin/smm-services?msg=error');
+      }
+      res.redirect('/admin/smm-services?msg=updated');
+    }
+  );
+});
+
 
 app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
   const serviceId = parseInt(req.params.id, 10);
