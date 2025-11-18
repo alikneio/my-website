@@ -1829,146 +1829,82 @@ app.post('/admin/smm-services/bulk-category', checkAdmin, (req, res) => {
 
 
 // فورم تعديل خدمة
-app.get('/admin/smm-services/:id/edit', checkAdmin, async (req, res) => {
-  try {
-    const [service] = await adminQ(
-      `SELECT * FROM smm_services WHERE id = ?`,
-      [req.params.id]
-    );
-    if (!service) return res.status(404).send('Service not found');
+app.get('/admin/smm-services', checkAdmin, async (req, res) => {
+  const search      = (req.query.search || '').trim();
+  const categoryId  = req.query.category_id || 'all';
+  const status      = req.query.status || 'all';
 
-    res.render('admin-smm-service-form', {
-      user: req.session.user || null,
-      service,
-      flash: req.session.flash || null
+  const queryP = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
+  try {
+    // نجيب كل كاتيجوري الـ SMM (للدروب داون)
+    const categories = await queryP(
+      `SELECT id, name, is_active
+       FROM smm_categories
+       ORDER BY sort_order ASC, name ASC`
+    );
+
+    let where = '1=1';
+    const params = [];
+
+    // فلتر البحث
+    if (search) {
+      where +=
+        ' AND (s.name LIKE ? OR s.provider_service_id LIKE ? OR s.provider_category LIKE ?)';
+      const like = `%${search}%`;
+      params.push(like, like, like);
+    }
+
+    // فلتر الكاتيجوري (الإداري)
+    if (categoryId !== 'all') {
+      where += ' AND s.category_id = ?';
+      params.push(categoryId);
+    }
+
+    // فلتر الحالة
+    if (status === 'active') {
+      where += ' AND s.is_active = 1';
+    } else if (status === 'disabled') {
+      where += ' AND s.is_active = 0';
+    }
+
+    // 👈 هون التغيير المهم:
+    // ما بدنا نشوف الخدمات اللي category_id تبعها NULL
+    // وبدنا الكاتيجوري تكون Active
+    where += ' AND s.category_id IS NOT NULL AND sc.is_active = 1';
+
+    const services = await queryP(
+      `
+      SELECT
+        s.*,
+        sc.id        AS category_id,
+        sc.name      AS category_name,
+        sc.is_active AS category_active
+      FROM smm_services s
+      LEFT JOIN smm_categories sc ON sc.id = s.category_id
+      WHERE ${where}
+      ORDER BY s.id DESC
+      LIMIT 200
+      `,
+      params
+    );
+
+    res.render('admin-smm-services', {
+      user: req.session.user,
+      services,
+      categories,
+      filters: {
+        search,
+        category_id: categoryId,
+        status
+      }
     });
-    req.session.flash = null;
-  } catch (e) {
-    console.error('Admin SMM edit form error:', e);
-    res.status(500).send('Failed to load edit form');
-  }
-});
-
-// حفظ التعديل
-app.post('/admin/smm-services/:id/edit', checkAdmin, async (req, res) => {
-  try {
-    const {
-      name,
-      category,
-      type,
-      rate,
-      min_qty,
-      max_qty,
-      description,
-      is_active
-    } = req.body;
-
-    await adminQ(
-      `
-        UPDATE smm_services
-        SET
-          name = ?,
-          category = ?,
-          type = ?,
-          rate = ?,
-          min_qty = ?,
-          max_qty = ?,
-          description = ?,
-          is_active = ?
-        WHERE id = ?
-      `,
-      [
-        name || '',
-        category || '',
-        type || null,
-        Number(rate) || 0,
-        Number(min_qty) || 0,
-        Number(max_qty) || 0,
-        description || null,
-        is_active ? 1 : 0,
-        req.params.id
-      ]
-    );
-
-    req.session.flash = { type: 'success', msg: 'Service updated successfully.' };
-    res.redirect('/admin/smm-services');
-  } catch (e) {
-    console.error('Admin SMM update error:', e);
-    req.session.flash = { type: 'danger', msg: 'Failed to update service.' };
-    res.redirect(`/admin/smm-services/${req.params.id}/edit`);
-  }
-});
-
-// تحديث خدمة واحدة (اسم / ريت / مين / ماكس / كاتيجوري)
-app.post('/admin/smm-services/:id/update', checkAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (!Number.isFinite(id)) {
-    return res.status(400).send('Bad service id');
-  }
-
-  const {
-    name,
-    rate,
-    min_qty,
-    max_qty,
-    smm_category_id,
-    is_active
-  } = req.body;
-
-  const cleanName = (name || '').toString().trim();
-  const cleanRate = Number(rate) || 0;
-  const cleanMin = parseInt(min_qty, 10) || 0;
-  const cleanMax = parseInt(max_qty, 10) || 0;
-  const cleanCatId = smm_category_id
-    ? (parseInt(smm_category_id, 10) || null)
-    : null;
-  const activeFlag = is_active === '1' || is_active === 'on' ? 1 : 0;
-
-  try {
-    await q(
-      `
-      UPDATE smm_services
-      SET
-        name = ?,
-        rate = ?,
-        min_qty = ?,
-        max_qty = ?,
-        smm_category_id = ?,
-        is_active = ?,
-        updated_at = NOW()
-      WHERE id = ?
-      `,
-      [
-        cleanName,
-        cleanRate,
-        cleanMin,
-        cleanMax,
-        cleanCatId,
-        activeFlag,
-        id
-      ]
-    );
-
-    // إذا الطلب AJAX → رجّع JSON
-    if (
-      req.xhr ||
-      (req.headers.accept && req.headers.accept.includes('application/json'))
-    ) {
-      return res.json({ success: true });
-    }
-
-    req.session.adminFlash = 'Service updated successfully.';
-    res.redirect('/admin/smm-services');
   } catch (err) {
-    console.error('❌ /admin/smm-services/:id/update error:', err.message);
-    if (
-      req.xhr ||
-      (req.headers.accept && req.headers.accept.includes('application/json'))
-    ) {
-      return res.status(500).json({ success: false, message: 'Update failed' });
-    }
-    req.session.adminFlash = 'Update failed.';
-    res.redirect('/admin/smm-services');
+    console.error('❌ /admin/smm-services error:', err.message || err);
+    return res.status(500).send('Server error loading smm services');
   }
 });
 
