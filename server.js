@@ -1608,10 +1608,9 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
 
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
   try {
-    // فلترز من الـ query
-    const search = (req.query.search || '').trim();
+    const search     = (req.query.search || '').trim();
     const categoryId = req.query.category_id || 'all';
-    const status = req.query.status || 'all';
+    const status     = req.query.status || 'all';
 
     const params = [];
     let where = '1=1';
@@ -1632,19 +1631,18 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       where += ' AND s.is_active = 0';
     }
 
-    // خدمات (محددين 200 حتى ما ينفجر الجدول)
     const services = await q(
       `
       SELECT
         s.id,
         s.provider_service_id,
         s.name,
-        s.provider_category,
+        s.category AS provider_category,   -- 👈 هون الألياس
         s.rate,
         s.min_qty,
         s.max_qty,
         s.is_active,
-        sc.id AS category_id,
+        sc.id   AS category_id,
         sc.name AS category_name
       FROM smm_services s
       LEFT JOIN smm_categories sc ON sc.id = s.category_id
@@ -1655,9 +1653,8 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       params
     );
 
-    // لائحة الكاتيجوريز لفلتر / dropdown
     const categories = await q(
-      `SELECT id, name FROM smm_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC`
+      `SELECT id, name FROM smm_categories ORDER BY sort_order ASC, name ASC`
     );
 
     const filters = {
@@ -1669,7 +1666,7 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
     res.render('admin-smm-services', {
       user: req.session.user || null,
       services,
-      categories,      // ← هون كمان مهم
+      categories,
       filters
     });
   } catch (err) {
@@ -1678,33 +1675,33 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
   }
 });
 
-// Helpers صغير للـ promises
-function q(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
-  });
-}
 
 // ========== ADMIN – SMM CATEGORIES ==========
+
+// ADMIN – SMM CATEGORIES
 app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
   try {
-    // 1) لائحة الكاتيجوريز الموجودة في الخدمات من المزود
+    // كل الكاتيجوريز الجاية من المزود (من جدول smm_services)
     const providerRows = await q(
-      `SELECT DISTINCT provider_category AS name
-         FROM smm_services
-        WHERE provider_category IS NOT NULL
-          AND provider_category <> ''
-        ORDER BY provider_category ASC
-        LIMIT 500`
+      `
+      SELECT DISTINCT category AS provider_category
+      FROM smm_services
+      WHERE category IS NOT NULL
+        AND category <> ''
+      ORDER BY category ASC
+      LIMIT 500
+      `
     );
 
-    const providerCategories = providerRows.map((r) => r.name);
+    const providerCategories = providerRows.map(r => r.provider_category);
 
-    // 2) الكاتيجوريز اللي عندك بالجدول smm_categories
+    // الكاتيجوريز اللي انت عاملها بجدول smm_categories
     const categories = await q(
-      `SELECT id, name, slug, sort_order, is_active
-         FROM smm_categories
-        ORDER BY sort_order ASC, name ASC`
+      `
+      SELECT id, name, slug, sort_order, is_active
+      FROM smm_categories
+      ORDER BY sort_order ASC, name ASC
+      `
     );
 
     const flash = req.session.adminFlash || null;
@@ -1712,8 +1709,8 @@ app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
 
     res.render('admin-smm-categories', {
       user: req.session.user || null,
-      providerCategories,
-      categories,          // ← مهم جداً
+      providerCategories,  // لليسار: لستة الكاتيجوريز الجاية من الـ API
+      categories,          // لليمين: الكاتيجوريز اللي عندك بالـ DB
       flash
     });
   } catch (err) {
@@ -1722,76 +1719,6 @@ app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
   }
 });
 
-// ADMIN – SMM CATEGORIES
-app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
-  try {
-    // الكاتيجوري الخام الجاية من المزود (من جدول smm_services.col = category)
-    const providerCats = await q(
-      `
-      SELECT category, COUNT(*) AS services_count
-      FROM smm_services
-      WHERE category IS NOT NULL AND category <> ''
-      GROUP BY category
-      ORDER BY category ASC
-      `
-    );
-
-    // الكاتيجوري يلي انت عاملها بإيدك (جدول smm_categories)
-    const appCats = await q(
-      `
-      SELECT id, name, slug, sort_order, is_active
-      FROM smm_categories
-      ORDER BY sort_order ASC, name ASC
-      `
-    );
-
-    const message = req.session.adminFlash || null;
-    req.session.adminFlash = null;
-
-    res.render('admin-smm-categories', {
-      user: req.session.user,
-      providerCats, // لنعرض كل الكاتيجوري الموجودين في smm_services
-      appCats,      // كاتيجوري الموقع (تقدر تعدّل وتفعّل/تطفي)
-      message
-    });
-  } catch (err) {
-    console.error('❌ /admin/smm-categories error:', err.message);
-    res.status(500).send('Admin SMM categories error');
-  }
-});
-app.post('/admin/smm-categories/add', checkAdmin, async (req, res) => {
-  const name = (req.body.name || '').trim();
-  const sort = parseInt(req.body.sort_order, 10) || 0;
-
-  if (!name) {
-    req.session.adminFlash = 'Name is required.';
-    return res.redirect('/admin/smm-categories');
-  }
-
-  // slug بسيط
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 100);
-
-  try {
-    await q(
-      `
-      INSERT INTO smm_categories (name, slug, sort_order, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, 1, NOW(), NOW())
-      `,
-      [name, slug, sort]
-    );
-
-    req.session.adminFlash = 'Category created.';
-    res.redirect('/admin/smm-categories');
-  } catch (err) {
-    console.error('❌ /admin/smm-categories/add error:', err.message);
-    req.session.adminFlash = 'Failed to create category.';
-    res.redirect('/admin/smm-categories');
-  }
-});
 
 
 app.post('/admin/smm-categories/:id/update', checkAdmin, async (req, res) => {
