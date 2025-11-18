@@ -1697,107 +1697,152 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
 // ADMIN – SMM CATEGORIES
 app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
   try {
-    // 1) جيب كل provider_category الموجودة بالسيرفِسات
-    const providerCats = await q(`
-      SELECT DISTINCT provider_category
+    // الكاتيجوري الخام الجاية من المزود (من جدول smm_services.col = category)
+    const providerCats = await q(
+      `
+      SELECT category, COUNT(*) AS services_count
       FROM smm_services
-      WHERE provider_category IS NOT NULL
-        AND provider_category <> ''
-    `);
+      WHERE category IS NOT NULL AND category <> ''
+      GROUP BY category
+      ORDER BY category ASC
+      `
+    );
 
-    // 2) لكل provider_category، إذا مش موجودة بـ smm_categories → أضِفها
-    for (const row of providerCats) {
-      const name = row.provider_category;
-      const slug = slugify(name);
-
-      await q(
-        `INSERT IGNORE INTO smm_categories (name, slug, sort_order, is_active)
-         VALUES (?, ?, 0, 0)`,
-        [name, slug]
-      );
-    }
-
-    // 3) بعد ما نتأكد إنو كلشي موجود، جبلي الليست لنعرضها
-    const categories = await q(`
+    // الكاتيجوري يلي انت عاملها بإيدك (جدول smm_categories)
+    const appCats = await q(
+      `
       SELECT id, name, slug, sort_order, is_active
       FROM smm_categories
       ORDER BY sort_order ASC, name ASC
-    `);
+      `
+    );
 
     const message = req.session.adminFlash || null;
     req.session.adminFlash = null;
 
     res.render('admin-smm-categories', {
       user: req.session.user,
-      categories,
+      providerCats, // لنعرض كل الكاتيجوري الموجودين في smm_services
+      appCats,      // كاتيجوري الموقع (تقدر تعدّل وتفعّل/تطفي)
       message
     });
   } catch (err) {
     console.error('❌ /admin/smm-categories error:', err.message);
-    res.status(500).send('Admin categories error');
+    res.status(500).send('Admin SMM categories error');
+  }
+});
+app.post('/admin/smm-categories/add', checkAdmin, async (req, res) => {
+  const name = (req.body.name || '').trim();
+  const sort = parseInt(req.body.sort_order, 10) || 0;
+
+  if (!name) {
+    req.session.adminFlash = 'Name is required.';
+    return res.redirect('/admin/smm-categories');
+  }
+
+  // slug بسيط
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 100);
+
+  try {
+    await q(
+      `
+      INSERT INTO smm_categories (name, slug, sort_order, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, 1, NOW(), NOW())
+      `,
+      [name, slug, sort]
+    );
+
+    req.session.adminFlash = 'Category created.';
+    res.redirect('/admin/smm-categories');
+  } catch (err) {
+    console.error('❌ /admin/smm-categories/add error:', err.message);
+    req.session.adminFlash = 'Failed to create category.';
+    res.redirect('/admin/smm-categories');
   }
 });
 
 
-app.post('/admin/smm-categories/create', checkAdmin, (req, res) => {
-  const { name, sort_order } = req.body;
-  if (!name || !name.trim()) {
-    return res.redirect('/admin/smm-categories?error=name');
+app.post('/admin/smm-categories/:id/update', checkAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).send('Bad category id');
   }
 
-  const slug = slugify(name, { lower: true, strict: true }).slice(0, 190);
-  const sort = parseInt(sort_order || '0', 10) || 0;
+  const name = (req.body.name || '').trim();
+  const sort = parseInt(req.body.sort_order, 10) || 0;
+  const activeFlag = req.body.is_active === '1' || req.body.is_active === 'on' ? 1 : 0;
 
-  db.query(
-    'INSERT INTO smm_categories (name, slug, sort_order) VALUES (?, ?, ?)',
-    [name.trim(), slug, sort],
-    err => {
-      if (err) {
-        console.error('❌ create smm_category:', err.message);
-      }
-      res.redirect('/admin/smm-categories');
-    }
-  );
+  if (!name) {
+    req.session.adminFlash = 'Name is required.';
+    return res.redirect('/admin/smm-categories');
+  }
+
+  const slug = (req.body.slug || name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 100);
+
+  try {
+    await q(
+      `
+      UPDATE smm_categories
+      SET name = ?, slug = ?, sort_order = ?, is_active = ?, updated_at = NOW()
+      WHERE id = ?
+      `,
+      [name, slug, sort, activeFlag, id]
+    );
+
+    req.session.adminFlash = 'Category updated.';
+    res.redirect('/admin/smm-categories');
+  } catch (err) {
+    console.error('❌ /admin/smm-categories/:id/update error:', err.message);
+    req.session.adminFlash = 'Failed to update category.';
+    res.redirect('/admin/smm-categories');
+  }
 });
 
-
-app.post('/admin/smm-categories/:id/update', checkAdmin, (req, res) => {
+app.post('/admin/smm-categories/:id/toggle', checkAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const { name, sort_order } = req.body;
-  if (!Number.isFinite(id)) return res.redirect('/admin/smm-categories');
+  const action = (req.body.action || '').toString();
 
-  const slug = slugify(name || '', { lower: true, strict: true }).slice(0, 190);
-  const sort = parseInt(sort_order || '0', 10) || 0;
+  if (!Number.isFinite(id) || !['enable', 'disable'].includes(action)) {
+    return res.status(400).send('Bad request');
+  }
 
-  db.query(
-    'UPDATE smm_categories SET name = ?, slug = ?, sort_order = ? WHERE id = ?',
-    [name.trim(), slug, sort, id],
-    err => {
-      if (err) {
-        console.error('❌ update smm_category:', err.message);
-      }
-      res.redirect('/admin/smm-categories');
+  const activeFlag = action === 'enable' ? 1 : 0;
+
+  try {
+    await q(
+      `UPDATE smm_categories SET is_active = ?, updated_at = NOW() WHERE id = ?`,
+      [activeFlag, id]
+    );
+
+    if (
+      req.xhr ||
+      (req.headers.accept && req.headers.accept.includes('application/json'))
+    ) {
+      return res.json({ success: true, is_active: activeFlag });
     }
-  );
-});
 
-app.post('/admin/smm-categories/:id/toggle', checkAdmin, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (!Number.isFinite(id)) return res.redirect('/admin/smm-categories');
-
-  db.query(
-    'UPDATE smm_categories SET is_active = 1 - is_active WHERE id = ?',
-    [id],
-    err => {
-      if (err) {
-        console.error('❌ toggle smm_category:', err.message);
-      }
-      res.redirect('/admin/smm-categories');
+    req.session.adminFlash = 'Category status updated.';
+    res.redirect('/admin/smm-categories');
+  } catch (err) {
+    console.error('❌ /admin/smm-categories/:id/toggle error:', err.message);
+    if (
+      req.xhr ||
+      (req.headers.accept && req.headers.accept.includes('application/json'))
+    ) {
+      return res.status(500).json({ success: false, message: 'Toggle failed' });
     }
-  );
+    req.session.adminFlash = 'Toggle failed.';
+    res.redirect('/admin/smm-categories');
+  }
 });
-
-
 
 // bulk enable/disable لكل الخدمات ضمن كاتيجوري معيّنة
 app.post('/admin/smm-services/bulk-category', checkAdmin, (req, res) => {
