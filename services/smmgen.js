@@ -30,25 +30,33 @@ async function getSmmServices() {
 
 // 2) إنشاء طلب جديد
 async function createSmmOrder({ service, link, quantity }) {
-  if (!service || !link || !quantity) {
-    throw new Error("Missing order data");
-  }
+  const url = process.env.SMMGEN_URL; // حسب ما عندك
+  const key = process.env.SMMGEN_KEY;
 
-  const data = await callSmmgen({
-    action: "add",
+  const { data } = await axios.post(url, {
+    key,
+    action: 'add',
     service,
     link,
     quantity,
   });
 
-  // ردّ SMMGEN عادة بيكون { order: 123456 }
-  if (!data || !data.order) {
-    console.error("SMMGEN add response:", data);
-    throw new Error("No order id returned from SMMGEN");
+  console.log('SMMGEN add response:', data);
+
+  // إذا في Error من المزود نفسه
+  if (data.error) {
+    throw new Error(data.error);
   }
 
-  return data.order;
+  // لازم يرجع order id
+  const orderId = Number(data.order);
+  if (!orderId) {
+    throw new Error('No order id returned from SMMGEN');
+  }
+
+  return orderId;
 }
+
 
 module.exports = {
   getSmmServices,
