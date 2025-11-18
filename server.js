@@ -1036,81 +1036,73 @@ app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
 
 // =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
 
-app.get('/social-media', (req, res) => {
-  const sql = `
-    SELECT
-      c.id,
-      c.name,
-      c.slug,
-      c.is_active,
-      COUNT(s.id) AS services_count
-    FROM smm_categories c
-    LEFT JOIN smm_services s
-      ON s.smm_category_id = c.id
-     AND s.is_active = 1
-    WHERE c.is_active = 1
-    GROUP BY c.id, c.name, c.slug, c.is_active
-    HAVING services_count > 0
-    ORDER BY c.sort_order ASC, c.name ASC
-  `;
+app.get('/social-media', async (req, res) => {
+  try {
+    const rows = await q(`
+      SELECT c.id, c.name, c.slug, c.sort_order,
+             COUNT(s.id) AS services_count
+      FROM smm_categories c
+      LEFT JOIN smm_services s
+        ON s.smm_category_id = c.id
+       AND s.is_active = 1
+      WHERE c.is_active = 1
+      GROUP BY c.id, c.name, c.slug, c.sort_order
+      ORDER BY c.sort_order ASC, c.name ASC
+    `);
 
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error('❌ /social-media error:', err.message);
-      return res.status(500).send('Server error');
-    }
-
-    res.render('social-categories', {
+    res.render('social-media-categories', {
       user: req.session.user || null,
       categories: rows
     });
-  });
+  } catch (e) {
+    console.error('❌ /social-media error:', e.message);
+    res.status(500).send('Server error loading social media categories.');
+  }
 });
 
-app.get('/social-media/:slug', (req, res) => {
+
+app.get('/social-media/:slug', async (req, res) => {
   const { slug } = req.params;
 
-  const sql = `
-    SELECT
-      c.id            AS cat_id,
-      c.name          AS cat_name,
-      c.slug          AS cat_slug,
-      c.is_active     AS cat_active,
-      s.*
-    FROM smm_categories c
-    LEFT JOIN smm_services s
-      ON s.smm_category_id = c.id
-     AND s.is_active = 1
-    WHERE c.slug = ?
-    ORDER BY s.name ASC
-  `;
+  try {
+    const [cat] = await q(
+      `SELECT id, name FROM smm_categories
+       WHERE slug = ? AND is_active = 1`,
+      [slug]
+    );
 
-  db.query(sql, [slug], (err, rows) => {
-    if (err) {
-      console.error('❌ /social-media/:slug error:', err.message);
-      return res.status(500).send('Server error');
+    if (!cat) {
+      return res.status(404).send('Category not found or disabled.');
     }
 
-    if (!rows.length) {
-      return res.status(404).send('Category not found or has no services.');
-    }
-
-    const cat = rows[0];
-
-    // فلتر الخدمات لو في صفوف بدون خدمة (بسبب LEFT JOIN)
-    const services = rows.filter(r => r.id); // s.id
+    const services = await q(
+      `SELECT *
+       FROM smm_services
+       WHERE smm_category_id = ?
+         AND is_active = 1
+       ORDER BY name ASC`,
+      [cat.id]
+    );
 
     if (!services.length) {
-      return res.status(404).send('Category not found or has no services.');
+      return res.render('social-services', {
+        user: req.session.user || null,
+        categoryName: cat.name,
+        services: [],
+        empty: true
+      });
     }
 
     res.render('social-services', {
       user: req.session.user || null,
-      categoryName: cat.cat_name,
-      categorySlug: cat.cat_slug,
-      services
+      categoryName: cat.name,
+      services,
+      empty: false
     });
-  });
+  } catch (e) {
+    console.error('❌ /social-media/:slug error:', e.message);
+    res.status(500).send('Server error loading social services.');
+  }
 });
 
 
@@ -1619,83 +1611,133 @@ const adminQ = (sql, params = []) =>
   new Promise((ok, no) => db.query(sql, params, (e, r) => (e ? no(e) : ok(r))));
 
 // لستة الخدمات مع فلترة بسيطة
-app.get('/admin/smm-services', checkAdmin, (req, res) => {
-  const { q, category_id, status } = req.query;
+app.get('/admin/smm-services', checkAdmin, async (req, res) => {
+  try {
+    const search = (req.query.q || '').trim();
+    const filterCat = req.query.cat || 'all';
+    const filterStatus = req.query.status || 'all';
 
-  const params = [];
-  let sql = `
-    SELECT
-      s.*,
-      c.name AS smm_category_name
-    FROM smm_services s
-    LEFT JOIN smm_categories c
-      ON c.id = s.smm_category_id
-    WHERE 1=1
-  `;
+    const whereParts = ['1=1'];
+    const params = [];
 
-  if (category_id && category_id !== 'all') {
-    sql += ' AND s.smm_category_id = ?';
-    params.push(parseInt(category_id, 10) || 0);
-  }
-
-  if (status === 'active') {
-    sql += ' AND s.is_active = 1';
-  } else if (status === 'disabled') {
-    sql += ' AND s.is_active = 0';
-  }
-
-  if (q && q.trim()) {
-    const term = `%${q.trim()}%`;
-    sql += ' AND (s.name LIKE ? OR s.category LIKE ? OR s.provider_service_id = ?)';
-    params.push(term, term, q.trim());
-  }
-
-  sql += ' ORDER BY s.id DESC LIMIT 200'; // حد 200 عشان الأداء
-
-  db.query(sql, params, (err, services) => {
-    if (err) {
-      console.error('❌ /admin/smm-services error:', err.message);
-      return res.status(500).send('DB error');
+    // بحث بالاسم / provider_service_id / provider_category
+    if (search) {
+      whereParts.push(`
+        (
+          s.name LIKE ?
+          OR s.provider_service_id = ?
+          OR s.provider_category LIKE ?
+        )
+      `);
+      params.push(`%${search}%`, search, `%${search}%`);
     }
 
-    db.query(
-      'SELECT id, name FROM smm_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC',
-      (err2, categories) => {
-        if (err2) {
-          console.error('❌ load smm_categories in admin:', err2.message);
-          return res.status(500).send('DB error');
-        }
+    // فلتر حسب الكاتيجوري (smm_category_id)
+    if (filterCat !== 'all' && Number.isFinite(Number(filterCat))) {
+      whereParts.push('s.smm_category_id = ?');
+      params.push(Number(filterCat));
+    }
 
-        res.render('admin-smm-services', {
-          user: req.session.user,
-          services,
-          categories,
-          filters: {
-            q: q || '',
-            category_id: category_id || 'all',
-            status: status || 'all'
-          }
-        });
-      }
+    // فلتر حسب الحالة
+    if (filterStatus === 'active') {
+      whereParts.push('s.is_active = 1');
+    } else if (filterStatus === 'disabled') {
+      whereParts.push('s.is_active = 0');
+    }
+
+    const whereSql = whereParts.join(' AND ');
+
+    // منجيب لحد 200 خدمة لحتى ما ينفجر الأدمن
+    const services = await q(
+      `
+      SELECT
+        s.*,
+        c.name AS smm_category_name
+      FROM smm_services s
+      LEFT JOIN smm_categories c
+        ON s.smm_category_id = c.id
+      WHERE ${whereSql}
+      ORDER BY s.id DESC
+      LIMIT 200
+      `,
+      params
     );
-  });
+
+    // الكاتيجوريز المفعّلة بس لحتى نستعملها بالـ <select>
+    const smmCategories = await q(
+      `
+      SELECT id, name
+      FROM smm_categories
+      WHERE is_active = 1
+      ORDER BY sort_order ASC, name ASC
+      `
+    );
+
+    const message = req.session.adminFlash || null;
+    req.session.adminFlash = null;
+
+    res.render('admin-smm-services', {
+      user: req.session.user,
+      services,
+      smmCategories,
+      filters: {
+        q: search,
+        cat: filterCat,
+        status: filterStatus
+      },
+      message
+    });
+  } catch (err) {
+    console.error('❌ /admin/smm-services error:', err.message);
+    res.status(500).send('Admin SMM services error');
+  }
 });
+
+
 // ADMIN – SMM CATEGORIES
-app.get('/admin/smm-categories', checkAdmin, (req, res) => {
-  db.query(
-    'SELECT * FROM smm_categories ORDER BY sort_order ASC, name ASC',
-    (err, rows) => {
-      if (err) {
-        console.error('❌ /admin/smm-categories error:', err.message);
-        return res.status(500).send('DB error');
-      }
-      res.render('admin-smm-categories', {
-        user: req.session.user,
-        categories: rows
-      });
+app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
+  try {
+    // 1) جيب كل provider_category الموجودة بالسيرفِسات
+    const providerCats = await q(`
+      SELECT DISTINCT provider_category
+      FROM smm_services
+      WHERE provider_category IS NOT NULL
+        AND provider_category <> ''
+    `);
+
+    // 2) لكل provider_category، إذا مش موجودة بـ smm_categories → أضِفها
+    for (const row of providerCats) {
+      const name = row.provider_category;
+      const slug = slugify(name);
+
+      await q(
+        `INSERT IGNORE INTO smm_categories (name, slug, sort_order, is_active)
+         VALUES (?, ?, 0, 0)`,
+        [name, slug]
+      );
     }
-  );
+
+    // 3) بعد ما نتأكد إنو كلشي موجود، جبلي الليست لنعرضها
+    const categories = await q(`
+      SELECT id, name, slug, sort_order, is_active
+      FROM smm_categories
+      ORDER BY sort_order ASC, name ASC
+    `);
+
+    const message = req.session.adminFlash || null;
+    req.session.adminFlash = null;
+
+    res.render('admin-smm-categories', {
+      user: req.session.user,
+      categories,
+      message
+    });
+  } catch (err) {
+    console.error('❌ /admin/smm-categories error:', err.message);
+    res.status(500).send('Admin categories error');
+  }
 });
+
 
 app.post('/admin/smm-categories/create', checkAdmin, (req, res) => {
   const { name, sort_order } = req.body;
@@ -1860,66 +1902,117 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, async (req, res) => {
 });
 
 // تحديث خدمة واحدة (اسم / ريت / مين / ماكس / كاتيجوري)
-app.post('/admin/smm-services/:id/update', checkAdmin, (req, res) => {
+app.post('/admin/smm-services/:id/update', checkAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  if (!Number.isFinite(id)) return res.redirect('/admin/smm-services');
+  if (!Number.isFinite(id)) {
+    return res.status(400).send('Bad service id');
+  }
 
   const {
     name,
     rate,
     min_qty,
     max_qty,
-    smm_category_id
+    smm_category_id,
+    is_active
   } = req.body;
 
-  const catId = smm_category_id && smm_category_id !== 'null'
-    ? parseInt(smm_category_id, 10)
+  const cleanName = (name || '').toString().trim();
+  const cleanRate = Number(rate) || 0;
+  const cleanMin = parseInt(min_qty, 10) || 0;
+  const cleanMax = parseInt(max_qty, 10) || 0;
+  const cleanCatId = smm_category_id
+    ? (parseInt(smm_category_id, 10) || null)
     : null;
+  const activeFlag = is_active === '1' || is_active === 'on' ? 1 : 0;
 
-  const sql = `
-    UPDATE smm_services
-    SET
-      name = ?,
-      rate = ?,
-      min_qty = ?,
-      max_qty = ?,
-      smm_category_id = ?
-    WHERE id = ?
-  `;
+  try {
+    await q(
+      `
+      UPDATE smm_services
+      SET
+        name = ?,
+        rate = ?,
+        min_qty = ?,
+        max_qty = ?,
+        smm_category_id = ?,
+        is_active = ?,
+        updated_at = NOW()
+      WHERE id = ?
+      `,
+      [
+        cleanName,
+        cleanRate,
+        cleanMin,
+        cleanMax,
+        cleanCatId,
+        activeFlag,
+        id
+      ]
+    );
 
-  db.query(
-    sql,
-    [
-      name || '',
-      Number(rate || 0),
-      parseInt(min_qty || '0', 10) || 0,
-      parseInt(max_qty || '0', 10) || 0,
-      catId,
-      id
-    ],
-    err => {
-      if (err) {
-        console.error('❌ update smm_service:', err.message);
-      }
-      res.redirect('/admin/smm-services');
+    // إذا الطلب AJAX → رجّع JSON
+    if (
+      req.xhr ||
+      (req.headers.accept && req.headers.accept.includes('application/json'))
+    ) {
+      return res.json({ success: true });
     }
-  );
+
+    req.session.adminFlash = 'Service updated successfully.';
+    res.redirect('/admin/smm-services');
+  } catch (err) {
+    console.error('❌ /admin/smm-services/:id/update error:', err.message);
+    if (
+      req.xhr ||
+      (req.headers.accept && req.headers.accept.includes('application/json'))
+    ) {
+      return res.status(500).json({ success: false, message: 'Update failed' });
+    }
+    req.session.adminFlash = 'Update failed.';
+    res.redirect('/admin/smm-services');
+  }
 });
 
 
 // تفعيل / تعطيل سريع
 app.post('/admin/smm-services/:id/toggle', checkAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const action = (req.body.action || '').toString();
+
+  if (!Number.isFinite(id) || !['enable', 'disable'].includes(action)) {
+    return res.status(400).send('Bad request');
+  }
+
+  const activeFlag = action === 'enable' ? 1 : 0;
+
   try {
-    await adminQ(
-      `UPDATE smm_services
-       SET is_active = IF(is_active = 1, 0, 1)
-       WHERE id = ?`,
-      [req.params.id]
+    await q(
+      `UPDATE smm_services SET is_active = ?, updated_at = NOW() WHERE id = ?`,
+      [activeFlag, id]
     );
+
+    if (
+      req.xhr ||
+      (req.headers.accept && req.headers.accept.includes('application/json'))
+    ) {
+      return res.json({ success: true, is_active: activeFlag });
+    }
+
+    req.session.adminFlash = 'Service status updated.';
     res.redirect('/admin/smm-services');
-  } catch (e) {
-    console.error('Admin SMM toggle error:', e);
-    res.status(500).send('Toggle failed');
+  } catch (err) {
+    console.error('❌ /admin/smm-services/:id/toggle error:', err.message);
+    if (
+      req.xhr ||
+      (req.headers.accept && req.headers.accept.includes('application/json'))
+    ) {
+      return res
+        .status(500)
+        .json({ success: false, message: 'Toggle failed' });
+    }
+    req.session.adminFlash = 'Toggle failed.';
+    res.redirect('/admin/smm-services');
   }
 });
 
