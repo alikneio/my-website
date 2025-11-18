@@ -1870,6 +1870,46 @@ app.get('/admin/smm-services/:id/toggle', checkAdmin, (req, res) => {
   );
 });
 
+// دالة مشتركة لتفعيل/تعطيل خدمة SMM
+function toggleSmmService(req, res) {
+  const serviceId = req.params.id;
+
+  db.query(
+    'SELECT is_active FROM smm_services WHERE id = ?',
+    [serviceId],
+    (err, rows) => {
+      if (err) {
+        console.error('❌ Toggle error (select):', err.message);
+        return res.status(500).send('Server error');
+      }
+
+      if (!rows.length) {
+        return res.status(404).send('Service not found');
+      }
+
+      const newStatus = rows[0].is_active ? 0 : 1;
+
+      db.query(
+        'UPDATE smm_services SET is_active = ? WHERE id = ?',
+        [newStatus, serviceId],
+        err2 => {
+          if (err2) {
+            console.error('❌ Toggle error (update):', err2.message);
+            return res.status(500).send('Server error');
+          }
+
+          // ارجع للصفحة بعد التغيير
+          return res.redirect('/admin/smm-services');
+        }
+      );
+    }
+  );
+}
+
+// ندعم GET و POST الاثنين
+app.get('/admin/smm-services/:id/toggle', checkAdmin, toggleSmmService);
+app.post('/admin/smm-services/:id/toggle', checkAdmin, toggleSmmService);
+
 
 
 
