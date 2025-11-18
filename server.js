@@ -1064,12 +1064,14 @@ app.get('/social-media', async (req, res) => {
       `
     );
 
-    res.render('socialcategories', { categories });
+    res.render('social-categories', { categories });
   } catch (err) {
     console.error('❌ /social-media error:', err.message);
     res.status(500).send('Server error');
   }
 });
+
+------
 
 
 app.get('/social-media/:slug', (req, res) => {
