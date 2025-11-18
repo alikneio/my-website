@@ -1064,7 +1064,7 @@ app.get('/social-media', async (req, res) => {
       `
     );
 
-    res.render('social-categories', { categories });
+    res.render('socialcategories', { categories });
   } catch (err) {
     console.error('❌ /social-media error:', err.message);
     res.status(500).send('Server error');
