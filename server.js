@@ -1606,93 +1606,121 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
   });
 });
 
-// =============== ADMIN - SMM SERVICES ===============
-const adminQ = (sql, params = []) =>
-  new Promise((ok, no) => db.query(sql, params, (e, r) => (e ? no(e) : ok(r))));
-
-// لستة الخدمات مع فلترة بسيطة
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
   try {
-    const search = (req.query.q || '').trim();
-    const filterCat = req.query.cat || 'all';
-    const filterStatus = req.query.status || 'all';
+    // فلترز من الـ query
+    const search = (req.query.search || '').trim();
+    const categoryId = req.query.category_id || 'all';
+    const status = req.query.status || 'all';
 
-    const whereParts = ['1=1'];
     const params = [];
+    let where = '1=1';
 
-    // بحث بالاسم / provider_service_id / provider_category
     if (search) {
-      whereParts.push(`
-        (
-          s.name LIKE ?
-          OR s.provider_service_id = ?
-          OR s.provider_category LIKE ?
-        )
-      `);
-      params.push(`%${search}%`, search, `%${search}%`);
+      where += ' AND (s.name LIKE ? OR s.provider_service_id LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
     }
 
-    // فلتر حسب الكاتيجوري (smm_category_id)
-    if (filterCat !== 'all' && Number.isFinite(Number(filterCat))) {
-      whereParts.push('s.smm_category_id = ?');
-      params.push(Number(filterCat));
+    if (categoryId !== 'all') {
+      where += ' AND s.category_id = ?';
+      params.push(categoryId);
     }
 
-    // فلتر حسب الحالة
-    if (filterStatus === 'active') {
-      whereParts.push('s.is_active = 1');
-    } else if (filterStatus === 'disabled') {
-      whereParts.push('s.is_active = 0');
+    if (status === 'active') {
+      where += ' AND s.is_active = 1';
+    } else if (status === 'disabled') {
+      where += ' AND s.is_active = 0';
     }
 
-    const whereSql = whereParts.join(' AND ');
-
-    // منجيب لحد 200 خدمة لحتى ما ينفجر الأدمن
+    // خدمات (محددين 200 حتى ما ينفجر الجدول)
     const services = await q(
       `
       SELECT
-        s.*,
-        c.name AS smm_category_name
+        s.id,
+        s.provider_service_id,
+        s.name,
+        s.provider_category,
+        s.rate,
+        s.min_qty,
+        s.max_qty,
+        s.is_active,
+        sc.id AS category_id,
+        sc.name AS category_name
       FROM smm_services s
-      LEFT JOIN smm_categories c
-        ON s.smm_category_id = c.id
-      WHERE ${whereSql}
+      LEFT JOIN smm_categories sc ON sc.id = s.category_id
+      WHERE ${where}
       ORDER BY s.id DESC
       LIMIT 200
       `,
       params
     );
 
-    // الكاتيجوريز المفعّلة بس لحتى نستعملها بالـ <select>
-    const smmCategories = await q(
-      `
-      SELECT id, name
-      FROM smm_categories
-      WHERE is_active = 1
-      ORDER BY sort_order ASC, name ASC
-      `
+    // لائحة الكاتيجوريز لفلتر / dropdown
+    const categories = await q(
+      `SELECT id, name FROM smm_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC`
     );
 
-    const message = req.session.adminFlash || null;
-    req.session.adminFlash = null;
+    const filters = {
+      search,
+      category_id: categoryId,
+      status
+    };
 
     res.render('admin-smm-services', {
-      user: req.session.user,
+      user: req.session.user || null,
       services,
-      smmCategories,
-      filters: {
-        q: search,
-        cat: filterCat,
-        status: filterStatus
-      },
-      message
+      categories,      // ← هون كمان مهم
+      filters
     });
   } catch (err) {
     console.error('❌ /admin/smm-services error:', err.message);
-    res.status(500).send('Admin SMM services error');
+    res.status(500).send('Server error loading SMM services.');
   }
 });
 
+// Helpers صغير للـ promises
+function q(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
+  });
+}
+
+// ========== ADMIN – SMM CATEGORIES ==========
+app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
+  try {
+    // 1) لائحة الكاتيجوريز الموجودة في الخدمات من المزود
+    const providerRows = await q(
+      `SELECT DISTINCT provider_category AS name
+         FROM smm_services
+        WHERE provider_category IS NOT NULL
+          AND provider_category <> ''
+        ORDER BY provider_category ASC
+        LIMIT 500`
+    );
+
+    const providerCategories = providerRows.map((r) => r.name);
+
+    // 2) الكاتيجوريز اللي عندك بالجدول smm_categories
+    const categories = await q(
+      `SELECT id, name, slug, sort_order, is_active
+         FROM smm_categories
+        ORDER BY sort_order ASC, name ASC`
+    );
+
+    const flash = req.session.adminFlash || null;
+    req.session.adminFlash = null;
+
+    res.render('admin-smm-categories', {
+      user: req.session.user || null,
+      providerCategories,
+      categories,          // ← مهم جداً
+      flash
+    });
+  } catch (err) {
+    console.error('❌ /admin/smm-categories error:', err.message);
+    res.status(500).send('Server error loading SMM categories.');
+  }
+});
 
 // ADMIN – SMM CATEGORIES
 app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
