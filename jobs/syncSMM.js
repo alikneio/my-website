@@ -45,6 +45,16 @@ module.exports = function makeSyncSMM(db) {
           srv.max
         ];
 
+          if (providerCat) {
+    await q(`
+      INSERT INTO smm_categories (name, provider_category, slug, sort_order, is_active)
+      VALUES (?, ?, '', 0, 0)
+      ON DUPLICATE KEY UPDATE
+        name = VALUES(name)
+    `, [providerCat, providerCat]);
+  }
+
+
         await new Promise((resolve, reject) => {
           db.query(sql, params, (err) => (err ? reject(err) : resolve()));
         });

@@ -27,7 +27,7 @@
       </a>
     </div>
 
-    <!-- create success / error messages (اختياري) -->
+    <!-- Flash message (اختياري) -->
     <% if (typeof flash !== 'undefined' && flash && flash.message) { %>
       <div class="alert alert-<%= flash.type || 'info' %>">
         <%= flash.message %>
@@ -71,7 +71,7 @@
       </div>
     </div>
 
-    <!-- LIST CATEGORIES (all provider categories + manual) -->
+    <!-- LIST CATEGORIES -->
     <div class="card shadow-sm">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -87,10 +87,10 @@
               <tr>
                 <th style="width: 70px;">ID</th>
                 <th>Name</th>
-                <th style="width: 220px;">Slug</th>
+                <th style="width: 230px;">Slug</th>
                 <th style="width: 110px;">Sort</th>
                 <th style="width: 120px;">Status</th>
-                <th style="width: 200px;" class="text-end">Actions</th>
+                <th style="width: 220px;" class="text-end">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -102,13 +102,26 @@
                 </tr>
               <% } else { %>
                 <% categories.forEach(function (c) { %>
+                  <!-- form واحد لكل row لتعديل name / slug / sort -->
+                  <form
+                    id="cat-form-<%= c.id %>"
+                    method="post"
+                    action="/admin/smm-categories/<%= c.id %>/edit"
+                  ></form>
+
                   <tr>
                     <td class="text-muted">#<%= c.id %></td>
 
+                    <!-- NAME + provider category -->
                     <td>
-                      <div class="fw-semibold">
-                        <%= c.name || c.provider_category || 'Unnamed category' %>
-                      </div>
+                      <input
+                        type="text"
+                        name="name"
+                        form="cat-form-<%= c.id %>"
+                        class="form-control form-control-sm mb-1"
+                        value="<%= c.name || c.provider_category || '' %>"
+                        placeholder="Category name"
+                      />
                       <% if (c.provider_category) { %>
                         <div class="small text-muted">
                           Provider category:
@@ -117,32 +130,30 @@
                       <% } %>
                     </td>
 
+                    <!-- SLUG -->
                     <td>
-                      <code class="small"><%= c.slug || '' %></code>
+                      <input
+                        type="text"
+                        name="slug"
+                        form="cat-form-<%= c.id %>"
+                        class="form-control form-control-sm"
+                        value="<%= c.slug || '' %>"
+                        placeholder="Optional slug"
+                      />
                     </td>
 
+                    <!-- SORT ORDER -->
                     <td style="max-width: 110px;">
-                      <!-- form منفصل لتعديل sort_order -->
-                      <form
-                        action="/admin/smm-categories/<%= c.id %>/update"
-                        method="post"
-                        class="d-flex gap-2 align-items-center"
-                      >
-                        <input
-                          type="number"
-                          name="sort_order"
-                          class="form-control form-control-sm"
-                          value="<%= c.sort_order || 0 %>"
-                        />
-                        <button
-                          type="submit"
-                          class="btn btn-sm btn-outline-primary"
-                        >
-                          Save
-                        </button>
-                      </form>
+                      <input
+                        type="number"
+                        name="sort_order"
+                        form="cat-form-<%= c.id %>"
+                        class="form-control form-control-sm"
+                        value="<%= c.sort_order || 0 %>"
+                      />
                     </td>
 
+                    <!-- STATUS -->
                     <td>
                       <% if (c.is_active) { %>
                         <span class="badge bg-success">Active</span>
@@ -151,8 +162,18 @@
                       <% } %>
                     </td>
 
+                    <!-- ACTIONS -->
                     <td class="text-end">
-                      <!-- enable / disable -->
+                      <!-- Save (edit) -->
+                      <button
+                        type="submit"
+                        form="cat-form-<%= c.id %>"
+                        class="btn btn-sm btn-outline-primary me-2"
+                      >
+                        <i class="bi bi-save"></i> Save
+                      </button>
+
+                      <!-- Enable / Disable -->
                       <form
                         action="/admin/smm-categories/<%= c.id %>/toggle"
                         method="post"
@@ -162,6 +183,7 @@
                           type="submit"
                           class="btn btn-sm <%= c.is_active ? 'btn-warning' : 'btn-success' %>"
                         >
+                          <i class="bi <%= c.is_active ? 'bi-eye-slash' : 'bi-eye' %>"></i>
                           <%= c.is_active ? 'Disable' : 'Enable' %>
                         </button>
                       </form>
