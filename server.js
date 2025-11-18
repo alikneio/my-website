@@ -1151,32 +1151,44 @@ app.get('/social-media/:slug', async (req, res) => {
 
 
 
-app.get('/social-checkout/:id', checkAuth, (req, res) => {
+app.get('/social-checkout/:id', checkAuth, async (req, res) => {
+  const userId = req.session.user.id;
   const serviceId = parseInt(req.params.id, 10);
-  if (!Number.isFinite(serviceId)) {
-    return res.status(400).send('Invalid service ID');
+
+  const { error, msg, min, max, link, qty } = req.query;
+
+  const q = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
+  const [service] = await q(
+    `SELECT s.*, c.name AS category_name
+     FROM smm_services s
+     LEFT JOIN smm_categories c ON c.id = s.category_id
+     WHERE s.id = ? AND s.is_active = 1`,
+    [serviceId]
+  );
+  if (!service) {
+    return res.redirect('/social-media?error=service_not_found');
   }
 
-  const sql = `SELECT * FROM smm_services WHERE id = ? AND is_active = 1`;
-  db.query(sql, [serviceId], (err, rows) => {
-    if (err || !rows.length) {
-      console.error('❌ social-checkout error:', err?.message);
-      return res.status(404).send('Service not found.');
-    }
+  const [userRow] = await q(`SELECT balance FROM users WHERE id = ?`, [userId]);
 
-    const service = rows[0];
-
-    // 🔑 نولّد مفتاح عدم التكرار ونخزّنه بالسيشن
-    const idemKey = uuidv4();
-    req.session.idemKey = idemKey;
-
-    res.render('social-checkout', {
-      user: req.session.user,
-      service,
-      idemKey         // 👈 هيدا اللي كان ناقص
-    });
+  res.render('social-checkout', {
+    user: req.session.user,
+    service,
+    balance: userRow?.balance || 0,
+    error: error || null,
+    errorMessage: msg || null,
+    rangeMin: min || service.min_qty,
+    rangeMax: max || service.max_qty,
+    formLink: link || '',
+    formQty: qty || '',
+    idemKey: req.session.idemKey || null,
   });
 });
+
 
 
 // شراء خدمات السوشيال ميديا
