@@ -1610,82 +1610,6 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
   });
 });
 
-app.get('/admin/smm-services', checkAdmin, async (req, res) => {
-  const search      = (req.query.search || '').trim();
-  const categoryId  = req.query.category_id || 'all';
-  const status      = req.query.status || 'all';
-
-  const queryP = (sql, params = []) =>
-    new Promise((resolve, reject) =>
-      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
-    );
-
-  try {
-    // كل الكاتيجوريز (عشان الدروب داون)
-    const categories = await queryP(
-      `SELECT id, name, is_active
-       FROM smm_categories
-       ORDER BY sort_order ASC, name ASC`
-    );
-
-    // نبني الـ WHERE ديناميكياً
-    let where = '1=1';
-    const params = [];
-
-    if (search) {
-      where +=
-        ' AND (s.name LIKE ? OR s.provider_service_id LIKE ? OR s.provider_category LIKE ?)';
-      const like = `%${search}%`;
-      params.push(like, like, like);
-    }
-
-    if (categoryId !== 'all') {
-      where += ' AND s.category_id = ?';
-      params.push(categoryId);
-    }
-
-    if (status === 'active') {
-      where += ' AND s.is_active = 1';
-    } else if (status === 'disabled') {
-      where += ' AND s.is_active = 0';
-    }
-
-    // 🔥 الشرط المهم:
-    //   - إذا الخدمة إلها كاتيجوري → لازم الكاتيجوري تكون Active
-    //   - إذا ما إلها كاتيجوري (category_id IS NULL) → نسمح تعرض طبيعي
-    where += ' AND (s.category_id IS NULL OR sc.is_active = 1)';
-
-    const services = await queryP(
-      `
-      SELECT
-        s.*,
-        sc.id   AS category_id,
-        sc.name AS category_name,
-        sc.is_active AS category_active
-      FROM smm_services s
-      LEFT JOIN smm_categories sc ON sc.id = s.category_id
-      WHERE ${where}
-      ORDER BY s.id DESC
-      LIMIT 200
-      `,
-      params
-    );
-
-    res.render('admin-smm-services', {
-      user: req.session.user,
-      services,
-      categories,
-      filters: {
-        search,
-        category_id: categoryId,
-        status
-      }
-    });
-  } catch (err) {
-    console.error('❌ /admin/smm-services error:', err.message || err);
-    return res.status(500).send('Server error loading smm services');
-  }
-});
 
 
 // ========== ADMIN – SMM CATEGORIES ==========
@@ -1830,18 +1754,18 @@ app.post('/admin/smm-services/bulk-category', checkAdmin, (req, res) => {
 
 // فورم تعديل خدمة
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
-  const search      = (req.query.search || '').trim();
-  const categoryId  = req.query.category_id || 'all';
-  const status      = req.query.status || 'all';
+  const search     = (req.query.search || '').trim();
+  const categoryId = req.query.category_id || 'all';
+  const status     = req.query.status || 'all';
 
-  const queryP = (sql, params = []) =>
+  const q = (sql, params = []) =>
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
   try {
-    // نجيب كل كاتيجوري الـ SMM (للدروب داون)
-    const categories = await queryP(
+    // نجيب كل كاتيجوري الـ SMM لفلتر الكاتيجوري (ممكن كلهم أو بس الـ Active)
+    const categories = await q(
       `SELECT id, name, is_active
        FROM smm_categories
        ORDER BY sort_order ASC, name ASC`
@@ -1852,13 +1776,17 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
 
     // فلتر البحث
     if (search) {
-      where +=
-        ' AND (s.name LIKE ? OR s.provider_service_id LIKE ? OR s.provider_category LIKE ?)';
       const like = `%${search}%`;
+      where += `
+        AND (
+          s.name LIKE ?
+          OR s.provider_service_id LIKE ?
+          OR s.provider_category LIKE ?
+        )`;
       params.push(like, like, like);
     }
 
-    // فلتر الكاتيجوري (الإداري)
+    // فلتر الكاتيجوري (اختياري)
     if (categoryId !== 'all') {
       where += ' AND s.category_id = ?';
       params.push(categoryId);
@@ -1871,12 +1799,13 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       where += ' AND s.is_active = 0';
     }
 
-    // 👈 هون التغيير المهم:
-    // ما بدنا نشوف الخدمات اللي category_id تبعها NULL
-    // وبدنا الكاتيجوري تكون Active
-    where += ' AND s.category_id IS NOT NULL AND sc.is_active = 1';
+    // 👈 أهم سطرين:
+    // 1) ما نعرض أي خدمة ما عليها كاتيجوري
+    // 2) الكاتيجوري نفسها لازم تكون مفعّلة
+    where += ' AND s.category_id IS NOT NULL';
+    where += ' AND sc.is_active = 1';
 
-    const services = await queryP(
+    const services = await q(
       `
       SELECT
         s.*,
@@ -1907,7 +1836,6 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
     return res.status(500).send('Server error loading smm services');
   }
 });
-
 
 // تفعيل / تعطيل سريع
 app.post('/admin/smm-services/:id/toggle', checkAdmin, async (req, res) => {
