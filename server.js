@@ -1611,17 +1611,32 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
 });
 
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
-  try {
-    const search     = (req.query.search || '').trim();
-    const categoryId = req.query.category_id || 'all';
-    const status     = req.query.status || 'all';
+  const search      = (req.query.search || '').trim();
+  const categoryId  = req.query.category_id || 'all';
+  const status      = req.query.status || 'all';
 
-    const params = [];
+  const queryP = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
+  try {
+    // كل الكاتيجوريز (عشان الدروب داون)
+    const categories = await queryP(
+      `SELECT id, name, is_active
+       FROM smm_categories
+       ORDER BY sort_order ASC, name ASC`
+    );
+
+    // نبني الـ WHERE ديناميكياً
     let where = '1=1';
+    const params = [];
 
     if (search) {
-      where += ' AND (s.name LIKE ? OR s.provider_service_id LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+      where +=
+        ' AND (s.name LIKE ? OR s.provider_service_id LIKE ? OR s.provider_category LIKE ?)';
+      const like = `%${search}%`;
+      params.push(like, like, like);
     }
 
     if (categoryId !== 'all') {
@@ -1635,19 +1650,18 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       where += ' AND s.is_active = 0';
     }
 
-    const services = await q(
+    // 🔥 الشرط المهم:
+    //   - إذا الخدمة إلها كاتيجوري → لازم الكاتيجوري تكون Active
+    //   - إذا ما إلها كاتيجوري (category_id IS NULL) → نسمح تعرض طبيعي
+    where += ' AND (s.category_id IS NULL OR sc.is_active = 1)';
+
+    const services = await queryP(
       `
       SELECT
-        s.id,
-        s.provider_service_id,
-        s.name,
-        s.category AS provider_category,   -- 👈 هون الألياس
-        s.rate,
-        s.min_qty,
-        s.max_qty,
-        s.is_active,
+        s.*,
         sc.id   AS category_id,
-        sc.name AS category_name
+        sc.name AS category_name,
+        sc.is_active AS category_active
       FROM smm_services s
       LEFT JOIN smm_categories sc ON sc.id = s.category_id
       WHERE ${where}
@@ -1657,25 +1671,19 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       params
     );
 
-    const categories = await q(
-      `SELECT id, name FROM smm_categories ORDER BY sort_order ASC, name ASC`
-    );
-
-    const filters = {
-      search,
-      category_id: categoryId,
-      status
-    };
-
     res.render('admin-smm-services', {
-      user: req.session.user || null,
+      user: req.session.user,
       services,
       categories,
-      filters
+      filters: {
+        search,
+        category_id: categoryId,
+        status
+      }
     });
   } catch (err) {
-    console.error('❌ /admin/smm-services error:', err.message);
-    res.status(500).send('Server error loading SMM services.');
+    console.error('❌ /admin/smm-services error:', err.message || err);
+    return res.status(500).send('Server error loading smm services');
   }
 });
 
