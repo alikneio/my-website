@@ -1878,77 +1878,76 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
-  const search = (req.query.search || '').trim();
-  const categoryFilter = req.query.category_id || 'all';
-  const statusFilter = req.query.status || 'all';
+  const search = (req.query.q || '').trim();
+  const categoryId = req.query.category_id || 'all';
+  const status = req.query.status || 'all';
 
   const filters = {
-    search,
-    category_id: categoryFilter,
-    status: statusFilter
+    q: search,
+    category_id: categoryId,
+    status,
   };
 
-  let where = 'WHERE 1';
-  const params = [];
-
-  if (search) {
-    where += ` AND (s.name LIKE ? OR s.provider_service_id LIKE ?)`;
-    params.push(`%${search}%`, `%${search}%`);
-  }
-
-  if (categoryFilter !== 'all') {
-    where += ` AND s.category_id = ?`;
-    params.push(categoryFilter);
-  }
-
-  if (statusFilter === 'active') {
-    where += ' AND s.is_active = 1';
-  } else if (statusFilter === 'inactive') {
-    where += ' AND s.is_active = 0';
-  }
-
-  // ملاحظة مهمة:
-  // عم نستعمل s.category كـ provider_category (alias) حتى ما نحتاج عمود جديد
-  const servicesSql = `
-    SELECT
-      s.id,
-      s.name,
-      s.rate,
-      s.min_qty,
-      s.max_qty,
-      s.is_active,
-      s.provider_service_id,
-      s.category_id,
-      s.category AS provider_category,
-      c.name AS category_name
-    FROM smm_services s
-    LEFT JOIN smm_categories c ON c.id = s.category_id
-    ${where}
-    ORDER BY s.id DESC
-    LIMIT 200
-  `;
-
-  const categoriesSql = `
-    SELECT id, name
-    FROM smm_categories
-    WHERE is_active = 1
-    ORDER BY sort_order ASC, name ASC
-  `;
-
   try {
-    const [services, categories] = await Promise.all([
-      q(servicesSql, params),
-      q(categoriesSql)
-    ]);
+    const params = [];
+
+    // نضمن دائماً إنو الكاتيجوري Active ومرتبط بالخدمة
+    let where = 'WHERE c.is_active = 1 AND s.category_id = c.id';
+
+    // فلتر البحث
+    if (search) {
+      where += ' AND (s.name LIKE ? OR s.provider_service_id LIKE ?)';
+      const like = `%${search}%`;
+      params.push(like, like);
+    }
+
+    // فلتر الكاتيجوري من الـ select اللي فوق الجدول
+    if (categoryId !== 'all') {
+      where += ' AND s.category_id = ?';
+      params.push(categoryId);
+    }
+
+    // فلتر الحالة
+    if (status === 'active') {
+      where += ' AND s.is_active = 1';
+    } else if (status === 'disabled') {
+      where += ' AND s.is_active = 0';
+    }
+
+    // جلب الخدمات – فقط المرتبطة بكاتيجوري Active
+    const services = await q(
+      `
+      SELECT
+        s.*,
+        c.name AS store_category
+      FROM smm_services s
+      JOIN smm_categories c
+        ON s.category_id = c.id
+      ${where}
+      ORDER BY s.id DESC
+      LIMIT 200
+      `,
+      params
+    );
+
+    // الكاتيجوريز المتاحة في الفلتر والـ dropdown لكل خدمة – فقط الـ Active
+    const categories = await q(
+      `
+      SELECT id, name
+      FROM smm_categories
+      WHERE is_active = 1
+      ORDER BY sort_order, name
+      `
+    );
 
     res.render('admin-smm-services', {
       user: req.session.user,
       services,
       categories,
-      filters
+      filters,
     });
   } catch (err) {
-    console.error('❌ /admin/smm-services error:', err.message || err);
+    console.error('❌ /admin/smm-services error:', err);
     res.status(500).send('Server error');
   }
 });
