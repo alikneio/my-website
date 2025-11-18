@@ -1836,94 +1836,117 @@ app.post('/admin/smm-services/bulk-category', checkAdmin, (req, res) => {
   );
 });
 
+app.post('/admin/smm-services/:id/update-category', checkAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  let { category_id } = req.body;
 
-// فورم تعديل خدمة
-// قائمة خدمات الـ SMM
+  if (!Number.isFinite(id)) {
+    return res.status(400).send('Bad request');
+  }
+
+  // لما يكون value = "none" نخليها NULL بالـ DB
+  if (!category_id || category_id === 'none') {
+    category_id = null;
+  }
+
+  db.query(
+    'UPDATE smm_services SET category_id = ? WHERE id = ?',
+    [category_id, id],
+    (err) => {
+      if (err) {
+        console.error('❌ update smm_service category:', err.message);
+        return res.status(500).send('DB error');
+      }
+
+      // رجّع بنفس الفلاتر الحالية (اختياري)
+      const qs = new URLSearchParams({
+        q: req.query.q || '',
+        category_id: req.query.category_id || 'all',
+        status: req.query.status || 'all',
+      }).toString();
+
+      res.redirect('/admin/smm-services' + (qs ? `?${qs}` : ''));
+    }
+  );
+});
+
+
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
-  const user = req.session.user;
-
-  // فلاتر من الـ query string
-  const searchText   = (req.query.q || '').trim();
-  const categoryId   = req.query.category_id || 'all';
-  const statusFilter = req.query.status || 'all';
-
   try {
-    // 1) جلب الكاتيجوري النشيطة لاستخدامها في الـ dropdown
+    const {
+      q: search = '',
+      category_id = 'all',
+      status = 'all',
+    } = req.query;
+
+    // جيب كل الكاتيجوريز الفعّالة (علشان الـ select)
     const categories = await q(
-      `
-      SELECT id, name
-      FROM smm_categories
-      ORDER BY sort_order ASC, name ASC
-      `
+      `SELECT id, name 
+       FROM smm_categories 
+       WHERE is_active = 1
+       ORDER BY sort_order ASC, name ASC`
     );
 
-    // 2) بناء الـ WHERE ديناميكياً
-    const where = ['1=1'];
+    const whereParts = [];
     const params = [];
 
-    // بحث بالاسم أو ID المزود أو الكاتيجوري الأصلية
-    if (searchText) {
-      where.push(`
-        (
-          s.name LIKE ?
-          OR s.provider_service_id = ?
-          OR s.category LIKE ?
-        )
-      `);
-      params.push(`%${searchText}%`, searchText, `%${searchText}%`);
+    // فلتر البحث
+    if (search && search.trim()) {
+      whereParts.push(`(s.name LIKE ? OR s.provider_service_id LIKE ?)`);
+      params.push(`%${search}%`, `%${search}%`);
     }
 
-    // فلتر حسب كاتيجوري داخلية
-    if (categoryId && categoryId !== 'all') {
-      where.push('s.category_id = ?');
-      params.push(categoryId);
+    // فلتر الكاتيجوري
+    if (category_id !== 'all') {
+      whereParts.push(`s.category_id = ?`);
+      params.push(category_id);
     }
 
-    // فلتر حسب حالة Active / Disabled
-    if (statusFilter === 'active') {
-      where.push('s.is_active = 1');
-    } else if (statusFilter === 'disabled') {
-      where.push('s.is_active = 0');
+    // فلتر الحالة
+    if (status === 'active') {
+      whereParts.push(`s.is_active = 1`);
+    } else if (status === 'disabled') {
+      whereParts.push(`s.is_active = 0`);
     }
 
-    // 3) جلب الخدمات مع الـ JOIN على جدول الكاتيجوري الداخلي
+    const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
     const services = await q(
       `
       SELECT
         s.id,
         s.provider_service_id,
         s.name,
-        s.category AS provider_category,   -- عمود DB الحقيقي
         s.rate,
         s.min_qty,
         s.max_qty,
         s.is_active,
-        s.category_id,
-        c.name AS category_name
+        s.category_id,              -- مهم! نرجّع الـ category_id
+        s.provider_category,        -- اسم كاتيجوري المزود (للسطر اللي تحت الاسم)
+        c.name AS category_name     -- اسم الكاتيجوري الداخلي
       FROM smm_services s
       LEFT JOIN smm_categories c
         ON c.id = s.category_id
-      WHERE ${where.join(' AND ')}
+      ${whereSql}
       ORDER BY s.id DESC
       LIMIT 200
       `,
       params
     );
 
-    // 4) رندر صفحة الـ Admin SMM Services
     res.render('admin-smm-services', {
-      user,
+      user: req.session.user,
       services,
       categories,
       filters: {
-        q: searchText,
-        category_id: categoryId,
-        status: statusFilter,
+        search,
+        category_id,
+        status,
       },
     });
   } catch (err) {
-    console.error('❌ /admin/smm-services error:', err.message);
-    res.status(500).send('Internal server error');
+    console.error('❌ /admin/smm-services error:', err.message || err);
+    res.status(500).send('Admin SMM services error');
   }
 });
 
