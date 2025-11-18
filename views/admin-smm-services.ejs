@@ -215,21 +215,20 @@
                         method="post"
                         action="/admin/smm-services/<%= s.id %>/update-category"
                         class="d-flex align-items-center gap-2">
-                        <select name="category_id" class="form-select form-select-sm">
-                          <option value="">— none —</option>
-                          <% (categories || []).forEach(function(c){ %>
-                            <% if (!c.is_active) { return; } %>
-                            <option
-                              value="<%= c.id %>"
-                              <%= String(s.category_id) === String(c.id) ? 'selected' : '' %>>
-                              <%= c.name %>
-                            </option>
-                          <% }) %>
-                        </select>
-                        <button type="submit" class="btn btn-outline-primary btn-sm">
-                          <i class="bi bi-save me-1"></i> Save
-                        </button>
-                      </form>
+                          <select name="category_id" class="form-select form-select-sm" style="min-width: 180px;">
+      <option value="none" <%= !s.category_id ? 'selected' : '' %>>— none —</option>
+      <% categories.forEach(function (c) { %>
+        <option
+          value="<%= c.id %>"
+          <%= String(s.category_id) === String(c.id) ? 'selected' : '' %>>
+          <%= c.name %>
+        </option>
+      <% }) %>
+    </select>
+                       <button type="submit" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-save"></i> Save
+    </button>
+  </form>
                     </td>
 
                     <!-- Rate -->
