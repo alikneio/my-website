@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Edit SMM Service - <%= service.name %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/bootstrap.css" />
+  <link rel="stylesheet" href="/css/custom.css" />
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
+</head>
+<body>
+  <%- include('partials/admin-sidebar') %>
+
+  <main class="main-content">
+    <div class="container-fluid py-4">
+
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="h4 mb-0">
+          <i class="bi bi-instagram"></i>
+          Edit SMM Service
+        </h2>
+        <a href="/admin/smm-services" class="btn btn-outline-secondary btn-sm">
+          ← Back to services
+        </a>
+      </div>
+
+      <% if (message === 'updated') { %>
+        <div class="alert alert-success">
+          Service updated successfully.
+        </div>
+      <% } %>
+
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <form method="POST" action="/admin/smm-services/<%= service.id %>/edit">
+            <div class="row g-3">
+
+              <div class="col-md-8">
+                <label class="form-label">Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  class="form-control"
+                  value="<%= service.name %>"
+                  required
+                />
+                <div class="form-text">
+                  Provider ID: <strong><%= service.provider_service_id %></strong>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Category</label>
+                <select name="category_id" class="form-select">
+                  <option value="none">(No category)</option>
+                  <% categories.forEach(function(c){ %>
+                    <option
+                      value="<%= c.id %>"
+                      <%= String(service.category_id) === String(c.id) ? 'selected' : '' %>>
+                      <%= c.name %>
+                    </option>
+                  <% }) %>
+                </select>
+                <div class="form-text">
+                  فقط الكاتيجوريز الـ Active من صفحة SMM Categories.
+                </div>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Rate / 1000</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  name="rate"
+                  class="form-control"
+                  value="<%= service.rate %>"
+                  required
+                />
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Min qty</label>
+                <input
+                  type="number"
+                  name="min_qty"
+                  class="form-control"
+                  value="<%= service.min_qty %>"
+                  required
+                />
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Max qty</label>
+                <input
+                  type="number"
+                  name="max_qty"
+                  class="form-control"
+                  value="<%= service.max_qty %>"
+                  required
+                />
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label d-block">Status</label>
+                <div class="form-check form-switch mt-2">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    id="smmActiveSwitch"
+                    <%= service.is_active ? 'checked' : '' %>
+                  >
+                  <label class="form-check-label" for="smmActiveSwitch">
+                    Active
+                  </label>
+                </div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Provider Category (read only)</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  value="<%= service.provider_category || 'No provider category from API' %>"
+                  readonly
+                />
+              </div>
+
+            </div>
+
+            <div class="mt-4 d-flex justify-content-end gap-2">
+              <a href="/admin/smm-services" class="btn btn-outline-secondary">
+                Cancel
+              </a>
+              <button type="submit" class="btn btn-primary">
+                Save changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

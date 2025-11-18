@@ -1911,6 +1911,100 @@ app.get('/admin/smm-services/:id/toggle', checkAdmin, toggleSmmService);
 app.post('/admin/smm-services/:id/toggle', checkAdmin, toggleSmmService);
 
 
+// ====== ADMIN: EDIT SINGLE SMM SERVICE ======
+
+app.get('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
+  const serviceId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(serviceId)) {
+    return res.status(400).send('Bad request');
+  }
+
+  const sqlService = 'SELECT * FROM smm_services WHERE id = ? LIMIT 1';
+  const sqlCats = `
+    SELECT id, name 
+    FROM smm_categories
+    WHERE is_active = 1
+    ORDER BY sort_order ASC, name ASC
+  `;
+
+  db.query(sqlService, [serviceId], (err, rows) => {
+    if (err) {
+      console.error('❌ admin smm edit service:', err.message);
+      return res.status(500).send('DB error');
+    }
+    if (!rows.length) {
+      return res.status(404).send('Service not found');
+    }
+    const service = rows[0];
+
+    db.query(sqlCats, (err2, catRows) => {
+      if (err2) {
+        console.error('❌ admin smm edit categories:', err2.message);
+        return res.status(500).send('DB error');
+      }
+
+      res.render('admin-smm-service-edit', {
+        user: req.session.user,
+        service,
+        categories: catRows,
+        message: req.query.msg || null
+      });
+    });
+  });
+});
+
+app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
+  const serviceId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(serviceId)) {
+    return res.status(400).send('Bad request');
+  }
+
+  const {
+    name,
+    category_id,
+    rate,
+    min_qty,
+    max_qty,
+    is_active
+  } = req.body;
+
+  const catId = category_id && category_id !== 'none'
+    ? parseInt(category_id, 10)
+    : null;
+
+  const numericRate = Number(rate || 0);
+  const minQ = parseInt(min_qty || '0', 10) || 0;
+  const maxQ = parseInt(max_qty || '0', 10) || 0;
+  const activeFlag = is_active === '1' ? 1 : 0;
+
+  const sql = `
+    UPDATE smm_services
+    SET name = ?,
+        category_id = ?,
+        rate = ?,
+        min_qty = ?,
+        max_qty = ?,
+        is_active = ?
+    WHERE id = ?
+    LIMIT 1
+  `;
+
+  db.query(
+    sql,
+    [name.trim(), catId, numericRate, minQ, maxQ, activeFlag, serviceId],
+    err => {
+      if (err) {
+        console.error('❌ update smm service:', err.message);
+        return res.status(500).send('DB error');
+      }
+
+      return res.redirect(`/admin/smm-services/${serviceId}/edit?msg=updated`);
+    }
+  );
+});
+
+
+
 
 
 
