@@ -1871,84 +1871,88 @@ app.post('/admin/smm-services/:id/update-category', checkAdmin, (req, res) => {
 });
 
 
+// Admin: SMM Services list
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
+  const q = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
+  const search = (req.query.search || '').trim();
+  const categoryFilter = req.query.category_id || 'all';
+  const statusFilter = req.query.status || 'all';
+
+  const filters = {
+    search,
+    category_id: categoryFilter,
+    status: statusFilter
+  };
+
+  let where = 'WHERE 1';
+  const params = [];
+
+  if (search) {
+    where += ` AND (s.name LIKE ? OR s.provider_service_id LIKE ?)`;
+    params.push(`%${search}%`, `%${search}%`);
+  }
+
+  if (categoryFilter !== 'all') {
+    where += ` AND s.category_id = ?`;
+    params.push(categoryFilter);
+  }
+
+  if (statusFilter === 'active') {
+    where += ' AND s.is_active = 1';
+  } else if (statusFilter === 'inactive') {
+    where += ' AND s.is_active = 0';
+  }
+
+  // ملاحظة مهمة:
+  // عم نستعمل s.category كـ provider_category (alias) حتى ما نحتاج عمود جديد
+  const servicesSql = `
+    SELECT
+      s.id,
+      s.name,
+      s.rate,
+      s.min_qty,
+      s.max_qty,
+      s.is_active,
+      s.provider_service_id,
+      s.category_id,
+      s.category AS provider_category,
+      c.name AS category_name
+    FROM smm_services s
+    LEFT JOIN smm_categories c ON c.id = s.category_id
+    ${where}
+    ORDER BY s.id DESC
+    LIMIT 200
+  `;
+
+  const categoriesSql = `
+    SELECT id, name
+    FROM smm_categories
+    WHERE is_active = 1
+    ORDER BY sort_order ASC, name ASC
+  `;
+
   try {
-    const {
-      q: search = '',
-      category_id = 'all',
-      status = 'all',
-    } = req.query;
-
-    // جيب كل الكاتيجوريز الفعّالة (علشان الـ select)
-    const categories = await q(
-      `SELECT id, name 
-       FROM smm_categories 
-       WHERE is_active = 1
-       ORDER BY sort_order ASC, name ASC`
-    );
-
-    const whereParts = [];
-    const params = [];
-
-    // فلتر البحث
-    if (search && search.trim()) {
-      whereParts.push(`(s.name LIKE ? OR s.provider_service_id LIKE ?)`);
-      params.push(`%${search}%`, `%${search}%`);
-    }
-
-    // فلتر الكاتيجوري
-    if (category_id !== 'all') {
-      whereParts.push(`s.category_id = ?`);
-      params.push(category_id);
-    }
-
-    // فلتر الحالة
-    if (status === 'active') {
-      whereParts.push(`s.is_active = 1`);
-    } else if (status === 'disabled') {
-      whereParts.push(`s.is_active = 0`);
-    }
-
-    const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
-
-    const services = await q(
-      `
-      SELECT
-        s.id,
-        s.provider_service_id,
-        s.name,
-        s.rate,
-        s.min_qty,
-        s.max_qty,
-        s.is_active,
-        s.category_id,              -- مهم! نرجّع الـ category_id
-        s.provider_category,        -- اسم كاتيجوري المزود (للسطر اللي تحت الاسم)
-        c.name AS category_name     -- اسم الكاتيجوري الداخلي
-      FROM smm_services s
-      LEFT JOIN smm_categories c
-        ON c.id = s.category_id
-      ${whereSql}
-      ORDER BY s.id DESC
-      LIMIT 200
-      `,
-      params
-    );
+    const [services, categories] = await Promise.all([
+      q(servicesSql, params),
+      q(categoriesSql)
+    ]);
 
     res.render('admin-smm-services', {
       user: req.session.user,
       services,
       categories,
-      filters: {
-        search,
-        category_id,
-        status,
-      },
+      filters
     });
   } catch (err) {
     console.error('❌ /admin/smm-services error:', err.message || err);
-    res.status(500).send('Admin SMM services error');
+    res.status(500).send('Server error');
   }
 });
+
 
 
 // تفعيل / تعطيل سريع
