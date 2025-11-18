@@ -5032,9 +5032,6 @@ function slugify(str = '') {
     .replace(/-+/g, '-');                   // دمج - المتتالية
 }
 
-const q = (sql, params = []) =>
-  new Promise((resolve, reject) => db.query(sql, params, (err, rows) => err ? reject(err) : resolve(rows)));
-
 // لائحة الفئات
 app.get('/admin/api-categories', checkAdmin, async (req, res) => {
   try {
