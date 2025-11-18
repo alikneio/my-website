@@ -1836,46 +1836,39 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
 
 
 // تفعيل / تعطيل سريع
-app.post('/admin/smm-services/:id/toggle', checkAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const action = (req.body.action || '').toString();
+app.get('/admin/smm-services/:id/toggle', checkAdmin, (req, res) => {
+  const serviceId = req.params.id;
 
-  if (!Number.isFinite(id) || !['enable', 'disable'].includes(action)) {
-    return res.status(400).send('Bad request');
-  }
+  db.query(
+    `SELECT is_active FROM smm_services WHERE id = ?`,
+    [serviceId],
+    (err, rows) => {
+      if (err) {
+        console.error('❌ Toggle error:', err.message);
+        return res.status(500).send('Server error');
+      }
 
-  const activeFlag = action === 'enable' ? 1 : 0;
+      if (!rows.length) {
+        return res.status(404).send('Service not found');
+      }
 
-  try {
-    await q(
-      `UPDATE smm_services SET is_active = ?, updated_at = NOW() WHERE id = ?`,
-      [activeFlag, id]
-    );
+      const newStatus = rows[0].is_active ? 0 : 1;
 
-    if (
-      req.xhr ||
-      (req.headers.accept && req.headers.accept.includes('application/json'))
-    ) {
-      return res.json({ success: true, is_active: activeFlag });
+      db.query(
+        `UPDATE smm_services SET is_active = ? WHERE id = ?`,
+        [newStatus, serviceId],
+        err2 => {
+          if (err2) {
+            console.error('❌ Update error:', err2.message);
+            return res.status(500).send('Server error');
+          }
+
+          return res.redirect('/admin/smm-services');
+        }
+      );
     }
-
-    req.session.adminFlash = 'Service status updated.';
-    res.redirect('/admin/smm-services');
-  } catch (err) {
-    console.error('❌ /admin/smm-services/:id/toggle error:', err.message);
-    if (
-      req.xhr ||
-      (req.headers.accept && req.headers.accept.includes('application/json'))
-    ) {
-      return res
-        .status(500)
-        .json({ success: false, message: 'Toggle failed' });
-    }
-    req.session.adminFlash = 'Toggle failed.';
-    res.redirect('/admin/smm-services');
-  }
+  );
 });
-
 
 
 
