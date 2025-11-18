@@ -2,140 +2,177 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – SMM Categories</title>
 
-  <link rel="stylesheet" href="/css/bootstrap.css">
-  <link rel="stylesheet" href="/css/custom.css">
-  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/bootstrap.css" />
+  <link rel="stylesheet" href="/css/custom.css" />
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap"
+    rel="stylesheet"
+  />
 </head>
-<body class="bg-light">
-  <div class="d-flex" style="min-height:100vh;">
-    <%- include('partials/admin-sidebar') %>
+<body>
+  <!-- Sidebar / Admin layout -->
+  <%- include('partials/admin-sidebar', { user: user }) %>
 
-    <div class="flex-grow-1 d-flex flex-column">
-      <header class="bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-        <h1 class="h4 m-0">
-          <i class="bi bi-collection"></i> SMM Categories
-        </h1>
-        <% if (user) { %>
-          <div class="small text-muted">
-            Logged in as <strong><%= user.username || user.email %></strong>
+  <div class="container-fluid my-4" style="max-width: 1200px;">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="h4 mb-0">
+        <i class="bi bi-collection"></i> SMM Categories
+      </h2>
+      <a href="/admin" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to dashboard
+      </a>
+    </div>
+
+    <!-- create success / error messages (اختياري) -->
+    <% if (typeof flash !== 'undefined' && flash && flash.message) { %>
+      <div class="alert alert-<%= flash.type || 'info' %>">
+        <%= flash.message %>
+      </div>
+    <% } %>
+
+    <!-- CREATE NEW CATEGORY (manual) -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Create new category</h5>
+        <form
+          action="/admin/smm-categories/create"
+          method="post"
+          class="row g-3 align-items-center"
+        >
+          <div class="col-md-6">
+            <label class="form-label">Name</label>
+            <input
+              type="text"
+              name="name"
+              class="form-control"
+              placeholder="e.g., Instagram Followers"
+              required
+            />
           </div>
-        <% } %>
-      </header>
-
-      <main class="flex-grow-1 p-4">
-
-        <!-- Create new -->
-        <div class="card shadow-sm mb-4">
-          <div class="card-body">
-            <h5 class="card-title mb-3">Create new category</h5>
-            <form action="/admin/smm-categories/create" method="POST" class="row g-3">
-              <div class="col-md-6">
-                <label class="form-label">Name</label>
-                <input type="text" name="name" class="form-control" required>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Sort order</label>
-                <input type="number" name="sort_order" class="form-control" value="0">
-              </div>
-              <div class="col-md-3 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">
-                  <i class="bi bi-plus-circle"></i> Add
-                </button>
-              </div>
-            </form>
+          <div class="col-md-3">
+            <label class="form-label">Sort order</label>
+            <input
+              type="number"
+              name="sort_order"
+              class="form-control"
+              value="0"
+            />
           </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-plus-circle"></i> Add
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- LIST CATEGORIES (all provider categories + manual) -->
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="card-title mb-0">Categories list</h5>
+          <small class="text-muted">
+            Showing <%= (categories && categories.length) || 0 %> categories.
+          </small>
         </div>
 
-        <!-- List -->
-        <div class="card shadow-sm">
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-hover mb-0 align-middle">
-                <thead class="table-light">
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width: 70px;">ID</th>
+                <th>Name</th>
+                <th style="width: 220px;">Slug</th>
+                <th style="width: 110px;">Sort</th>
+                <th style="width: 120px;">Status</th>
+                <th style="width: 200px;" class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!categories || !categories.length) { %>
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">
+                    No categories yet.
+                  </td>
+                </tr>
+              <% } else { %>
+                <% categories.forEach(function (c) { %>
                   <tr>
-                    <th style="width:70px;">ID</th>
-                    <th>Name</th>
-                    <th style="width:160px;">Slug</th>
-                    <th style="width:120px;">Sort</th>
-                    <th style="width:100px;">Status</th>
-                    <th style="width:220px;">Actions</th>
+                    <td class="text-muted">#<%= c.id %></td>
+
+                    <td>
+                      <div class="fw-semibold">
+                        <%= c.name || c.provider_category || 'Unnamed category' %>
+                      </div>
+                      <% if (c.provider_category) { %>
+                        <div class="small text-muted">
+                          Provider category:
+                          <span class="fw-normal"><%= c.provider_category %></span>
+                        </div>
+                      <% } %>
+                    </td>
+
+                    <td>
+                      <code class="small"><%= c.slug || '' %></code>
+                    </td>
+
+                    <td style="max-width: 110px;">
+                      <!-- form منفصل لتعديل sort_order -->
+                      <form
+                        action="/admin/smm-categories/<%= c.id %>/update"
+                        method="post"
+                        class="d-flex gap-2 align-items-center"
+                      >
+                        <input
+                          type="number"
+                          name="sort_order"
+                          class="form-control form-control-sm"
+                          value="<%= c.sort_order || 0 %>"
+                        />
+                        <button
+                          type="submit"
+                          class="btn btn-sm btn-outline-primary"
+                        >
+                          Save
+                        </button>
+                      </form>
+                    </td>
+
+                    <td>
+                      <% if (c.is_active) { %>
+                        <span class="badge bg-success">Active</span>
+                      <% } else { %>
+                        <span class="badge bg-secondary">Disabled</span>
+                      <% } %>
+                    </td>
+
+                    <td class="text-end">
+                      <!-- enable / disable -->
+                      <form
+                        action="/admin/smm-categories/<%= c.id %>/toggle"
+                        method="post"
+                        class="d-inline"
+                      >
+                        <button
+                          type="submit"
+                          class="btn btn-sm <%= c.is_active ? 'btn-warning' : 'btn-success' %>"
+                        >
+                          <%= c.is_active ? 'Disable' : 'Enable' %>
+                        </button>
+                      </form>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  <% if (!categories || !categories.length) { %>
-                    <tr>
-                      <td colspan="6" class="text-center text-muted py-4">
-                        No categories yet.
-                      </td>
-                    </tr>
-                  <% } else { %>
-                    <% categories.forEach(function(c){ %>
-                      <tr>
-                        <td>#<%= c.id %></td>
-                        <td>
-                          <form action="/admin/smm-categories/<%= c.id %>/update" method="POST" class="d-flex gap-2">
-                            <input
-                              type="text"
-                              name="name"
-                              class="form-control form-control-sm"
-                              value="<%= c.name %>"
-                              required>
-                        </td>
-                        <td>
-                          <input
-                            type="text"
-                            class="form-control form-control-sm"
-                            value="<%= c.slug %>"
-                            disabled>
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            name="sort_order"
-                            class="form-control form-control-sm"
-                            value="<%= c.sort_order %>">
-                        </td>
-                        <td>
-                          <% if (c.is_active) { %>
-                            <span class="badge bg-success">Active</span>
-                          <% } else { %>
-                            <span class="badge bg-secondary">Disabled</span>
-                          <% } %>
-                        </td>
-                        <td>
-                          <div class="d-flex gap-2">
-                              <button type="submit" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-save"></i> Save
-                              </button>
-                          </form>
-
-                          <form action="/admin/smm-categories/<%= c.id %>/toggle" method="POST">
-                            <button
-                              type="submit"
-                              class="btn btn-sm <%= c.is_active ? 'btn-outline-warning' : 'btn-outline-success' %>">
-                              <% if (c.is_active) { %>
-                                <i class="bi bi-eye-slash"></i> Disable
-                              <% } else { %>
-                                <i class="bi bi-eye"></i> Enable
-                              <% } %>
-                            </button>
-                          </form>
-                          </div>
-                        </td>
-                      </tr>
-                    <% }) %>
-                  <% } %>
-                </tbody>
-              </table>
-            </div>
-          </div>
+                <% }); %>
+              <% } %>
+            </tbody>
+          </table>
         </div>
-
-      </main>
+      </div>
     </div>
   </div>
 

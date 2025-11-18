@@ -1765,44 +1765,30 @@ app.post('/admin/smm-categories/:id/update', checkAdmin, async (req, res) => {
   }
 });
 
-app.post('/admin/smm-categories/:id/toggle', checkAdmin, async (req, res) => {
+app.post('/admin/smm-categories/:id/toggle', checkAdmin, (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const action = (req.body.action || '').toString();
 
-  if (!Number.isFinite(id) || !['enable', 'disable'].includes(action)) {
+  if (!Number.isFinite(id)) {
     return res.status(400).send('Bad request');
   }
 
-  const activeFlag = action === 'enable' ? 1 : 0;
+  // عكّس القيمة: إذا 1 صير 0، إذا 0 صير 1
+  const sql = `
+    UPDATE smm_categories
+    SET is_active = IF(is_active = 1, 0, 1)
+    WHERE id = ?
+  `;
 
-  try {
-    await q(
-      `UPDATE smm_categories SET is_active = ?, updated_at = NOW() WHERE id = ?`,
-      [activeFlag, id]
-    );
-
-    if (
-      req.xhr ||
-      (req.headers.accept && req.headers.accept.includes('application/json'))
-    ) {
-      return res.json({ success: true, is_active: activeFlag });
+  db.query(sql, [id], (err) => {
+    if (err) {
+      console.error('❌ toggle smm_category:', err.message);
+      return res.status(500).send('DB error');
     }
 
-    req.session.adminFlash = 'Category status updated.';
-    res.redirect('/admin/smm-categories');
-  } catch (err) {
-    console.error('❌ /admin/smm-categories/:id/toggle error:', err.message);
-    if (
-      req.xhr ||
-      (req.headers.accept && req.headers.accept.includes('application/json'))
-    ) {
-      return res.status(500).json({ success: false, message: 'Toggle failed' });
-    }
-    req.session.adminFlash = 'Toggle failed.';
-    res.redirect('/admin/smm-categories');
-  }
+    // رجّع على صفحة الكاتيجوريز
+    return res.redirect('/admin/smm-categories');
+  });
 });
-
 // bulk enable/disable لكل الخدمات ضمن كاتيجوري معيّنة
 app.post('/admin/smm-services/bulk-category', checkAdmin, (req, res) => {
   const { category, action } = req.body;
