@@ -170,11 +170,10 @@
               </tr>
             </thead>
             <tbody>
-              <%
-                const visibleServices = (services || []).filter(function(s){
-                  return s.category_id; // نخفي الـ none
-                });
-              %>
+            <%
+  // خَلّي كل الخدمات اللي جايّة من الراوت تنعرض
+  const visibleServices = services || [];
+%>
 
               <% if (!visibleServices.length) { %>
                 <tr>
