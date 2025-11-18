@@ -1179,11 +1179,12 @@ app.get('/social-checkout/:id', checkAuth, (req, res) => {
 });
 
 
+// شراء خدمات السوشيال ميديا
 app.post('/buy-social', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
 
-  // من الـ form ممكن يجي الاسم service_id أو serviceId حسب الـ EJS
+  // ممكن يجي الاسم service_id أو serviceId حسب الـ form
   const {
     service_id,
     serviceId,
@@ -1195,17 +1196,19 @@ app.post('/buy-social', checkAuth, async (req, res) => {
   const serviceIdNum = parseInt(service_id || serviceId, 10);
   const qty = parseInt(quantity, 10);
 
+  // idempotency key (لحماية من الـ double submit)
   const idemKey = (rawIdemKey || req.session.idemKey || '')
     .toString()
     .slice(0, 64);
 
+  // Helper بسيط للـ DB
   const query = (sql, params = []) =>
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
   try {
-    // 0) Idempotency
+    // 0) Idempotency: لو نفس المفتاح انبعت مرة ثانية ما نخصم ولا نعيد الطلب
     if (idemKey) {
       try {
         await query(
@@ -1213,7 +1216,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
           [userId, idemKey]
         );
       } catch (e) {
-        // المفتاح مستعمل سابقًا → لا خصم جديد ولا طلب جديد
+        // المفتاح مستعمل سابقًا → بنرجع للـ processing من غير خصم جديد
         req.session.pendingOrderId = req.session.pendingOrderId || null;
         return res.redirect('/processing');
       }
@@ -1225,17 +1228,21 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     }
 
     if (!Number.isFinite(qty) || qty <= 0) {
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=invalid_quantity`);
+      return res.redirect(
+        `/social-checkout/${serviceIdNum}?error=invalid_quantity`
+      );
     }
 
-    // 2) جلب الخدمة من DB
+    // 2) جلب الخدمة من DB (بس الخدمات المفعّلة)
     const [service] = await query(
       `SELECT * FROM smm_services WHERE id = ? AND is_active = 1`,
       [serviceIdNum]
     );
 
     if (!service) {
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=service_not_found`);
+      return res.redirect(
+        `/social-checkout/${serviceIdNum}?error=service_not_found`
+      );
     }
 
     // 3) تحقق من min / max
@@ -1248,20 +1255,22 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 4) السعر (rate per 1000)
-    const rate = Number(service.rate || 0); // مثال: 0.90 لكل 1000
+    // 4) السعر (rate لكل 1000)
+    const rate = Number(service.rate || 0); // مثال: 0.0007 أو 0.9 لكل 1000
     if (!Number.isFinite(rate) || rate <= 0) {
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
 
+    // نحسب السعر بنفس rate من غير ما "نغلي" على الزبون
     // totalCents = round(qty * rate * 100 / 1000)
     const totalCents = Math.round((qty * rate * 100) / 1000);
     if (!Number.isFinite(totalCents) || totalCents <= 0) {
+      // يعني السعر أقل من سنت واحد → ما فينا نخزنه كـ DECIMAL(10,2)
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
-    const total = totalCents / 100; // DECIMAL(10,2)
+    const total = totalCents / 100; // 2 digits بعد الفاصلة
 
-    // 5) خصم ذري من الرصيد
+    // 5) خصم ذري من رصيد المستخدم
     const upd = await query(
       `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
       [total, userId, total]
@@ -1277,8 +1286,8 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       [userId, total, `Social Media Service: ${service.name}`]
     );
 
-    // 7) إنشاء الطلب عند المزود SMMGEN
-    let providerOrderId = null;
+    // 7) إنشاء الطلب عند مزود SMMGEN
+    let providerOrderId;
     try {
       providerOrderId = await createSmmOrder({
         service: service.provider_service_id, // من جدول smm_services
@@ -1288,11 +1297,12 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     } catch (apiErr) {
       console.error('❌ SMMGEN API error:', apiErr.message || apiErr);
 
-      // Refund
+      // نرجّع المبلغ للمستخدم لأن المزود ما قبل الطلب
       await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [
         total,
         userId,
       ]);
+
       await query(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'credit', ?, ?)`,
@@ -1307,7 +1317,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     }
 
     if (!providerOrderId) {
-      // Refund إذا ما رجع ID
+      // حماية إضافية (ما لازم نوصل لهون لو createSmmOrder مضبوط)
       await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [
         total,
         userId,
@@ -1317,18 +1327,22 @@ app.post('/buy-social', checkAuth, async (req, res) => {
          VALUES (?, 'credit', ?, ?)`,
         [userId, total, `Refund (no provider id): ${service.name}`]
       );
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=no_provider_id`);
+      return res.redirect(
+        `/social-checkout/${serviceIdNum}?error=no_provider_id`
+      );
     }
 
-    // 8) حفظ الطلب في جدول orders (العام)
+    // 8) حفظ الطلب في جدول orders العام
     const orderDetails = `Link: ${link} | Quantity: ${qty}`;
 
+    // مهم: استخدم قيمة تناسب ENUM/VARCHAR في عمود provider
+    // مثلاً 'smm' بدل 'smmgen' حتى ما يرجع Data truncated
     const insertOrderSql = `
       INSERT INTO orders
         (userId, productName, price, purchaseDate, order_details, status,
          provider_order_id, provider, source${idemKey ? ', client_token' : ''})
       VALUES
-        (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smmgen', 'smm'${idemKey ? ', ?' : ''})
+        (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smm', 'smm'${idemKey ? ', ?' : ''})
     `;
 
     const insertParams = [
@@ -1343,7 +1357,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     const insertRes = await query(insertOrderSql, insertParams);
     const orderId = insertRes.insertId || insertRes?.[0]?.insertId || null;
 
-    // 9) حفظ في جدول smm_orders (اختياري لكنه مفيد للـ sync)
+    // 9) حفظ في جدول smm_orders (للمزامنة مع المزود)
     await query(
       `
       INSERT INTO smm_orders
@@ -1353,7 +1367,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       [userId, service.id, providerOrderId, qty, total, link]
     );
 
-    // 10) إشعار داخلي
+    // 10) إشعار داخلي في جدول notifications
     await query(
       `INSERT INTO notifications (user_id, message, created_at, is_read)
        VALUES (?, ?, NOW(), 0)`,
@@ -1363,7 +1377,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       ]
     );
 
-    // 11) تيليغرام
+    // 11) تيليغرام للزبون إن وجد
     const [userRow] = await query(
       `SELECT username, telegram_chat_id FROM users WHERE id = ?`,
       [userId]
@@ -1379,6 +1393,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
+    // 11-b) تيليغرام لك كأدمن لو مفعّل
     if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
       await sendTelegramMessage(
         process.env.ADMIN_TELEGRAM_CHAT_ID,
@@ -1392,11 +1407,14 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 12) تجربة موحدة
+    // 12) حفظ رقم الطلب في السيشن للصفحة /processing
     req.session.pendingOrderId = orderId;
     return res.redirect('/processing');
   } catch (err) {
-    console.error('❌ /buy-social error:', err?.response?.data || err.message || err);
+    console.error(
+      '❌ /buy-social error:',
+      err?.response?.data || err.message || err
+    );
     return res.redirect(`/social-checkout/${serviceIdNum}?error=server`);
   }
 });
