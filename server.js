@@ -994,9 +994,7 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
 });
 
 
-const util = require('util');
 const slugify = require('slugify'); // npm i slugify
-const query = util.promisify(db.query).bind(db);
 
 function makeSlug(name = '') {
   return slugify(name, {
@@ -1007,18 +1005,6 @@ function makeSlug(name = '') {
 }
 
 app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
-  const q = (sql, params = []) =>
-    new Promise((resolve, reject) =>
-      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
-    );
-
-  const makeSlug = (name = '') =>
-    slugify(name, {
-      lower: true,
-      strict: true,
-      trim: true,
-    }) || 'other';
-
   try {
     console.log('🔄 Sync SMM Services Started...');
 
@@ -1026,7 +1012,7 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
     console.log(`📦 Received ${services.length} services.`);
 
     // نجيب الكاتيجوري الموجودة
-    const existingCats = await q(`
+    const existingCats = await query(`
       SELECT id, name
       FROM smm_categories
     `);
@@ -1057,7 +1043,8 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
         is_active   = VALUES(is_active)
     `;
 
-    await q('START TRANSACTION');
+    // نستخدم query الجاهز من ./database
+    await query('START TRANSACTION');
 
     for (const s of services) {
       const catName = s.category || 'Other';
@@ -1066,12 +1053,12 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
       // 1) تأكد الكاتيجوري موجودة
       if (!catId) {
         const slug = makeSlug(catName);
-        const result = await q(insertCatSql, [catName, slug]);
+        const result = await query(insertCatSql, [catName, slug]);
 
         if (result.insertId) {
           catId = result.insertId;
         } else {
-          const [row] = await q(
+          const [row] = await query(
             'SELECT id FROM smm_categories WHERE slug = ? LIMIT 1',
             [slug]
           );
@@ -1092,16 +1079,16 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
         s.max,                  // max_qty
       ];
 
-      await q(insertServiceSql, params);
+      await query(insertServiceSql, params);
     }
 
-    await q('COMMIT');
+    await query('COMMIT');
 
     res.send('✔️ Synced SMM services & categories successfully');
   } catch (err) {
     console.error('❌ SMM Sync Error:', err);
     try {
-      await q('ROLLBACK');
+      await query('ROLLBACK');
     } catch (e) {}
     res.status(500).send('Sync Error');
   }
