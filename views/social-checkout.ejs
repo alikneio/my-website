@@ -8,187 +8,375 @@
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    body {
+      font-family: "Cairo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #f5f7fb;
+    }
+
+    .smm-checkout-wrapper {
+      max-width: 980px;
+    }
+
+    .smm-page-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .smm-page-title i {
+      font-size: 1.4rem;
+      color: #111827;
+    }
+
+    .smm-back-btn {
+      border-radius: 999px;
+      padding-inline: 14px;
+    }
+
+    .smm-card {
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: #ffffff;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      padding: 18px 20px 18px;
+    }
+
+    .smm-service-header {
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+
+    .smm-service-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .smm-service-category {
+      font-size: 0.84rem;
+      color: #6b7280;
+    }
+
+    .smm-service-category span {
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .smm-tag-instant {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(249, 115, 22, 0.08);
+      color: #ea580c;
+      border: 1px solid rgba(248, 150, 55, 0.4);
+    }
+
+    .smm-head-metrics {
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+
+    .smm-head-metrics .value {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .smm-input-label {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .smm-input-hint {
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+
+    .smm-estimate-card {
+      border-radius: 14px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      padding: 12px 14px;
+    }
+
+    .smm-estimate-label {
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+
+    .smm-estimate-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .smm-balance-label {
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+
+    .smm-balance-value {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #16a34a;
+    }
+
+    .smm-notes-card {
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 12px 14px;
+    }
+
+    .smm-notes-card h5 {
+      font-size: 0.92rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .smm-notes-card ul {
+      padding-left: 18px;
+      margin-bottom: 0;
+    }
+
+    .smm-notes-card li {
+      font-size: 0.8rem;
+      color: #4b5563;
+      margin-bottom: 4px;
+    }
+
+    .smm-submit-btn {
+      border-radius: 999px;
+      font-weight: 600;
+      padding: 10px 0;
+      font-size: 0.96rem;
+    }
+
+    .smm-error-alert {
+      border-radius: 14px;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 575.98px) {
+      .smm-card {
+        padding: 14px 12px 16px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <!-- غيّر اسم الـ partial هون إذا كان مختلف عندك -->
+  <!-- غيّر header إلى navbar إذا اسم الجزئية عندك مختلف -->
   <%- include('partials/header', { user: user }) %>
 
-  <main class="bg-light py-4">
-    <div class="container" style="max-width: 900px;">
+  <main class="py-4">
+    <div class="container smm-checkout-wrapper">
 
-      <!-- عنوان الصفحة -->
+      <!-- العنوان + زر الرجوع -->
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">
+        <h1 class="smm-page-title mb-0">
           <i class="bi bi-instagram"></i>
           Social Media Services
         </h1>
 
-        <a href="/social-media" class="btn btn-outline-secondary btn-sm">
+        <a href="/social-media" class="btn btn-outline-secondary btn-sm smm-back-btn">
           <i class="bi bi-arrow-left"></i> Back
         </a>
       </div>
 
-      <!-- رسالة الخطأ حسب ?error= -->
+      <!-- رسائل الخطأ -->
       <% if (error) { %>
-        <div class="alert alert-danger d-flex align-items-start gap-2">
+        <div class="alert alert-danger d-flex align-items-start gap-2 smm-error-alert">
           <i class="bi bi-exclamation-triangle-fill mt-1"></i>
           <div>
             <% if (error === 'provider') { %>
-              <strong>المزوّد رفض تنفيذ الطلب.</strong><br />
+              <strong>Provider rejected the order.</strong><br />
               <% if (errorMessage) { %>
-                رسالة المزود: <code><%= errorMessage %></code><br />
+                Provider message:
+                <code><%= errorMessage %></code><br />
               <% } %>
-              رجاءً تأكد من أنّ الرابط:
+              Please make sure:
               <ul class="mb-0">
-                <li>رابط كامل يبدأ بـ <code>http://</code> أو <code>https://</code></li>
-                <li>الحساب / البوست Public وليس Private</li>
-                <li>متوافق مع نوع الخدمة (بوست إنستغرام للايكات بوست، ستوري للستوري…)</li>
+                <li>The link is complete and starts with <code>http://</code> or <code>https://</code></li>
+                <li>The account / post is <strong>Public</strong> (not private)</li>
+                <li>The link matches the service type (post for likes, profile for followers…)</li>
               </ul>
             <% } else if (error === 'missing_fields') { %>
-              <strong>البيانات غير مكتملة.</strong> تأكد من إدخال الرابط والكمية.
+              <strong>Missing data.</strong> Please enter both link and quantity.
             <% } else if (error === 'invalid_quantity') { %>
-              <strong>الكمية غير صحيحة.</strong> الرجاء إدخال رقم أكبر من صفر وضمن الحدود.
+              <strong>Invalid quantity.</strong> Please use a positive number.
             <% } else if (error === 'range') { %>
-              <strong>الكمية خارج المدى المسموح به.</strong><br />
-              الحد الأدنى: <%= rangeMin %> – الحد الأقصى: <%= rangeMax %>.
+              <strong>Quantity is outside allowed range.</strong><br />
+              Min: <%= rangeMin %> – Max: <%= rangeMax %>.
             <% } else if (error === 'balance') { %>
-              <strong>الرصيد غير كافٍ.</strong> يمكنك شحن رصيدك من صفحة <a href="/add-funds">إضافة الرصيد</a>.
+              <strong>Insufficient balance.</strong> You can add funds from <a href="/add-funds">Add funds</a>.
             <% } else if (error === 'pricing') { %>
-              <strong>خطأ في التسعير.</strong> الرجاء المحاولة لاحقاً أو التواصل معنا.
+              <strong>Pricing error.</strong> Please try again later or contact support.
             <% } else if (error === 'no_provider_id') { %>
-              <strong>لم يتم استلام رقم الطلب من المزوّد.</strong> تم إرجاع المبلغ إلى رصيدك.
+              <strong>No order ID received from provider.</strong> The amount has been refunded to your balance.
             <% } else if (error === 'service_not_found') { %>
-              <strong>الخدمة غير متوفرة أو غير مفعّلة.</strong> الرجاء اختيار خدمة أخرى.
+              <strong>Service not found or inactive.</strong> Please choose another service.
             <% } else if (error === 'server') { %>
-              <strong>خطأ داخلي في السيرفر.</strong> إذا استمرّت المشكلة الرجاء التواصل مع الدعم.
+              <strong>Internal server error.</strong> If the issue persists, contact support.
             <% } else { %>
-              <strong>تعذّر إكمال الطلب.</strong> الرجاء المحاولة لاحقًا.
+              <strong>Order could not be completed.</strong> Please try again later.
             <% } %>
           </div>
         </div>
       <% } %>
 
-      <!-- كارد الخدمة -->
-      <div class="card shadow-sm mb-4">
-        <div class="card-body">
-          <h2 class="h5 mb-1"><%= service.name %></h2>
+      <!-- الكارد الرئيسي -->
+      <div class="smm-card">
+        <!-- هيدر الخدمة -->
+        <div class="smm-service-header">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+              <div class="smm-service-name"><%= service.name %></div>
 
-          <% if (service.category_name) { %>
-            <p class="text-muted mb-2">
-              Category:
-              <strong><%= service.category_name %></strong>
-            </p>
-          <% } %>
+              <% if (service.category_name) { %>
+                <div class="smm-service-category">
+                  Category:
+                  <span><%= service.category_name %></span>
+                  <% /* مثال بسيط: لو الاسم يحتوي [ INSTANT ] */ %>
+                  <% if (String(service.name).toUpperCase().includes('INSTANT')) { %>
+                    <span class="ms-2 smm-tag-instant">
+                      <i class="bi bi-lightning-charge-fill"></i> Instant
+                    </span>
+                  <% } %>
+                </div>
+              <% } %>
+            </div>
 
-          <div class="row g-3 mb-3">
-            <div class="col-md-4">
-              <div class="small text-muted">Rate / 1000</div>
-              <div class="fw-bold">
-                $<%= Number(service.rate).toFixed(4) %>
+            <div class="text-end smm-head-metrics">
+              <div>
+                <span>Rate / 1000</span>
+                <div class="value text-primary">$<%= Number(service.rate).toFixed(4) %></div>
+              </div>
+              <div class="mt-1">
+                <span>Min</span>
+                <div class="value"><%= service.min_qty %></div>
+              </div>
+              <div class="mt-1">
+                <span>Max</span>
+                <div class="value"><%= service.max_qty %></div>
               </div>
             </div>
-            <div class="col-md-4">
-              <div class="small text-muted">Min</div>
-              <div class="fw-bold"><%= service.min_qty %></div>
-            </div>
-            <div class="col-md-4">
-              <div class="small text-muted">Max</div>
-              <div class="fw-bold"><%= service.max_qty %></div>
-            </div>
           </div>
+        </div>
 
-          <div class="row g-3">
-            <!-- فورم الشراء -->
-            <div class="col-md-8">
-              <form method="POST" action="/buy-social">
-                <input type="hidden" name="service_id" value="<%= service.id %>" />
-                <% if (idemKey) { %>
-                  <input type="hidden" name="idempotency_key" value="<%= idemKey %>" />
-                <% } %>
+        <!-- الفورم + الملاحظات -->
+        <div class="row g-3">
+          <!-- الفورم -->
+          <div class="col-md-8">
+            <form method="POST" action="/buy-social">
+              <input type="hidden" name="service_id" value="<%= service.id %>" />
+              <% if (idemKey) { %>
+                <input type="hidden" name="idempotency_key" value="<%= idemKey %>" />
+              <% } %>
 
-                <!-- Link -->
-                <div class="mb-3">
-                  <label class="form-label">Link (URL or username)</label>
-                  <input
-                    type="text"
-                    name="link"
-                    class="form-control"
-                    placeholder="Paste the profile / post / video link here"
-                    value="<%= formLink || '' %>"
-                    required
-                  />
+              <!-- Link -->
+              <div class="mb-3">
+                <label class="smm-input-label">Link (URL or username)</label>
+                <div class="smm-input-hint mb-1">
+                  Paste the profile / post / video link. Make sure it is accessible and public.
                 </div>
+                <input
+                  type="text"
+                  name="link"
+                  class="form-control"
+                  placeholder="Paste the profile / post / video link here"
+                  value="<%= formLink || '' %>"
+                  required
+                />
+              </div>
 
-                <!-- Quantity -->
-                <div class="mb-3">
-                  <label class="form-label">
-                    Quantity
-                    <small class="text-muted">
-                      (Min <%= service.min_qty %>, Max <%= service.max_qty %>)
-                    </small>
-                  </label>
-                  <input
-                    type="number"
-                    name="quantity"
-                    class="form-control"
-                    min="<%= service.min_qty %>"
-                    max="<%= service.max_qty %>"
-                    value="<%= formQty || '' %>"
-                    required
-                  />
+              <!-- Quantity -->
+              <div class="mb-3">
+                <label class="smm-input-label">Quantity</label>
+                <div class="smm-input-hint mb-1">
+                  (Min <%= service.min_qty %>, Max <%= service.max_qty %>)
                 </div>
+                <input
+                  type="number"
+                  name="quantity"
+                  class="form-control"
+                  min="<%= service.min_qty %>"
+                  max="<%= service.max_qty %>"
+                  value="<%= formQty || '' %>"
+                  required
+                />
+              </div>
 
-                <!-- Estimated price (فرونت فقط) -->
-                <div class="mb-3">
-                  <div class="card bg-light">
-                    <div class="card-body d-flex justify-content-between align-items-center">
-                      <div>
-                        <div class="small text-muted">Estimated price</div>
-                        <div class="fw-bold">
-                          $<span id="estimated-price">0.00</span>
-                        </div>
-                        <div class="small text-muted">
-                          Rate: $<%= Number(service.rate).toFixed(4) %> / 1000
-                        </div>
-                      </div>
-                      <div class="text-end">
-                        <div class="small text-muted">Your balance</div>
-                        <div class="fw-bold">
-                          $<%= Number(balance || 0).toFixed(2) %>
-                        </div>
-                      </div>
+              <!-- Estimated price -->
+              <div class="mb-3">
+                <div class="smm-estimate-card d-flex justify-content-between align-items-center">
+                  <div>
+                    <div class="smm-estimate-label">Estimated price</div>
+                    <div class="smm-estimate-value">
+                      $<span id="estimated-price">0.00</span>
+                    </div>
+                    <div class="smm-estimate-label">
+                      Rate: $<%= Number(service.rate).toFixed(4) %> / 1000
+                    </div>
+                  </div>
+                  <div class="text-end">
+                    <div class="smm-balance-label">Your balance</div>
+                    <div class="smm-balance-value">
+                      $<%= Number(balance || 0).toFixed(2) %>
                     </div>
                   </div>
                 </div>
-
-                <button type="submit" class="btn btn-primary w-100">
-                  Confirm Order
-                </button>
-              </form>
-            </div>
-
-            <!-- Important notes -->
-            <div class="col-md-4">
-              <div class="card bg-light">
-                <div class="card-body">
-                  <h5 class="h6">Important notes</h5>
-                  <ul class="small mb-0">
-                    <li>Make sure the link is correct and public (not private).</li>
-                    <li>Do not change username / link until the order is fully completed.</li>
-                    <li>Delivery time depends on the speed of the provider.</li>
-                    <li>Quantity must be between the allowed min and max.</li>
-                  </ul>
-                </div>
               </div>
+
+              <button type="submit" class="btn btn-primary w-100 smm-submit-btn">
+                Confirm Order
+              </button>
+            </form>
+          </div>
+
+          <!-- الملاحظات (قابلة للتعديل من الداتابيس) -->
+          <div class="col-md-4">
+            <div class="smm-notes-card">
+              <h5>Important notes</h5>
+
+              <% if (service.notes_html) { %>
+                <!-- لو حابب تخزّن HTML جاهز بالـ DB -->
+                <div class="small">
+                  <%- service.notes_html %>
+                </div>
+              <% } else if (service.notes) { %>
+                <!-- لو حابب تخزّن نص عادي -->
+                <p class="small mb-0"><%= service.notes %></p>
+              <% } else { %>
+                <!-- Default notes لو ما في شيء بالداتابيس -->
+                <ul>
+                  <li>Make sure the link is correct and <strong>public</strong> (not private).</li>
+                  <li>Do not change username / link until the order is fully completed.</li>
+                  <li>Quantity must be between the allowed min and max.</li>
+                  <li>Delivery time depends on the speed of the provider and the queue.</li>
+                </ul>
+              <% } %>
             </div>
-          </div> <!-- row -->
+          </div>
         </div>
       </div>
     </div>
   </main>
 
   <script>
-    // حساب تقريبي للسعر في الواجهة فقط (الحساب الدقيق في السيرفر)
+    // حساب تقريبي للسعر في الواجهة فقط (الحساب الرسمي في السيرفر)
     (function () {
       const ratePer1000 = <%= Number(service.rate || 0) %>;
       const qtyInput = document.querySelector('input[name="quantity"]');
@@ -214,4 +402,3 @@
   <script src="/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-.
