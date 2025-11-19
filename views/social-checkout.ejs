@@ -10,13 +10,12 @@
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
 </head>
 <body>
-  <!-- نفس شكل الموقع العام -->
-  <%- include('partials/header', { user: user }) %>
+  <%- include('partials/navbar', { user: user }) %>
 
   <main class="bg-light py-4">
     <div class="container" style="max-width: 1100px;">
 
-      <!-- عنوان الصفحة + زر رجوع -->
+      <!-- Header -->
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">
           <i class="bi bi-instagram"></i>
@@ -28,9 +27,9 @@
         </a>
       </div>
 
-      <!-- رسالة الخطأ حسب ?error= -->
+      <!-- Error messages -->
       <% if (error) { %>
-        <div class="alert alert-danger d-flex align-items-start gap-2">
+        <div class="alert alert-danger d-flex align-items-start gap-2 mb-3">
           <i class="bi bi-exclamation-triangle-fill mt-1"></i>
           <div>
             <% if (error === 'provider') { %>
@@ -38,18 +37,18 @@
               <% if (errorMessage) { %>
                 Provider message: <code><%= errorMessage %></code><br />
               <% } %>
-              Please make sure that:
+              Please make sure:
               <ul class="mb-0">
                 <li>The URL is complete and starts with <code>http://</code> or <code>https://</code>.</li>
                 <li>The account / post is public (not private).</li>
-                <li>The link matches the service type (post for likes, story for story views, etc.).</li>
+                <li>The link matches the service type (post, story, video…).</li>
               </ul>
             <% } else if (error === 'missing_fields') { %>
               <strong>Missing data.</strong> Please fill the link and quantity.
             <% } else if (error === 'invalid_quantity') { %>
-              <strong>Invalid quantity.</strong> Please enter a number greater than zero and within limits.
+              <strong>Invalid quantity.</strong> Please enter a valid number.</strong>
             <% } else if (error === 'range') { %>
-              <strong>Quantity is out of range.</strong><br />
+              <strong>Quantity is out of allowed range.</strong><br />
               Min: <%= rangeMin %> – Max: <%= rangeMax %>.
             <% } else if (error === 'balance') { %>
               <strong>Insufficient balance.</strong> You can add funds from <a href="/add-funds">Add Balance</a>.
@@ -58,50 +57,63 @@
             <% } else if (error === 'no_provider_id') { %>
               <strong>No order ID received from provider.</strong> Amount has been refunded to your balance.
             <% } else if (error === 'service_not_found') { %>
-              <strong>Service not available or disabled.</strong> Please choose another service.
+              <strong>Service not found or disabled.</strong>
             <% } else if (error === 'server') { %>
-              <strong>Internal server error.</strong> If the issue persists, please contact support.
+              <strong>Internal server error.</strong> Please try again later.
             <% } else { %>
-              <strong>Unable to complete the order.</strong> Please try again later.
+              <strong>Unable to complete the order.</strong> Please try again.
             <% } %>
           </div>
         </div>
       <% } %>
 
-      <!-- كارد الخدمة -->
+      <!-- MAIN CARD -->
       <div class="card shadow-sm mb-4">
         <div class="card-body">
 
-          <!-- اسم الخدمة + الكاتيجوري -->
-          <div class="d-flex justify-content-between flex-wrap gap-3 mb-3">
-            <div>
-              <h2 class="h5 mb-1"><%= service.name %></h2>
+          <% const ratePer = Number(service.rate_per || 1000) || 1000; %>
+          <% const avgTime = service.average_time || ''; %>
 
-              <% if (service.category_name) { %>
-                <p class="text-muted mb-0">
-                  Category:
-                  <strong><%= service.category_name %></strong>
-                </p>
-              <% } %>
+          <!-- Top section: name + category -->
+          <h2 class="h5 mb-1"><%= service.name %></h2>
+          <% if (service.category_name) { %>
+            <p class="text-muted mb-3">
+              Category:
+              <strong><%= service.category_name %></strong>
+            </p>
+          <% } %>
+
+          <!-- Info chips -->
+          <div class="row g-2 mb-3">
+            <div class="col-6 col-md-3">
+              <div class="border rounded-3 px-3 py-2 h-100">
+                <div class="small text-muted text-uppercase">Rate / <%= ratePer.toLocaleString() %></div>
+                <div class="fw-bold text-primary">
+                  $<%= Number(service.rate).toFixed(4) %>
+                </div>
+              </div>
             </div>
 
-            <!-- معلومات سريعة: Rate / Min / Max / Average time -->
-            <div class="d-flex flex-column align-items-end text-end small">
-              <div class="text-muted text-uppercase">Rate / 1000</div>
-              <div class="fw-bold text-primary mb-1">
-                $<%= Number(service.rate).toFixed(4) %>
+            <div class="col-6 col-md-3">
+              <div class="border rounded-3 px-3 py-2 h-100">
+                <div class="small text-muted text-uppercase">Min quantity</div>
+                <div class="fw-bold"><%= service.min_qty %></div>
               </div>
+            </div>
 
-              <div class="text-muted text-uppercase">Min</div>
-              <div class="fw-bold mb-1"><%= service.min_qty %></div>
+            <div class="col-6 col-md-3">
+              <div class="border rounded-3 px-3 py-2 h-100">
+                <div class="small text-muted text-uppercase">Max quantity</div>
+                <div class="fw-bold"><%= service.max_qty %></div>
+              </div>
+            </div>
 
-              <div class="text-muted text-uppercase">Max</div>
-              <div class="fw-bold mb-1"><%= service.max_qty %></div>
-
-              <% const avgTime = service.average_time || ''; %>
-              <div class="text-muted text-uppercase mt-1">Average time</div>
-              <div class="fw-semibold">
-                <%= avgTime || 'Varies depending on provider load' %>
+            <div class="col-6 col-md-3">
+              <div class="border rounded-3 px-3 py-2 h-100">
+                <div class="small text-muted text-uppercase">Average time</div>
+                <div class="fw-semibold">
+                  <%= avgTime || 'Varies depending on provider load' %>
+                </div>
               </div>
             </div>
           </div>
@@ -109,7 +121,7 @@
           <hr class="my-3" />
 
           <div class="row g-4">
-            <!-- فورم الشراء -->
+            <!-- FORM -->
             <div class="col-md-8">
               <form method="POST" action="/buy-social">
                 <input type="hidden" name="service_id" value="<%= service.id %>" />
@@ -119,9 +131,7 @@
 
                 <!-- Link -->
                 <div class="mb-3">
-                  <label class="form-label">
-                    Link (URL or username)
-                  </label>
+                  <label class="form-label">Link (URL or username)</label>
                   <small class="d-block text-muted mb-1">
                     Paste the profile / post / video link. Make sure it is accessible and public.
                   </small>
@@ -154,7 +164,7 @@
                   />
                 </div>
 
-                <!-- Estimated price + balance -->
+                <!-- Estimated price -->
                 <div class="mb-3">
                   <div class="card bg-light border-0">
                     <div class="card-body d-flex justify-content-between align-items-center">
@@ -164,7 +174,8 @@
                           $<span id="estimated-price">0.00</span>
                         </div>
                         <div class="small text-muted">
-                          Rate: $<%= Number(service.rate).toFixed(4) %> / 1000
+                          Rate: $<%= Number(service.rate).toFixed(4) %> /
+                          <%= ratePer.toLocaleString() %> units
                         </div>
                       </div>
                       <div class="text-end">
@@ -183,7 +194,7 @@
               </form>
             </div>
 
-            <!-- Important notes (ديناميكية من DB) -->
+            <!-- NOTES -->
             <div class="col-md-4">
               <div class="card bg-light border-0 h-100">
                 <div class="card-body">
@@ -192,7 +203,7 @@
                     Important notes
                   </h5>
 
-                  <% 
+                  <%
                     const rawNotes = (service.notes || '').trim();
                     const notesLines = rawNotes
                       ? rawNotes.split(/\r?\n/).map(n => n.trim()).filter(Boolean)
@@ -205,43 +216,36 @@
                         <li><%= line %></li>
                       <% }) %>
                     <% } else { %>
-                      <!-- ملاحظات افتراضية لو ما في شي من الـ DB -->
                       <li>Make sure the link is correct and public (not private).</li>
                       <li>Do not change username / link until the order is fully completed.</li>
-                      <li>Delivery time depends on the speed of the provider and the queue.</li>
+                      <li>Delivery time depends on provider speed and queue.</li>
                       <li>Quantity must be between the allowed min and max.</li>
                     <% } %>
                   </ul>
-
-                  <% if (avgTime) { %>
-                    <hr class="my-3" />
-                    <div class="small text-muted">
-                      <strong>Average time:</strong> <%= avgTime %>
-                    </div>
-                  <% } %>
                 </div>
               </div>
             </div>
-          </div> <!-- /row -->
+          </div><!-- /row -->
         </div>
       </div>
     </div>
   </main>
 
-  <!-- Front-end price calculation -->
+  <!-- JS: dynamic price calculation with rate_per -->
   <script>
     (function () {
-      const ratePer1000 = <%= Number(service.rate || 0) %>;
+      const rate = <%= Number(service.rate || 0) %>;
+      const ratePer = <%= Number(service.rate_per || 1000) || 1000 %>;
       const qtyInput = document.querySelector('input[name="quantity"]');
       const priceSpan = document.getElementById('estimated-price');
 
       function updateEst() {
         const q = Number(qtyInput.value || 0);
-        if (!q || !ratePer1000) {
+        if (!q || !rate || !ratePer) {
           priceSpan.textContent = '0.00';
           return;
         }
-        const total = (q * ratePer1000) / 1000;
+        const total = (q * rate) / ratePer;
         priceSpan.textContent = total.toFixed(4);
       }
 

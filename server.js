@@ -1288,15 +1288,17 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 4) حساب السعر (rate لكل 1000)
-    const rate = Number(service.rate || 0);
-    if (!Number.isFinite(rate) || rate <= 0) {
-      console.log('❌ pricing_invalid_rate', { rate });
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
-    }
+   // 4) السعر (rate لكل rate_per)
+const rate = Number(service.rate || 0);
+const ratePer = Number(service.rate_per || 1000) || 1000; // الوحدة (مثل 1000 أو 100000)
 
-    // totalCents = round(qty * rate * 100 / 1000)
-    const totalCents = Math.round((qty * rate * 100) / 1000);
+if (!Number.isFinite(rate) || rate <= 0) {
+  return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
+}
+
+// totalCents = round(qty * rate * 100 / ratePer)
+const totalCents = Math.round((qty * rate * 100) / ratePer);
+
     if (!Number.isFinite(totalCents) || totalCents <= 0) {
       console.log('❌ pricing_too_low', { totalCents });
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
