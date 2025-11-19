@@ -2,13 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Social Media Checkout - <%= service.name %></title>
+  <title><%= categoryName %> – Social Media Services</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap"
+    rel="stylesheet"
+  />
 
   <style>
     body {
@@ -16,344 +19,390 @@
       background-color: #f5f7fb;
     }
 
-    .checkout-container {
-      max-width: 900px;
+    .smm-hero {
+      border-radius: 20px;
+      padding: 24px 22px;
+      background: linear-gradient(135deg, #e0f2fe, #eef2ff);
+      border: 1px solid rgba(148, 163, 184, 0.4);
     }
 
-    .checkout-card {
-      border-radius: 18px;
-      border: 1px solid #e5e7eb;
-      box-shadow: 0 8px 22px rgba(15,23,42,0.08);
+    .smm-hero-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      background: #2563eb;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      margin-right: 10px;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);
     }
 
-    .checkout-header-line {
-      border-top: 1px solid #e5e7eb;
-      margin: 12px 0 16px;
-    }
-
-    .rate-box-label {
-      font-size: 0.8rem;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: .03em;
-    }
-
-    .rate-box-value {
+    .smm-hero-title {
+      font-size: 1.4rem;
       font-weight: 700;
-      font-size: 1rem;
-    }
-
-    .rate-box-group {
-      display: flex;
-      gap: 16px;
-      margin-top: 6px;
-      justify-content: flex-end;
-    }
-
-    .rate-box-small .rate-box-label {
-      font-size: 0.75rem;
-    }
-
-    .rate-box-small .rate-box-value {
-      font-size: 0.9rem;
-    }
-
-    .notes-card {
-      border-radius: 12px;
-      background-color: #f9fafb;
-      border: 1px solid #e5e7eb;
-    }
-
-    .notes-card h5 {
-      font-size: 0.95rem;
-      margin-bottom: 8px;
-    }
-
-    .notes-card ul {
-      padding-left: 18px;
-      margin-bottom: 0;
-    }
-
-    .notes-card li {
-      font-size: 0.82rem;
       margin-bottom: 4px;
+    }
+
+    .smm-hero-subtitle {
+      font-size: 0.92rem;
       color: #4b5563;
     }
 
-    .estimate-card {
-      border-radius: 12px;
-      background-color: #f9fafb;
-      border: 1px solid #e5e7eb;
+    .smm-filter-bar {
+      border-radius: 16px;
+      background: #ffffff;
+      padding: 12px 16px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
     }
 
-    .estimate-label {
+    .smm-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      background: rgba(37, 99, 235, 0.08);
+      color: #1d4ed8;
+      border: 1px solid rgba(37, 99, 235, 0.12);
+    }
+
+    .service-card-modern {
+      border-radius: 20px;
+      padding: 18px 18px 16px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      transition: all 0.22s ease;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .service-card-modern::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 55%);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      pointer-events: none;
+    }
+
+    .service-card-modern:hover::before {
+      opacity: 1;
+    }
+
+    .service-card-modern:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 16px 38px rgba(15, 23, 42, 0.14);
+      border-color: rgba(59, 130, 246, 0.4);
+    }
+
+    .smm-badge-type {
+      background: linear-gradient(135deg, #4f46e5, #3b82f6);
+      color: #ffffff;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .smm-id {
+      font-size: 0.7rem;
+      color: #9ca3af;
+    }
+
+    .service-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-top: 8px;
+      margin-bottom: 6px;
+      min-height: 2.3em;
+    }
+
+    .service-provider {
       font-size: 0.8rem;
       color: #6b7280;
     }
 
-    .estimate-value {
-      font-weight: 700;
-      font-size: 1rem;
+    .service-metrics {
+      border-radius: 14px;
+      background: #f9fafb;
+      padding: 10px 12px;
     }
 
-    .balance-label {
+    .service-metrics .label {
       font-size: 0.78rem;
       color: #6b7280;
     }
 
-    .balance-value {
+    .service-metrics .value {
+      font-size: 0.92rem;
       font-weight: 700;
-      color: #16a34a;
+      color: #111827;
     }
 
-    .checkout-title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .service-min-cost {
+      font-size: 0.8rem;
+      color: #6b7280;
     }
 
-    .checkout-title i {
-      font-size: 1.3rem;
+    .service-min-cost strong {
+      color: #111827;
     }
 
-    .btn-confirm {
-      border-radius: 999px;
-      font-weight: 600;
-      padding: 10px 0;
-    }
-
-    .alert-error {
+    .smm-buy-btn {
+      background: #2563eb;
+      border: none;
+      width: 100%;
+      padding: 9px 0;
       border-radius: 12px;
-      font-size: 0.9rem;
+      color: #ffffff;
+      font-size: 0.92rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .smm-buy-btn:hover {
+      background: #1d4ed8;
+      color: #ffffff;
+    }
+
+    .smm-empty {
+      border-radius: 18px;
+      background: #f9fafb;
+      padding: 22px;
+      border: 1px dashed #cbd5f5;
+    }
+
+    .smm-card-hidden {
+      display: none !important;
     }
 
     @media (max-width: 575.98px) {
-      .rate-box-group {
-        justify-content: flex-start;
+      .smm-hero {
+        padding: 16px 14px;
+      }
+      .smm-filter-bar {
+        padding: 10px 12px;
       }
     }
   </style>
 </head>
 <body>
-  <!-- نفس الـ partial القديم -->
   <%- include('partials/header', { user: user }) %>
 
   <main class="py-4">
-    <div class="container checkout-container">
+    <div class="container" style="max-width: 1150px;">
 
-      <!-- عنوان الصفحة + زر رجوع -->
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="checkout-title mb-0">
-          <i class="bi bi-instagram"></i>
-          Social Media Services
-        </h1>
-
-        <a href="/social-media" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-arrow-left"></i> Back
-        </a>
+      <div class="mb-3">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb small mb-1">
+            <li class="breadcrumb-item"><a href="/">Home</a></li>
+            <li class="breadcrumb-item"><a href="/social-media">Social Media</a></li>
+            <li class="breadcrumb-item active" aria-current="page"><%= categoryName %></li>
+          </ol>
+        </nav>
       </div>
 
-      <!-- رسالة الخطأ -->
-      <% if (error) { %>
-        <div class="alert alert-danger d-flex align-items-start gap-2 alert-error">
-          <i class="bi bi-exclamation-triangle-fill mt-1"></i>
-          <div>
-            <% if (error === 'provider') { %>
-              <strong>Provider rejected the order.</strong><br />
-              <% if (errorMessage) { %>
-                Provider message: <code><%= errorMessage %></code><br />
-              <% } %>
-              Please check:
-              <ul class="mb-0">
-                <li>Link is complete and starts with <code>http://</code> or <code>https://</code></li>
-                <li>Account / post is <strong>Public</strong>, not private</li>
-                <li>Link matches the service type</li>
-              </ul>
-            <% } else if (error === 'missing_fields') { %>
-              <strong>Missing fields.</strong> Please enter link and quantity.
-            <% } else if (error === 'invalid_quantity') { %>
-              <strong>Invalid quantity.</strong> Please enter a positive number within allowed range.
-            <% } else if (error === 'range') { %>
-              <strong>Quantity out of range.</strong> Min: <%= rangeMin %>, Max: <%= rangeMax %>.
-            <% } else if (error === 'balance') { %>
-              <strong>Insufficient balance.</strong> You can add funds from <a href="/add-funds">Add funds</a>.
-            <% } else if (error === 'pricing') { %>
-              <strong>Pricing error.</strong> Please try again later.
-            <% } else if (error === 'no_provider_id') { %>
-              <strong>No provider order ID received.</strong> Amount has been refunded.
-            <% } else if (error === 'service_not_found') { %>
-              <strong>Service not found or inactive.</strong>
-            <% } else if (error === 'server') { %>
-              <strong>Internal server error.</strong> Please try again later.
-            <% } else { %>
-              <strong>Could not complete order.</strong> Please try again.
-            <% } %>
+      <section class="smm-hero mb-3">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+          <div class="d-flex align-items-center">
+            <div class="smm-hero-icon">
+              <i class="bi bi-broadcast-pin fs-5"></i>
+            </div>
+            <div>
+              <div class="smm-hero-title"><%= categoryName %></div>
+              <div class="smm-hero-subtitle">
+                اختر الخدمة المناسبة، ثم أدخل الرابط والكمية من صفحة الـ Checkout.
+              </div>
+            </div>
           </div>
+
+          <div class="text-md-end">
+            <div class="smm-pill mb-1">
+              <i class="bi bi-lightning-charge-fill"></i>
+              <span>Instant / Auto services</span>
+            </div>
+            <div class="small text-muted">
+              الأسعار معروضة لكل <strong>1000</strong> من الكمية.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="alert alert-info py-2 px-3 mb-3 small">
+        <i class="bi bi-info-circle me-1"></i>
+        السعر النهائي = <strong>(الكمية × السعر لكل 1000) ÷ 1000</strong>.
+      </div>
+
+      <section class="smm-filter-bar mb-3">
+        <div class="row g-2 align-items-center">
+          <div class="col-md-5">
+            <label class="form-label mb-1 small text-muted">Search in this category</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-transparent border-end-0">
+                <i class="bi bi-search"></i>
+              </span>
+              <input
+                type="text"
+                id="serviceSearch"
+                class="form-control border-start-0"
+                placeholder="Search by name, provider, keyword..."
+              />
+            </div>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label mb-1 small text-muted">Sort</label>
+            <select id="sortSelect" class="form-select form-select-sm">
+              <option value="default">Recommended</option>
+              <option value="price-asc">Price: Low to high</option>
+              <option value="price-desc">Price: High to low</option>
+              <option value="min-asc">Min quantity: Low first</option>
+              <option value="min-desc">Min quantity: High first</option>
+            </select>
+          </div>
+
+          <div class="col-md-4 text-md-end">
+            <span class="small text-muted">
+              Showing <strong><%= services.length %></strong> services in this category.
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <% if (!services || !services.length) { %>
+        <div class="smm-empty text-center">
+          <h6 class="mb-1">لا توجد خدمات متاحة حالياً في هذه الفئة.</h6>
+          <p class="small text-muted mb-0">
+            جرّب فئة أخرى من صفحة <a href="/social-media">خدمات السوشيال ميديا</a>.
+          </p>
+        </div>
+      <% } else { %>
+
+        <div id="servicesGrid" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+          <% services.forEach(function(s) {
+               const minCost = (Number(s.rate || 0) * Number(s.min_qty || 0)) / 1000;
+          %>
+            <div class="col service-card-wrapper"
+                 data-name="<%= (s.name || '').toLowerCase() %>"
+                 data-rate="<%= Number(s.rate || 0) %>"
+                 data-min="<%= Number(s.min_qty || 0) %>">
+              <div class="service-card-modern">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <span class="smm-badge-type">
+                    <%= (s.type || 'Default').toString().charAt(0).toUpperCase() + (s.type || 'default').toString().slice(1) %>
+                  </span>
+                  <span class="smm-id">#<%= s.id %></span>
+                </div>
+
+                <div class="service-name">
+                  <%= s.name %>
+                </div>
+
+                <div class="service-provider mb-2">
+                  <% if ((s.name || '').includes('from')) { %>
+                    <i class="bi bi-globe-americas me-1"></i>
+                    <%= s.name.split('from')[1].trim() %>
+                  <% } else { %>
+                    <i class="bi bi-globe2 me-1"></i>
+                    Social service
+                  <% } %>
+                </div>
+
+                <div class="service-metrics mb-2">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <div class="label">Rate / 1000</div>
+                      <div class="value text-primary">
+                        $<%= Number(s.rate || 0).toFixed(4) %>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="label">Min</div>
+                      <div class="value"><%= s.min_qty %></div>
+                    </div>
+                    <div>
+                      <div class="label">Max</div>
+                      <div class="value"><%= s.max_qty %></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="service-min-cost mb-1">
+                  Minimum cost ≈
+                  <strong>$<%= isNaN(minCost) ? '0.0000' : minCost.toFixed(4) %></strong>
+                </div>
+
+                <a href="/social-checkout/<%= s.id %>" class="btn smm-buy-btn">
+                  <i class="bi bi-cart-plus"></i>
+                  Buy this service
+                </a>
+              </div>
+            </div>
+          <% }); %>
         </div>
       <% } %>
-
-      <!-- الكارد الرئيسي -->
-      <div class="card checkout-card">
-        <div class="card-body">
-
-          <!-- عنوان الخدمة + بلوك الأرقام المرتب -->
-          <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
-            <div>
-              <h2 class="h5 mb-1"><%= service.name %></h2>
-
-              <% if (service.category_name) { %>
-                <p class="text-muted mb-1">
-                  Category:
-                  <strong><%= service.category_name %></strong>
-                </p>
-              <% } %>
-            </div>
-
-            <div class="text-end">
-              <div class="rate-box-label">RATE / 1000</div>
-              <div class="rate-box-value text-primary">
-                $<%= Number(service.rate).toFixed(4) %>
-              </div>
-
-              <div class="rate-box-group">
-                <div class="text-end rate-box-small">
-                  <div class="rate-box-label">MIN</div>
-                  <div class="rate-box-value"><%= service.min_qty %></div>
-                </div>
-                <div class="text-end rate-box-small">
-                  <div class="rate-box-label">MAX</div>
-                  <div class="rate-box-value"><%= service.max_qty %></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="checkout-header-line"></div>
-
-          <div class="row g-3">
-            <!-- الفورم -->
-            <div class="col-md-8">
-              <form method="POST" action="/buy-social">
-                <input type="hidden" name="service_id" value="<%= service.id %>" />
-                <% if (idemKey) { %>
-                  <input type="hidden" name="idempotency_key" value="<%= idemKey %>" />
-                <% } %>
-
-                <!-- Link -->
-                <div class="mb-3">
-                  <label class="form-label">Link (URL or username)</label>
-                  <div class="form-text mb-1">
-                    Paste the profile / post / video link. Make sure it is accessible and public.
-                  </div>
-                  <input
-                    type="text"
-                    name="link"
-                    class="form-control"
-                    placeholder="Paste the profile / post / video link here"
-                    value="<%= formLink || '' %>"
-                    required
-                  />
-                </div>
-
-                <!-- Quantity -->
-                <div class="mb-3">
-                  <label class="form-label">
-                    Quantity
-                    <small class="text-muted">
-                      (Min <%= service.min_qty %>, Max <%= service.max_qty %>)
-                    </small>
-                  </label>
-                  <input
-                    type="number"
-                    name="quantity"
-                    class="form-control"
-                    min="<%= service.min_qty %>"
-                    max="<%= service.max_qty %>"
-                    value="<%= formQty || '' %>"
-                    required
-                  />
-                </div>
-
-                <!-- Estimated price -->
-                <div class="mb-3">
-                  <div class="estimate-card d-flex justify-content-between align-items-center">
-                    <div>
-                      <div class="estimate-label">Estimated price</div>
-                      <div class="estimate-value">
-                        $<span id="estimated-price">0.00</span>
-                      </div>
-                      <div class="estimate-label">
-                        Rate: $<%= Number(service.rate).toFixed(4) %> / 1000
-                      </div>
-                    </div>
-                    <div class="text-end">
-                      <div class="balance-label">Your balance</div>
-                      <div class="balance-value">
-                        $<%= Number(balance || 0).toFixed(2) %>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary w-100 btn-confirm">
-                  Confirm Order
-                </button>
-              </form>
-            </div>
-
-            <!-- الملاحظات -->
-            <div class="col-md-4">
-              <div class="notes-card p-3">
-                <h5>Important notes</h5>
-
-                <% if (service.notes_html) { %>
-                  <div class="small">
-                    <%- service.notes_html %>
-                  </div>
-                <% } else if (service.notes) { %>
-                  <p class="small mb-0"><%= service.notes %></p>
-                <% } else { %>
-                  <ul>
-                    <li>Make sure the link is correct and <strong>public</strong> (not private).</li>
-                    <li>Do not change username / link until the order is fully completed.</li>
-                    <li>Quantity must be between the allowed min and max.</li>
-                    <li>Delivery time depends on the speed of the provider and the queue.</li>
-                  </ul>
-                <% } %>
-              </div>
-            </div>
-          </div> <!-- row -->
-        </div>
-      </div>
     </div>
   </main>
 
+  <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
-    // حساب السعر المتوقع في الواجهة (الحساب الرسمي بالسيرفر)
     (function () {
-      const ratePer1000 = <%= Number(service.rate || 0) %>;
-      const qtyInput = document.querySelector('input[name="quantity"]');
-      const priceSpan = document.getElementById('estimated-price');
+      const searchInput = document.getElementById('serviceSearch');
+      const sortSelect = document.getElementById('sortSelect');
+      const cardWrappers = Array.from(document.querySelectorAll('.service-card-wrapper'));
 
-      function updateEst() {
-        const q = Number(qtyInput.value || 0);
-        if (!q || !ratePer1000) {
-          priceSpan.textContent = '0.00';
-          return;
-        }
-        const total = (q * ratePer1000) / 1000;
-        priceSpan.textContent = total.toFixed(4);
+      if (searchInput) {
+        searchInput.addEventListener('input', function () {
+          const term = this.value.toLowerCase().trim();
+          cardWrappers.forEach(card => {
+            const name = card.getAttribute('data-name') || '';
+            if (!term || name.includes(term)) {
+              card.classList.remove('smm-card-hidden');
+            } else {
+              card.classList.add('smm-card-hidden');
+            }
+          });
+        });
       }
 
-      if (qtyInput && priceSpan) {
-        qtyInput.addEventListener('input', updateEst);
-        updateEst();
+      if (sortSelect) {
+        sortSelect.addEventListener('change', function () {
+          const mode = this.value;
+          const grid = document.getElementById('servicesGrid');
+          if (!grid) return;
+
+          const sorted = [...cardWrappers].sort((a, b) => {
+            const rateA = Number(a.getAttribute('data-rate') || 0);
+            const rateB = Number(b.getAttribute('data-rate') || 0);
+            const minA  = Number(a.getAttribute('data-min') || 0);
+            const minB  = Number(b.getAttribute('data-min') || 0);
+
+            switch (mode) {
+              case 'price-asc':   return rateA - rateB;
+              case 'price-desc':  return rateB - rateA;
+              case 'min-asc':     return minA  - minB;
+              case 'min-desc':    return minB  - minA;
+              default:            return 0;
+            }
+          });
+
+          sorted.forEach(card => grid.appendChild(card));
+        });
       }
     })();
   </script>
-
-  <script src="/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
