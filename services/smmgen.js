@@ -42,6 +42,17 @@ async function getSmmServices() {
   return data;
 }
 
+async function getSmmOrderStatus(orderId) {
+  const data = await callSmmgen({
+    action: 'status',
+    order: String(orderId),
+  });
+
+  console.log('SMMGEN status response:', data);
+  return data;
+}
+
+
 // 2) إنشاء طلب جديد
 async function createSmmOrder({ service, link, quantity }) {
   if (!API_KEY) {
@@ -78,6 +89,8 @@ async function createSmmOrder({ service, link, quantity }) {
 
   return orderId;
 }
+
+
 
 module.exports = {
   getSmmServices,
