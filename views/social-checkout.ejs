@@ -8,123 +8,17 @@
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet" />
-
-  <style>
-    body {
-      font-family: "Cairo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background-color: #f5f7fb;
-    }
-
-    .checkout-container {
-      max-width: 900px;
-    }
-
-    .checkout-card {
-      border-radius: 18px;
-      border: 1px solid #e5e7eb;
-      box-shadow: 0 8px 22px rgba(15,23,42,0.08);
-    }
-
-    .checkout-header-line {
-      border-top: 1px solid #e5e7eb;
-      margin: 12px 0 16px;
-    }
-
-    .rate-box-label {
-      font-size: 0.8rem;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: .03em;
-    }
-
-    .rate-box-value {
-      font-weight: 700;
-      font-size: 1rem;
-    }
-
-    .notes-card {
-      border-radius: 12px;
-      background-color: #f9fafb;
-      border: 1px solid #e5e7eb;
-    }
-
-    .notes-card h5 {
-      font-size: 0.95rem;
-      margin-bottom: 8px;
-    }
-
-    .notes-card ul {
-      padding-left: 18px;
-      margin-bottom: 0;
-    }
-
-    .notes-card li {
-      font-size: 0.82rem;
-      margin-bottom: 4px;
-      color: #4b5563;
-    }
-
-    .estimate-card {
-      border-radius: 12px;
-      background-color: #f9fafb;
-      border: 1px solid #e5e7eb;
-    }
-
-    .estimate-label {
-      font-size: 0.8rem;
-      color: #6b7280;
-    }
-
-    .estimate-value {
-      font-weight: 700;
-      font-size: 1rem;
-    }
-
-    .balance-label {
-      font-size: 0.78rem;
-      color: #6b7280;
-    }
-
-    .balance-value {
-      font-weight: 700;
-      color: #16a34a;
-    }
-
-    .checkout-title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .checkout-title i {
-      font-size: 1.3rem;
-    }
-
-    .btn-confirm {
-      border-radius: 999px;
-      font-weight: 600;
-      padding: 10px 0;
-    }
-
-    .alert-error {
-      border-radius: 12px;
-      font-size: 0.9rem;
-    }
-  </style>
 </head>
 <body>
-  <!-- رجّعت نفس الـ partial القديم تبعك -->
-  <%- include('partials/header', { user: user }) %>
+  <!-- نفس شكل الموقع العام -->
+  <%- include('partials/navbar', { user: user }) %>
 
-  <main class="py-4">
-    <div class="container checkout-container">
+  <main class="bg-light py-4">
+    <div class="container" style="max-width: 1100px;">
 
-      <!-- عنوان الصفحة + زر رجوع بسيط -->
+      <!-- عنوان الصفحة + زر رجوع -->
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="checkout-title mb-0">
+        <h1 class="h4 mb-0">
           <i class="bi bi-instagram"></i>
           Social Media Services
         </h1>
@@ -134,9 +28,9 @@
         </a>
       </div>
 
-      <!-- رسالة الخطأ -->
+      <!-- رسالة الخطأ حسب ?error= -->
       <% if (error) { %>
-        <div class="alert alert-danger d-flex align-items-start gap-2 alert-error">
+        <div class="alert alert-danger d-flex align-items-start gap-2">
           <i class="bi bi-exclamation-triangle-fill mt-1"></i>
           <div>
             <% if (error === 'provider') { %>
@@ -144,68 +38,78 @@
               <% if (errorMessage) { %>
                 Provider message: <code><%= errorMessage %></code><br />
               <% } %>
-              Please check:
+              Please make sure that:
               <ul class="mb-0">
-                <li>Link is complete and starts with <code>http://</code> or <code>https://</code></li>
-                <li>Account / post is <strong>Public</strong>, not private</li>
-                <li>Link matches the service type</li>
+                <li>The URL is complete and starts with <code>http://</code> or <code>https://</code>.</li>
+                <li>The account / post is public (not private).</li>
+                <li>The link matches the service type (post for likes, story for story views, etc.).</li>
               </ul>
             <% } else if (error === 'missing_fields') { %>
-              <strong>Missing fields.</strong> Please enter link and quantity.
+              <strong>Missing data.</strong> Please fill the link and quantity.
             <% } else if (error === 'invalid_quantity') { %>
-              <strong>Invalid quantity.</strong> Please enter a positive number within allowed range.
+              <strong>Invalid quantity.</strong> Please enter a number greater than zero and within limits.
             <% } else if (error === 'range') { %>
-              <strong>Quantity out of range.</strong> Min: <%= rangeMin %>, Max: <%= rangeMax %>.
+              <strong>Quantity is out of range.</strong><br />
+              Min: <%= rangeMin %> – Max: <%= rangeMax %>.
             <% } else if (error === 'balance') { %>
-              <strong>Insufficient balance.</strong> You can add funds from <a href="/add-funds">Add funds</a>.
+              <strong>Insufficient balance.</strong> You can add funds from <a href="/add-funds">Add Balance</a>.
             <% } else if (error === 'pricing') { %>
-              <strong>Pricing error.</strong> Please try again later.
+              <strong>Pricing error.</strong> Please try later or contact support.
             <% } else if (error === 'no_provider_id') { %>
-              <strong>No provider order ID received.</strong> Amount has been refunded.
+              <strong>No order ID received from provider.</strong> Amount has been refunded to your balance.
             <% } else if (error === 'service_not_found') { %>
-              <strong>Service not found or inactive.</strong>
+              <strong>Service not available or disabled.</strong> Please choose another service.
             <% } else if (error === 'server') { %>
-              <strong>Internal server error.</strong> Please try again later.
+              <strong>Internal server error.</strong> If the issue persists, please contact support.
             <% } else { %>
-              <strong>Could not complete order.</strong> Please try again.
+              <strong>Unable to complete the order.</strong> Please try again later.
             <% } %>
           </div>
         </div>
       <% } %>
 
-      <!-- الكارد الرئيسي (نفس ترتيب القديم تقريباً) -->
-      <div class="card checkout-card">
+      <!-- كارد الخدمة -->
+      <div class="card shadow-sm mb-4">
         <div class="card-body">
 
-          <!-- عنوان الخدمة و الـ rate -->
-          <div class="d-flex justify-content-between align-items-start mb-2">
+          <!-- اسم الخدمة + الكاتيجوري -->
+          <div class="d-flex justify-content-between flex-wrap gap-3 mb-3">
             <div>
               <h2 class="h5 mb-1"><%= service.name %></h2>
 
               <% if (service.category_name) { %>
-                <p class="text-muted mb-1">
+                <p class="text-muted mb-0">
                   Category:
                   <strong><%= service.category_name %></strong>
                 </p>
               <% } %>
             </div>
 
-            <div class="text-end">
-              <div class="rate-box-label">Rate / 1000</div>
-              <div class="rate-box-value text-primary">
+            <!-- معلومات سريعة: Rate / Min / Max / Average time -->
+            <div class="d-flex flex-column align-items-end text-end small">
+              <div class="text-muted text-uppercase">Rate / 1000</div>
+              <div class="fw-bold text-primary mb-1">
                 $<%= Number(service.rate).toFixed(4) %>
               </div>
-              <div class="rate-box-label mt-1">Min</div>
-              <div class="rate-box-value"><%= service.min_qty %></div>
-              <div class="rate-box-label mt-1">Max</div>
-              <div class="rate-box-value"><%= service.max_qty %></div>
+
+              <div class="text-muted text-uppercase">Min</div>
+              <div class="fw-bold mb-1"><%= service.min_qty %></div>
+
+              <div class="text-muted text-uppercase">Max</div>
+              <div class="fw-bold mb-1"><%= service.max_qty %></div>
+
+              <% const avgTime = service.average_time || ''; %>
+              <div class="text-muted text-uppercase mt-1">Average time</div>
+              <div class="fw-semibold">
+                <%= avgTime || 'Varies depending on provider load' %>
+              </div>
             </div>
           </div>
 
-          <div class="checkout-header-line"></div>
+          <hr class="my-3" />
 
-          <div class="row g-3">
-            <!-- الفورم -->
+          <div class="row g-4">
+            <!-- فورم الشراء -->
             <div class="col-md-8">
               <form method="POST" action="/buy-social">
                 <input type="hidden" name="service_id" value="<%= service.id %>" />
@@ -215,10 +119,12 @@
 
                 <!-- Link -->
                 <div class="mb-3">
-                  <label class="form-label">Link (URL or username)</label>
-                  <div class="form-text mb-1">
+                  <label class="form-label">
+                    Link (URL or username)
+                  </label>
+                  <small class="d-block text-muted mb-1">
                     Paste the profile / post / video link. Make sure it is accessible and public.
-                  </div>
+                  </small>
                   <input
                     type="text"
                     name="link"
@@ -248,65 +154,82 @@
                   />
                 </div>
 
-                <!-- Estimated price -->
+                <!-- Estimated price + balance -->
                 <div class="mb-3">
-                  <div class="estimate-card d-flex justify-content-between align-items-center">
-                    <div>
-                      <div class="estimate-label">Estimated price</div>
-                      <div class="estimate-value">
-                        $<span id="estimated-price">0.00</span>
+                  <div class="card bg-light border-0">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                      <div>
+                        <div class="small text-muted text-uppercase">Estimated price</div>
+                        <div class="fw-bold fs-5 mb-1">
+                          $<span id="estimated-price">0.00</span>
+                        </div>
+                        <div class="small text-muted">
+                          Rate: $<%= Number(service.rate).toFixed(4) %> / 1000
+                        </div>
                       </div>
-                      <div class="estimate-label">
-                        Rate: $<%= Number(service.rate).toFixed(4) %> / 1000
-                      </div>
-                    </div>
-                    <div class="text-end">
-                      <div class="balance-label">Your balance</div>
-                      <div class="balance-value">
-                        $<%= Number(balance || 0).toFixed(2) %>
+                      <div class="text-end">
+                        <div class="small text-muted text-uppercase">Your balance</div>
+                        <div class="fw-bold fs-6">
+                          $<%= Number(balance || 0).toFixed(2) %>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 btn-confirm">
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
                   Confirm Order
                 </button>
               </form>
             </div>
 
-            <!-- الملاحظات (قابلة للتعديل) -->
+            <!-- Important notes (ديناميكية من DB) -->
             <div class="col-md-4">
-              <div class="notes-card">
-                <h5>Important notes</h5>
+              <div class="card bg-light border-0 h-100">
+                <div class="card-body">
+                  <h5 class="h6 mb-3">
+                    <i class="bi bi-info-circle"></i>
+                    Important notes
+                  </h5>
 
-                <% if (service.notes_html) { %>
-                  <!-- لو عندك عمود notes_html في smm_services -->
-                  <div class="small">
-                    <%- service.notes_html %>
-                  </div>
-                <% } else if (service.notes) { %>
-                  <!-- لو عندك عمود notes نص عادي -->
-                  <p class="small mb-0"><%= service.notes %></p>
-                <% } else { %>
-                  <!-- Default لو ما في شي -->
-                  <ul>
-                    <li>Make sure the link is correct and <strong>public</strong> (not private).</li>
-                    <li>Do not change username / link until the order is fully completed.</li>
-                    <li>Quantity must be between the allowed min and max.</li>
-                    <li>Delivery time depends on the speed of the provider and the queue.</li>
+                  <% 
+                    const rawNotes = (service.notes || '').trim();
+                    const notesLines = rawNotes
+                      ? rawNotes.split(/\r?\n/).map(n => n.trim()).filter(Boolean)
+                      : [];
+                  %>
+
+                  <ul class="small mb-0">
+                    <% if (notesLines.length) { %>
+                      <% notesLines.forEach(function (line) { %>
+                        <li><%= line %></li>
+                      <% }) %>
+                    <% } else { %>
+                      <!-- ملاحظات افتراضية لو ما في شي من الـ DB -->
+                      <li>Make sure the link is correct and public (not private).</li>
+                      <li>Do not change username / link until the order is fully completed.</li>
+                      <li>Delivery time depends on the speed of the provider and the queue.</li>
+                      <li>Quantity must be between the allowed min and max.</li>
+                    <% } %>
                   </ul>
-                <% } %>
+
+                  <% if (avgTime) { %>
+                    <hr class="my-3" />
+                    <div class="small text-muted">
+                      <strong>Average time:</strong> <%= avgTime %>
+                    </div>
+                  <% } %>
+                </div>
               </div>
             </div>
-          </div> <!-- row -->
+          </div> <!-- /row -->
         </div>
       </div>
     </div>
   </main>
 
+  <!-- Front-end price calculation -->
   <script>
-    // نفس حساب السعر القديم تقريباً
     (function () {
       const ratePer1000 = <%= Number(service.rate || 0) %>;
       const qtyInput = document.querySelector('input[name="quantity"]');

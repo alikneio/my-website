@@ -2128,7 +2128,9 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
     rate,
     min_qty,
     max_qty,
-    is_active
+    is_active,
+    average_time,
+    notes,
   } = req.body;
 
   const catId = category_id && category_id !== 'none'
@@ -2139,22 +2141,36 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
   const minQ = parseInt(min_qty || '0', 10) || 0;
   const maxQ = parseInt(max_qty || '0', 10) || 0;
   const activeFlag = is_active === '1' ? 1 : 0;
+  const avgTime = (average_time || '').trim();
+  const cleanNotes = (notes || '').trim();
 
   const sql = `
     UPDATE smm_services
-    SET name = ?,
-        category_id = ?,
-        rate = ?,
-        min_qty = ?,
-        max_qty = ?,
-        is_active = ?
+    SET name         = ?,
+        category_id  = ?,
+        rate         = ?,
+        min_qty      = ?,
+        max_qty      = ?,
+        average_time = ?,
+        notes        = ?,
+        is_active    = ?
     WHERE id = ?
     LIMIT 1
   `;
 
   db.query(
     sql,
-    [name.trim(), catId, numericRate, minQ, maxQ, activeFlag, serviceId],
+    [
+      (name || '').trim(),
+      catId,
+      numericRate,
+      minQ,
+      maxQ,
+      avgTime,
+      cleanNotes,
+      activeFlag,
+      serviceId,
+    ],
     err => {
       if (err) {
         console.error('❌ update smm service:', err.message);
