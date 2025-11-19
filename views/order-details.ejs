@@ -11,45 +11,82 @@
 
   <style>
     :root{
-      --brand: #1266F1;          /* زرار أساسي أزرق مثل الموقع */
+      --brand: #1266F1;          /* زر أساسي أزرق مثل الموقع */
       --bg-soft: #f4f6fa;        /* خلفية فاتحة */
       --title: #1d3557;          /* لون العنوان */
       --text: #222;
       --muted: #6c757d;
       --purple: #a855f7;
     }
-    body{ background: var(--bg-soft); font-family: 'Cairo', sans-serif; color: var(--text); }
+    body{
+      background: var(--bg-soft);
+      font-family: 'Cairo', sans-serif;
+      color: var(--text);
+    }
     .order-wrapper{
-      background:#fff;border-radius:16px;padding:1.75rem;box-shadow:0 8px 26px rgba(0,0,0,.06)
+      background:#fff;
+      border-radius:16px;
+      padding:1.75rem;
+      box-shadow:0 8px 26px rgba(0,0,0,.06)
     }
-    .section-title{ font-size:2rem;font-weight:800;color:var(--title); letter-spacing:.3px; }
-    .kv-label{ font-weight:700;color:#495057;margin-bottom:.35rem }
+    .section-title{
+      font-size:2rem;
+      font-weight:800;
+      color:var(--title);
+      letter-spacing:.3px;
+    }
+    .kv-label{
+      font-weight:700;
+      color:#495057;
+      margin-bottom:.35rem
+    }
     .kv-value{
-      background:#f1f3f5;border-radius:10px;padding:.75rem 1rem;color:#212529;margin-bottom:1rem
+      background:#f1f3f5;
+      border-radius:10px;
+      padding:.75rem 1rem;
+      color:#212529;
+      margin-bottom:1rem
     }
-    .badge{ font-size:.95rem;padding:.45rem .9rem }
+    .badge{
+      font-size:.95rem;
+      padding:.45rem .9rem
+    }
     .badge-partial{
       background: var(--purple);
       color:#fff;
     }
     .btn-brand{
-      background:var(--brand); border-color:var(--brand); color:#fff
+      background:var(--brand);
+      border-color:var(--brand);
+      color:#fff
     }
     .copy-btn{
       border-radius: 10px;
-      display:inline-flex; align-items:center; gap:.4rem;
+      display:inline-flex;
+      align-items:center;
+      gap:.4rem;
     }
     #order-reply pre{
       white-space: pre-wrap;     /* يحافظ على سطور الأدمن */
       word-break: break-word;
       margin: 0;
     }
-    .btn-brand:hover{ filter:brightness(.95); color:#fff }
-    .btn-ghost{
-      background:#fff; border:1px solid #e6e9ef; color:#222
+    .btn-brand:hover{
+      filter:brightness(.95);
+      color:#fff
     }
-    .actions{ gap:.5rem }
-    .last-updated{ color:var(--muted); font-size:.9rem }
+    .btn-ghost{
+      background:#fff;
+      border:1px solid #e6e9ef;
+      color:#222
+    }
+    .actions{
+      gap:.5rem
+    }
+    .last-updated{
+      color:var(--muted);
+      font-size:.9rem
+    }
     @media (max-width: 768px){
       .section-title{ font-size:1.6rem }
       .order-wrapper{ padding:1.25rem }
@@ -96,6 +133,7 @@
       </p>
 
       <div class="row">
+        <!-- العمود الأيسر -->
         <div class="col-12 col-lg-6">
           <div class="kv-label">ORDER ID</div>
           <div class="kv-value"><%= order.id %></div>
@@ -107,6 +145,7 @@
           <div class="kv-value">$<%= parseFloat(order.price).toFixed(2) %></div>
         </div>
 
+        <!-- العمود الأيمن -->
         <div class="col-12 col-lg-6">
           <div class="kv-label">DATE</div>
           <div class="kv-value"><%= new Date(order.purchaseDate).toLocaleString() %></div>
@@ -117,54 +156,51 @@
           <% } %>
 
           <!-- بلوك خدمات السوشيال (يظهر فقط لو في بيانات SMM) -->
-                <% if (order.smm_status) { %>
-        <div class="col-12 col-lg-6 mt-4">
-          <div class="kv-label">SOCIAL MEDIA PROGRESS</div>
-          <div class="kv-value">
-            <% 
-              const orderedQty  = Number(order.smm_quantity || 0);
-              const remainsDB   = Number(order.smm_remains_qty || 0);
-              const hasDelivered = order.smm_delivered_qty !== null && order.smm_delivered_qty !== undefined;
-              
-              let deliveredQty, remainsQty;
+          <% if (order.smm_status) { %>
+            <div class="kv-label mt-3">SOCIAL MEDIA PROGRESS</div>
+            <div class="kv-value">
+              <%
+                const orderedQty  = Number(order.smm_quantity || 0);
+                const hasDelivered = order.smm_delivered_qty !== null && order.smm_delivered_qty !== undefined;
+                const remainsDB   = Number(order.smm_remains_qty || 0);
 
-              if (hasDelivered) {
-                deliveredQty = Number(order.smm_delivered_qty || 0);
-                // نثق بالـ remains من الـ DB إذا موجود، وإلا نحسبه
-                remainsQty   = remainsDB || Math.max(0, orderedQty - deliveredQty);
-              } else {
-                remainsQty   = remainsDB;
-                deliveredQty = Math.max(0, orderedQty - remainsQty);
-              }
+                let deliveredQty, remainsQty;
 
-              if (deliveredQty < 0) deliveredQty = 0;
-              if (deliveredQty > orderedQty) deliveredQty = orderedQty;
-              if (remainsQty   < 0) remainsQty   = 0;
-            %>
+                if (hasDelivered) {
+                  deliveredQty = Number(order.smm_delivered_qty || 0);
+                  remainsQty   = remainsDB || Math.max(0, orderedQty - deliveredQty);
+                } else {
+                  remainsQty   = remainsDB;
+                  deliveredQty = Math.max(0, orderedQty - remainsQty);
+                }
 
-            <ul class="mb-0">
-              <li>
-                <strong>Ordered quantity:</strong>
-                <span class="text-dark"><%= orderedQty %></span>
-              </li>
-              <li>
-                <strong>Delivered quantity:</strong>
-                <span class="text-dark"><%= deliveredQty %></span>
-              </li>
-              <li>
-                <strong>Not delivered (remaining):</strong>
-                <span class="text-dark"><%= remainsQty %></span>
-              </li>
-              <li>
-                <strong>Provider status:</strong>
-                <span class="text-dark">
-                  <%= (order.smm_provider_status || order.smm_status || '').toString() %>
-                </span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      <% } %>
+                if (deliveredQty < 0) deliveredQty = 0;
+                if (deliveredQty > orderedQty) deliveredQty = orderedQty;
+                if (remainsQty   < 0) remainsQty   = 0;
+              %>
+
+              <ul class="mb-0">
+                <li>
+                  <strong>Ordered quantity:</strong>
+                  <span class="text-dark" id="smm-ordered"><%= orderedQty %></span>
+                </li>
+                <li>
+                  <strong>Delivered quantity:</strong>
+                  <span class="text-dark" id="smm-delivered"><%= deliveredQty %></span>
+                </li>
+                <li>
+                  <strong>Not delivered (remaining):</strong>
+                  <span class="text-dark" id="smm-remains"><%= remainsQty %></span>
+                </li>
+                <li>
+                  <strong>Provider status:</strong>
+                  <span class="text-dark" id="smm-provider-status">
+                    <%= (order.smm_provider_status || order.smm_status || '').toString() %>
+                  </span>
+                </li>
+              </ul>
+            </div>
+          <% } %>
 
           <div class="d-flex align-items-center justify-content-between mt-3">
             <div class="order-label m-0">ADMIN REPLY</div>
@@ -183,7 +219,6 @@
           <div class="order-value" id="order-reply">
             <pre class="user-select-all"><%= order.admin_reply || '' %></pre>
           </div>
-
         </div>
       </div>
 
@@ -199,18 +234,24 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- نفس سكربت الـ polling تبعك مع تعديل صغير للألوان -->
+  <!-- سكربت الـ polling + تحديث أرقام الـ SMM -->
   <script>
     (function () {
       const orderId = <%- JSON.stringify(order.id) %>;
       const $status = document.getElementById('order-status');
-      const $reply  = document.querySelector('#order-reply pre');
+      const $replyPre  = document.querySelector('#order-reply pre');
       const $last   = document.getElementById('lastUpdated');
       const $btn    = document.getElementById('refreshBtn');
       const $spin   = document.getElementById('refreshSpinner');
 
+      // عناصر الـ SMM (ممكن تكون null لو الطلب عادي)
+      const smmOrdered        = document.getElementById('smm-ordered');
+      const smmDelivered      = document.getElementById('smm-delivered');
+      const smmRemains        = document.getElementById('smm-remains');
+      const smmProviderStatus = document.getElementById('smm-provider-status');
+
       let lastStatus = $status ? $status.textContent.trim() : '';
-      let lastReply  = $reply  ? $reply.textContent.trim()  : '';
+      let lastReply  = $replyPre  ? $replyPre.textContent.trim()  : '';
 
       function setLoading(on){
         if(!$btn || !$spin) return;
@@ -231,11 +272,11 @@
           const data = await res.json();
           if (!data.ok) return;
 
+          // تحديث الـ status badge
           if (data.status && data.status !== lastStatus && $status) {
             lastStatus = data.status;
             $status.textContent = data.status;
 
-            // إعادة ضبط الكلاس
             $status.className = 'badge';
             $status.style.backgroundColor = '';
             $status.style.color = '';
@@ -253,13 +294,22 @@
             }
           }
 
-          // reply
+          // تحديث الـ admin reply
           const note = (data.admin_reply || '').trim();
-          if ($reply && note !== lastReply) {
+          if ($replyPre && note !== lastReply) {
             lastReply = note;
-            $reply.textContent = note;
+            $replyPre.textContent = note;
           }
 
+          // تحديث أرقام الـ SMM لو موجودة
+          if (data.smm) {
+            if (smmOrdered)        smmOrdered.textContent        = data.smm.ordered;
+            if (smmDelivered)      smmDelivered.textContent      = data.smm.delivered;
+            if (smmRemains)        smmRemains.textContent        = data.smm.remains;
+            if (smmProviderStatus) smmProviderStatus.textContent = data.smm.provider_status || '';
+          }
+
+          // آخر وقت تحديث
           if ($last) {
             const now = new Date();
             $last.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -278,7 +328,7 @@
     })();
   </script>
 
-  <!-- سكربت Copy كما عندك بالضبط تقريباً -->
+  <!-- سكربت Copy كما عندك مع تحسين بسيط -->
   <script>
   (function () {
     const copyBtn   = document.getElementById('copy-reply');

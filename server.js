@@ -5157,13 +5157,10 @@ app.get('/order-details/:id', checkAuth, (req, res) => {
   });
 });
 
+// JSON status for polling من صفحة Order Details
 app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
   const orderId = Number(req.params.id);
-  const userId = req.session.user.id;
-
-  if (!Number.isFinite(orderId)) {
-    return res.status(400).json({ ok: false, error: 'Bad order id' });
-  }
+  const userId  = req.session.user.id;
 
   const sql = `
     SELECT
@@ -5182,33 +5179,51 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
   `;
 
   db.query(sql, [orderId, userId], (err, rows) => {
-    if (err || rows.length === 0) {
+    if (err || !rows.length) {
       console.error('order-details status.json error:', err?.message || err);
-      return res.status(404).json({ ok: false, error: 'Order not found' });
+      return res.json({ ok: false });
     }
 
     const row = rows[0];
 
-    // إذا الطلب مش SMM (ما إلو provider_order_id أو ما عندو row بالسmm_orders)
-    // رح تكون smm_* = null، والـ frontend بيتجاهل هالجزء
-    return res.json({
+    // نحسب أرقام الـ SMM بشكل مرتب
+    let smmBlock = null;
+    if (row.smm_status) {
+      const orderedQty  = Number(row.smm_quantity || 0);
+      const hasDelivered = row.smm_delivered_qty !== null && row.smm_delivered_qty !== undefined;
+      const remainsDB   = Number(row.smm_remains_qty || 0);
+
+      let deliveredQty, remainsQty;
+
+      if (hasDelivered) {
+        deliveredQty = Number(row.smm_delivered_qty || 0);
+        remainsQty   = remainsDB || Math.max(0, orderedQty - deliveredQty);
+      } else {
+        remainsQty   = remainsDB;
+        deliveredQty = Math.max(0, orderedQty - remainsQty);
+      }
+
+      if (deliveredQty < 0) deliveredQty = 0;
+      if (deliveredQty > orderedQty) deliveredQty = orderedQty;
+      if (remainsQty   < 0) remainsQty   = 0;
+
+      smmBlock = {
+        ordered: orderedQty,
+        delivered: deliveredQty,
+        remains: remainsQty,
+        provider_status: row.smm_provider_status || row.smm_status || ''
+      };
+    }
+
+    res.json({
       ok: true,
-      id: row.id,
       status: row.status,
       admin_reply: row.admin_reply || '',
-      order_details: row.order_details || '',
-
-      smm: row.smm_status ? {
-        status:         row.smm_status,
-        quantity:       row.smm_quantity,
-        delivered_qty:  row.smm_delivered_qty,
-        remains_qty:    row.smm_remains_qty,
-        refund_amount:  row.smm_refund_amount,
-        provider_status: row.smm_provider_status,
-      } : null
+      smm: smmBlock
     });
   });
 });
+
 
 
 
