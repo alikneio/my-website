@@ -994,15 +994,16 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
 });
 
 
-const slugify = require('slugify'); // npm i slugify
+const smmSlugify = require('slugify'); // npm i slugify
 
 function makeSlug(name = '') {
-  return slugify(name, {
+  return smmSlugify(name, {
     lower: true,
-    strict: true, // يشيل الرموز
+    strict: true,
     trim: true
   }) || 'other';
 }
+
 
 app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
   try {
@@ -1714,7 +1715,7 @@ app.post('/admin/smm-categories/create', checkAdmin, (req, res) => {
     return res.redirect('/admin/smm-categories');
   }
 
-  const slug = slugify(cleanName, { lower: true, strict: true, trim: true });
+  const slug = smmSlugify(cleanName, { lower: true, strict: true, trim: true });
 
   db.query(
     `
