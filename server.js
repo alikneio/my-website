@@ -20,7 +20,8 @@ const { dailycardAPI, verifyPlayerId } = require('./services/dailycard');
 const { v4: uuidv4 } = require('uuid');
 const TelegramBot = require('node-telegram-bot-api');
 // 🔽 عدّل هول:
-const { getSmmServices, createSmmOrder } = require('./services/smmgen');
+const { getSmmServices, createSmmOrder, getSmmOrderStatus } = require('./services/smmgen');
+
 // (رح نرجع لـ syncSMM بعد شوي)
 const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');

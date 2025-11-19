@@ -8,7 +8,9 @@ if (!API_KEY) {
   console.warn("⚠️ SMMGEN_API_KEY is not set in .env");
 }
 
-// دالة مشتركة للـ API (ترسل form-url-encoded)
+// -----------------------------
+//  دالة مشتركة لاستدعاء SMMGEN
+// -----------------------------
 async function callSmmgen(body) {
   if (!API_KEY) {
     throw new Error("SMMGEN_API_KEY is missing");
@@ -29,39 +31,51 @@ async function callSmmgen(body) {
   return data;
 }
 
-// 1) جلب الخدمات
+// -----------------------------
+//  1) جلب الخدمات
+// -----------------------------
 async function getSmmServices() {
   const data = await callSmmgen({ action: "services" });
 
   console.log("SMMGEN services sample:", Array.isArray(data) ? data[0] : data);
 
   if (!Array.isArray(data)) {
-    throw new Error("Invalid SMMGEN services response: " + JSON.stringify(data));
+    throw new Error(
+      "Invalid SMMGEN services response: " + JSON.stringify(data)
+    );
   }
 
   return data;
 }
 
+// -----------------------------
+//  2) جلب حالة طلب واحد
+//  (مهم لـ syncSMM)
+// -----------------------------
 async function getSmmOrderStatus(orderId) {
+  if (!orderId) throw new Error("orderId is required");
+
   const data = await callSmmgen({
-    action: 'status',
+    action: "status",
     order: String(orderId),
   });
 
-  console.log('SMMGEN status response:', data);
+  console.log("SMMGEN status response:", data);
+
   return data;
 }
 
-
-// 2) إنشاء طلب جديد
+// -----------------------------
+//  3) إنشاء طلب جديد
+// -----------------------------
 async function createSmmOrder({ service, link, quantity }) {
   if (!API_KEY) {
     throw new Error("SMMGEN_API_KEY is missing");
   }
 
   const cleanService = String(service || "").trim();
-  const cleanLink    = String(link || "").trim();
-  const cleanQty     = String(quantity || "").trim();
+  const cleanLink = String(link || "").trim();
+  const cleanQty = String(quantity || "").trim();
 
   if (!cleanService || !cleanLink || !cleanQty) {
     throw new Error("Missing parameters for SMM order");
@@ -76,12 +90,10 @@ async function createSmmOrder({ service, link, quantity }) {
 
   console.log("SMMGEN add response:", data);
 
-  // Error من المزوّد نفسه
   if (data && data.error) {
     throw new Error(data.error);
   }
 
-  // لازم يرجع order id
   const orderId = Number(data.order || data.order_id);
   if (!orderId) {
     throw new Error("No order id returned from SMMGEN: " + JSON.stringify(data));
@@ -90,9 +102,9 @@ async function createSmmOrder({ service, link, quantity }) {
   return orderId;
 }
 
-
-
+// -----------------------------
 module.exports = {
   getSmmServices,
   createSmmOrder,
+  getSmmOrderStatus,
 };
