@@ -2128,6 +2128,7 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
     name,
     category_id,
     rate,
+    rate_per,
     min_qty,
     max_qty,
     is_active,
@@ -2140,17 +2141,24 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
     : null;
 
   const numericRate = Number(rate || 0);
+  const numericRatePer = Number(rate_per || 1000) || 1000;
   const minQ = parseInt(min_qty || '0', 10) || 0;
   const maxQ = parseInt(max_qty || '0', 10) || 0;
   const activeFlag = is_active === '1' ? 1 : 0;
   const avgTime = (average_time || '').trim();
   const cleanNotes = (notes || '').trim();
+  const cleanName = (name || '').trim();
+
+  if (!cleanName || !Number.isFinite(numericRate) || numericRate <= 0) {
+    return res.redirect(`/admin/smm-services/${serviceId}/edit?msg=invalid`);
+  }
 
   const sql = `
     UPDATE smm_services
     SET name         = ?,
         category_id  = ?,
         rate         = ?,
+        rate_per     = ?,
         min_qty      = ?,
         max_qty      = ?,
         average_time = ?,
@@ -2163,9 +2171,10 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
   db.query(
     sql,
     [
-      (name || '').trim(),
+      cleanName,
       catId,
       numericRate,
+      numericRatePer,
       minQ,
       maxQ,
       avgTime,

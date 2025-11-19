@@ -19,6 +19,7 @@
   <main class="main-content">
     <div class="container-fluid py-4" style="max-width: 1100px;">
 
+      <!-- Header -->
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h4 mb-0">
           <i class="bi bi-instagram"></i>
@@ -90,9 +91,9 @@
               </div>
             </div>
 
-            <!-- Rate / Min / Max -->
-            <div class="col-md-2">
-              <label class="form-label">Rate / 1000</label>
+            <!-- Rate + Rate per -->
+            <div class="col-md-3">
+              <label class="form-label">Rate</label>
               <input
                 type="number"
                 step="0.0001"
@@ -101,9 +102,28 @@
                 value="<%= Number(service.rate || 0).toFixed(4) %>"
                 required
               />
+              <div class="form-text">
+                Price in USD for the selected unit.
+              </div>
             </div>
 
-            <div class="col-md-2">
+            <div class="col-md-3">
+              <label class="form-label">Rate unit</label>
+              <input
+                type="number"
+                name="rate_per"
+                class="form-control"
+                value="<%= service.rate_per || 1000 %>"
+                min="1"
+                required
+              />
+              <div class="form-text">
+                Unit for the rate (e.g. 1000, 10000, 100000).
+              </div>
+            </div>
+
+            <!-- Min / Max -->
+            <div class="col-md-3">
               <label class="form-label">Min qty</label>
               <input
                 type="number"
@@ -114,7 +134,7 @@
               />
             </div>
 
-            <div class="col-md-2">
+            <div class="col-md-3">
               <label class="form-label">Max qty</label>
               <input
                 type="number"
@@ -136,8 +156,7 @@
                 placeholder="Example: 0–5 minutes / 1–3 hours"
               />
               <div class="form-text">
-                Shown to the customer on checkout. You can write free text
-                (e.g. "Start: 0–5 min, Speed: 5k/day").
+                Shown to the customer on checkout. Free text (e.g. "Start: 0–5 min, Speed: 5k/day").
               </div>
             </div>
 
@@ -151,12 +170,11 @@
                 placeholder="Each line will appear as a bullet point for the customer."
               ><%= service.notes || '' %></textarea>
               <div class="form-text">
-                Each line will be shown as a separate bullet point in the checkout
-                page. You can mix English / Arabic freely.
+                Each line will be shown as a separate bullet point on the checkout page.
               </div>
             </div>
 
-            <!-- معلومات المزود (اختياري عرض فقط) -->
+            <!-- معلومات المزود -->
             <div class="col-12">
               <hr />
               <h6 class="text-muted mb-2">Provider information</h6>
