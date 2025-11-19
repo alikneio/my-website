@@ -6,12 +6,11 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
   const API_KEY = process.env.SMMGEN_API_KEY;
 
   if (!API_KEY) {
-    console.warn('⚠️ SMMGEN_API_KEY is not set, syncSMM will not run.');
+    console.warn('⚠️ SMMGEN_API_KEY is not set, syncSMM will not work correctly.');
   }
 
-  // خريطة تحويل حالة المزوّد → حالة النظام عندك
   function mapStatuses(providerStatus) {
-    const s = (providerStatus || '').toLowerCase().trim();
+    const s = (providerStatus || '').toLowerCase();
 
     // قيم SMMGen المتوقعة: Pending, Processing, In progress, Completed, Partial, Canceled
     if (s === 'completed') {
@@ -26,70 +25,47 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
     if (s === 'processing' || s === 'in progress') {
       return { smm: 'processing', local: 'In progress' };
     }
-    // pending / undefined / أي شيء غير معروف
+    // pending / undefined
     return { smm: 'pending', local: 'Waiting' };
   }
 
   async function fetchStatus(orderId) {
-    if (!API_KEY) {
-      throw new Error('SMMGEN_API_KEY missing');
-    }
-
     const params = new URLSearchParams({
       key: API_KEY,
       action: 'status',
-      order: String(orderId),
+      order: orderId,
     });
 
-    const { data } = await axios.post(API_URL, params.toString(), {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      timeout: 15000,
-    });
-
+    const { data } = await axios.post(API_URL, params);
     // مثال: {status:'Completed', charge:'0.05', remains:'0', ...}
     return data;
   }
 
-  // الدالة اللي بيناديها السيرفر (job نفسها)
   return async function syncSmmOrders() {
     console.log('🔄 syncSMM job running...');
 
-    if (!API_KEY) {
-      console.warn('⛔ syncSMM stopped: SMMGEN_API_KEY is not configured.');
-      return;
-    }
+    // نجيب الطلبات اللي ما خلصت او اللي ممكن تحتاج ريفند
+    const [rows] = await promisePool.query(`
+      SELECT
+        so.*,
+        o.id     AS order_id,
+        o.userId AS user_id,
+        o.price  AS user_price,
+        o.status AS order_status
+      FROM smm_orders so
+      JOIN orders o
+        ON o.provider_order_id = so.provider_order_id
+      WHERE
+        so.provider_order_id IS NOT NULL
+        AND so.provider_order_id <> ''
+        AND (
+          so.status IN ('pending','processing','partial')
+          OR (so.status = 'completed' AND so.refunded = 0 AND so.charge > 0)
+        )
+      LIMIT 100
+    `);
 
-    let rows;
-    try {
-      // نجيب الطلبات اللي لسا ما خلصت أو ممكن تحتاج ريفند
-      const [result] = await promisePool.query(`
-        SELECT
-          so.*,
-          o.id     AS order_id,
-          o.userId AS user_id,
-          o.price  AS user_price,
-          o.status AS order_status
-        FROM smm_orders so
-        JOIN orders o
-          ON o.provider_order_id = so.provider_order_id
-        WHERE
-          so.provider_order_id IS NOT NULL
-          AND so.provider_order_id <> ''
-          AND (
-            so.status IN ('pending','processing','partial')
-            OR (so.status = 'completed' AND so.refunded = 0 AND so.charge > 0)
-          )
-        LIMIT 100
-      `);
-      rows = result;
-    } catch (e) {
-      console.error('❌ syncSMM: DB select error:', e.message || e);
-      return;
-    }
-
-    if (!rows || !rows.length) {
+    if (!rows.length) {
       console.log('🔄 syncSMM: no pending SMM orders.');
       return;
     }
@@ -99,25 +75,39 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
 
       try {
         const statusData = await fetchStatus(providerOrderId);
+        console.log('SMMGEN status response:', statusData);
 
         const providerStatusRaw = statusData.status || '';
         const { smm: smmStatus, local: localStatus } = mapStatuses(providerStatusRaw);
 
         const orderedQty      = Number(row.quantity || 0);
-        const remains         = Number(statusData.remains || 0);
-        const userPaid        = Number(row.user_price || row.charge || 0); // السعر اللي دفعه الزبون بالموقع
+        const remainsFromApi  = Number(statusData.remains || 0);
+        const remainsFromDb   = Number(row.remains_qty || 0);
 
-        // الكمية اللي فعلياً تم توصيلها
+        // نحاول نستخدم الأحدث بين الـ API و الموجود بالDB
+        // بس بالنهاية نضمن انه ما يتعدى الكمية ولا يكون سالب
+        let remains = remainsFromApi;
+        if (!Number.isFinite(remains) || remains < 0) {
+          remains = remainsFromDb;
+        }
+        if (!Number.isFinite(remains) || remains < 0) {
+          remains = 0;
+        }
+        if (orderedQty > 0 && remains > orderedQty) {
+          remains = orderedQty;
+        }
+
         const delivered = Math.max(
           0,
           Math.min(orderedQty, orderedQty - remains)
         );
 
+        const userPaid = Number(row.charge || row.user_price || 0); // السعر اللي دفعه الزبون بالموقع
         let refundAmount = 0;
 
-        // نحسب ريفند لو Partial أو Canceled
+        // نحسب ريفند فقط لو Partial أو Canceled وكان في فرق فعلي
         if ((smmStatus === 'partial' || smmStatus === 'canceled') && orderedQty > 0 && userPaid > 0) {
-          const ratio = delivered / orderedQty; // نسبة التنفيذ
+          const ratio = delivered / orderedQty;
           const usedAmount = +(userPaid * ratio).toFixed(2);
           refundAmount = +(userPaid - usedAmount).toFixed(2);
 
@@ -126,12 +116,11 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
           }
         }
 
-        // نستخدم connection خاص للـ transaction
         const conn = await promisePool.getConnection();
         try {
           await conn.beginTransaction();
 
-          // ✅ تحديث smm_orders دائماً
+          // ✅ تحديث smm_orders
           await conn.query(
             `
             UPDATE smm_orders
@@ -141,7 +130,7 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
               delivered_qty   = ?,
               remains_qty     = ?,
               refund_amount   = refund_amount + ?,
-              charge          = ?,        -- السعر الفعلي بعد الخصم/refund
+              charge          = ?,        -- المبلغ المستخدم فعلياً من سعر الزبون
               updated_at      = NOW()
             WHERE id = ?
             `,
@@ -156,13 +145,13 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
             ]
           );
 
-          // ✅ تحديث حالة الطلب في جدول orders
+          // ✅ تحديث orders.status
           await conn.query(
             `UPDATE orders SET status = ? WHERE id = ?`,
             [localStatus, row.order_id]
           );
 
-          // ✅ لو في ريفند ولسا ما رجعناه
+          // ✅ لو في ريفند و لسا ما عملناه قبل
           if (refundAmount > 0 && !row.refunded) {
             // 1) رجوع المبلغ للزبون
             await conn.query(
@@ -179,26 +168,23 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
               [
                 row.user_id,
                 refundAmount,
-                `Partial refund for SMM order #${row.order_id} (provider status: ${providerStatusRaw})`,
+                `Partial refund for SMM order #${row.id} (provider: ${providerStatusRaw})`,
               ]
             );
 
-            // 3) مارك انو هذا الطلب رجعنا ريفندو
+            // 3) مارك انو هالطلب رجعنا ريفندو
             await conn.query(
               `UPDATE smm_orders SET refunded = 1 WHERE id = ?`,
               [row.id]
             );
 
-            // 4) Admin reply واضح للزبون
+            // 4) (اختياري) admin_reply في جدول orders
             const adminMsg = `
-جزء من خدمتك تم تنفيذه بشكل جزئي من المزوّد:
-
+جزء من خدمتك تم تنفيذه بشكل جزئي من المزود:
 - الكمية المطلوبة: ${orderedQty}
 - الكمية المنفذة: ${delivered}
-- الكمية المتبقية / غير المنفذة: ${remains}
-- المبلغ المسترجع إلى رصيدك: $${refundAmount.toFixed(2)}
-
-في حال وجود أي مشكلة إضافية، يُرجى التواصل مع الدعم.
+- الكمية غير المنفذة / المسترجعة: ${remains}
+- المبلغ المسترجع لرصيدك: $${refundAmount.toFixed(2)}
             `.trim();
 
             await conn.query(
@@ -209,9 +195,8 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
 
           await conn.commit();
           conn.release();
-
           console.log(
-            `✅ syncSMM: order #${row.order_id} (provider ${providerOrderId}) → ${providerStatusRaw}, local = ${localStatus}, refund = $${refundAmount}`
+            `✅ syncSMM: order #${row.order_id} provider ${providerOrderId} → ${providerStatusRaw}, local status = ${localStatus}, refund = $${refundAmount}`
           );
         } catch (innerErr) {
           await conn.rollback();
