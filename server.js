@@ -994,7 +994,6 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
 });
 
 
-const smmSlugify = require('slugify'); // npm i slugify
 
 function makeSlug(name = '') {
   return smmSlugify(name, {
@@ -1715,7 +1714,8 @@ app.post('/admin/smm-categories/create', checkAdmin, (req, res) => {
     return res.redirect('/admin/smm-categories');
   }
 
-  const slug = smmSlugify(cleanName, { lower: true, strict: true, trim: true });
+  const slug = slugify(cleanName);
+
 
   db.query(
     `

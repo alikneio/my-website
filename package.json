@@ -26,6 +26,7 @@
     "node-fetch": "^2.7.0",
     "node-telegram-bot-api": "^0.66.0",
     "sharp": "^0.34.3",
+    "slugify": "^1.6.6",
     "sqlite3": "^5.1.7",
     "uuid": "^11.1.0"
   }
