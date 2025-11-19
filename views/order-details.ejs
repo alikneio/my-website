@@ -117,42 +117,54 @@
           <% } %>
 
           <!-- بلوك خدمات السوشيال (يظهر فقط لو في بيانات SMM) -->
-          <% if (order.smm_quantity) { %>
-            <div class="kv-label mt-3">SOCIAL MEDIA PROGRESS</div>
-            <div class="kv-value">
-              <ul class="mb-0 ps-3 small">
-                <li>
-                  Ordered quantity:
-                  <strong><%= order.smm_quantity %></strong>
-                </li>
-                <li>
-                  Delivered quantity:
-                  <strong><%= order.smm_delivered_qty || 0 %></strong>
-                </li>
-                <li>
-                  Not delivered (remaining):
-                  <strong><%= order.smm_remains_qty || 0 %></strong>
-                </li>
-                <% if (order.smm_refund_amount && Number(order.smm_refund_amount) > 0) { %>
-                  <li class="text-danger">
-                    Refunded amount:
-                    <strong>$<%= Number(order.smm_refund_amount).toFixed(2) %></strong>
-                  </li>
-                <% } %>
-                <% if (order.smm_provider_status) { %>
-                  <li class="text-muted">
-                    Provider status:
-                    <strong><%= order.smm_provider_status %></strong>
-                  </li>
-                <% } else if (order.smm_status) { %>
-                  <li class="text-muted">
-                    Provider status:
-                    <strong><%= order.smm_status %></strong>
-                  </li>
-                <% } %>
-              </ul>
-            </div>
-          <% } %>
+                <% if (order.smm_status) { %>
+        <div class="col-12 col-lg-6 mt-4">
+          <div class="kv-label">SOCIAL MEDIA PROGRESS</div>
+          <div class="kv-value">
+            <% 
+              const orderedQty  = Number(order.smm_quantity || 0);
+              const remainsDB   = Number(order.smm_remains_qty || 0);
+              const hasDelivered = order.smm_delivered_qty !== null && order.smm_delivered_qty !== undefined;
+              
+              let deliveredQty, remainsQty;
+
+              if (hasDelivered) {
+                deliveredQty = Number(order.smm_delivered_qty || 0);
+                // نثق بالـ remains من الـ DB إذا موجود، وإلا نحسبه
+                remainsQty   = remainsDB || Math.max(0, orderedQty - deliveredQty);
+              } else {
+                remainsQty   = remainsDB;
+                deliveredQty = Math.max(0, orderedQty - remainsQty);
+              }
+
+              if (deliveredQty < 0) deliveredQty = 0;
+              if (deliveredQty > orderedQty) deliveredQty = orderedQty;
+              if (remainsQty   < 0) remainsQty   = 0;
+            %>
+
+            <ul class="mb-0">
+              <li>
+                <strong>Ordered quantity:</strong>
+                <span class="text-dark"><%= orderedQty %></span>
+              </li>
+              <li>
+                <strong>Delivered quantity:</strong>
+                <span class="text-dark"><%= deliveredQty %></span>
+              </li>
+              <li>
+                <strong>Not delivered (remaining):</strong>
+                <span class="text-dark"><%= remainsQty %></span>
+              </li>
+              <li>
+                <strong>Provider status:</strong>
+                <span class="text-dark">
+                  <%= (order.smm_provider_status || order.smm_status || '').toString() %>
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      <% } %>
 
           <div class="d-flex align-items-center justify-content-between mt-3">
             <div class="order-label m-0">ADMIN REPLY</div>
