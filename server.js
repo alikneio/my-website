@@ -786,55 +786,104 @@ app.get('/u-share', (req, res) => {
 
 
 
-// --- صفحات أخرى ---
-// My Orders (with filters, totals, counters, pagination)
-// === REPLACE your current /my-orders route with this ===
 app.get('/my-orders', checkAuth, (req, res) => {
   const userId = req.session.user.id;
 
-  // read filters (all optional)
-  const from   = (req.query.from || '').trim();    // yyyy-mm-dd
-  const to     = (req.query.to   || '').trim();    // yyyy-mm-dd
+  const from   = (req.query.from || '').trim();
+  const to     = (req.query.to   || '').trim();
   const q      = (req.query.q    || '').trim();
-  const status = (req.query.status || 'all').trim(); // all | Accepted | Waiting | Rejected
+  const status = (req.query.status || 'all').trim();
 
-  let sql = `SELECT * FROM orders WHERE userId = ?`;
   const params = [userId];
+  let where = 'WHERE o.userId = ?';
 
-  // add clauses ONLY when provided
+  // فلتر التاريخ من/إلى
   if (from) {
-    sql += ` AND purchaseDate >= ?`;
-    params.push(new Date(from));
+    where += ' AND o.purchaseDate >= ?';
+    params.push(from + ' 00:00:00');
   }
   if (to) {
-    // include the "to" day fully
-    sql += ` AND purchaseDate < DATE_ADD(?, INTERVAL 1 DAY)`;
-    params.push(new Date(to));
+    where += ' AND o.purchaseDate <= ?';
+    params.push(to + ' 23:59:59');
   }
-  if (status && status !== 'all') {
-    sql += ` AND status = ?`;
-    params.push(status);
-  }
+
+  // بحث بالـ ID أو الاسم
   if (q) {
-    // search by numeric id OR product name
-    const idCandidate = Number.isFinite(+q) ? +q : -1;
-    sql += ` AND (id = ? OR productName LIKE ?)`;
-    params.push(idCandidate, `%${q}%`);
+    where += ' AND (o.id = ? OR o.productName LIKE ?)';
+    params.push(q, `%${q}%`);
   }
 
-  sql += ` ORDER BY purchaseDate DESC`;
+  const sql = `
+    SELECT
+      o.id,
+      o.productName,
+      o.price,
+      o.purchaseDate,
+      o.status,
+      o.order_details,
+      o.provider,
+      o.provider_order_id,
 
-  db.query(sql, params, (err, orders = []) => {
+      so.provider_status,
+      so.delivered_qty,
+      so.remains_qty,
+      so.quantity AS smm_quantity
+    FROM orders o
+    LEFT JOIN smm_orders so
+      ON so.provider_order_id = o.provider_order_id
+    ${where}
+    ORDER BY o.id DESC
+    LIMIT 300
+  `;
+
+  db.query(sql, params, (err, rows) => {
     if (err) {
-      console.error(err.message);
-      return res.status(500).send('Error loading orders.');
+      console.error('❌ /my-orders error:', err.message);
+      return res.status(500).send('Server error');
     }
-    const total = orders.reduce((s, o) => s + (parseFloat(o.price) || 0), 0);
 
-    // pass filters back to the view to keep form state
+    // نعمل status نهائي لكل طلب
+    const allOrders = rows.map(row => {
+      let displayStatus = row.status || 'Waiting';
+
+      // فقط طلبات SMM
+      if (row.provider === 'smm' && row.provider_status) {
+        const ps = String(row.provider_status).toLowerCase();
+
+        if (ps === 'completed' || ps === 'completedpartial') {
+          displayStatus = 'Accepted';
+        } else if (ps === 'partial') {
+          displayStatus = 'Partial';
+        } else if (ps === 'canceled' || ps === 'cancelled' || ps === 'refunded') {
+          displayStatus = 'Rejected';
+        } else if (ps === 'processing' || ps === 'in progress' || ps === 'pending') {
+          displayStatus = 'In progress';
+        } else {
+          displayStatus = 'Waiting';
+        }
+      }
+
+      return {
+        ...row,
+        displayStatus
+      };
+    });
+
+    // فلتر الحالة (بعد ما نحسب displayStatus)
+    const filteredOrders =
+      status === 'all'
+        ? allOrders
+        : allOrders.filter(o => (o.displayStatus || 'Waiting') === status);
+
+    // المجموع
+    const total = filteredOrders.reduce(
+      (sum, o) => sum + (Number(o.price) || 0),
+      0
+    );
+
     res.render('my-orders', {
       user: req.session.user,
-      orders,
+      orders: filteredOrders,
       total,
       filters: { from, to, q, status }
     });

@@ -115,22 +115,26 @@
               <span class="fw-bold">$<%= (parseFloat(order.price)||0).toFixed(2) %></span>
             </p>
 
+            <!-- STATUS BADGE (مبني على displayStatus إن وجد) -->
             <div class="small">
-  Status:
-  <% if (order.status === 'Waiting') { %>
-    <span class="badge bg-warning text-dark">Waiting</span>
-  <% } else if (order.status === 'In progress') { %>
-    <span class="badge bg-info text-dark">In progress</span>
-  <% } else if (order.status === 'Accepted') { %>
-    <span class="badge bg-success">Accepted</span>
-  <% } else if (order.status === 'Partial') { %>
-    <span class="badge bg-purple" style="background:#a855f7;">Partial</span>
-  <% } else if (order.status === 'Rejected') { %>
-    <span class="badge bg-danger">Rejected</span>
-  <% } else { %>
-    <span class="badge bg-secondary"><%= order.status %></span>
-  <% } %>
-</div>
+              Status:
+              <% 
+                const st = order.displayStatus || order.status || 'Waiting';
+              %>
+              <% if (st === 'Waiting') { %>
+                <span class="badge bg-warning text-dark">Waiting</span>
+              <% } else if (st === 'In progress') { %>
+                <span class="badge bg-info text-dark">In progress</span>
+              <% } else if (st === 'Accepted') { %>
+                <span class="badge bg-success">Accepted</span>
+              <% } else if (st === 'Partial') { %>
+                <span class="badge" style="background:#a855f7;">Partial</span>
+              <% } else if (st === 'Rejected') { %>
+                <span class="badge bg-danger">Rejected</span>
+              <% } else { %>
+                <span class="badge bg-secondary"><%= st %></span>
+              <% } %>
+            </div>
 
             <% if (order.order_details) { %>
               <div class="mt-2 text-muted small">
@@ -148,7 +152,8 @@
       </div>
     <% } %>
   </div>
-    <%- include('partials/footer') %>
+
+  <%- include('partials/footer') %>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
