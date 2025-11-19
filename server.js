@@ -1220,10 +1220,6 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
 });
 
 
-
-// شراء خدمات السوشيال ميديا
-// شراء خدمات السوشيال ميديا
-// شراء خدمات السوشيال ميديا (نسخة مبسّطة مع لوج واضح)
 app.post('/buy-social', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
@@ -1238,11 +1234,14 @@ app.post('/buy-social', checkAuth, async (req, res) => {
   const serviceIdNum = parseInt(service_id || serviceId, 10);
   const qty = parseInt(quantity, 10);
 
-  // Helper بسيط للـ DB
   const q = (sql, params = []) =>
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
+
+  let total = 0;           // المبلغ اللي خصمناه
+  let serviceName = '';    // اسم الخدمة للـ transactions
+  let providerOrderId = ''; // رقم الطلب عند المزود
 
   try {
     console.log('🟦 /buy-social START', { userId, serviceIdNum, link, qty });
@@ -1273,6 +1272,8 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
+    serviceName = service.name;
+
     // 3) تحقق من min / max
     const minQty = Number(service.min_qty || 0);
     const maxQty = Number(service.max_qty || 0);
@@ -1296,7 +1297,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       console.log('❌ pricing_too_low', { totalCents });
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
-    const total = totalCents / 100;
+    total = totalCents / 100;
 
     // 5) خصم من رصيد المستخدم
     const upd = await q(
@@ -1314,11 +1315,10 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     await q(
       `INSERT INTO transactions (user_id, type, amount, reason)
        VALUES (?, 'debit', ?, ?)`,
-      [userId, total, `Social Media Service: ${service.name}`]
+      [userId, total, `Social Media Service: ${serviceName}`]
     );
 
     // 7) إنشاء الطلب عند مزود SMMGEN
-    let providerOrderId;
     try {
       providerOrderId = await createSmmOrder({
         service: service.provider_service_id,
@@ -1337,7 +1337,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       await q(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'credit', ?, ?)`,
-        [userId, total, `Refund (SMMGEN error): ${service.name}`]
+        [userId, total, `Refund (SMMGEN error): ${serviceName}`]
       );
 
       return res.redirect(
@@ -1356,27 +1356,27 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       await q(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'credit', ?, ?)`,
-        [userId, total, `Refund (no provider id): ${service.name}`]
+        [userId, total, `Refund (no provider id): ${serviceName}`]
       );
       return res.redirect(
         `/social-checkout/${serviceIdNum}?error=no_provider_id`
       );
     }
 
-    // 8) حفظ الطلب في جدول orders
+    // 8) حفظ الطلب في جدول orders (بدون provider)
     const orderDetails = `Link: ${link} | Quantity: ${qty}`;
 
     const insertOrderSql = `
       INSERT INTO orders
         (userId, productName, price, purchaseDate, order_details, status,
-         provider_order_id, provider, source)
+         provider_order_id, source)
       VALUES
-        (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smm', 'smm')
+        (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smm')
     `;
 
     const insertRes = await q(insertOrderSql, [
       userId,
-      service.name,
+      serviceName,
       total,
       orderDetails,
       providerOrderId,
@@ -1397,55 +1397,43 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 
     console.log('✅ smm_orders_inserted');
 
-    // 10) إشعار بالنوتيفيكيشن
+    // 10) إشعار داخلي
     await q(
       `INSERT INTO notifications (user_id, message, created_at, is_read)
        VALUES (?, ?, NOW(), 0)`,
       [
         userId,
-        `✅ تم استلام طلب خدمتك (${service.name}) بنجاح. سيتم تنفيذها قريبًا.`,
+        `✅ تم استلام طلب خدمتك (${serviceName}) بنجاح. سيتم تنفيذها قريبًا.`,
       ]
     );
 
-    // 11) تيليغرام (اختياري كما عندك)
-    const [userRow] = await q(
-      `SELECT username, telegram_chat_id FROM users WHERE id = ?`,
-      [userId]
-    );
+    // (تيليغرام نفس اللي كان عندك، فيك ترجع تضيفه هون لو حابب)
 
-    if (userRow?.telegram_chat_id) {
-      await sendTelegramMessage(
-        userRow.telegram_chat_id,
-        `📥 <b>تم استلام طلب خدمتك للسوشيال ميديا</b>\n\n🛍️ <b>الخدمة:</b> ${
-          service.name
-        }\n🔗 <b>الرابط:</b> ${link}\n🔢 <b>الكمية:</b> ${qty}\n💰 <b>السعر:</b> ${total}$\n📌 <b>الحالة:</b> جاري المعالجة`,
-        process.env.TELEGRAM_BOT_TOKEN
-      );
-    }
-
-    if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
-      await sendTelegramMessage(
-        process.env.ADMIN_TELEGRAM_CHAT_ID,
-        `🆕 طلب Social Media جديد!\n👤 الزبون: ${
-          userRow?.username
-        }\n🛍️ الخدمة: ${service.name}\n🔢 الكمية: ${qty}\n💰 السعر: ${total}$\n🔗 الرابط: ${link}\n🕓 الوقت: ${new Date().toLocaleString(
-          'en-US',
-          { hour12: false }
-        )}`,
-        process.env.TELEGRAM_BOT_TOKEN
-      );
-    }
-
-    // 12) حفظ رقم الطلب في السيشن (لو بدك تستخدمه في /processing)
     req.session.pendingOrderId = orderId;
     console.log('✅ /buy-social DONE, redirect /processing');
 
     return res.redirect('/processing');
   } catch (err) {
-    console.error(
-      '❌ /buy-social error:',
-      err?.response?.data || err.message || err
-    );
+    console.error('❌ /buy-social error:', err?.message || err);
+
+    // محاولة Refund في حال صار خطأ بعد الخصم وما انعمل Refund
+    try {
+      if (total > 0) {
+        await q(
+          `UPDATE users SET balance = balance + ? WHERE id = ?`,
+          [total, userId]
+        );
+        await q(
+          `INSERT INTO transactions (user_id, type, amount, reason)
+           VALUES (?, 'credit', ?, ?)`,
+          [userId, total, `Refund (server error): ${serviceName || 'Social Service'}`]
+        );
+        console.log('✅ refund done after server error');
+      }
+    } catch (e2) {
+      console.error('❌ refund after error failed:', e2?.message || e2);
+    }
+
     return res.redirect(`/social-checkout/${serviceIdNum}?error=server`);
   }
 });
