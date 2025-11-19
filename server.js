@@ -5055,56 +5055,58 @@ app.get('/pubg-section', async (req, res) => {
 });
 
 
-app.get('/order-details/:id', (req, res) => {
-  const orderId = req.params.id;
 
-  const sql = "SELECT * FROM orders WHERE id = ?";
-  db.query(sql, [orderId], (err, rows) => {
-    if (err || rows.length === 0) {
-      return res.send("❌ Order not found.");
-    }
-
-    const order = rows[0];
-
-    const orderData = {
-      id: order.id,
-      productName: order.productName,
-      price: order.price,
-      purchaseDate: order.purchaseDate,
-      status: order.status,
-      order_details: order.order_details || null,
-      admin_reply: order.admin_reply || null
-    };
-
-    res.render('order-details', { order: orderData });
-  });
-});
-
-
-// Lightweight JSON status for live updates
-// كان بدون checkAuth و بدون تقييد المستخدم
 app.get('/order-details/:id', checkAuth, (req, res) => {
   const orderId = Number(req.params.id);
   const userId = req.session.user.id;
 
-  const sql = "SELECT * FROM orders WHERE id = ? AND userId = ?";
+  const sql = `
+    SELECT
+      o.*,
+      so.status          AS smm_status,
+      so.quantity        AS smm_quantity,
+      so.delivered_qty   AS smm_delivered_qty,
+      so.remains_qty     AS smm_remains_qty,
+      so.refund_amount   AS smm_refund_amount,
+      so.provider_status AS smm_provider_status
+    FROM orders o
+    LEFT JOIN smm_orders so
+      ON so.provider_order_id = o.provider_order_id
+    WHERE o.id = ? AND o.userId = ?
+    LIMIT 1
+  `;
+
   db.query(sql, [orderId, userId], (err, rows) => {
-    if (err || rows.length === 0) return res.status(404).send("❌ Order not found or access denied.");
-    const order = rows[0];
+    if (err || rows.length === 0) {
+      console.error('order-details error:', err?.message || err);
+      return res.status(404).send("❌ Order not found or access denied.");
+    }
+
+    const row = rows[0];
+
     res.render('order-details', {
       order: {
-        id: order.id,
-        productName: order.productName,
-        price: order.price,
-        purchaseDate: order.purchaseDate,
-        status: order.status,
-        order_details: order.order_details || null,
-        admin_reply: order.admin_reply || null,
-        provider_order_id: order.provider_order_id || null
+        id: row.id,
+        productName: row.productName,
+        price: row.price,
+        purchaseDate: row.purchaseDate,
+        status: row.status,
+        order_details: row.order_details || '',
+        admin_reply: row.admin_reply || '',
+        provider_order_id: row.provider_order_id || null,
+
+        // معلومات الـ SMM (بتكون null للطلبات العادية)
+        smm_status: row.smm_status || null,
+        smm_quantity: row.smm_quantity || null,
+        smm_delivered_qty: row.smm_delivered_qty || null,
+        smm_remains_qty: row.smm_remains_qty || null,
+        smm_refund_amount: row.smm_refund_amount || null,
+        smm_provider_status: row.smm_provider_status || null,
       }
     });
   });
 });
+
 
 
 app.get('/order-status/:orderId', (req, res) => {

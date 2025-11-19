@@ -16,6 +16,7 @@
       --title: #1d3557;          /* لون العنوان */
       --text: #222;
       --muted: #6c757d;
+      --purple: #a855f7;
     }
     body{ background: var(--bg-soft); font-family: 'Cairo', sans-serif; color: var(--text); }
     .order-wrapper{
@@ -27,18 +28,22 @@
       background:#f1f3f5;border-radius:10px;padding:.75rem 1rem;color:#212529;margin-bottom:1rem
     }
     .badge{ font-size:.95rem;padding:.45rem .9rem }
+    .badge-partial{
+      background: var(--purple);
+      color:#fff;
+    }
     .btn-brand{
       background:var(--brand); border-color:var(--brand); color:#fff
     }
     .copy-btn{
-  border-radius: 10px;
-  display:inline-flex; align-items:center; gap:.4rem;
-}
-#order-reply pre{
-  white-space: pre-wrap;     /* يحافظ على سطور الأدمن */
-  word-break: break-word;
-  margin: 0;
-}
+      border-radius: 10px;
+      display:inline-flex; align-items:center; gap:.4rem;
+    }
+    #order-reply pre{
+      white-space: pre-wrap;     /* يحافظ على سطور الأدمن */
+      word-break: break-word;
+      margin: 0;
+    }
     .btn-brand:hover{ filter:brightness(.95); color:#fff }
     .btn-ghost{
       background:#fff; border:1px solid #e6e9ef; color:#222
@@ -67,6 +72,10 @@
               <span class="badge bg-success" id="order-status"><%= order.status %></span>
             <% } else if (order.status === 'Rejected') { %>
               <span class="badge bg-danger" id="order-status"><%= order.status %></span>
+            <% } else if (order.status === 'Partial') { %>
+              <span class="badge badge-partial" id="order-status">Partial</span>
+            <% } else if (order.status === 'In progress') { %>
+              <span class="badge bg-info text-dark" id="order-status">In progress</span>
             <% } else { %>
               <span class="badge bg-warning text-dark" id="order-status"><%= order.status %></span>
             <% } %>
@@ -107,23 +116,61 @@
             <div class="kv-value"><%= order.order_details %></div>
           <% } %>
 
-          <div class="d-flex align-items-center justify-content-between">
-  <div class="order-label m-0">ADMIN REPLY</div>
+          <!-- بلوك خدمات السوشيال (يظهر فقط لو في بيانات SMM) -->
+          <% if (order.smm_quantity) { %>
+            <div class="kv-label mt-3">SOCIAL MEDIA PROGRESS</div>
+            <div class="kv-value">
+              <ul class="mb-0 ps-3 small">
+                <li>
+                  Ordered quantity:
+                  <strong><%= order.smm_quantity %></strong>
+                </li>
+                <li>
+                  Delivered quantity:
+                  <strong><%= order.smm_delivered_qty || 0 %></strong>
+                </li>
+                <li>
+                  Not delivered (remaining):
+                  <strong><%= order.smm_remains_qty || 0 %></strong>
+                </li>
+                <% if (order.smm_refund_amount && Number(order.smm_refund_amount) > 0) { %>
+                  <li class="text-danger">
+                    Refunded amount:
+                    <strong>$<%= Number(order.smm_refund_amount).toFixed(2) %></strong>
+                  </li>
+                <% } %>
+                <% if (order.smm_provider_status) { %>
+                  <li class="text-muted">
+                    Provider status:
+                    <strong><%= order.smm_provider_status %></strong>
+                  </li>
+                <% } else if (order.smm_status) { %>
+                  <li class="text-muted">
+                    Provider status:
+                    <strong><%= order.smm_status %></strong>
+                  </li>
+                <% } %>
+              </ul>
+            </div>
+          <% } %>
 
-  <button
-    id="copy-reply"
-    type="button"
-    class="btn btn-outline-secondary btn-sm copy-btn"
-    data-bs-toggle="tooltip"
-    data-bs-title="Copy to clipboard"
-  >
-    <i class="bi bi-clipboard"></i> Copy
-  </button>
-</div>
+          <div class="d-flex align-items-center justify-content-between mt-3">
+            <div class="order-label m-0">ADMIN REPLY</div>
 
-<div class="order-value" id="order-reply">
-  <pre class="user-select-all"><%= order.admin_reply || '' %></pre>
-</div>
+            <button
+              id="copy-reply"
+              type="button"
+              class="btn btn-outline-secondary btn-sm copy-btn"
+              data-bs-toggle="tooltip"
+              data-bs-title="Copy to clipboard"
+            >
+              <i class="bi bi-clipboard"></i> Copy
+            </button>
+          </div>
+
+          <div class="order-value" id="order-reply">
+            <pre class="user-select-all"><%= order.admin_reply || '' %></pre>
+          </div>
 
         </div>
       </div>
@@ -139,11 +186,13 @@
   <%- include('partials/footer') %>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- نفس سكربت الـ polling تبعك مع تعديل صغير للألوان -->
   <script>
     (function () {
       const orderId = <%- JSON.stringify(order.id) %>;
       const $status = document.getElementById('order-status');
-      const $reply  = document.getElementById('order-reply');
+      const $reply  = document.querySelector('#order-reply pre');
       const $last   = document.getElementById('lastUpdated');
       const $btn    = document.getElementById('refreshBtn');
       const $spin   = document.getElementById('refreshSpinner');
@@ -170,150 +219,141 @@
           const data = await res.json();
           if (!data.ok) return;
 
-          // status text + badge color
-          if (data.status && data.status !== lastStatus) {
+          if (data.status && data.status !== lastStatus && $status) {
             lastStatus = data.status;
             $status.textContent = data.status;
 
+            // إعادة ضبط الكلاس
             $status.className = 'badge';
+            $status.style.backgroundColor = '';
+            $status.style.color = '';
+
             if (data.status === 'Accepted') {
               $status.classList.add('bg-success');
             } else if (data.status === 'Rejected') {
               $status.classList.add('bg-danger');
+            } else if (data.status === 'Partial') {
+              $status.classList.add('badge-partial');
+            } else if (data.status === 'In progress') {
+              $status.classList.add('bg-info','text-dark');
             } else {
-              $status.classList.add('bg-warning', 'text-dark');
+              $status.classList.add('bg-warning','text-dark');
             }
           }
 
           // reply
-          const note = (data.admin_reply || '—').trim();
-          if (note !== lastReply) {
+          const note = (data.admin_reply || '').trim();
+          if ($reply && note !== lastReply) {
             lastReply = note;
             $reply.textContent = note;
           }
 
-          // last updated
           if ($last) {
             const now = new Date();
             $last.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
           }
-        } catch (_) {
-          // تجاهل الخطأ (اختياري: ممكن تعرض Toast)
+        } catch (e) {
+          console.error('order-details poll error:', e);
         } finally {
           setLoading(false);
         }
       }
 
-      // manual
       document.getElementById('refreshBtn')?.addEventListener('click', fetchStatus);
 
-      // auto every 5s
       fetchStatus();
       setInterval(fetchStatus, 5000);
     })();
   </script>
+
+  <!-- سكربت Copy كما عندك بالضبط تقريباً -->
   <script>
-(function () {
-  // ===== Copy Admin Reply =====
-  const copyBtn   = document.getElementById('copy-reply');
-  const replyPre  = document.querySelector('#order-reply pre');
+  (function () {
+    const copyBtn   = document.getElementById('copy-reply');
+    const replyPre  = document.querySelector('#order-reply pre');
 
-  // Tooltip احترافي (Bootstrap)
-  let tip = null;
-  if (window.bootstrap && copyBtn) {
-    tip = new bootstrap.Tooltip(copyBtn);
-  }
+    let tip = null;
+    if (window.bootstrap && copyBtn) {
+      tip = new bootstrap.Tooltip(copyBtn);
+    }
 
-  async function copyTextToClipboard(text){
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
+    async function copyTextToClipboard(text){
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function setBtnState(state){
+      if (!copyBtn) return;
+      if (state === 'copying') {
+        copyBtn.disabled = true;
+        copyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Copying…';
+      } else if (state === 'done') {
+        copyBtn.disabled = false;
+        copyBtn.innerHTML = '<i class="bi bi-clipboard-check"></i> Copied';
+        if (tip) {
+          copyBtn.setAttribute('data-bs-title','Copied!');
+          tip.setContent({ '.tooltip-inner': 'Copied!' });
+          tip.show();
+          setTimeout(() => tip.hide(), 900);
+        }
+        setTimeout(() => {
+          copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+          if (tip) {
+            copyBtn.setAttribute('data-bs-title','Copy to clipboard');
+            tip.setContent({ '.tooltip-inner': 'Copy to clipboard' });
+          }
+        }, 1200);
+      } else if (state === 'error') {
+        copyBtn.disabled = false;
+        copyBtn.innerHTML = '<i class="bi bi-x-circle"></i> Failed';
+        if (tip) {
+          copyBtn.setAttribute('data-bs-title','Failed to copy');
+          tip.setContent({ '.tooltip-inner': 'Failed to copy' });
+          tip.show();
+          setTimeout(() => tip.hide(), 1000);
+        }
+        setTimeout(() => {
+          copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+          if (tip) {
+            copyBtn.setAttribute('data-bs-title','Copy to clipboard');
+            tip.setContent({ '.tooltip-inner': 'Copy to clipboard' });
+          }
+        }, 1400);
       } else {
-        // Fallback لبيئات HTTP أو متصفحات قديمة
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.focus(); ta.select();
-        document.execCommand('copy');
-        ta.remove();
-      }
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  function setBtnState(state){
-    // states: 'idle' | 'copying' | 'done' | 'error'
-    if (!copyBtn) return;
-    if (state === 'copying') {
-      copyBtn.disabled = true;
-      copyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Copying…';
-    } else if (state === 'done') {
-      copyBtn.disabled = false;
-      copyBtn.innerHTML = '<i class="bi bi-clipboard-check"></i> Copied';
-      if (tip) {
-        copyBtn.setAttribute('data-bs-title','Copied!');
-        tip.setContent({ '.tooltip-inner': 'Copied!' });
-        tip.show();
-        setTimeout(() => tip.hide(), 900);
-      }
-      setTimeout(() => {
+        copyBtn.disabled = false;
         copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
-        if (tip) {
-          copyBtn.setAttribute('data-bs-title','Copy to clipboard');
-          tip.setContent({ '.tooltip-inner': 'Copy to clipboard' });
-        }
-      }, 1200);
-    } else if (state === 'error') {
-      copyBtn.disabled = false;
-      copyBtn.innerHTML = '<i class="bi bi-x-circle"></i> Failed';
-      if (tip) {
-        copyBtn.setAttribute('data-bs-title','Failed to copy');
-        tip.setContent({ '.tooltip-inner': 'Failed to copy' });
-        tip.show();
-        setTimeout(() => tip.hide(), 1000);
       }
-      setTimeout(() => {
-        copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
-        if (tip) {
-          copyBtn.setAttribute('data-bs-title','Copy to clipboard');
-          tip.setContent({ '.tooltip-inner': 'Copy to clipboard' });
-        }
-      }, 1400);
-    } else {
-      copyBtn.disabled = false;
-      copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
     }
-  }
 
-  if (copyBtn) {
-    copyBtn.addEventListener('click', async () => {
-      const text = (replyPre?.innerText || '').trim();
-      if (!text) {
-        setBtnState('error');
-        return;
-      }
-      setBtnState('copying');
-      const ok = await copyTextToClipboard(text);
-      setBtnState(ok ? 'done' : 'error');
-    });
-  }
-
-  // ===== دمج مع الـ polling الموجود عندك =====
-  // غيّر داخل poll(): بدلاً من الكتابة على $reply.textContent،
-  // اكتب على pre للحفاظ على الأسطر:
-  const $replyBox = document.querySelector('#order-reply pre');
-
-  // إذا عندك داخل poll() السطر:
-  // $reply.textContent = noteText;
-  // غيّره إلى:
-  // if ($replyBox) { $replyBox.textContent = noteText; }
-
-})();
-</script>
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        const text = (replyPre?.innerText || '').trim();
+        if (!text) {
+          setBtnState('error');
+          return;
+        }
+        setBtnState('copying');
+        const ok = await copyTextToClipboard(text);
+        setBtnState(ok ? 'done' : 'error');
+      });
+    }
+  })();
+  </script>
 
 </body>
 </html>

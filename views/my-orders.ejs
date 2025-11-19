@@ -115,16 +115,22 @@
               <span class="fw-bold">$<%= (parseFloat(order.price)||0).toFixed(2) %></span>
             </p>
 
-            <small class="fw-semibold">
-              Status:
-              <% if (order.status === 'Accepted') { %>
-                <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Accepted</span>
-              <% } else if (order.status === 'Rejected') { %>
-                <span class="badge bg-danger"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
-              <% } else { %>
-                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Waiting</span>
-              <% } %>
-            </small>
+            <div class="small">
+  Status:
+  <% if (order.status === 'Waiting') { %>
+    <span class="badge bg-warning text-dark">Waiting</span>
+  <% } else if (order.status === 'In progress') { %>
+    <span class="badge bg-info text-dark">In progress</span>
+  <% } else if (order.status === 'Accepted') { %>
+    <span class="badge bg-success">Accepted</span>
+  <% } else if (order.status === 'Partial') { %>
+    <span class="badge bg-purple" style="background:#a855f7;">Partial</span>
+  <% } else if (order.status === 'Rejected') { %>
+    <span class="badge bg-danger">Rejected</span>
+  <% } else { %>
+    <span class="badge bg-secondary"><%= order.status %></span>
+  <% } %>
+</div>
 
             <% if (order.order_details) { %>
               <div class="mt-2 text-muted small">
