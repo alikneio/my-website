@@ -5484,14 +5484,6 @@ setInterval(() => {
   syncJob().catch(() => {});
 }, 2 * 60 * 1000);
 
-const makeSyncSmmOrdersJob = require('./jobs/syncSmmOrders');
-const syncSmmOrders = makeSyncSmmOrdersJob(db);
-
-// مزامنة حالات طلبات السوشيال كل دقيقتين
-setInterval(() => {
-  syncSmmOrders();
-}, 2 * 60 * 1000);
-
 
 app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
   if (isMaintenance()) {
