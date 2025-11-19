@@ -994,46 +994,116 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
 });
 
 
-app.get("/admin/smm/sync", checkAdmin, async (req, res) => {
-  try {
-    console.log("🔄 Sync SMM Services Started...");
+const util = require('util');
+const slugify = require('slugify'); // npm i slugify
+const query = util.promisify(db.query).bind(db);
 
-    const services = await getSmmServices();
+function makeSlug(name = '') {
+  return slugify(name, {
+    lower: true,
+    strict: true, // يشيل الرموز
+    trim: true
+  }) || 'other';
+}
+
+app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
+  const q = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
+  const makeSlug = (name = '') =>
+    slugify(name, {
+      lower: true,
+      strict: true,
+      trim: true,
+    }) || 'other';
+
+  try {
+    console.log('🔄 Sync SMM Services Started...');
+
+    const services = await getSmmServices(); // من SMMGEN
     console.log(`📦 Received ${services.length} services.`);
 
-    const insertSql = `
-      INSERT INTO smm_services
-        (provider_service_id, name, category, type, rate, min_qty, max_qty, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    // نجيب الكاتيجوري الموجودة
+    const existingCats = await q(`
+      SELECT id, name
+      FROM smm_categories
+    `);
+
+    const catMap = new Map(); // name → id
+    existingCats.forEach((c) => {
+      catMap.set(c.name, c.id);
+    });
+
+    const insertCatSql = `
+      INSERT INTO smm_categories (name, slug, is_active, sort_order)
+      VALUES (?, ?, 1, 0)
       ON DUPLICATE KEY UPDATE
-        name      = VALUES(name),
-        category  = VALUES(category),
-        type      = VALUES(type),
-        rate      = VALUES(rate),
-        min_qty   = VALUES(min_qty),
-        max_qty   = VALUES(max_qty),
-        is_active = VALUES(is_active)
+        name = VALUES(name)
     `;
 
+    const insertServiceSql = `
+      INSERT INTO smm_services
+        (provider_service_id, category_id, name, type, rate, min_qty, max_qty, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      ON DUPLICATE KEY UPDATE
+        category_id = VALUES(category_id),
+        name        = VALUES(name),
+        type        = VALUES(type),
+        rate        = VALUES(rate),
+        min_qty     = VALUES(min_qty),
+        max_qty     = VALUES(max_qty),
+        is_active   = VALUES(is_active)
+    `;
+
+    await q('START TRANSACTION');
+
     for (const s of services) {
+      const catName = s.category || 'Other';
+      let catId = catMap.get(catName);
+
+      // 1) تأكد الكاتيجوري موجودة
+      if (!catId) {
+        const slug = makeSlug(catName);
+        const result = await q(insertCatSql, [catName, slug]);
+
+        if (result.insertId) {
+          catId = result.insertId;
+        } else {
+          const [row] = await q(
+            'SELECT id FROM smm_categories WHERE slug = ? LIMIT 1',
+            [slug]
+          );
+          catId = row.id;
+        }
+
+        catMap.set(catName, catId);
+      }
+
+      // 2) أدخل / حدّث الخدمة
       const params = [
-        s.service,                 // provider_service_id
-        s.name,                    // name
-        s.category || "Other",     // category
-        s.type || "default",       // type
-        s.rate,                    // rate
-        s.min,                     // min_qty
-        s.max,                     // max_qty
-        1                          // is_active
+        s.service,              // provider_service_id
+        catId,                  // category_id
+        s.name,                 // name
+        s.type || 'default',    // type
+        s.rate,                 // rate
+        s.min,                  // min_qty
+        s.max,                  // max_qty
       ];
 
-      db.query(insertSql, params);
+      await q(insertServiceSql, params);
     }
 
-    res.send("✔️ Synced with SMM Provider");
+    await q('COMMIT');
+
+    res.send('✔️ Synced SMM services & categories successfully');
   } catch (err) {
-    console.error("❌ SMM Sync Error:", err);
-    res.status(500).send("Sync Error");
+    console.error('❌ SMM Sync Error:', err);
+    try {
+      await q('ROLLBACK');
+    } catch (e) {}
+    res.status(500).send('Sync Error');
   }
 });
 
@@ -1064,7 +1134,10 @@ app.get('/social-media', async (req, res) => {
       `
     );
 
-    res.render('social-categories', { categories });
+    res.render('social-categories', {
+      user: req.session.user || null,
+      categories,
+    });
   } catch (err) {
     console.error('❌ /social-media error:', err.message);
     res.status(500).send('Server error');
@@ -1072,80 +1145,53 @@ app.get('/social-media', async (req, res) => {
 });
 
 
-app.get('/social-media/:slug', (req, res) => {
-  const slug = req.params.slug;
+// صفحة خدمات كاتيجوري معيّنة
+app.get('/social-media/:slug', async (req, res) => {
+  const { slug } = req.params;
 
   const q = (sql, params = []) =>
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
-  (async () => {
-    try {
-      const [cat] = await q(
-        `SELECT id, name FROM smm_categories WHERE slug = ? AND is_active = 1`,
-        [slug]
-      );
-      if (!cat) {
-        return res.status(404).send('Category not found or inactive');
-      }
-
-      const services = await q(
-        `
-        SELECT *
-        FROM smm_services
-        WHERE category_id = ?
-          AND is_active = 1
-        ORDER BY rate ASC
-        `,
-        [cat.id]
-      );
-
-      res.render('social-services', {
-        category: cat.name,
-        services,
-      });
-    } catch (err) {
-      console.error('❌ /social-media/:slug error:', err.message);
-      res.status(500).send('Server error');
-    }
-  })();
-});
-
-
-
-
-
-// لستة الخدمات ضمن كاتيجوري واحد
-app.get('/social-media/:slug', async (req, res) => {
-  const q = (sql, p = []) =>
-    new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
-
-  const { slug } = req.params;
-
   try {
-    const rows = await q(
-      `SELECT * FROM smm_services WHERE is_active = 1 ORDER BY name ASC`
+    // الكاتيجوري
+    const [cat] = await q(
+      `SELECT id, name FROM smm_categories WHERE slug = ? AND is_active = 1`,
+      [slug]
     );
 
-    // فلترة بالـ JS حسب slugify(category)
-    const services = rows.filter(s => slugify(s.category || '') === slug);
-
-    if (!services.length) {
-      return res.status(404).send('Category not found or has no services.');
+    if (!cat) {
+      return res.status(404).send('Category not found or inactive');
     }
 
-    const categoryName = services[0].category;
+    // الخدمات ضمن هالكاتيجوري
+    const services = await q(
+      `
+      SELECT *
+      FROM smm_services
+      WHERE category_id = ?
+        AND is_active = 1
+      ORDER BY rate ASC
+      `,
+      [cat.id]
+    );
+
+    if (!services.length) {
+      return res
+        .status(404)
+        .send('لا توجد خدمات مفعّلة في هذه الفئة حالياً.');
+    }
 
     res.render('social-services', {
       user: req.session.user || null,
-      categoryName,
+      categoryName: cat.name,
       categorySlug: slug,
-      services
+      services,
     });
-  } catch (e) {
-    console.error('❌ /social-media/:slug error:', e.message);
-    res.status(500).send('Server error loading social services.');
+  } catch (err) {
+    console.error('❌ /social-media/:slug error:', err.message);
+    res.status(500).send('Server error');
   }
 });
 
@@ -1169,6 +1215,7 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
      WHERE s.id = ? AND s.is_active = 1`,
     [serviceId]
   );
+
   if (!service) {
     return res.redirect('/social-media?error=service_not_found');
   }
@@ -1192,11 +1239,11 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
 
 
 // شراء خدمات السوشيال ميديا
+// شراء خدمات السوشيال ميديا
 app.post('/buy-social', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
 
-  // ممكن يجي الاسم service_id أو serviceId حسب الـ form
   const {
     service_id,
     serviceId,
@@ -1208,19 +1255,17 @@ app.post('/buy-social', checkAuth, async (req, res) => {
   const serviceIdNum = parseInt(service_id || serviceId, 10);
   const qty = parseInt(quantity, 10);
 
-  // idempotency key (لحماية من الـ double submit)
   const idemKey = (rawIdemKey || req.session.idemKey || '')
     .toString()
     .slice(0, 64);
 
-  // Helper بسيط للـ DB
   const query = (sql, params = []) =>
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
   try {
-    // 0) Idempotency: لو نفس المفتاح انبعت مرة ثانية ما نخصم ولا نعيد الطلب
+    // 0) Idempotency
     if (idemKey) {
       try {
         await query(
@@ -1228,13 +1273,12 @@ app.post('/buy-social', checkAuth, async (req, res) => {
           [userId, idemKey]
         );
       } catch (e) {
-        // المفتاح مستعمل سابقًا → بنرجع للـ processing من غير خصم جديد
         req.session.pendingOrderId = req.session.pendingOrderId || null;
         return res.redirect('/processing');
       }
     }
 
-    // 1) تحقق أساسي من المدخلات
+    // 1) تحقق أساسي
     if (!serviceIdNum || !link || !quantity) {
       return res.redirect('/social-media?error=missing_fields');
     }
@@ -1245,7 +1289,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 2) جلب الخدمة من DB (بس الخدمات المفعّلة)
+    // 2) جلب الخدمة
     const [service] = await query(
       `SELECT * FROM smm_services WHERE id = ? AND is_active = 1`,
       [serviceIdNum]
@@ -1257,7 +1301,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 3) تحقق من min / max
+    // 3) min / max
     const minQty = Number(service.min_qty || 0);
     const maxQty = Number(service.max_qty || 0);
 
@@ -1267,22 +1311,19 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 4) السعر (rate لكل 1000)
-    const rate = Number(service.rate || 0); // مثال: 0.0007 أو 0.9 لكل 1000
+    // 4) السعر
+    const rate = Number(service.rate || 0);
     if (!Number.isFinite(rate) || rate <= 0) {
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
 
-    // نحسب السعر بنفس rate من غير ما "نغلي" على الزبون
-    // totalCents = round(qty * rate * 100 / 1000)
     const totalCents = Math.round((qty * rate * 100) / 1000);
     if (!Number.isFinite(totalCents) || totalCents <= 0) {
-      // يعني السعر أقل من سنت واحد → ما فينا نخزنه كـ DECIMAL(10,2)
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
-    const total = totalCents / 100; // 2 digits بعد الفاصلة
+    const total = totalCents / 100;
 
-    // 5) خصم ذري من رصيد المستخدم
+    // 5) خصم من الرصيد
     const upd = await query(
       `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
       [total, userId, total]
@@ -1302,14 +1343,13 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     let providerOrderId;
     try {
       providerOrderId = await createSmmOrder({
-        service: service.provider_service_id, // من جدول smm_services
+        service: service.provider_service_id,
         link,
         quantity: qty,
       });
     } catch (apiErr) {
       console.error('❌ SMMGEN API error:', apiErr.message || apiErr);
 
-      // نرجّع المبلغ للمستخدم لأن المزود ما قبل الطلب
       await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [
         total,
         userId,
@@ -1329,7 +1369,6 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     }
 
     if (!providerOrderId) {
-      // حماية إضافية (ما لازم نوصل لهون لو createSmmOrder مضبوط)
       await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [
         total,
         userId,
@@ -1344,11 +1383,9 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 8) حفظ الطلب في جدول orders العام
+    // 8) حفظ الطلب في orders
     const orderDetails = `Link: ${link} | Quantity: ${qty}`;
 
-    // مهم: استخدم قيمة تناسب ENUM/VARCHAR في عمود provider
-    // مثلاً 'smm' بدل 'smmgen' حتى ما يرجع Data truncated
     const insertOrderSql = `
       INSERT INTO orders
         (userId, productName, price, purchaseDate, order_details, status,
@@ -1357,19 +1394,13 @@ app.post('/buy-social', checkAuth, async (req, res) => {
         (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smm', 'smm'${idemKey ? ', ?' : ''})
     `;
 
-    const insertParams = [
-      userId,
-      service.name,
-      total,
-      orderDetails,
-      providerOrderId,
-    ];
+    const insertParams = [userId, service.name, total, orderDetails, providerOrderId];
     if (idemKey) insertParams.push(idemKey);
 
     const insertRes = await query(insertOrderSql, insertParams);
-    const orderId = insertRes.insertId || insertRes?.[0]?.insertId || null;
+    const orderId = insertRes.insertId || null;
 
-    // 9) حفظ في جدول smm_orders (للمزامنة مع المزود)
+    // 9) حفظ في smm_orders
     await query(
       `
       INSERT INTO smm_orders
@@ -1379,7 +1410,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       [userId, service.id, providerOrderId, qty, total, link]
     );
 
-    // 10) إشعار داخلي في جدول notifications
+    // 10) إشعار داخلي
     await query(
       `INSERT INTO notifications (user_id, message, created_at, is_read)
        VALUES (?, ?, NOW(), 0)`,
@@ -1389,7 +1420,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       ]
     );
 
-    // 11) تيليغرام للزبون إن وجد
+    // 11) تيليغرام للزبون
     const [userRow] = await query(
       `SELECT username, telegram_chat_id FROM users WHERE id = ?`,
       [userId]
@@ -1405,7 +1436,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 11-b) تيليغرام لك كأدمن لو مفعّل
+    // 11-b) تيليغرام للأدمن
     if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
       await sendTelegramMessage(
         process.env.ADMIN_TELEGRAM_CHAT_ID,
@@ -1419,7 +1450,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 12) حفظ رقم الطلب في السيشن للصفحة /processing
+    // 12) pendingOrderId
     req.session.pendingOrderId = orderId;
     return res.redirect('/processing');
   } catch (err) {
@@ -1430,7 +1461,6 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     return res.redirect(`/social-checkout/${serviceIdNum}?error=server`);
   }
 });
-
 
 
 // =============================================
@@ -1648,66 +1678,75 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
 
 // ========== ADMIN – SMM CATEGORIES ==========
 
-// ADMIN – SMM CATEGORIES
+/// =============== ADMIN: SMM CATEGORIES ===============
+
 app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
   const user = req.session.user;
 
+  const q = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
   try {
-    // 1) الكاتيجوري اللي عاملها أنت يدويّاً في جدول smm_categories
-    const manualCats = await q(
+    const categories = await q(
       `
-      SELECT id, name, slug, sort_order, is_active
+      SELECT
+        id,
+        name,
+        slug,
+        sort_order,
+        is_active,
+        provider_category -- لو ما عندك هالعمود، احذفه من الـ SELECT و من الـ view
       FROM smm_categories
       ORDER BY sort_order ASC, name ASC
       `
     );
 
-    // 2) الكاتيجوري اللي جاي من الـ provider (من جدول smm_services.category)
-    const providerCats = await q(
-      `
-      SELECT DISTINCT s.category AS provider_category
-      FROM smm_services s
-      WHERE s.category IS NOT NULL AND s.category <> ''
-      ORDER BY provider_category ASC
-      `
-    );
+    const flash = req.session.adminFlash
+      ? { type: 'info', message: req.session.adminFlash }
+      : null;
+    req.session.adminFlash = null;
 
-    // 3) حوّل manualCats إلى map بالاسم لنعرف مين موجود
-    const byName = new Map();
-    manualCats.forEach((c) => {
-      if (c.name) byName.set(c.name, c);
-    });
-
-    // 4) دمج: إذا في provider_category مش موجودة كـ manualCat، ضيفها كسطر "افتراضي"
-    const merged = [...manualCats];
-
-    providerCats.forEach((row) => {
-      const name = row.provider_category;
-      if (!name) return;
-
-      if (!byName.has(name)) {
-        merged.push({
-          id: null,                 // ما إلها id بعد
-          name,
-          slug: '',                 // فاضي، لحتى تعمله يدوي إذا بدّك
-          sort_order: 0,
-          is_active: 0,             // disabled افتراضياً
-          provider_category: name,
-        });
-      }
-    });
-
-    // 5) رندر الصفحة
     res.render('admin-smm-categories', {
       user,
-      categories: merged,
-      flash: null,
+      categories,
+      flash,
     });
   } catch (err) {
     console.error('❌ /admin/smm-categories error:', err.message);
     res.status(500).send('Internal server error');
   }
 });
+
+app.post('/admin/smm-categories/create', checkAdmin, (req, res) => {
+  const { name, sort_order } = req.body;
+  const cleanName = (name || '').trim();
+  if (!cleanName) {
+    req.session.adminFlash = 'Name is required.';
+    return res.redirect('/admin/smm-categories');
+  }
+
+  const slug = slugify(cleanName, { lower: true, strict: true, trim: true });
+
+  db.query(
+    `
+    INSERT INTO smm_categories (name, slug, sort_order, is_active)
+    VALUES (?, ?, ?, 1)
+    `,
+    [cleanName, slug, sort_order || 0],
+    (err) => {
+      if (err) {
+        console.error('❌ create smm_category:', err.message);
+        req.session.adminFlash = 'Error creating category.';
+      } else {
+        req.session.adminFlash = 'Category created.';
+      }
+      res.redirect('/admin/smm-categories');
+    }
+  );
+});
+
 
 
 app.post('/admin/smm-categories/:id/update', checkAdmin, async (req, res) => {
@@ -1760,22 +1799,34 @@ app.post('/admin/smm-categories/:id/edit', checkAdmin, (req, res) => {
   const { name, slug, sort_order } = req.body;
   const cleanName = (name || '').trim();
   if (!cleanName) {
-    return res.redirect('/admin/smm-categories?error=name');
+    req.session.adminFlash = 'Name is required.';
+    return res.redirect('/admin/smm-categories');
   }
 
-  const cleanSlug = (slug || '').trim().slice(0, 190);
+  const cleanSlug =
+    (slug || cleanName)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 190) || 'category';
+
   const sort = parseInt(sort_order || '0', 10) || 0;
 
   db.query(
-    `UPDATE smm_categories
-     SET name = ?, slug = ?, sort_order = ?
-     WHERE id = ? LIMIT 1`,
+    `
+    UPDATE smm_categories
+    SET name = ?, slug = ?, sort_order = ?
+    WHERE id = ? LIMIT 1
+    `,
     [cleanName, cleanSlug, sort, id],
-    err => {
+    (err) => {
       if (err) {
         console.error('❌ update smm_category:', err.message);
+        req.session.adminFlash = 'Failed to update category.';
+      } else {
+        req.session.adminFlash = 'Category updated.';
       }
-      return res.redirect('/admin/smm-categories?msg=updated');
+      return res.redirect('/admin/smm-categories');
     }
   );
 });
@@ -1787,53 +1838,35 @@ app.post('/admin/smm-categories/:id/toggle', checkAdmin, (req, res) => {
     return res.status(400).send('Bad request');
   }
 
-  const getSql = 'SELECT * FROM smm_categories WHERE id = ? LIMIT 1';
-
-  db.query(getSql, [id], (err, rows) => {
-    if (err) {
-      console.error('❌ toggle smm_category (select):', err.message);
-      return res.status(500).send('DB error');
-    }
-    if (!rows.length) {
-      return res.status(404).send('Not found');
-    }
-
-    const cat = rows[0];
-    const newStatus = cat.is_active ? 0 : 1;
-
-    db.query(
-      'UPDATE smm_categories SET is_active = ? WHERE id = ? LIMIT 1',
-      [newStatus, id],
-      err2 => {
-        if (err2) {
-          console.error('❌ toggle smm_category (update):', err2.message);
-          return res.status(500).send('DB error');
-        }
-
-        // إذا فعّلنا الكاتيجوري و إلها provider_category → اربط الخدمات تلقائياً
-        if (newStatus === 1 && cat.provider_category) {
-          db.query(
-            `
-            UPDATE smm_services
-            SET category_id = ?
-            WHERE provider_category = ?
-              AND (category_id IS NULL OR category_id = 0)
-            `,
-            [cat.id, cat.provider_category],
-            err3 => {
-              if (err3) {
-                console.error('❌ auto assign services:', err3.message);
-              }
-              return res.redirect('/admin/smm-categories?msg=toggled');
-            }
-          );
-        } else {
-          // لو رجعناها Disabled أو ما عندها provider_category
-          return res.redirect('/admin/smm-categories?msg=toggled');
-        }
+  db.query(
+    'SELECT is_active FROM smm_categories WHERE id = ? LIMIT 1',
+    [id],
+    (err, rows) => {
+      if (err) {
+        console.error('❌ toggle smm_category (select):', err.message);
+        return res.status(500).send('DB error');
       }
-    );
-  });
+      if (!rows.length) {
+        return res.status(404).send('Not found');
+      }
+
+      const newStatus = rows[0].is_active ? 0 : 1;
+
+      db.query(
+        'UPDATE smm_categories SET is_active = ? WHERE id = ? LIMIT 1',
+        [newStatus, id],
+        (err2) => {
+          if (err2) {
+            console.error('❌ toggle smm_category (update):', err2.message);
+            return res.status(500).send('DB error');
+          }
+
+          req.session.adminFlash = 'Category status updated.';
+          return res.redirect('/admin/smm-categories');
+        }
+      );
+    }
+  );
 });
 
 // bulk enable/disable لكل الخدمات ضمن كاتيجوري معيّنة
@@ -1874,7 +1907,6 @@ app.post('/admin/smm-services/:id/update-category', checkAdmin, (req, res) => {
     return res.status(400).send('Bad request');
   }
 
-  // لما يكون value = "none" نخليها NULL بالـ DB
   if (!category_id || category_id === 'none') {
     category_id = null;
   }
@@ -1888,7 +1920,6 @@ app.post('/admin/smm-services/:id/update-category', checkAdmin, (req, res) => {
         return res.status(500).send('DB error');
       }
 
-      // رجّع بنفس الفلاتر الحالية (اختياري)
       const qs = new URLSearchParams({
         q: req.query.q || '',
         category_id: req.query.category_id || 'all',
@@ -1901,6 +1932,7 @@ app.post('/admin/smm-services/:id/update-category', checkAdmin, (req, res) => {
 });
 
 
+
 // Admin: SMM Services list
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
   const q = (sql, params = []) =>
@@ -1908,50 +1940,49 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
-  const search = (req.query.q || '').trim();
+  // مطابق تماماً مع أسماء الـ inputs بالـ view
+  const search = (req.query.search || '').trim();
   const categoryId = req.query.category_id || 'all';
   const status = req.query.status || 'all';
 
   const filters = {
-    q: search,
+    search,
     category_id: categoryId,
     status,
   };
 
   try {
     const params = [];
+    let where = 'WHERE 1=1';
 
-    // نضمن دائماً إنو الكاتيجوري Active ومرتبط بالخدمة
-    let where = 'WHERE c.is_active = 1 AND s.category_id = c.id';
-
-    // فلتر البحث
+    // البحث
     if (search) {
       where += ' AND (s.name LIKE ? OR s.provider_service_id LIKE ?)';
       const like = `%${search}%`;
       params.push(like, like);
     }
 
-    // فلتر الكاتيجوري من الـ select اللي فوق الجدول
+    // فلتر الكاتيجوري
     if (categoryId !== 'all') {
       where += ' AND s.category_id = ?';
       params.push(categoryId);
     }
 
-    // فلتر الحالة
+    // فلتر الحالة (لاحظ "inactive" مو "disabled")
     if (status === 'active') {
       where += ' AND s.is_active = 1';
-    } else if (status === 'disabled') {
+    } else if (status === 'inactive') {
       where += ' AND s.is_active = 0';
     }
 
-    // جلب الخدمات – فقط المرتبطة بكاتيجوري Active
+    // جلب الخدمات
     const services = await q(
       `
       SELECT
         s.*,
-        c.name AS store_category
+        c.name AS category_name       -- مهم: نفس الاسم اللي عم تستعمله بالـ view
       FROM smm_services s
-      JOIN smm_categories c
+      LEFT JOIN smm_categories c
         ON s.category_id = c.id
       ${where}
       ORDER BY s.id DESC
@@ -1960,7 +1991,7 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       params
     );
 
-    // الكاتيجوريز المتاحة في الفلتر والـ dropdown لكل خدمة – فقط الـ Active
+    // الكاتيجوريز للـ dropdown
     const categories = await q(
       `
       SELECT id, name
@@ -2021,7 +2052,10 @@ app.get('/admin/smm-services/:id/toggle', checkAdmin, (req, res) => {
 
 // دالة مشتركة لتفعيل/تعطيل خدمة SMM
 function toggleSmmService(req, res) {
-  const serviceId = req.params.id;
+  const serviceId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(serviceId)) {
+    return res.status(400).send('Bad request');
+  }
 
   db.query(
     'SELECT is_active FROM smm_services WHERE id = ?',
@@ -2041,13 +2075,12 @@ function toggleSmmService(req, res) {
       db.query(
         'UPDATE smm_services SET is_active = ? WHERE id = ?',
         [newStatus, serviceId],
-        err2 => {
+        (err2) => {
           if (err2) {
             console.error('❌ Toggle error (update):', err2.message);
             return res.status(500).send('Server error');
           }
 
-          // ارجع للصفحة بعد التغيير
           return res.redirect('/admin/smm-services');
         }
       );
@@ -2055,10 +2088,8 @@ function toggleSmmService(req, res) {
   );
 }
 
-// ندعم GET و POST الاثنين
 app.get('/admin/smm-services/:id/toggle', checkAdmin, toggleSmmService);
 app.post('/admin/smm-services/:id/toggle', checkAdmin, toggleSmmService);
-
 
 // ====== ADMIN: EDIT SINGLE SMM SERVICE ======
 
@@ -2070,7 +2101,7 @@ app.get('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
 
   const sqlService = 'SELECT * FROM smm_services WHERE id = ? LIMIT 1';
   const sqlCats = `
-    SELECT id, name 
+    SELECT id, name
     FROM smm_categories
     WHERE is_active = 1
     ORDER BY sort_order ASC, name ASC
@@ -2096,7 +2127,7 @@ app.get('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
         user: req.session.user,
         service,
         categories: catRows,
-        message: req.query.msg || null
+        message: req.query.msg || null,
       });
     });
   });
@@ -2104,29 +2135,32 @@ app.get('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
 
 
 app.post('/admin/smm-services/:id/save', checkAdmin, (req, res) => {
-  const id = req.params.id;
-  const {
-    name,
-    rate,
-    min_qty,
-    max_qty,
-    category_id,
-  } = req.body;
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).send('Bad request');
+  }
+
+  const { name, rate, min_qty, max_qty, category_id, is_active } = req.body;
 
   const catId = category_id && category_id !== '' ? Number(category_id) : null;
+  const numericRate = Number(rate || 0);
+  const minQ = parseInt(min_qty || '0', 10) || 0;
+  const maxQ = parseInt(max_qty || '0', 10) || 0;
+  const activeFlag = is_active === '1' || is_active === 'on' ? 1 : 0;
 
   db.query(
     `
     UPDATE smm_services
     SET
-      name      = ?,
-      rate      = ?,
-      min_qty   = ?,
-      max_qty   = ?,
-      category_id = ?
+      name       = ?,
+      rate       = ?,
+      min_qty    = ?,
+      max_qty    = ?,
+      category_id = ?,
+      is_active  = ?
     WHERE id = ?
     `,
-    [name, rate, min_qty, max_qty, catId, id],
+    [name.trim(), numericRate, minQ, maxQ, catId, activeFlag, id],
     (err) => {
       if (err) {
         console.error('❌ update smm_service:', err.message);
@@ -2136,7 +2170,6 @@ app.post('/admin/smm-services/:id/save', checkAdmin, (req, res) => {
     }
   );
 });
-
 
 app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
   const serviceId = parseInt(req.params.id, 10);
