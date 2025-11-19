@@ -1220,10 +1220,12 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
 });
 
 
+// شراء خدمات السوشيال ميديا
 app.post('/buy-social', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
 
+  // ممكن اسم الحقل يجي service_id أو serviceId حسب الفورم
   const {
     service_id,
     serviceId,
@@ -1234,19 +1236,20 @@ app.post('/buy-social', checkAuth, async (req, res) => {
   const serviceIdNum = parseInt(service_id || serviceId, 10);
   const qty = parseInt(quantity, 10);
 
+  // Helper بسيط للـ DB
   const q = (sql, params = []) =>
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
-  let total = 0;           // المبلغ اللي خصمناه
-  let serviceName = '';    // اسم الخدمة للـ transactions
-  let providerOrderId = ''; // رقم الطلب عند المزود
+  let total = 0;              // المبلغ اللي رح يُخصم
+  let serviceName = '';       // اسم الخدمة لرسائل الترانزكشن
+  let providerOrderId = '';   // رقم الطلب عند SMMGen
 
   try {
     console.log('🟦 /buy-social START', { userId, serviceIdNum, link, qty });
 
-    // 1) تحقق أساسي من المدخلات
+    // 1) تحقّق من المدخلات الأساسية
     if (!serviceIdNum || !link || !quantity) {
       console.log('❌ missing_fields');
       return res.redirect('/social-media?error=missing_fields');
@@ -1259,7 +1262,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 2) جلب الخدمة من DB
+    // 2) جلب الخدمة من smm_services (فقط المفعّلة)
     const [service] = await q(
       `SELECT * FROM smm_services WHERE id = ? AND is_active = 1`,
       [serviceIdNum]
@@ -1274,7 +1277,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 
     serviceName = service.name;
 
-    // 3) تحقق من min / max
+    // 3) التحقق من min/max
     const minQty = Number(service.min_qty || 0);
     const maxQty = Number(service.max_qty || 0);
 
@@ -1285,21 +1288,22 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 4) السعر (rate لكل 1000)
+    // 4) حساب السعر (rate لكل 1000)
     const rate = Number(service.rate || 0);
     if (!Number.isFinite(rate) || rate <= 0) {
       console.log('❌ pricing_invalid_rate', { rate });
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
 
+    // totalCents = round(qty * rate * 100 / 1000)
     const totalCents = Math.round((qty * rate * 100) / 1000);
     if (!Number.isFinite(totalCents) || totalCents <= 0) {
       console.log('❌ pricing_too_low', { totalCents });
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
-    total = totalCents / 100;
+    total = totalCents / 100; // رقم بكسور 2 digits
 
-    // 5) خصم من رصيد المستخدم
+    // 5) خصم من رصيد المستخدم (ذَرّي)
     const upd = await q(
       `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
       [total, userId, total]
@@ -1318,10 +1322,10 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       [userId, total, `Social Media Service: ${serviceName}`]
     );
 
-    // 7) إنشاء الطلب عند مزود SMMGEN
+    // 7) إنشاء الطلب عند مزوّد SMMGen
     try {
       providerOrderId = await createSmmOrder({
-        service: service.provider_service_id,
+        service: service.provider_service_id, // ID عند المزود
         link,
         quantity: qty,
       });
@@ -1329,7 +1333,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     } catch (apiErr) {
       console.error('❌ SMMGEN API error:', apiErr.message || apiErr);
 
-      // نرجّع المبلغ للمستخدم
+      // نرجّع المبلغ للمستخدم + نسجّل Refund
       await q(
         `UPDATE users SET balance = balance + ? WHERE id = ?`,
         [total, userId]
@@ -1349,10 +1353,11 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 
     if (!providerOrderId) {
       console.log('❌ no_provider_id');
-      await q(`UPDATE users SET balance = balance + ? WHERE id = ?`, [
-        total,
-        userId,
-      ]);
+      // أمان إضافي
+      await q(
+        `UPDATE users SET balance = balance + ? WHERE id = ?`,
+        [total, userId]
+      );
       await q(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'credit', ?, ?)`,
@@ -1363,15 +1368,15 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-    // 8) حفظ الطلب في جدول orders (بدون provider)
+    // 8) حفظ الطلب في جدول orders (بدون provider وبدون source)
     const orderDetails = `Link: ${link} | Quantity: ${qty}`;
 
     const insertOrderSql = `
       INSERT INTO orders
         (userId, productName, price, purchaseDate, order_details, status,
-         provider_order_id, source)
+         provider_order_id)
       VALUES
-        (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smm')
+        (?, ?, ?, NOW(), ?, 'Waiting', ?)
     `;
 
     const insertRes = await q(insertOrderSql, [
@@ -1385,7 +1390,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     const orderId = insertRes.insertId || null;
     console.log('✅ order_inserted', { orderId });
 
-    // 9) حفظ الطلب في smm_orders
+    // 9) حفظ الطلب في جدول smm_orders
     await q(
       `
       INSERT INTO smm_orders
@@ -1407,8 +1412,9 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       ]
     );
 
-    // (تيليغرام نفس اللي كان عندك، فيك ترجع تضيفه هون لو حابب)
+    // لو حابب ترجع تيليغرام هنا نفس الكود القديم
 
+    // 11) حفظ رقم الطلب للصفحة /processing
     req.session.pendingOrderId = orderId;
     console.log('✅ /buy-social DONE, redirect /processing');
 
@@ -1416,7 +1422,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
   } catch (err) {
     console.error('❌ /buy-social error:', err?.message || err);
 
-    // محاولة Refund في حال صار خطأ بعد الخصم وما انعمل Refund
+    // محاولة Refund لو صار Error بعد الخصم وما تم الـ Refund فوق
     try {
       if (total > 0) {
         await q(
@@ -1426,7 +1432,11 @@ app.post('/buy-social', checkAuth, async (req, res) => {
         await q(
           `INSERT INTO transactions (user_id, type, amount, reason)
            VALUES (?, 'credit', ?, ?)`,
-          [userId, total, `Refund (server error): ${serviceName || 'Social Service'}`]
+          [
+            userId,
+            total,
+            `Refund (server error): ${serviceName || 'Social Service'}`,
+          ]
         );
         console.log('✅ refund done after server error');
       }
