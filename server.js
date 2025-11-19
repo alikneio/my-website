@@ -5157,6 +5157,60 @@ app.get('/order-details/:id', checkAuth, (req, res) => {
   });
 });
 
+app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
+  const orderId = Number(req.params.id);
+  const userId = req.session.user.id;
+
+  if (!Number.isFinite(orderId)) {
+    return res.status(400).json({ ok: false, error: 'Bad order id' });
+  }
+
+  const sql = `
+    SELECT
+      o.*,
+      so.status          AS smm_status,
+      so.quantity        AS smm_quantity,
+      so.delivered_qty   AS smm_delivered_qty,
+      so.remains_qty     AS smm_remains_qty,
+      so.refund_amount   AS smm_refund_amount,
+      so.provider_status AS smm_provider_status
+    FROM orders o
+    LEFT JOIN smm_orders so
+      ON so.provider_order_id = o.provider_order_id
+    WHERE o.id = ? AND o.userId = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [orderId, userId], (err, rows) => {
+    if (err || rows.length === 0) {
+      console.error('order-details status.json error:', err?.message || err);
+      return res.status(404).json({ ok: false, error: 'Order not found' });
+    }
+
+    const row = rows[0];
+
+    // إذا الطلب مش SMM (ما إلو provider_order_id أو ما عندو row بالسmm_orders)
+    // رح تكون smm_* = null، والـ frontend بيتجاهل هالجزء
+    return res.json({
+      ok: true,
+      id: row.id,
+      status: row.status,
+      admin_reply: row.admin_reply || '',
+      order_details: row.order_details || '',
+
+      smm: row.smm_status ? {
+        status:         row.smm_status,
+        quantity:       row.smm_quantity,
+        delivered_qty:  row.smm_delivered_qty,
+        remains_qty:    row.smm_remains_qty,
+        refund_amount:  row.smm_refund_amount,
+        provider_status: row.smm_provider_status,
+      } : null
+    });
+  });
+});
+
+
 
 
 app.get('/order-status/:orderId', (req, res) => {
