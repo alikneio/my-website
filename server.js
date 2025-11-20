@@ -1952,14 +1952,18 @@ app.post('/admin/smm-services/:id/update-category', checkAdmin, (req, res) => {
 // Admin: SMM Services list
 // =============== ADMIN: SMM SERVICES ===============
 app.get('/admin/smm-services', checkAdmin, async (req, res) => {
-  const search = (req.query.search || '').trim();
-  const categoryId = req.query.category_id || 'all';
-  const status = req.query.status || 'all';
+  const search        = (req.query.search || '').trim();
+  const categoryId    = req.query.category_id || 'all';
+  const status        = req.query.status || 'all';
+  const providerCat   = (req.query.provider_cat || '').trim();
+  const onlyUncat     = req.query.only_uncategorized === '1';
 
   const filters = {
     search,
     category_id: categoryId,
     status,
+    provider_cat: providerCat,
+    only_uncategorized: onlyUncat ? '1' : '0',
   };
 
   try {
@@ -1973,7 +1977,7 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       params.push(like, like);
     }
 
-    // فلتر الكاتيجوري
+    // فلتر الكاتيجوري بالموقع
     if (categoryId !== 'all') {
       where += ' AND s.category_id = ?';
       params.push(categoryId);
@@ -1986,12 +1990,23 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       where += ' AND s.is_active = 0';
     }
 
+    // فلتر "فقط بدون كاتيجوري بالموقع"
+    if (onlyUncat) {
+      where += ' AND (s.category_id IS NULL OR s.category_id = 0)';
+    }
+
+    // فلتر provider category (من عمود s.category)
+    if (providerCat) {
+      where += ' AND s.category = ?';
+      params.push(providerCat);
+    }
+
     const services = await query(
       `
       SELECT
         s.*,
-        c.name AS category_name,       -- اسم الكاتيجوري بالموقع
-        s.category AS provider_category -- اسم الكاتيجوري من المزود (لو موجود في الجدول)
+        c.name AS category_name,
+        s.category AS provider_category
       FROM smm_services s
       LEFT JOIN smm_categories c
         ON s.category_id = c.id
@@ -2002,6 +2017,7 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       params
     );
 
+    // كاتيجوري الموقع
     const categories = await query(
       `
       SELECT id, name
@@ -2011,10 +2027,21 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
       `
     );
 
+    // لستة provider categories مميزة (من عمود category في smm_services)
+    const providerCats = await query(
+      `
+      SELECT DISTINCT category AS provider_category
+      FROM smm_services
+      WHERE category IS NOT NULL AND category <> ''
+      ORDER BY provider_category ASC
+      `
+    );
+
     res.render('admin-smm-services', {
       user: req.session.user,
       services,
       categories,
+      providerCats,
       filters,
     });
   } catch (err) {
@@ -2022,7 +2049,6 @@ app.get('/admin/smm-services', checkAdmin, async (req, res) => {
     res.status(500).send('Server error');
   }
 });
-
 
 // تفعيل / تعطيل سريع
 app.get('/admin/smm-services/:id/toggle', checkAdmin, (req, res) => {
@@ -2058,6 +2084,39 @@ app.get('/admin/smm-services/:id/toggle', checkAdmin, (req, res) => {
     }
   );
 });
+
+app.post('/admin/smm-services/bulk-assign', checkAdmin, async (req, res) => {
+  const categoryId = Number(req.body.bulk_category_id || 0);
+  const selected   = (req.body.selected_ids || '').trim(); // "1,2,3"
+
+  if (!categoryId || !selected) {
+    // ما في شي مختار → رجع بس
+    return res.redirect('/admin/smm-services');
+  }
+
+  let ids = selected.split(',')
+    .map(id => Number(id.trim()))
+    .filter(id => Number.isInteger(id) && id > 0);
+
+  if (!ids.length) {
+    return res.redirect('/admin/smm-services');
+  }
+
+  try {
+    // mysql2 بيفهم IN (?) مع Array
+    await query(
+      `UPDATE smm_services
+       SET category_id = ?
+       WHERE id IN (?)`,
+      [categoryId, ids]
+    );
+  } catch (err) {
+    console.error('❌ bulk-assign error:', err);
+  }
+
+  res.redirect('/admin/smm-services');
+});
+
 
 // دالة مشتركة لتفعيل/تعطيل خدمة SMM
 function toggleSmmService(req, res) {

@@ -28,7 +28,6 @@
         </h1>
 
         <a href="/admin/smm/sync" class="btn btn-primary btn-sm">
-
           <i class="bi bi-arrow-repeat"></i>
           Sync from Provider
         </a>
@@ -38,13 +37,14 @@
       <div class="card shadow-sm mb-4">
         <div class="card-body">
           <form class="row g-3 align-items-end" method="get" action="/admin/smm-services">
-            <div class="col-md-5">
+            <!-- Search -->
+            <div class="col-md-4">
               <label class="form-label text-uppercase small text-muted">Search</label>
               <input
                 type="text"
                 name="search"
                 class="form-control"
-                placeholder="Name, provider category or provider ID"
+                placeholder="Name or provider service ID"
                 value="<%= filters.search || '' %>"
               />
               <div class="form-text">
@@ -52,13 +52,14 @@
               </div>
             </div>
 
+            <!-- Store category -->
             <div class="col-md-3">
-              <label class="form-label text-uppercase small text-muted">Category</label>
+              <label class="form-label text-uppercase small text-muted">Store category</label>
               <select name="category_id" class="form-select">
                 <option value="all" <%= filters.category_id === 'all' ? 'selected' : '' %>>
                   All
                 </option>
-                <% categories.forEach(function(c){ %>
+                <% (categories || []).forEach(function(c){ %>
                   <option
                     value="<%= c.id %>"
                     <%= String(filters.category_id) === String(c.id) ? 'selected' : '' %>>
@@ -68,22 +69,86 @@
               </select>
             </div>
 
+            <!-- Provider category -->
+            <div class="col-md-3">
+              <label class="form-label text-uppercase small text-muted">Provider category</label>
+              <select name="provider_cat" class="form-select">
+                <option value="" <%= !filters.provider_cat ? 'selected' : '' %>>All</option>
+                <% (providerCats || []).forEach(function(pc){ %>
+                  <% const val = pc.provider_category || ''; %>
+                  <option
+                    value="<%= val %>"
+                    <%= filters.provider_cat === val ? 'selected' : '' %>>
+                    <%= val %>
+                  </option>
+                <% }) %>
+              </select>
+              <div class="form-text">
+                Example: Facebook - Followers, Instagram - Likes...
+              </div>
+            </div>
+
+            <!-- Status -->
             <div class="col-md-2">
               <label class="form-label text-uppercase small text-muted">Status</label>
               <select name="status" class="form-select">
-                <option value="all" <%= filters.status === 'all' ? 'selected' : '' %>>All</option>
-                <option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Active</option>
+                <option value="all"      <%= filters.status === 'all' ? 'selected' : '' %>>All</option>
+                <option value="active"   <%= filters.status === 'active' ? 'selected' : '' %>>Active</option>
                 <option value="inactive" <%= filters.status === 'inactive' ? 'selected' : '' %>>Inactive</option>
               </select>
             </div>
 
-            <div class="col-md-2 d-flex gap-2">
+            <!-- Only uncategorized -->
+            <div class="col-md-3">
+              <div class="form-check mt-4">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="onlyUncat"
+                  name="only_uncategorized"
+                  value="1"
+                  <%= filters.only_uncategorized === '1' ? 'checked' : '' %>>
+                <label class="form-check-label small" for="onlyUncat">
+                  Only services without store category
+                </label>
+              </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="col-md-3 d-flex gap-2 justify-content-end">
               <button type="submit" class="btn btn-primary flex-grow-1">
                 <i class="bi bi-funnel"></i> Apply
               </button>
               <a href="/admin/smm-services" class="btn btn-outline-secondary">
                 Reset
               </a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Bulk assign toolbar -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+          <form id="bulkForm" method="post" action="/admin/smm-services/bulk-assign" class="row g-2 align-items-center">
+            <div class="col-md-6 small text-muted">
+              Bulk actions: select services from the table and assign them to a store category.
+            </div>
+            <div class="col-md-6 d-flex justify-content-end gap-2">
+              <select
+                name="bulk_category_id"
+                class="form-select form-select-sm"
+                required
+                style="max-width: 260px;">
+                <option value="">Assign to category…</option>
+                <% (categories || []).forEach(function(c){ %>
+                  <option value="<%= c.id %>"><%= c.name %></option>
+                <% }) %>
+              </select>
+              <input type="hidden" name="selected_ids" id="bulkSelected">
+              <button type="submit" class="btn btn-sm btn-primary">
+                <i class="bi bi-check2-all"></i> Apply
+              </button>
             </div>
           </form>
         </div>
@@ -103,6 +168,10 @@
             <table class="table align-middle">
               <thead class="table-light">
                 <tr>
+                  <!-- Select all -->
+                  <th style="width:40px;">
+                    <input type="checkbox" id="select-all">
+                  </th>
                   <th style="width: 90px;">ID</th>
                   <th>Name</th>
                   <th style="width: 260px;">Category</th>
@@ -115,13 +184,21 @@
               <tbody>
                 <% if (!services || !services.length) { %>
                   <tr>
-                    <td colspan="7" class="text-center text-muted py-4">
+                    <td colspan="8" class="text-center text-muted py-4">
                       No services to display. جرّب تغيير الفلاتر أو فعل بعض الكاتيجوريز أولاً.
                     </td>
                   </tr>
                 <% } else { %>
                   <% services.forEach(function(s) { %>
                     <tr>
+                      <!-- checkbox -->
+                      <td>
+                        <input
+                          type="checkbox"
+                          class="service-checkbox"
+                          value="<%= s.id %>">
+                      </td>
+
                       <!-- ID + provider ID -->
                       <td>
                         <div class="fw-semibold text-muted">#<%= s.id %></div>
@@ -130,7 +207,7 @@
                         </div>
                       </td>
 
-                      <!-- Name + provider category badge -->
+                      <!-- Name + provider category badge + store category -->
                       <td>
                         <div class="fw-semibold"><%= s.name %></div>
 
@@ -149,6 +226,10 @@
                             Store category:
                             <span class="fw-semibold"><%= s.category_name %></span>
                           </div>
+                        <% } else { %>
+                          <div class="small text-muted mt-1">
+                            Store category: <span class="text-danger">None</span>
+                          </div>
                         <% } %>
                       </td>
 
@@ -164,7 +245,7 @@
                             class="form-select form-select-sm"
                           >
                             <option value="">— none —</option>
-                            <% categories.forEach(function(c){ %>
+                            <% (categories || []).forEach(function(c){ %>
                               <option
                                 value="<%= c.id %>"
                                 <%= String(s.category_id || '') === String(c.id) ? 'selected' : '' %>>
@@ -192,11 +273,11 @@
                       <td>
                         <div class="small">
                           <span class="text-muted">Min:</span>
-                          <strong><%= s.min_qty %></strong>
+                          <strong><%= s.min %></strong>
                         </div>
                         <div class="small">
                           <span class="text-muted">Max:</span>
-                          <strong><%= s.max_qty %></strong>
+                          <strong><%= s.max %></strong>
                         </div>
                       </td>
 
@@ -215,20 +296,14 @@
 
                       <!-- Actions: toggle + edit -->
                       <td class="text-end">
-                        <!-- Toggle status -->
-                        <form
-                          method="post"
-                          action="/admin/smm-services/<%= s.id %>/toggle"
-                          class="d-inline"
+                        <!-- Toggle status (GET) -->
+                        <a
+                          href="/admin/smm-services/<%= s.id %>/toggle"
+                          class="btn btn-sm <%= s.is_active ? 'btn-warning' : 'btn-success' %>"
                         >
-                          <button
-                            type="submit"
-                            class="btn btn-sm <%= s.is_active ? 'btn-warning' : 'btn-success' %>"
-                          >
-                            <i class="bi <%= s.is_active ? 'bi-eye-slash' : 'bi-eye' %>"></i>
-                            <%= s.is_active ? 'Disable' : 'Enable' %>
-                          </button>
-                        </form>
+                          <i class="bi <%= s.is_active ? 'bi-eye-slash' : 'bi-eye' %>"></i>
+                          <%= s.is_active ? 'Disable' : 'Enable' %>
+                        </a>
 
                         <!-- Full edit page -->
                         <a
@@ -251,5 +326,39 @@
   </main>
 
   <script src="/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // Select all checkboxes
+    (function () {
+      const master = document.getElementById('select-all');
+      const checks = document.querySelectorAll('.service-checkbox');
+      if (!master) return;
+
+      master.addEventListener('change', function () {
+        checks.forEach(ch => ch.checked = master.checked);
+      });
+    })();
+
+    // Bulk form: جمع IDs المختارة
+    (function () {
+      const bulkForm   = document.getElementById('bulkForm');
+      const bulkHidden = document.getElementById('bulkSelected');
+
+      if (!bulkForm || !bulkHidden) return;
+
+      bulkForm.addEventListener('submit', function (e) {
+        const checks = Array.from(document.querySelectorAll('.service-checkbox:checked'));
+        const ids = checks.map(ch => ch.value);
+
+        if (!ids.length) {
+          e.preventDefault();
+          alert('Please select at least one service from the table.');
+          return;
+        }
+
+        bulkHidden.value = ids.join(',');
+      });
+    })();
+  </script>
 </body>
 </html>
