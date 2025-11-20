@@ -1101,6 +1101,7 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
       catMap.set(c.name, c.id);
     });
 
+    // ملاحظة مهمة: هلق ما منعمل UPDATE على name/rate/min/max/category_id/is_active
     const insertCatSql = `
       INSERT INTO smm_categories (name, slug, is_active, sort_order)
       VALUES (?, ?, 1, 0)
@@ -1113,17 +1114,10 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
         (provider_service_id, category_id, category, name, type, rate, min_qty, max_qty, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
       ON DUPLICATE KEY UPDATE
-        category_id = VALUES(category_id),
-        category    = VALUES(category),
-        name        = VALUES(name),
-        type        = VALUES(type),
-        rate        = VALUES(rate),
-        min_qty     = VALUES(min_qty),
-        max_qty     = VALUES(max_qty),
-        is_active   = VALUES(is_active)
+        -- 👇 ما منعدل شي حساس حتى ما نكسر التعديلات اليدوية
+        category = VALUES(category)
     `;
 
-    // counters للتتبع
     let insertedCount = 0;
     let skippedBadRate = 0;
     let skippedBadBounds = 0;
@@ -1135,10 +1129,13 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
       const catNameRaw = s.category || 'Other';
       const catName = String(catNameRaw).trim() || 'Other';
 
-      // ⬇️ 1) تأكد أن الكاتيجوري موجودة
+      // 1) تأكد أن الكاتيجوري موجودة
       let catId = catMap.get(catName);
       if (!catId) {
-        const slug = makeSlug ? makeSlug(catName) : catName.toLowerCase().replace(/\s+/g, '-');
+        const slug = (typeof makeSlug === 'function')
+          ? makeSlug(catName)
+          : catName.toLowerCase().replace(/\s+/g, '-');
+
         const result = await query(insertCatSql, [catName, slug]);
         catId = result.insertId || catId;
 
@@ -1154,11 +1151,11 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
           catMap.set(catName, catId);
         } else {
           console.warn('⚠️ Failed to resolve category id for', catName);
-          continue; // لو بعد ما قدرنا نجيب id، منطنّش هالخدمة
+          continue;
         }
       }
 
-      // ⬇️ 2) تجهيز بيانات الخدمة + فلترة القيم الغريبة
+      // 2) فلترة بيانات الخدمة
       const providerId = Number(s.service);
       const name = String(s.name || '').trim();
       const providerCategory = String(s.category || '').trim();
@@ -1167,7 +1164,7 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
       const maxQty = Number(s.max);
       const type = String(s.type || 'default');
 
-      // خدمات الـ "فاصل" أو اللي اسمها فاضي → طنّش
+      // خدمات الفاصل / العناوين
       if (!name || name.startsWith('- <') || /^-+ *<*/.test(name)) {
         skippedSeparator++;
         console.log('⏩ Skipping separator / dummy service:', providerId, name);
@@ -1179,8 +1176,7 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
         continue;
       }
 
-      // فلتر الـ rate: لازم رقم، > 0، وأقل من سقف منطقي حتى ما يكسر الـ DECIMAL
-      const MAX_RATE = 9999999.99; // سقف كبير بس آمن بالنسبة للداتابيس
+      const MAX_RATE = 9999999.99;
       if (!Number.isFinite(rawRate) || rawRate <= 0 || rawRate > MAX_RATE) {
         skippedBadRate++;
         console.log('⏩ Skipping service with invalid rate:', {
@@ -1191,7 +1187,6 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
         continue;
       }
 
-      // فلتر min/max
       if (
         !Number.isFinite(minQty) ||
         !Number.isFinite(maxQty) ||
@@ -1208,17 +1203,17 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
         continue;
       }
 
-      const safeRate = rawRate.toFixed(4); // متوافق مع DECIMAL(x,4) غالباً
+      const safeRate = rawRate.toFixed(4);
 
       const params = [
         providerId,        // provider_service_id
-        catId,             // category_id
-        providerCategory,  // category (اسم المزود)
-        name,              // name
+        catId,             // category_id (فقط لأول مرة)
+        providerCategory,  // category (نص المزود)
+        name,              // name (فقط لأول مرة)
         type,              // type
-        safeRate,          // rate
-        minQty,            // min_qty
-        maxQty,            // max_qty
+        safeRate,          // rate (فقط لأول مرة)
+        minQty,            // min_qty (فقط لأول مرة)
+        maxQty,            // max_qty (فقط لأول مرة)
       ];
 
       await query(insertServiceSql, params);
@@ -1236,7 +1231,7 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
 
     res.send(
       `✔️ Synced SMM services & categories successfully.
-       Inserted/updated: ${insertedCount},
+       Inserted/updated (new rows): ${insertedCount},
        skipped (rate): ${skippedBadRate},
        skipped (min/max): ${skippedBadBounds},
        skipped (separators): ${skippedSeparator}`
@@ -1251,6 +1246,7 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
     res.status(500).send('Sync Error');
   }
 });
+
 
 
 // =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
