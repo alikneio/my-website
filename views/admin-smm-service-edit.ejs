@@ -229,73 +229,88 @@
           </div>
 
           <!-- BADGES -->
-          <div class="card mb-3 shadow-sm">
-            <div class="card-header">
-              Badges shown on public card
-            </div>
-            <div class="card-body small">
+         <div class="card mb-3 shadow-sm">
+  <div class="card-header">
+    Badges shown on public card
+  </div>
+  <div class="card-body small">
 
-              <div class="form-check mb-2">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="badge_best_price"
-                  name="badge_best_price"
-                  value="1"
-                  <%= service.badge_best_price ? 'checked' : '' %>
-                />
-                <label class="form-check-label" for="badge_best_price">
-                  Show <strong>"Best price"</strong> badge
-                </label>
-              </div>
+    <div class="form-check mb-2">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="badge_best_price"
+        name="badge_best_price"
+        value="1"
+        <%= service.badge_best_price ? 'checked' : '' %>
+      />
+      <label class="form-check-label" for="badge_best_price">
+        Show <strong>"Best price"</strong> badge
+      </label>
+    </div>
 
-              <div class="form-check mb-2">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="badge_fast_start"
-                  name="badge_fast_start"
-                  value="1"
-                  <%= service.badge_fast_start ? 'checked' : '' %>
-                />
-                <label class="form-check-label" for="badge_fast_start">
-                  Show <strong>"Fast start"</strong> badge
-                </label>
-              </div>
+    <div class="form-check mb-2">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="badge_fast_start"
+        name="badge_fast_start"
+        value="1"
+        <%= service.badge_fast_start ? 'checked' : '' %>
+      />
+      <label class="form-check-label" for="badge_fast_start">
+        Show <strong>"Fast start"</strong> badge
+      </label>
+    </div>
 
-              <div class="form-check mb-2">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="badge_refill"
-                  name="badge_refill"
-                  value="1"
-                  <%= service.badge_refill ? 'checked' : '' %>
-                />
-                <label class="form-check-label" for="badge_refill">
-                  Show <strong>"Refill"</strong> badge
-                </label>
-              </div>
+    <div class="form-check mb-2">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="badge_refill"
+        name="badge_refill"
+        value="1"
+        <%= service.badge_refill ? 'checked' : '' %>
+      />
+      <label class="form-check-label" for="badge_refill">
+        Show <strong>"Refill"</strong> badge
+      </label>
+    </div>
 
-              <div class="form-check mb-0">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="badge_no_refill"
-                  name="badge_no_refill"
-                  value="1"
-                  <%= service.badge_no_refill ? 'checked' : '' %>
-                />
-                <label class="form-check-label" for="badge_no_refill">
-                  Show <strong>"No refill"</strong> badge
-                </label>
-              </div>
+    <div class="form-check mb-2">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="badge_no_refill"
+        name="badge_no_refill"
+        value="1"
+        <%= service.badge_no_refill ? 'checked' : '' %>
+      />
+      <label class="form-check-label" for="badge_no_refill">
+        Show <strong>"No refill"</strong> badge
+      </label>
+    </div>
 
-              <div class="form-text mt-2">
-                These flags only affect the small labels on the service card design.
-              </div>
-            </div>
-          </div>
+    <!-- 👇 Badge الجديد -->
+    <div class="form-check mb-0">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="badge_low_quality"
+        name="badge_low_quality"
+        value="1"
+        <%= service.badge_low_quality ? 'checked' : '' %>
+      />
+      <label class="form-check-label" for="badge_low_quality">
+        Show <strong>"Low quality"</strong> badge
+      </label>
+    </div>
+
+    <div class="form-text mt-2">
+      These flags only control the small labels on the public service card.
+    </div>
+  </div>
+</div>
 
           <!-- SUBMIT -->
           <div class="d-grid">
