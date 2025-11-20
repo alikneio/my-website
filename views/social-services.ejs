@@ -37,6 +37,29 @@
       gap: 10px;
       flex-wrap: wrap;
     }
+
+    .smc-back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.5);
+      font-size: 0.8rem;
+      color: #4b5563;
+      text-decoration: none;
+      background: #ffffff;
+    }
+    .smc-back-btn i {
+      font-size: 0.9rem;
+    }
+    .smc-back-btn:hover {
+      color: #111827;
+      border-color: rgba(30,64,175,.8);
+      background: #eef2ff;
+      text-decoration: none;
+    }
+
     .smc-icon {
       width: 38px;
       height: 38px;
@@ -66,16 +89,6 @@
       align-items: flex-end;
       gap: 4px;
     }
-    .smc-back {
-      padding: 0;
-      font-size: .8rem;
-      color: #4b5563;
-      text-decoration: none;
-    }
-    .smc-back:hover {
-      color: #111827;
-      text-decoration: underline;
-    }
     .smc-pill-counter {
       font-size: .75rem;
       border-radius: 999px;
@@ -101,6 +114,41 @@
       font-size: .78rem;
       color: #6b7280;
       margin-bottom: 2px;
+    }
+
+    /* Search pill */
+    .smc-search-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      background: #f9fafb;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      padding: 6px 10px;
+    }
+    .smc-search-pill-icon {
+      font-size: 0.9rem;
+      color: #6b7280;
+    }
+    .smc-search-pill input {
+      border: none;
+      background: transparent;
+      width: 100%;
+      font-size: 0.9rem;
+      padding: 4px 0;
+      outline: none;
+      box-shadow: none;
+    }
+    .smc-search-pill input:focus {
+      box-shadow: none;
+    }
+
+    .smc-sort-select {
+      min-width: 170px;
+    }
+    .smc-count {
+      font-size: 0.8rem;
+      color: #6b7280;
     }
 
     /* ===== CARDS ===== */
@@ -240,6 +288,7 @@
 
     .smm-card-hidden { display: none !important; }
 
+    /* ===== Mobile ===== */
     @media (max-width: 575.98px) {
       .smc-header {
         padding-top: 8px;
@@ -265,34 +314,26 @@
       .smc-meta-grid {
         padding: 6px 8px;
       }
+
+      .smc-filter {
+        padding: 8px 10px;
+        margin-bottom: 10px;
+      }
+      .smc-search-pill {
+        padding: 5px 9px;
+      }
+      .smc-search-pill input {
+        font-size: 0.84rem;
+      }
+      .smc-sort-select {
+        width: 100%;
+      }
+      .smc-count {
+        width: 100%;
+        text-align: left;
+        margin-top: 4px;
+      }
     }
-
-    /* ===== Mobile tuning for search bar ===== */
-@media (max-width: 575.98px) {
-  .smc-filter {
-    padding: 6px 8px;
-  }
-
-  /* صغّر ارتفاع الـ input والآيقونة */
-  .smc-filter .input-group-sm > .form-control,
-  .smc-filter .input-group-sm > .input-group-text {
-    padding: 0.35rem 0.55rem;
-    font-size: 0.8rem;
-    line-height: 1.2;
-  }
-
-  /* تمنع التمدد الغريب */
-  #serviceSearch {
-    height: 36px;
-  }
-
-  /* قلّل المارجن تحت الفلتر شوي */
-  .smc-filter {
-    margin-bottom: 10px;
-  }
-}
-
-
   </style>
 </head>
 <body>
@@ -302,10 +343,15 @@
   <main class="py-3">
     <div class="container smc-shell">
 
-      <!-- HEADER (no breadcrumb) -->
+      <!-- HEADER -->
       <header class="smc-header">
         <div class="smc-title-row">
           <div class="smc-left">
+            <a href="/social-media" class="smc-back-btn">
+              <i class="bi bi-arrow-left"></i>
+              <span>Back</span>
+            </a>
+
             <div class="smc-icon">
               <i class="bi bi-broadcast-pin"></i>
             </div>
@@ -318,9 +364,6 @@
           </div>
 
           <div class="smc-actions">
-            <a href="/social-media" class="smc-back">
-              <i class="bi bi-arrow-left"></i> Back
-            </a>
             <span class="smc-pill-counter">
               <i class="bi bi-lightning-charge-fill"></i>
               <span><strong><%= services.length %></strong> service(s)</span>
@@ -329,41 +372,44 @@
         </div>
       </header>
 
-      <!-- FILTER BAR -->
+      <!-- FILTER BAR (new pill style) -->
       <section class="smc-filter">
-        <div class="row g-2 align-items-center">
-          <div class="col-md-6">
-            <label class="form-label">Search in this category</label>
-            <div class="input-group input-group-sm">
-              <span class="input-group-text bg-transparent border-end-0">
+        <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+
+          <!-- Search -->
+          <div class="flex-grow-1">
+            <label class="form-label mb-1">Search in this category</label>
+            <div class="smc-search-pill">
+              <span class="smc-search-pill-icon">
                 <i class="bi bi-search"></i>
               </span>
               <input
                 type="text"
                 id="serviceSearch"
-                class="form-control border-start-0"
-                placeholder="Search by name or keyword..."
+                class="form-control p-0 border-0 bg-transparent"
+                placeholder="Search by name, keyword, refill, global..."
               />
             </div>
           </div>
 
-          <div class="col-md-3">
-            <label class="form-label">Sort</label>
-            <select id="sortSelect" class="form-select form-select-sm">
-              <option value="default">Recommended</option>
-              <option value="price-asc">Price: Low to high</option>
-              <option value="price-desc">Price: High to low</option>
-              <option value="min-asc">Min quantity: Low first</option>
-              <option value="min-desc">Min quantity: High first</option>
-            </select>
+          <!-- Sort + count -->
+          <div class="d-flex flex-column flex-md-row align-items-md-center gap-2">
+            <div>
+              <label class="form-label mb-1">Sort</label>
+              <select id="sortSelect" class="form-select form-select-sm smc-sort-select">
+                <option value="default">Recommended</option>
+                <option value="price-asc">Price: Low to high</option>
+                <option value="price-desc">Price: High to low</option>
+                <option value="min-asc">Min quantity: Low first</option>
+                <option value="min-desc">Min quantity: High first</option>
+              </select>
+            </div>
+
+            <div class="smc-count ms-md-3">
+              Showing <strong><%= services.length %></strong> services.
+            </div>
           </div>
 
-          <div class="col-md-3 text-md-end">
-            <label class="form-label d-block">&nbsp;</label>
-            <span class="small text-muted">
-              Showing <strong><%= services.length %></strong> services.
-            </span>
-          </div>
         </div>
       </section>
 
