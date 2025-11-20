@@ -16,71 +16,71 @@
   <style>
     body {
       font-family: "Cairo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background-color: #f5f7fb;
+      background-color: #f3f5fb;
     }
 
+    /* ===== HERO ===== */
     .smm-hero {
-      border-radius: 20px;
-      padding: 24px 22px;
-      background: linear-gradient(135deg, #e0f2fe, #eef2ff);
-      border: 1px solid rgba(148, 163, 184, 0.4);
+      border-radius: 22px;
+      padding: 22px 20px;
+      background: radial-gradient(circle at top left, #dbeafe 0, #eef2ff 45%, #f5f5f5 100%);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
     }
-
     .smm-hero-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 16px;
-      background: #2563eb;
+      width: 48px;
+      height: 48px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       color: #fff;
-      margin-right: 10px;
-      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);
+      margin-right: 12px;
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.55);
     }
-
     .smm-hero-title {
-      font-size: 1.4rem;
-      font-weight: 700;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #0f172a;
       margin-bottom: 4px;
     }
-
     .smm-hero-subtitle {
       font-size: 0.92rem;
       color: #4b5563;
     }
-
-    .smm-filter-bar {
-      border-radius: 16px;
-      background: #ffffff;
-      padding: 12px 16px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
-    }
-
-    .smm-pill {
+    .smm-hero-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       padding: 4px 10px;
       border-radius: 999px;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       background: rgba(37, 99, 235, 0.08);
       color: #1d4ed8;
-      border: 1px solid rgba(37, 99, 235, 0.12);
+      border: 1px solid rgba(37, 99, 235, 0.15);
     }
 
+    /* ===== FILTER BAR ===== */
+    .smm-filter-bar {
+      border-radius: 18px;
+      background: #ffffff;
+      padding: 12px 16px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+
+    /* ===== CARDS ===== */
     .service-card-modern {
       border-radius: 20px;
-      padding: 18px 18px 16px;
+      padding: 16px 16px 14px;
       background: #ffffff;
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
       transition: all 0.22s ease;
       height: 100%;
       position: relative;
       overflow: hidden;
     }
-
     .service-card-modern::before {
       content: "";
       position: absolute;
@@ -90,42 +90,38 @@
       transition: opacity 0.25s ease;
       pointer-events: none;
     }
-
     .service-card-modern:hover::before {
       opacity: 1;
     }
-
     .service-card-modern:hover {
       transform: translateY(-6px);
-      box-shadow: 0 16px 38px rgba(15, 23, 42, 0.14);
-      border-color: rgba(59, 130, 246, 0.4);
+      box-shadow: 0 20px 42px rgba(15, 23, 42, 0.16);
+      border-color: rgba(59, 130, 246, 0.55);
     }
 
     .smm-badge-type {
       background: linear-gradient(135deg, #4f46e5, #3b82f6);
       color: #ffffff;
-      padding: 4px 10px;
+      padding: 3px 9px;
       border-radius: 999px;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
     }
-
     .smm-id {
       font-size: 0.7rem;
       color: #9ca3af;
     }
 
     .service-name {
-      font-size: 1rem;
+      font-size: 0.98rem;
       font-weight: 700;
       color: #0f172a;
       margin-top: 8px;
-      margin-bottom: 6px;
-      min-height: 2.3em;
+      margin-bottom: 4px;
+      min-height: 2.4em;
     }
-
     .service-provider {
       font-size: 0.8rem;
       color: #6b7280;
@@ -135,24 +131,38 @@
       border-radius: 14px;
       background: #f9fafb;
       padding: 10px 12px;
+      margin-top: 10px;
     }
-
     .service-metrics .label {
       font-size: 0.78rem;
       color: #6b7280;
     }
-
     .service-metrics .value {
-      font-size: 0.92rem;
+      font-size: 0.9rem;
       font-weight: 700;
       color: #111827;
+    }
+
+    .service-meta-chips {
+      margin-top: 6px;
+      margin-bottom: 3px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      font-size: 0.74rem;
+    }
+    .service-chip {
+      padding: 3px 8px;
+      border-radius: 999px;
+      background-color: #eef2ff;
+      color: #4338ca;
     }
 
     .service-min-cost {
       font-size: 0.8rem;
       color: #6b7280;
+      margin-top: 6px;
     }
-
     .service-min-cost strong {
       color: #111827;
     }
@@ -164,7 +174,7 @@
       padding: 9px 0;
       border-radius: 12px;
       color: #ffffff;
-      font-size: 0.92rem;
+      font-size: 0.9rem;
       font-weight: 600;
       display: inline-flex;
       align-items: center;
@@ -172,7 +182,6 @@
       gap: 6px;
       margin-top: 10px;
     }
-
     .smm-buy-btn:hover {
       background: #1d4ed8;
       color: #ffffff;
@@ -205,6 +214,7 @@
   <main class="py-4">
     <div class="container" style="max-width: 1150px;">
 
+      <!-- Breadcrumb -->
       <div class="mb-3">
         <nav aria-label="breadcrumb">
           <ol class="breadcrumb small mb-1">
@@ -215,6 +225,7 @@
         </nav>
       </div>
 
+      <!-- HERO -->
       <section class="smm-hero mb-3">
         <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
           <div class="d-flex align-items-center">
@@ -230,7 +241,7 @@
           </div>
 
           <div class="text-md-end">
-            <div class="smm-pill mb-1">
+            <div class="smm-hero-pill mb-1">
               <i class="bi bi-lightning-charge-fill"></i>
               <span>Instant / Auto services</span>
             </div>
@@ -241,11 +252,13 @@
         </div>
       </section>
 
+      <!-- Info line -->
       <div class="alert alert-info py-2 px-3 mb-3 small">
         <i class="bi bi-info-circle me-1"></i>
         السعر النهائي = <strong>(الكمية × السعر لكل 1000) ÷ 1000</strong>.
       </div>
 
+      <!-- Filters -->
       <section class="smm-filter-bar mb-3">
         <div class="row g-2 align-items-center">
           <div class="col-md-5">
@@ -282,6 +295,7 @@
         </div>
       </section>
 
+      <!-- SERVICES GRID -->
       <% if (!services || !services.length) { %>
         <div class="smm-empty text-center">
           <h6 class="mb-1">لا توجد خدمات متاحة حالياً في هذه الفئة.</h6>
@@ -299,7 +313,9 @@
                  data-name="<%= (s.name || '').toLowerCase() %>"
                  data-rate="<%= Number(s.rate || 0) %>"
                  data-min="<%= Number(s.min_qty || 0) %>">
+
               <div class="service-card-modern">
+                <!-- Top row: type + id -->
                 <div class="d-flex justify-content-between align-items-start mb-1">
                   <span class="smm-badge-type">
                     <%= (s.type || 'Default').toString().charAt(0).toUpperCase() + (s.type || 'default').toString().slice(1) %>
@@ -307,21 +323,34 @@
                   <span class="smm-id">#<%= s.id %></span>
                 </div>
 
+                <!-- Name -->
                 <div class="service-name">
                   <%= s.name %>
                 </div>
 
-                <div class="service-provider mb-2">
-                  <% if ((s.name || '').includes('from')) { %>
-                    <i class="bi bi-globe-americas me-1"></i>
-                    <%= s.name.split('from')[1].trim() %>
+                <!-- Provider / generic label -->
+                <div class="service-provider">
+                  <% if ((s.name || '').includes('Global')) { %>
+                    <i class="bi bi-globe-americas me-1"></i> Global / Worldwide
                   <% } else { %>
-                    <i class="bi bi-globe2 me-1"></i>
-                    Social service
+                    <i class="bi bi-globe2 me-1"></i> Social service
                   <% } %>
                 </div>
 
-                <div class="service-metrics mb-2">
+                <!-- Little chips (optional info) -->
+                <div class="service-meta-chips">
+                  <span class="service-chip">
+                    <i class="bi bi-graph-up-arrow me-1"></i>
+                    Best price
+                  </span>
+                  <span class="service-chip">
+                    <i class="bi bi-clock-history me-1"></i>
+                    Fast start
+                  </span>
+                </div>
+
+                <!-- Metrics -->
+                <div class="service-metrics">
                   <div class="d-flex justify-content-between">
                     <div>
                       <div class="label">Rate / 1000</div>
@@ -340,11 +369,13 @@
                   </div>
                 </div>
 
-                <div class="service-min-cost mb-1">
+                <!-- Min cost -->
+                <div class="service-min-cost">
                   Minimum cost ≈
                   <strong>$<%= isNaN(minCost) ? '0.0000' : minCost.toFixed(4) %></strong>
                 </div>
 
+                <!-- CTA -->
                 <a href="/social-checkout/<%= s.id %>" class="btn smm-buy-btn">
                   <i class="bi bi-cart-plus"></i>
                   Buy this service
@@ -360,10 +391,11 @@
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
     (function () {
-      const searchInput = document.getElementById('serviceSearch');
-      const sortSelect = document.getElementById('sortSelect');
-      const cardWrappers = Array.from(document.querySelectorAll('.service-card-wrapper'));
+      const searchInput   = document.getElementById('serviceSearch');
+      const sortSelect    = document.getElementById('sortSelect');
+      const cardWrappers  = Array.from(document.querySelectorAll('.service-card-wrapper'));
 
+      // Filter by name
       if (searchInput) {
         searchInput.addEventListener('input', function () {
           const term = this.value.toLowerCase().trim();
@@ -378,6 +410,7 @@
         });
       }
 
+      // Sorting
       if (sortSelect) {
         sortSelect.addEventListener('change', function () {
           const mode = this.value;
@@ -391,11 +424,11 @@
             const minB  = Number(b.getAttribute('data-min') || 0);
 
             switch (mode) {
-              case 'price-asc':   return rateA - rateB;
-              case 'price-desc':  return rateB - rateA;
-              case 'min-asc':     return minA  - minB;
-              case 'min-desc':    return minB  - minA;
-              default:            return 0;
+              case 'price-asc':  return rateA - rateB;
+              case 'price-desc': return rateB - rateA;
+              case 'min-asc':    return minA  - minB;
+              case 'min-desc':   return minB  - minA;
+              default:           return 0;
             }
           });
 
