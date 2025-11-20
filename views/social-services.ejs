@@ -238,6 +238,10 @@
       background: #fef2f2;
       color: #b91c1c;
     }
+    .smc-tag.low {
+      background: #fef3c7;
+      color: #92400e;
+    }
 
     .smc-meta-grid {
       margin-top: 8px;
@@ -427,12 +431,21 @@
           <% services.forEach(function(s) {
                const minCost = (Number(s.rate || 0) * Number(s.min_qty || 0)) / 1000;
                const nameLower = (s.name || '').toLowerCase();
-               const hasRefill  = nameLower.includes('refill');
-               const noRefill   = nameLower.includes('no refill');
+
+               // build tags string for search
+               const tagsArr = [];
+               if (s.best_price == 1) tagsArr.push('best', 'bestprice', 'best price');
+               if (s.fast_start == 1) tagsArr.push('fast', 'faststart', 'fast start');
+               if (s.refill == 1) tagsArr.push('refill');
+               if (s.no_refill == 1) tagsArr.push('no refill', 'norefill');
+               if (s.low_quality == 1) tagsArr.push('low quality', 'low');
+
+               const tagsString = tagsArr.join(' ').toLowerCase();
           %>
             <div
               class="col-12 col-md-6 col-xl-4 service-card-wrapper"
               data-name="<%= nameLower %>"
+              data-tags="<%= tagsString %>"
               data-rate="<%= Number(s.rate || 0) %>"
               data-min="<%= Number(s.min_qty || 0) %>">
 
@@ -448,20 +461,33 @@
                 </p>
 
                 <div class="smc-tags">
-                  <span class="smc-tag">
-                    <i class="bi bi-graph-up-arrow me-1"></i> Best price
-                  </span>
-                  <span class="smc-tag">
-                    <i class="bi bi-speedometer2 me-1"></i> Fast start
-                  </span>
-                  <% if (hasRefill) { %>
+                  <% if (s.best_price == 1) { %>
+                    <span class="smc-tag">
+                      <i class="bi bi-graph-up-arrow me-1"></i> Best price
+                    </span>
+                  <% } %>
+
+                  <% if (s.fast_start == 1) { %>
+                    <span class="smc-tag">
+                      <i class="bi bi-speedometer2 me-1"></i> Fast start
+                    </span>
+                  <% } %>
+
+                  <% if (s.refill == 1) { %>
                     <span class="smc-tag refill">
                       <i class="bi bi-shield-check me-1"></i> Refill
                     </span>
                   <% } %>
-                  <% if (noRefill) { %>
+
+                  <% if (s.no_refill == 1) { %>
                     <span class="smc-tag no-refill">
                       <i class="bi bi-slash-circle me-1"></i> No refill
+                    </span>
+                  <% } %>
+
+                  <% if (s.low_quality == 1) { %>
+                    <span class="smc-tag low">
+                      <i class="bi bi-exclamation-triangle me-1"></i> Low quality
                     </span>
                   <% } %>
                 </div>
@@ -509,13 +535,14 @@
       const sortSelect   = document.getElementById('sortSelect');
       const cards        = Array.from(document.querySelectorAll('.service-card-wrapper'));
 
-      // Search
+      // Search (by name + tags)
       if (searchInput) {
         searchInput.addEventListener('input', function () {
           const term = this.value.toLowerCase().trim();
           cards.forEach(card => {
             const name = card.getAttribute('data-name') || '';
-            if (!term || name.includes(term)) {
+            const tags = card.getAttribute('data-tags') || '';
+            if (!term || name.includes(term) || tags.includes(term)) {
               card.classList.remove('smm-card-hidden');
             } else {
               card.classList.add('smm-card-hidden');
