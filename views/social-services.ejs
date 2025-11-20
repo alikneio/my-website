@@ -19,47 +19,66 @@
       background-color: #f3f5fb;
     }
 
-    /* ===== HEADER (خفيف و مودرن) ===== */
-    .smm-header {
-      border-radius: 18px;
-      padding: 14px 18px;
-      background: #ffffff;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+    /* ===== TOP BAR جديد تماماً ===== */
+    .smm-topbar {
+      padding: 10px 4px 14px;
+      border-bottom: 1px solid rgba(148, 163, 184, .35);
+      margin-bottom: 10px;
     }
-    .smm-header-title {
-      font-size: 1.3rem;
+    .smm-top-title {
+      font-size: 1.25rem;
       font-weight: 800;
       color: #0f172a;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
-    .smm-header-subtitle {
-      font-size: 0.88rem;
+    .smm-top-sub {
+      font-size: .84rem;
       color: #6b7280;
       margin: 0;
     }
-    .smm-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      background: rgba(37, 99, 235, 0.06);
-      color: #1d4ed8;
-      border: 1px solid rgba(37, 99, 235, 0.12);
-    }
-    .smm-hint {
-      font-size: 0.8rem;
+    .smm-top-right {
+      font-size: .78rem;
+      text-align: right;
       color: #6b7280;
     }
+    .smm-top-right strong {
+      color: #111827;
+    }
+    .smm-top-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: #111827;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      margin-right: 8px;
+      font-size: 18px;
+    }
 
-    /* ===== FILTER BAR (أبسط) ===== */
-    .smm-filter {
-      border-radius: 16px;
+    /* سطر الفورمولا تحت التوب بار مباشرة */
+    .smm-formula {
+      font-size: .8rem;
+      color: #6b7280;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ===== FILTER TOOLBAR خفيفة ===== */
+    .smm-toolbar {
+      border-radius: 12px;
       background: #ffffff;
-      padding: 12px 14px;
+      padding: 10px 12px;
       border: 1px solid rgba(148, 163, 184, 0.2);
+      margin-bottom: 16px;
+    }
+    .smm-toolbar label {
+      font-size: .78rem;
+      color: #6b7280;
+      margin-bottom: 3px;
     }
 
     /* ===== CARDS ===== */
@@ -78,7 +97,7 @@
       content: "";
       position: absolute;
       inset: 0;
-      background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 55%);
+      background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 55%);
       opacity: 0;
       transition: opacity 0.25s ease;
       pointer-events: none;
@@ -120,6 +139,21 @@
       color: #6b7280;
     }
 
+    .service-meta-chips {
+      margin-top: 6px;
+      margin-bottom: 3px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      font-size: 0.74rem;
+    }
+    .service-chip {
+      padding: 3px 8px;
+      border-radius: 999px;
+      background-color: #eef2ff;
+      color: #4338ca;
+    }
+
     .service-metrics {
       border-radius: 14px;
       background: #f9fafb;
@@ -134,21 +168,6 @@
       font-size: 0.9rem;
       font-weight: 700;
       color: #111827;
-    }
-
-    .service-meta-chips {
-      margin-top: 6px;
-      margin-bottom: 3px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      font-size: 0.74rem;
-    }
-    .service-chip {
-      padding: 3px 8px;
-      border-radius: 999px;
-      background-color: #eef2ff;
-      color: #4338ca;
     }
 
     .service-min-cost {
@@ -192,11 +211,15 @@
     }
 
     @media (max-width: 575.98px) {
-      .smm-header {
-        padding: 12px 12px;
+      .smm-toolbar {
+        padding: 8px 8px;
       }
-      .smm-filter {
-        padding: 10px 10px;
+      .smm-topbar {
+        padding-bottom: 10px;
+      }
+      .smm-top-right {
+        text-align: left;
+        margin-top: 6px;
       }
     }
   </style>
@@ -208,7 +231,7 @@
     <div class="container" style="max-width: 1150px;">
 
       <!-- Breadcrumb -->
-      <div class="mb-3">
+      <div class="mb-2">
         <nav aria-label="breadcrumb">
           <ol class="breadcrumb small mb-1">
             <li class="breadcrumb-item"><a href="/">Home</a></li>
@@ -218,25 +241,30 @@
         </nav>
       </div>
 
-      <!-- HEADER البسيط -->
-      <section class="smm-header mb-2">
+      <!-- TOP BAR الجديد -->
+      <section class="smm-topbar">
         <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
-          <div>
-            <div class="text-primary text-uppercase small fw-semibold mb-1">
-              Social media · Category
+          <div class="d-flex align-items-center">
+            <div class="smm-top-icon">
+              <i class="bi bi-broadcast-pin"></i>
             </div>
-            <h1 class="smm-header-title"><%= categoryName %></h1>
-            <p class="smm-header-subtitle">
-              اختر الخدمة المناسبة، ثم أدخل الرابط والكمية من صفحة الـ Checkout.
-            </p>
+            <div>
+              <div class="text-uppercase small fw-semibold text-primary mb-1">
+                Social media · Category
+              </div>
+              <h1 class="smm-top-title"><%= categoryName %></h1>
+              <p class="smm-top-sub">
+                اختر الخدمة المناسبة، ثم أدخل الرابط والكمية من صفحة الـ Checkout.
+              </p>
+            </div>
           </div>
 
-          <div class="text-md-end">
-            <div class="smm-chip mb-1">
-              <i class="bi bi-lightning-charge-fill"></i>
-              <span>Instant / Auto services</span>
+          <div class="smm-top-right">
+            <div>
+              <i class="bi bi-lightning-charge me-1 text-warning"></i>
+              Instant / Auto services
             </div>
-            <div class="small text-muted">
+            <div>
               الأسعار معروضة لكل <strong>1000</strong> من الكمية.
             </div>
           </div>
@@ -244,16 +272,16 @@
       </section>
 
       <!-- سطر الفورمولا فقط -->
-      <div class="smm-hint mb-3">
-        <i class="bi bi-info-circle me-1"></i>
-        السعر النهائي = <strong>(الكمية × السعر لكل 1000) ÷ 1000</strong>.
+      <div class="smm-formula">
+        <i class="bi bi-info-circle"></i>
+        <span>السعر النهائي = <strong>(الكمية × السعر لكل 1000) ÷ 1000</strong>.</span>
       </div>
 
-      <!-- FILTER BAR البسيطة -->
-      <section class="smm-filter mb-3">
+      <!-- FILTER TOOLBAR -->
+      <section class="smm-toolbar">
         <div class="row g-2 align-items-center">
           <div class="col-md-5">
-            <label class="form-label mb-1 small text-muted">Search in this category</label>
+            <label class="form-label mb-0">Search in this category</label>
             <div class="input-group input-group-sm">
               <span class="input-group-text bg-transparent border-end-0">
                 <i class="bi bi-search"></i>
@@ -268,7 +296,7 @@
           </div>
 
           <div class="col-md-3">
-            <label class="form-label mb-1 small text-muted">Sort</label>
+            <label class="form-label mb-0">Sort</label>
             <select id="sortSelect" class="form-select form-select-sm">
               <option value="default">Recommended</option>
               <option value="price-asc">Price: Low to high</option>
@@ -328,7 +356,7 @@
                   <% } %>
                 </div>
 
-                <!-- Little chips (اختيارية) -->
+                <!-- Little chips (decor فقط) -->
                 <div class="service-meta-chips">
                   <span class="service-chip">
                     <i class="bi bi-graph-up-arrow me-1"></i>
