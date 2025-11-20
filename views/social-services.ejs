@@ -266,6 +266,33 @@
         padding: 6px 8px;
       }
     }
+
+    /* ===== Mobile tuning for search bar ===== */
+@media (max-width: 575.98px) {
+  .smc-filter {
+    padding: 6px 8px;
+  }
+
+  /* صغّر ارتفاع الـ input والآيقونة */
+  .smc-filter .input-group-sm > .form-control,
+  .smc-filter .input-group-sm > .input-group-text {
+    padding: 0.35rem 0.55rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+
+  /* تمنع التمدد الغريب */
+  #serviceSearch {
+    height: 36px;
+  }
+
+  /* قلّل المارجن تحت الفلتر شوي */
+  .smc-filter {
+    margin-bottom: 10px;
+  }
+}
+
+
   </style>
 </head>
 <body>
