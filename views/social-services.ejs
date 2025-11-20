@@ -240,7 +240,7 @@
     }
     .smc-tag.low {
       background: #fef3c7;
-      color: #92400e;
+      color: #b45309;
     }
 
     .smc-meta-grid {
@@ -376,11 +376,9 @@
         </div>
       </header>
 
-      <!-- FILTER BAR (new pill style) -->
+      <!-- FILTER BAR -->
       <section class="smc-filter">
         <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
-
-          <!-- Search -->
           <div class="flex-grow-1">
             <label class="form-label mb-1">Search in this category</label>
             <div class="smc-search-pill">
@@ -396,7 +394,6 @@
             </div>
           </div>
 
-          <!-- Sort + count -->
           <div class="d-flex flex-column flex-md-row align-items-md-center gap-2">
             <div>
               <label class="form-label mb-1">Sort</label>
@@ -413,7 +410,6 @@
               Showing <strong><%= services.length %></strong> services.
             </div>
           </div>
-
         </div>
       </section>
 
@@ -429,29 +425,56 @@
 
         <div id="servicesGrid" class="row g-3">
           <% services.forEach(function(s) {
-               const minCost = (Number(s.rate || 0) * Number(s.min_qty || 0)) / 1000;
+               const minCost   = (Number(s.rate || 0) * Number(s.min_qty || 0)) / 1000;
                const nameLower = (s.name || '').toLowerCase();
 
-               // build tags string for search
-               const tagsArr = [];
-               if (s.best_price == 1) tagsArr.push('best', 'bestprice', 'best price');
-               if (s.fast_start == 1) tagsArr.push('fast', 'faststart', 'fast start');
-               if (s.refill == 1) tagsArr.push('refill');
-               if (s.no_refill == 1) tagsArr.push('no refill', 'norefill');
-               if (s.low_quality == 1) tagsArr.push('low quality', 'low');
+               // هل في flags محفوظة فعلياً؟
+               const hasManualFlags =
+                 s.best_price  != null ||
+                 s.fast_start  != null ||
+                 s.refill      != null ||
+                 s.no_refill   != null ||
+                 s.low_quality != null;
 
+               // نبدأ من قيم الداتابيس
+               let showBest   = (s.best_price  == 1);
+               let showFast   = (s.fast_start  == 1);
+               let showRefill = (s.refill      == 1);
+               let showNoRef  = (s.no_refill   == 1);
+               let showLow    = (s.low_quality == 1);
+
+               // إذا ما في ولا flag → نستنتج من الاسم متل قبل
+               if (!hasManualFlags) {
+                 if (nameLower.includes('refill'))        showRefill = true;
+                 if (nameLower.includes('no refill') ||
+                     nameLower.includes('no-refill')) {
+                   showNoRef  = true;
+                   showRefill = false;
+                 }
+                 if (nameLower.includes('low quality'))   showLow = true;
+                 // ممكن تضيف كلمات تانية هون لو حابب
+               }
+
+               // نص للبحث (name + tags)
+               const tagsArr = [];
+               if (showBest)   tagsArr.push('best price');
+               if (showFast)   tagsArr.push('fast start');
+               if (showRefill) tagsArr.push('refill');
+               if (showNoRef)  tagsArr.push('no refill');
+               if (showLow)    tagsArr.push('low quality', 'low');
                const tagsString = tagsArr.join(' ').toLowerCase();
           %>
             <div
               class="col-12 col-md-6 col-xl-4 service-card-wrapper"
-              data-name="<%= nameLower %>"
-              data-tags="<%= tagsString %>"
+              data-name="<%= nameLower %> <%= tagsString %>"
               data-rate="<%= Number(s.rate || 0) %>"
               data-min="<%= Number(s.min_qty || 0) %>">
 
               <div class="smc-card">
                 <div class="smc-card-top">
-                  <span class="smc-type-badge"><%= (s.type || 'Default').toString().toUpperCase() %></span>
+                  <span class="smc-type-badge">
+                    <%= (s.type || 'Default').toString().toUpperCase() %>
+                  </span>
                   <span class="smc-id">#<%= s.id %></span>
                 </div>
 
@@ -461,31 +484,31 @@
                 </p>
 
                 <div class="smc-tags">
-                  <% if (s.best_price == 1) { %>
+                  <% if (showBest) { %>
                     <span class="smc-tag">
                       <i class="bi bi-graph-up-arrow me-1"></i> Best price
                     </span>
                   <% } %>
 
-                  <% if (s.fast_start == 1) { %>
+                  <% if (showFast) { %>
                     <span class="smc-tag">
                       <i class="bi bi-speedometer2 me-1"></i> Fast start
                     </span>
                   <% } %>
 
-                  <% if (s.refill == 1) { %>
+                  <% if (showRefill) { %>
                     <span class="smc-tag refill">
                       <i class="bi bi-shield-check me-1"></i> Refill
                     </span>
                   <% } %>
 
-                  <% if (s.no_refill == 1) { %>
+                  <% if (showNoRef) { %>
                     <span class="smc-tag no-refill">
                       <i class="bi bi-slash-circle me-1"></i> No refill
                     </span>
                   <% } %>
 
-                  <% if (s.low_quality == 1) { %>
+                  <% if (showLow) { %>
                     <span class="smc-tag low">
                       <i class="bi bi-exclamation-triangle me-1"></i> Low quality
                     </span>
@@ -535,14 +558,13 @@
       const sortSelect   = document.getElementById('sortSelect');
       const cards        = Array.from(document.querySelectorAll('.service-card-wrapper'));
 
-      // Search (by name + tags)
+      // Search
       if (searchInput) {
         searchInput.addEventListener('input', function () {
           const term = this.value.toLowerCase().trim();
           cards.forEach(card => {
             const name = card.getAttribute('data-name') || '';
-            const tags = card.getAttribute('data-tags') || '';
-            if (!term || name.includes(term) || tags.includes(term)) {
+            if (!term || name.includes(term)) {
               card.classList.remove('smm-card-hidden');
             } else {
               card.classList.add('smm-card-hidden');
@@ -561,8 +583,8 @@
           const sorted = [...cards].sort((a, b) => {
             const rateA = Number(a.getAttribute('data-rate') || 0);
             const rateB = Number(b.getAttribute('data-rate') || 0);
-            const minA  = Number(a.getAttribute('data-min') || 0);
-            const minB  = Number(b.getAttribute('data-min') || 0);
+            const minA  = Number(a.getAttribute('data-min')  || 0);
+            const minB  = Number(b.getAttribute('data-min')  || 0);
 
             switch (mode) {
               case 'price-asc':  return rateA - rateB;
