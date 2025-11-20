@@ -254,7 +254,7 @@
       </p>
     </header>
 
-    <% 
+    <%
       // نتأكد من وجود المصفوفة
       const cats = Array.isArray(categories) ? categories : (Array.isArray(smmCategories) ? smmCategories : []);
     %>
@@ -271,10 +271,20 @@
 
       <section class="categories-grid">
 
-        <% cats.forEach(function(cat, idx) { 
+        <% cats.forEach(function(cat, idx) {
           const title   = cat.label || cat.name || cat.title || 'Social Media Category';
           const slug    = cat.slug || cat.handle || cat.id;
-          const count   = Number(cat.services_count || cat.services || cat.servicesCount || cat.total_services || 0);
+
+          // 👇 هون التصليح: نقرأ service_count (بدون s) أول شي
+          const count   = Number(
+            cat.service_count ||
+            cat.services_count ||
+            cat.services ||
+            cat.servicesCount ||
+            cat.total_services ||
+            0
+          );
+
           const isNew   = cat.is_new === 1 || cat.is_new === true || cat.isNew;
           const isFast  = cat.is_fast === 1 || cat.is_fast === true || cat.fastDelivery;
           const section = cat.section || cat.platform || '';
