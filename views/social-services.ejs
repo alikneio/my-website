@@ -8,198 +8,248 @@
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap"
-    rel="stylesheet"
-  />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
 
   <style>
     body {
       font-family: "Cairo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background-color: #f3f5fb;
+      background: #f3f4f8;
     }
 
-    /* ===== TOP BAR جديد تماماً ===== */
-    .smm-topbar {
-      padding: 10px 4px 14px;
-      border-bottom: 1px solid rgba(148, 163, 184, .35);
-      margin-bottom: 10px;
+    /* ========= HEADER / TOP ============ */
+    .smc-shell {
+      max-width: 1180px;
     }
-    .smm-top-title {
-      font-size: 1.25rem;
-      font-weight: 800;
-      color: #0f172a;
-      margin-bottom: 2px;
+
+    .smc-header {
+      padding: 12px 0 8px;
+      border-bottom: 1px solid rgba(148,163,184,.45);
+      margin-bottom: 14px;
     }
-    .smm-top-sub {
-      font-size: .84rem;
-      color: #6b7280;
-      margin: 0;
+
+    .smc-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
     }
-    .smm-top-right {
-      font-size: .78rem;
-      text-align: right;
-      color: #6b7280;
+
+    .smc-title-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    .smm-top-right strong {
-      color: #111827;
-    }
-    .smm-top-icon {
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
+
+    .smc-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
       background: #111827;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       color: #fff;
-      margin-right: 8px;
-      font-size: 18px;
+      font-size: 20px;
     }
 
-    /* سطر الفورمولا تحت التوب بار مباشرة */
-    .smm-formula {
+    .smc-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin: 0;
+      color: #0f172a;
+    }
+
+    .smc-sub {
       font-size: .8rem;
       color: #6b7280;
-      margin-bottom: 16px;
-      display: flex;
+      margin: 0;
+    }
+
+    .smc-pill-counter {
+      font-size: .75rem;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #e5edff;
+      color: #1d4ed8;
+      border: 1px solid rgba(37,99,235,.25);
+      display: inline-flex;
       align-items: center;
       gap: 6px;
     }
 
-    /* ===== FILTER TOOLBAR خفيفة ===== */
-    .smm-toolbar {
+    .smc-formula {
+      font-size: .8rem;
+      color: #6b7280;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    /* ========= FILTER BAR ============ */
+    .smc-filter {
+      margin-top: 12px;
+      margin-bottom: 16px;
       border-radius: 12px;
+      border: 1px solid rgba(148,163,184,.25);
       background: #ffffff;
       padding: 10px 12px;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      margin-bottom: 16px;
     }
-    .smm-toolbar label {
+
+    .smc-filter label {
       font-size: .78rem;
       color: #6b7280;
       margin-bottom: 3px;
     }
 
-    /* ===== CARDS ===== */
-    .service-card-modern {
-      border-radius: 20px;
-      padding: 16px 16px 14px;
-      background: #ffffff;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
-      transition: all 0.22s ease;
+    /* ========= NEW CARD ============ */
+    .smc-card-wrap {
+      display: flex;
       height: 100%;
-      position: relative;
-      overflow: hidden;
-    }
-    .service-card-modern::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 55%);
-      opacity: 0;
-      transition: opacity 0.25s ease;
-      pointer-events: none;
-    }
-    .service-card-modern:hover::before {
-      opacity: 1;
-    }
-    .service-card-modern:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 20px 42px rgba(15, 23, 42, 0.16);
-      border-color: rgba(59, 130, 246, 0.55);
     }
 
-    .smm-badge-type {
-      background: linear-gradient(135deg, #4f46e5, #3b82f6);
-      color: #ffffff;
-      padding: 3px 9px;
+    .smc-card {
+      position: relative;
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 14px 14px 12px 18px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
+      transition: all .22s ease;
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
+
+    .smc-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
       border-radius: 999px;
-      font-size: 0.7rem;
+      background: linear-gradient(180deg, #3b82f6, #6366f1);
+      opacity: .9;
+    }
+
+    .smc-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 16px 40px rgba(15,23,42,.18);
+      border-color: rgba(59,130,246,.6);
+    }
+
+    .smc-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .smc-type-badge {
+      font-size: .7rem;
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: #eef2ff;
+      color: #4338ca;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: .04em;
     }
-    .smm-id {
-      font-size: 0.7rem;
+
+    .smc-id {
+      font-size: .72rem;
       color: #9ca3af;
     }
 
-    .service-name {
-      font-size: 0.98rem;
+    .smc-name {
+      margin: 0;
+      font-size: .98rem;
       font-weight: 700;
       color: #0f172a;
-      margin-top: 8px;
-      margin-bottom: 4px;
-      min-height: 2.4em;
-    }
-    .service-provider {
-      font-size: 0.8rem;
-      color: #6b7280;
     }
 
-    .service-meta-chips {
-      margin-top: 6px;
-      margin-bottom: 3px;
+    .smc-provider {
+      font-size: .78rem;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .smc-tags {
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
-      font-size: 0.74rem;
+      margin-top: 6px;
+      margin-bottom: 4px;
     }
-    .service-chip {
+
+    .smc-tag {
+      font-size: .7rem;
       padding: 3px 8px;
       border-radius: 999px;
-      background-color: #eef2ff;
+      background: #f3f4ff;
       color: #4338ca;
     }
 
-    .service-metrics {
-      border-radius: 14px;
-      background: #f9fafb;
-      padding: 10px 12px;
-      margin-top: 10px;
+    .smc-tag.refill {
+      background: #ecfeff;
+      color: #0f766e;
     }
-    .service-metrics .label {
-      font-size: 0.78rem;
+
+    .smc-tag.no-refill {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .smc-meta-grid {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: #f9fafb;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 4px 8px;
+    }
+
+    .smc-meta-label {
+      font-size: .75rem;
       color: #6b7280;
     }
-    .service-metrics .value {
-      font-size: 0.9rem;
+    .smc-meta-value {
+      font-size: .9rem;
       font-weight: 700;
       color: #111827;
     }
 
-    .service-min-cost {
-      font-size: 0.8rem;
+    .smc-footer {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: .78rem;
       color: #6b7280;
-      margin-top: 6px;
     }
-    .service-min-cost strong {
+    .smc-footer strong {
       color: #111827;
     }
 
-    .smm-buy-btn {
-      background: #2563eb;
-      border: none;
-      width: 100%;
-      padding: 9px 0;
-      border-radius: 12px;
-      color: #ffffff;
-      font-size: 0.9rem;
+    .smc-btn {
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: .85rem;
       font-weight: 600;
       display: inline-flex;
       align-items: center;
-      justify-content: center;
       gap: 6px;
-      margin-top: 10px;
-    }
-    .smm-buy-btn:hover {
-      background: #1d4ed8;
-      color: #ffffff;
     }
 
-    .smm-empty {
+    .smc-btn i {
+      font-size: .9rem;
+    }
+
+    .smc-empty {
       border-radius: 18px;
       background: #f9fafb;
       padding: 22px;
@@ -211,77 +261,63 @@
     }
 
     @media (max-width: 575.98px) {
-      .smm-toolbar {
-        padding: 8px 8px;
+      .smc-header {
+        padding-bottom: 6px;
       }
-      .smm-topbar {
-        padding-bottom: 10px;
-      }
-      .smm-top-right {
-        text-align: left;
-        margin-top: 6px;
+      .smc-title-row {
+        align-items: flex-start;
       }
     }
   </style>
 </head>
 <body>
-  <%- include('partials/header', { user: user }) %>
+  <%- include('partials/header', { user }) %>
 
   <main class="py-4">
-    <div class="container" style="max-width: 1150px;">
+    <div class="container smc-shell">
 
-      <!-- Breadcrumb -->
-      <div class="mb-2">
-        <nav aria-label="breadcrumb">
-          <ol class="breadcrumb small mb-1">
-            <li class="breadcrumb-item"><a href="/">Home</a></li>
-            <li class="breadcrumb-item"><a href="/social-media">Social Media</a></li>
-            <li class="breadcrumb-item active" aria-current="page"><%= categoryName %></li>
-          </ol>
-        </nav>
-      </div>
+      <!-- BREADCRUMB -->
+      <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb small mb-1">
+          <li class="breadcrumb-item"><a href="/">Home</a></li>
+          <li class="breadcrumb-item"><a href="/social-media">Social Media</a></li>
+          <li class="breadcrumb-item active" aria-current="page"><%= categoryName %></li>
+        </ol>
+      </nav>
 
-      <!-- TOP BAR الجديد -->
-      <section class="smm-topbar">
-        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
-          <div class="d-flex align-items-center">
-            <div class="smm-top-icon">
+      <!-- TOP HEADER -->
+      <header class="smc-header">
+        <div class="smc-title-row">
+          <div class="smc-title-left">
+            <div class="smc-icon">
               <i class="bi bi-broadcast-pin"></i>
             </div>
             <div>
-              <div class="text-uppercase small fw-semibold text-primary mb-1">
-                Social media · Category
-              </div>
-              <h1 class="smm-top-title"><%= categoryName %></h1>
-              <p class="smm-top-sub">
-                اختر الخدمة المناسبة، ثم أدخل الرابط والكمية من صفحة الـ Checkout.
-              </p>
+              <p class="text-uppercase small text-muted mb-1">Social media · Category</p>
+              <h1 class="smc-title"><%= categoryName %></h1>
+              <p class="smc-sub">اختر الخدمة المناسبة، ثم أدخل الرابط والكمية من صفحة الـ Checkout.</p>
             </div>
           </div>
 
-          <div class="smm-top-right">
-            <div>
-              <i class="bi bi-lightning-charge me-1 text-warning"></i>
-              Instant / Auto services
-            </div>
-            <div>
-              الأسعار معروضة لكل <strong>1000</strong> من الكمية.
-            </div>
+          <div>
+            <span class="smc-pill-counter">
+              <i class="bi bi-lightning-charge-fill"></i>
+              <span><strong><%= services.length %></strong> service(s) in this category</span>
+            </span>
           </div>
         </div>
-      </section>
 
-      <!-- سطر الفورمولا فقط -->
-      <div class="smm-formula">
-        <i class="bi bi-info-circle"></i>
-        <span>السعر النهائي = <strong>(الكمية × السعر لكل 1000) ÷ 1000</strong>.</span>
-      </div>
+        <div class="smc-formula">
+          <i class="bi bi-calculator"></i>
+          <span>السعر النهائي = <strong>(الكمية × السعر لكل 1000) ÷ 1000</strong>.</span>
+        </div>
+      </header>
 
-      <!-- FILTER TOOLBAR -->
-      <section class="smm-toolbar">
+      <!-- FILTER BAR -->
+      <section class="smc-filter">
         <div class="row g-2 align-items-center">
-          <div class="col-md-5">
-            <label class="form-label mb-0">Search in this category</label>
+          <div class="col-md-6">
+            <label class="form-label">Search in this category</label>
             <div class="input-group input-group-sm">
               <span class="input-group-text bg-transparent border-end-0">
                 <i class="bi bi-search"></i>
@@ -290,13 +326,13 @@
                 type="text"
                 id="serviceSearch"
                 class="form-control border-start-0"
-                placeholder="Search by name, provider, keyword..."
+                placeholder="Search by name, keyword…"
               />
             </div>
           </div>
 
           <div class="col-md-3">
-            <label class="form-label mb-0">Sort</label>
+            <label class="form-label">Sort</label>
             <select id="sortSelect" class="form-select form-select-sm">
               <option value="default">Recommended</option>
               <option value="price-asc">Price: Low to high</option>
@@ -306,17 +342,18 @@
             </select>
           </div>
 
-          <div class="col-md-4 text-md-end">
+          <div class="col-md-3 text-md-end">
+            <label class="form-label d-block">&nbsp;</label>
             <span class="small text-muted">
-              Showing <strong><%= services.length %></strong> services in this category.
+              Showing <strong><%= services.length %></strong> services.
             </span>
           </div>
         </div>
       </section>
 
-      <!-- GRID -->
+      <!-- GRID / CARDS -->
       <% if (!services || !services.length) { %>
-        <div class="smm-empty text-center">
+        <div class="smc-empty text-center">
           <h6 class="mb-1">لا توجد خدمات متاحة حالياً في هذه الفئة.</h6>
           <p class="small text-muted mb-0">
             جرّب فئة أخرى من صفحة <a href="/social-media">خدمات السوشيال ميديا</a>.
@@ -324,81 +361,82 @@
         </div>
       <% } else { %>
 
-        <div id="servicesGrid" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+        <div id="servicesGrid" class="row g-3">
           <% services.forEach(function(s) {
                const minCost = (Number(s.rate || 0) * Number(s.min_qty || 0)) / 1000;
+
+               const hasRefill  = (s.name || '').toLowerCase().includes('refill');
+               const noRefill   = (s.name || '').toLowerCase().includes('no refill');
           %>
-            <div class="col service-card-wrapper"
-                 data-name="<%= (s.name || '').toLowerCase() %>"
-                 data-rate="<%= Number(s.rate || 0) %>"
-                 data-min="<%= Number(s.min_qty || 0) %>">
+            <div
+              class="col-12 col-md-6 col-xl-4 service-card-wrapper"
+              data-name="<%= (s.name || '').toLowerCase() %>"
+              data-rate="<%= Number(s.rate || 0) %>"
+              data-min="<%= Number(s.min_qty || 0) %>">
 
-              <div class="service-card-modern">
-                <!-- Top row: type + id -->
-                <div class="d-flex justify-content-between align-items-start mb-1">
-                  <span class="smm-badge-type">
-                    <%= (s.type || 'Default').toString().charAt(0).toUpperCase() + (s.type || 'default').toString().slice(1) %>
+              <div class="smc-card">
+                <div class="smc-card-top">
+                  <span class="smc-type-badge">
+                    <%= (s.type || 'Default').toString().toUpperCase() %>
                   </span>
-                  <span class="smm-id">#<%= s.id %></span>
+                  <span class="smc-id">#<%= s.id %></span>
                 </div>
 
-                <!-- Name -->
-                <div class="service-name">
-                  <%= s.name %>
-                </div>
+                <h2 class="smc-name"><%= s.name %></h2>
 
-                <!-- Provider / generic label -->
-                <div class="service-provider">
-                  <% if ((s.name || '').includes('Global')) { %>
-                    <i class="bi bi-globe-americas me-1"></i> Global / Worldwide
-                  <% } else { %>
-                    <i class="bi bi-globe2 me-1"></i> Social service
+                <p class="smc-provider">
+                  <i class="bi bi-globe2 me-1"></i>
+                  Social service
+                </p>
+
+                <div class="smc-tags">
+                  <span class="smc-tag">
+                    <i class="bi bi-graph-up-arrow me-1"></i> Best price
+                  </span>
+                  <span class="smc-tag">
+                    <i class="bi bi-speedometer2 me-1"></i> Fast start
+                  </span>
+
+                  <% if (hasRefill) { %>
+                    <span class="smc-tag refill">
+                      <i class="bi bi-shield-check me-1"></i> Refill
+                    </span>
+                  <% } %>
+
+                  <% if (noRefill) { %>
+                    <span class="smc-tag no-refill">
+                      <i class="bi bi-slash-circle me-1"></i> No refill
+                    </span>
                   <% } %>
                 </div>
 
-                <!-- Little chips (decor فقط) -->
-                <div class="service-meta-chips">
-                  <span class="service-chip">
-                    <i class="bi bi-graph-up-arrow me-1"></i>
-                    Best price
-                  </span>
-                  <span class="service-chip">
-                    <i class="bi bi-clock-history me-1"></i>
-                    Fast start
-                  </span>
-                </div>
-
-                <!-- Metrics -->
-                <div class="service-metrics">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <div class="label">Rate / 1000</div>
-                      <div class="value text-primary">
-                        $<%= Number(s.rate || 0).toFixed(4) %>
-                      </div>
+                <div class="smc-meta-grid">
+                  <div>
+                    <div class="smc-meta-label">Rate / 1000</div>
+                    <div class="smc-meta-value text-primary">
+                      $<%= Number(s.rate || 0).toFixed(4) %>
                     </div>
-                    <div>
-                      <div class="label">Min</div>
-                      <div class="value"><%= s.min_qty %></div>
-                    </div>
-                    <div>
-                      <div class="label">Max</div>
-                      <div class="value"><%= s.max_qty %></div>
-                    </div>
+                  </div>
+                  <div>
+                    <div class="smc-meta-label">Min</div>
+                    <div class="smc-meta-value"><%= s.min_qty %></div>
+                  </div>
+                  <div>
+                    <div class="smc-meta-label">Max</div>
+                    <div class="smc-meta-value"><%= s.max_qty %></div>
                   </div>
                 </div>
 
-                <!-- Min cost -->
-                <div class="service-min-cost">
-                  Minimum cost ≈
-                  <strong>$<%= isNaN(minCost) ? '0.0000' : minCost.toFixed(4) %></strong>
+                <div class="smc-footer">
+                  <div>
+                    Minimum ≈
+                    <strong>$<%= isNaN(minCost) ? '0.0000' : minCost.toFixed(4) %></strong>
+                  </div>
+                  <a href="/social-checkout/<%= s.id %>" class="btn btn-primary smc-btn">
+                    <i class="bi bi-cart-plus"></i>
+                    Order
+                  </a>
                 </div>
-
-                <!-- CTA -->
-                <a href="/social-checkout/<%= s.id %>" class="btn smm-buy-btn">
-                  <i class="bi bi-cart-plus"></i>
-                  Buy this service
-                </a>
               </div>
             </div>
           <% }); %>
@@ -410,15 +448,15 @@
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
     (function () {
-      const searchInput   = document.getElementById('serviceSearch');
-      const sortSelect    = document.getElementById('sortSelect');
-      const cardWrappers  = Array.from(document.querySelectorAll('.service-card-wrapper'));
+      const searchInput  = document.getElementById('serviceSearch');
+      const sortSelect   = document.getElementById('sortSelect');
+      const cards        = Array.from(document.querySelectorAll('.service-card-wrapper'));
 
-      // Filter by name
+      // Search
       if (searchInput) {
         searchInput.addEventListener('input', function () {
           const term = this.value.toLowerCase().trim();
-          cardWrappers.forEach(card => {
+          cards.forEach(card => {
             const name = card.getAttribute('data-name') || '';
             if (!term || name.includes(term)) {
               card.classList.remove('smm-card-hidden');
@@ -429,14 +467,14 @@
         });
       }
 
-      // Sorting
+      // Sort
       if (sortSelect) {
         sortSelect.addEventListener('change', function () {
           const mode = this.value;
           const grid = document.getElementById('servicesGrid');
           if (!grid) return;
 
-          const sorted = [...cardWrappers].sort((a, b) => {
+          const sorted = [...cards].sort((a, b) => {
             const rateA = Number(a.getAttribute('data-rate') || 0);
             const rateB = Number(b.getAttribute('data-rate') || 0);
             const minA  = Number(a.getAttribute('data-min') || 0);
@@ -445,8 +483,8 @@
             switch (mode) {
               case 'price-asc':  return rateA - rateB;
               case 'price-desc': return rateB - rateA;
-              case 'min-asc':    return minA  - minB;
-              case 'min-desc':   return minB  - minA;
+              case 'min-asc':    return minA - minB;
+              case 'min-desc':   return minB - minA;
               default:           return 0;
             }
           });
