@@ -18,10 +18,11 @@
 
     .smc-shell { max-width: 1180px; }
 
-    /* ====== HEADER بسيط ====== */
+    /* ===== HEADER ===== */
     .smc-header {
-      padding: 16px 0 10px;
-      margin-bottom: 12px;
+      padding: 12px 0 8px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid rgba(148,163,184,.25);
     }
     .smc-title-row {
       display: flex;
@@ -33,21 +34,23 @@
     .smc-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
     }
     .smc-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 14px;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
       background: #111827;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       color: #fff;
-      font-size: 20px;
+      font-size: 18px;
+      flex-shrink: 0;
     }
     .smc-title {
-      font-size: 1.35rem;
+      font-size: 1.3rem;
       font-weight: 800;
       margin: 0;
       color: #0f172a;
@@ -57,10 +60,26 @@
       font-size: .8rem;
       color: #6b7280;
     }
+    .smc-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+    .smc-back {
+      padding: 0;
+      font-size: .8rem;
+      color: #4b5563;
+      text-decoration: none;
+    }
+    .smc-back:hover {
+      color: #111827;
+      text-decoration: underline;
+    }
     .smc-pill-counter {
       font-size: .75rem;
       border-radius: 999px;
-      padding: 6px 11px;
+      padding: 5px 10px;
       background: #e5edff;
       color: #1d4ed8;
       border: 1px solid rgba(37,99,235,.25);
@@ -70,9 +89,9 @@
       white-space: nowrap;
     }
 
-    /* ====== FILTER BAR ====== */
+    /* ===== FILTER BAR ===== */
     .smc-filter {
-      margin-bottom: 18px;
+      margin: 10px 0 16px;
       border-radius: 12px;
       border: 1px solid rgba(148,163,184,.25);
       background: #ffffff;
@@ -81,19 +100,19 @@
     .smc-filter label {
       font-size: .78rem;
       color: #6b7280;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
 
-    /* ====== CARDS ====== */
+    /* ===== CARDS ===== */
     .smc-card-wrap { display: flex; height: 100%; }
 
     .smc-card {
       position: relative;
       background: #ffffff;
-      border-radius: 18px;
-      padding: 14px 14px 12px 18px;
+      border-radius: 16px;
+      padding: 12px 12px 10px 16px;
       border: 1px solid rgba(148, 163, 184, 0.28);
-      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
       transition: all .22s ease;
       flex: 1 1 auto;
       overflow: hidden;
@@ -110,8 +129,8 @@
       opacity: .9;
     }
     .smc-card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 16px 40px rgba(15,23,42,.18);
+      transform: translateY(-4px);
+      box-shadow: 0 14px 32px rgba(15,23,42,.16);
       border-color: rgba(59,130,246,.6);
     }
 
@@ -139,7 +158,7 @@
 
     .smc-name {
       margin: 0;
-      font-size: .98rem;
+      font-size: .96rem;
       font-weight: 700;
       color: #0f172a;
     }
@@ -174,7 +193,7 @@
 
     .smc-meta-grid {
       margin-top: 8px;
-      padding: 8px 10px;
+      padding: 7px 9px;
       border-radius: 12px;
       background: #f9fafb;
       display: grid;
@@ -186,7 +205,7 @@
       color: #6b7280;
     }
     .smc-meta-value {
-      font-size: .9rem;
+      font-size: .88rem;
       font-weight: 700;
       color: #111827;
     }
@@ -205,7 +224,7 @@
     .smc-btn {
       border-radius: 999px;
       padding: 6px 14px;
-      font-size: .85rem;
+      font-size: .82rem;
       font-weight: 600;
       display: inline-flex;
       align-items: center;
@@ -213,27 +232,50 @@
     }
 
     .smc-empty {
-      border-radius: 18px;
+      border-radius: 16px;
       background: #f9fafb;
-      padding: 22px;
+      padding: 20px;
       border: 1px dashed #cbd5f5;
     }
 
     .smm-card-hidden { display: none !important; }
 
     @media (max-width: 575.98px) {
-      .smc-header { padding-top: 10px; }
+      .smc-header {
+        padding-top: 8px;
+        padding-bottom: 6px;
+      }
+      .smc-title {
+        font-size: 1.1rem;
+      }
+      .smc-sub {
+        font-size: .76rem;
+      }
+      .smc-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+      }
+      .smc-filter {
+        padding: 8px 10px;
+      }
+      .smc-card {
+        padding: 10px 11px 9px 14px;
+      }
+      .smc-meta-grid {
+        padding: 6px 8px;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- نفس الهيدر تبع الموقع (فيه زر الـ Menu الجاهز) -->
+  <!-- Same header with Menu button -->
   <%- include('partials/header', { user }) %>
 
   <main class="py-3">
     <div class="container smc-shell">
 
-      <!-- بدون breadcrumb نهائياً -->
+      <!-- HEADER (no breadcrumb) -->
       <header class="smc-header">
         <div class="smc-title-row">
           <div class="smc-left">
@@ -242,11 +284,16 @@
             </div>
             <div>
               <h1 class="smc-title"><%= categoryName %></h1>
-              <p class="smc-sub">اختر الخدمة المناسبة، ثم أدخل الرابط والكمية من صفحة الـ Checkout.</p>
+              <p class="smc-sub">
+                Choose the service you like, then enter your link and quantity from the checkout page.
+              </p>
             </div>
           </div>
 
-          <div>
+          <div class="smc-actions">
+            <a href="/social-media" class="smc-back">
+              <i class="bi bi-arrow-left"></i> Back
+            </a>
             <span class="smc-pill-counter">
               <i class="bi bi-lightning-charge-fill"></i>
               <span><strong><%= services.length %></strong> service(s)</span>
@@ -255,7 +302,7 @@
         </div>
       </header>
 
-      <!-- FILTER -->
+      <!-- FILTER BAR -->
       <section class="smc-filter">
         <div class="row g-2 align-items-center">
           <div class="col-md-6">
@@ -268,7 +315,7 @@
                 type="text"
                 id="serviceSearch"
                 class="form-control border-start-0"
-                placeholder="Search by name, keyword…"
+                placeholder="Search by name or keyword..."
               />
             </div>
           </div>
@@ -296,16 +343,16 @@
       <!-- GRID -->
       <% if (!services || !services.length) { %>
         <div class="smc-empty text-center">
-          <h6 class="mb-1">لا توجد خدمات متاحة حالياً في هذه الفئة.</h6>
+          <h6 class="mb-1">No services available in this category yet.</h6>
           <p class="small text-muted mb-0">
-            جرّب فئة أخرى من صفحة <a href="/social-media">خدمات السوشيال ميديا</a>.
+            Try another category from the <a href="/social-media">social media services page</a>.
           </p>
         </div>
       <% } else { %>
 
         <div id="servicesGrid" class="row g-3">
           <% services.forEach(function(s) {
-               const minCost = (Number(s.rate || 0) * Number(s.min_qty || 0)) / 1000; // حسبة داخلية بس، ما عم نظهر 1000 للمستخدم
+               const minCost = (Number(s.rate || 0) * Number(s.min_qty || 0)) / 1000;
                const nameLower = (s.name || '').toLowerCase();
                const hasRefill  = nameLower.includes('refill');
                const noRefill   = nameLower.includes('no refill');
@@ -324,7 +371,7 @@
 
                 <h2 class="smc-name"><%= s.name %></h2>
                 <p class="smc-provider">
-                  <i class="bi bi-globe2 me-1"></i> Social service
+                  <i class="bi bi-globe2 me-1"></i> Social media service
                 </p>
 
                 <div class="smc-tags">
@@ -365,7 +412,7 @@
 
                 <div class="smc-footer">
                   <div>
-                    Approx. minimum:
+                    Approx. minimum price:
                     <strong>$<%= isNaN(minCost) ? '0.0000' : minCost.toFixed(4) %></strong>
                   </div>
                   <a href="/social-checkout/<%= s.id %>" class="btn btn-primary smc-btn">
@@ -380,7 +427,7 @@
     </div>
   </main>
 
-  <!-- نفس سكربت Bootstrap المستخدم بباقي الصفحات عشان زر Menu يشتغل 100% -->
+  <!-- Bootstrap JS so Menu button works -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
