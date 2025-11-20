@@ -1054,6 +1054,20 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
   }
 });
 
+// دالة توليد slug موحّدة وخالية من الرموز الشاذة
+function smmSlugify(text) {
+  return (text || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')                   // إزالة اللكنة/accent
+    .replace(/[\u0300-\u036f]/g, '')    // remove accents
+    .replace(/[^a-z0-9]+/g, '-')        // أي شيء ليس حرف/رقم → -
+    .replace(/-+/g, '-')                // دمج الشرطات
+    .replace(/^-|-$/g, '');             // إزالة - من البداية والنهاية
+}
+
+
 
 
 function makeSlug(name = '') {
