@@ -1084,14 +1084,19 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
     console.log('🔄 Sync SMM Services Started...');
 
     const services = await getSmmServices(); // من SMMGEN
-    console.log(`📦 Received ${services.length} services.`);
+    if (!Array.isArray(services)) {
+      throw new Error('SMMGEN services response is not an array');
+    }
 
+    console.log(`📦 Received ${services.length} services from provider.`);
+
+    // نجلب الكاتيجوري الموجودة
     const existingCats = await query(`
       SELECT id, name
       FROM smm_categories
     `);
 
-    const catMap = new Map();
+    const catMap = new Map(); // name → id
     existingCats.forEach((c) => {
       catMap.set(c.name, c.id);
     });
@@ -1118,14 +1123,22 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
         is_active   = VALUES(is_active)
     `;
 
+    // counters للتتبع
+    let insertedCount = 0;
+    let skippedBadRate = 0;
+    let skippedBadBounds = 0;
+    let skippedSeparator = 0;
+
     await query('START TRANSACTION');
 
     for (const s of services) {
-      const catName = s.category || 'Other';
-      let catId = catMap.get(catName);
+      const catNameRaw = s.category || 'Other';
+      const catName = String(catNameRaw).trim() || 'Other';
 
+      // ⬇️ 1) تأكد أن الكاتيجوري موجودة
+      let catId = catMap.get(catName);
       if (!catId) {
-        const slug = makeSlug(catName);
+        const slug = makeSlug ? makeSlug(catName) : catName.toLowerCase().replace(/\s+/g, '-');
         const result = await query(insertCatSql, [catName, slug]);
         catId = result.insertId || catId;
 
@@ -1137,34 +1150,108 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
           if (row) catId = row.id;
         }
 
-        catMap.set(catName, catId);
+        if (catId) {
+          catMap.set(catName, catId);
+        } else {
+          console.warn('⚠️ Failed to resolve category id for', catName);
+          continue; // لو بعد ما قدرنا نجيب id، منطنّش هالخدمة
+        }
       }
 
+      // ⬇️ 2) تجهيز بيانات الخدمة + فلترة القيم الغريبة
+      const providerId = Number(s.service);
+      const name = String(s.name || '').trim();
+      const providerCategory = String(s.category || '').trim();
+      const rawRate = Number(s.rate);
+      const minQty = Number(s.min);
+      const maxQty = Number(s.max);
+      const type = String(s.type || 'default');
+
+      // خدمات الـ "فاصل" أو اللي اسمها فاضي → طنّش
+      if (!name || name.startsWith('- <') || /^-+ *<*/.test(name)) {
+        skippedSeparator++;
+        console.log('⏩ Skipping separator / dummy service:', providerId, name);
+        continue;
+      }
+
+      if (!providerId) {
+        console.log('⏩ Skipping service with invalid provider id:', s.service, name);
+        continue;
+      }
+
+      // فلتر الـ rate: لازم رقم، > 0، وأقل من سقف منطقي حتى ما يكسر الـ DECIMAL
+      const MAX_RATE = 9999999.99; // سقف كبير بس آمن بالنسبة للداتابيس
+      if (!Number.isFinite(rawRate) || rawRate <= 0 || rawRate > MAX_RATE) {
+        skippedBadRate++;
+        console.log('⏩ Skipping service with invalid rate:', {
+          providerId,
+          name,
+          rawRate,
+        });
+        continue;
+      }
+
+      // فلتر min/max
+      if (
+        !Number.isFinite(minQty) ||
+        !Number.isFinite(maxQty) ||
+        minQty <= 0 ||
+        maxQty < minQty
+      ) {
+        skippedBadBounds++;
+        console.log('⏩ Skipping service with invalid min/max:', {
+          providerId,
+          name,
+          minQty,
+          maxQty,
+        });
+        continue;
+      }
+
+      const safeRate = rawRate.toFixed(4); // متوافق مع DECIMAL(x,4) غالباً
+
       const params = [
-        s.service,              // provider_service_id
-        catId,                  // category_id
-        s.category,             // category (اسم المزود، مخزّن في services.category)
-        s.name,                 // name
-        s.type || 'default',    // type
-        s.rate,                 // rate
-        s.min,                  // min_qty
-        s.max,                  // max_qty
+        providerId,        // provider_service_id
+        catId,             // category_id
+        providerCategory,  // category (اسم المزود)
+        name,              // name
+        type,              // type
+        safeRate,          // rate
+        minQty,            // min_qty
+        maxQty,            // max_qty
       ];
 
       await query(insertServiceSql, params);
+      insertedCount++;
     }
 
     await query('COMMIT');
 
-    res.send('✔️ Synced SMM services & categories successfully');
+    console.log('✅ SMM Sync done.', {
+      inserted: insertedCount,
+      skippedBadRate,
+      skippedBadBounds,
+      skippedSeparator,
+    });
+
+    res.send(
+      `✔️ Synced SMM services & categories successfully.
+       Inserted/updated: ${insertedCount},
+       skipped (rate): ${skippedBadRate},
+       skipped (min/max): ${skippedBadBounds},
+       skipped (separators): ${skippedSeparator}`
+    );
   } catch (err) {
     console.error('❌ SMM Sync Error:', err);
     try {
       await query('ROLLBACK');
-    } catch (e) {}
+    } catch (e) {
+      console.error('❌ Failed to rollback SMM sync transaction:', e);
+    }
     res.status(500).send('Sync Error');
   }
 });
+
 
 // =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
 
