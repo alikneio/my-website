@@ -2352,20 +2352,33 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
     is_active,
     average_time,
     notes,
+
+    // ✅ badges الجدد
+    badge_best_price,
+    badge_fast_start,
+    badge_refill,
+    badge_no_refill,
   } = req.body;
 
+  // category
   const catId = category_id && category_id !== 'none'
     ? parseInt(category_id, 10)
     : null;
 
-  const numericRate = Number(rate || 0);
-  const numericRatePer = Number(rate_per || 1000) || 1000;
-  const minQ = parseInt(min_qty || '0', 10) || 0;
-  const maxQ = parseInt(max_qty || '0', 10) || 0;
-  const activeFlag = is_active === '1' ? 1 : 0;
-  const avgTime = (average_time || '').trim();
-  const cleanNotes = (notes || '').trim();
-  const cleanName = (name || '').trim();
+  const numericRate     = Number(rate || 0);
+  const numericRatePer  = Number(rate_per || 1000) || 1000;
+  const minQ            = parseInt(min_qty || '0', 10) || 0;
+  const maxQ            = parseInt(max_qty || '0', 10) || 0;
+  const activeFlag      = is_active === '1' ? 1 : 0;
+  const avgTime         = (average_time || '').trim();
+  const cleanNotes      = (notes || '').trim();
+  const cleanName       = (name || '').trim();
+
+  // badges → 0/1
+  const bestPriceFlag = badge_best_price ? 1 : 0;
+  const fastStartFlag = badge_fast_start ? 1 : 0;
+  const refillFlag    = badge_refill ? 1 : 0;
+  const noRefillFlag  = badge_no_refill ? 1 : 0;
 
   if (!cleanName || !Number.isFinite(numericRate) || numericRate <= 0) {
     return res.redirect(`/admin/smm-services/${serviceId}/edit?msg=invalid`);
@@ -2373,15 +2386,19 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
 
   const sql = `
     UPDATE smm_services
-    SET name         = ?,
-        category_id  = ?,
-        rate         = ?,
-        rate_per     = ?,
-        min_qty      = ?,
-        max_qty      = ?,
-        average_time = ?,
-        notes        = ?,
-        is_active    = ?
+    SET name             = ?,
+        category_id      = ?,
+        rate             = ?,
+        rate_per         = ?,
+        min_qty          = ?,
+        max_qty          = ?,
+        average_time     = ?,
+        notes            = ?,
+        is_active        = ?,
+        badge_best_price = ?,
+        badge_fast_start = ?,
+        badge_refill     = ?,
+        badge_no_refill  = ?
     WHERE id = ?
     LIMIT 1
   `;
@@ -2398,6 +2415,10 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
       avgTime,
       cleanNotes,
       activeFlag,
+      bestPriceFlag,
+      fastStartFlag,
+      refillFlag,
+      noRefillFlag,
       serviceId,
     ],
     err => {
@@ -2410,10 +2431,6 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
     }
   );
 });
-
-
-
-
 
 
 

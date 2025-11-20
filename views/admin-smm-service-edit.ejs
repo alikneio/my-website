@@ -2,206 +2,308 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Edit SMM Service – <%= service.name %></title>
+  <title>Edit SMM Service #<%= service.id %></title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap"
-    rel="stylesheet"
-  />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    body {
+      font-family: "Cairo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f6fb;
+    }
+    .main-content {
+      margin-left: 260px; /* متل باقي صفحات الأدمن عندك */
+      padding: 1.5rem;
+    }
+    @media (max-width: 991.98px) {
+      .main-content {
+        margin-left: 0;
+      }
+    }
+  </style>
 </head>
 <body>
-  <%- include('partials/admin-sidebar', { user: user }) %>
+
+  <!-- Sidebar -->
+  <%- include('partials/admin-sidebar', { user }) %>
 
   <main class="main-content">
-    <div class="container-fluid py-4" style="max-width: 1100px;">
+    <div class="container-fluid" style="max-width: 1100px;">
 
-      <!-- Header -->
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h4 mb-0">
-          <i class="bi bi-instagram"></i>
-          Edit SMM Service
-        </h1>
-
-        <a href="/admin/smm-services" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-arrow-left"></i> Back to services
-        </a>
-      </div>
-
-      <% if (message) { %>
-        <div class="alert alert-info">
-          <%= message %>
-        </div>
-      <% } %>
-
-      <form
-        method="post"
-        action="/admin/smm-services/<%= service.id %>/edit"
-        class="card shadow-sm"
-      >
-        <div class="card-body">
-          <div class="row g-3">
-
-            <!-- اسم الخدمة -->
-            <div class="col-md-8">
-              <label class="form-label">Service name</label>
-              <input
-                type="text"
-                name="name"
-                class="form-control"
-                value="<%= service.name %>"
-                required
-              />
-              <div class="form-text">
-                This is what the customer will see in the store.
-              </div>
-            </div>
-
-            <!-- مفعّل / غير مفعّل -->
-            <div class="col-md-4">
-              <label class="form-label">Status</label>
-              <select name="is_active" class="form-select">
-                <option value="1" <%= service.is_active ? 'selected' : '' %>>
-                  Active
-                </option>
-                <option value="0" <%= !service.is_active ? 'selected' : '' %>>
-                  Disabled
-                </option>
-              </select>
-            </div>
-
-            <!-- الكاتيجوري -->
-            <div class="col-md-6">
-              <label class="form-label">Store category</label>
-              <select name="category_id" class="form-select">
-                <option value="none">— none —</option>
-                <% categories.forEach(function (c) { %>
-                  <option
-                    value="<%= c.id %>"
-                    <%= String(service.category_id || '') === String(c.id) ? 'selected' : '' %>>
-                    <%= c.name %>
-                  </option>
-                <% }) %>
-              </select>
-              <div class="form-text">
-                Choose where this service appears in the social media categories.
-              </div>
-            </div>
-
-            <!-- Rate + Rate per -->
-            <div class="col-md-3">
-              <label class="form-label">Rate</label>
-              <input
-                type="number"
-                step="0.0001"
-                name="rate"
-                class="form-control"
-                value="<%= Number(service.rate || 0).toFixed(4) %>"
-                required
-              />
-              <div class="form-text">
-                Price in USD for the selected unit.
-              </div>
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">Rate unit</label>
-              <input
-                type="number"
-                name="rate_per"
-                class="form-control"
-                value="<%= service.rate_per || 1000 %>"
-                min="1"
-                required
-              />
-              <div class="form-text">
-                Unit for the rate (e.g. 1000, 10000, 100000).
-              </div>
-            </div>
-
-            <!-- Min / Max -->
-            <div class="col-md-3">
-              <label class="form-label">Min qty</label>
-              <input
-                type="number"
-                name="min_qty"
-                class="form-control"
-                value="<%= service.min_qty %>"
-                required
-              />
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">Max qty</label>
-              <input
-                type="number"
-                name="max_qty"
-                class="form-control"
-                value="<%= service.max_qty %>"
-                required
-              />
-            </div>
-
-            <!-- Average time -->
-            <div class="col-md-4">
-              <label class="form-label">Average time</label>
-              <input
-                type="text"
-                name="average_time"
-                class="form-control"
-                value="<%= service.average_time || '' %>"
-                placeholder="Example: 0–5 minutes / 1–3 hours"
-              />
-              <div class="form-text">
-                Shown to the customer on checkout. Free text (e.g. "Start: 0–5 min, Speed: 5k/day").
-              </div>
-            </div>
-
-            <!-- Important notes -->
-            <div class="col-md-8">
-              <label class="form-label">Important notes (checkout)</label>
-              <textarea
-                name="notes"
-                rows="6"
-                class="form-control"
-                placeholder="Each line will appear as a bullet point for the customer."
-              ><%= service.notes || '' %></textarea>
-              <div class="form-text">
-                Each line will be shown as a separate bullet point on the checkout page.
-              </div>
-            </div>
-
-            <!-- معلومات المزود -->
-            <div class="col-12">
-              <hr />
-              <h6 class="text-muted mb-2">Provider information</h6>
-              <div class="small text-muted">
-                Provider service ID:
-                <strong><%= service.provider_service_id %></strong>
-              </div>
-              <% if (service.provider_category) { %>
-                <div class="small text-muted">
-                  Provider category:
-                  <strong><%= service.provider_category %></strong>
-                </div>
-              <% } %>
-            </div>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h1 class="h4 mb-1">
+            <i class="bi bi-instagram"></i>
+            Edit SMM Service #<%= service.id %>
+          </h1>
+          <div class="text-muted small">
+            Provider service ID:
+            <strong><%= service.provider_service_id %></strong>
           </div>
         </div>
 
-        <div class="card-footer d-flex justify-content-between align-items-center">
-          <span class="small text-muted">
-            Last updated:
-            <%= service.updated_at || 'N/A' %>
-          </span>
+        <a href="/admin/smm-services" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-arrow-left"></i> Back to list
+        </a>
+      </div>
 
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-save"></i>
-            Save changes
-          </button>
+      <% if (message === 'updated') { %>
+        <div class="alert alert-success alert-sm py-2">
+          <i class="bi bi-check-circle"></i> Service updated successfully.
+        </div>
+      <% } else if (message === 'invalid') { %>
+        <div class="alert alert-danger alert-sm py-2">
+          <i class="bi bi-exclamation-triangle"></i>
+          Please provide a valid name and rate.
+        </div>
+      <% } %>
+
+      <form method="post" action="/admin/smm-services/<%= service.id %>/edit" class="row g-3">
+
+        <!-- LEFT COLUMN -->
+        <div class="col-lg-8">
+
+          <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+              Basic information
+            </div>
+            <div class="card-body">
+
+              <!-- Name -->
+              <div class="mb-3">
+                <label class="form-label">Service name</label>
+                <input
+                  type="text"
+                  name="name"
+                  class="form-control"
+                  value="<%- service.name || '' %>"
+                  required
+                />
+              </div>
+
+              <!-- Category -->
+              <div class="mb-3">
+                <label class="form-label">Store category</label>
+                <select name="category_id" class="form-select">
+                  <option value="none">— No category —</option>
+                  <% categories.forEach(function(c) { %>
+                    <option
+                      value="<%= c.id %>"
+                      <%= String(service.category_id || '') === String(c.id) ? 'selected' : '' %>>
+                      <%= c.name %>
+                    </option>
+                  <% }) %>
+                </select>
+                <div class="form-text">
+                  This is the category that appears on your website (not the provider category).
+                </div>
+              </div>
+
+              <!-- Rate + rate_per -->
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Rate</label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      name="rate"
+                      class="form-control"
+                      value="<%= Number(service.rate || 0).toFixed(4) %>"
+                      required
+                    />
+                  </div>
+                  <div class="form-text">
+                    Base provider rate (will be used for your price calculations).
+                  </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Rate per</label>
+                  <select name="rate_per" class="form-select">
+                    <option value="1000" <%= Number(service.rate_per || 1000) === 1000 ? 'selected' : '' %>>1000 units</option>
+                    <option value="100"  <%= Number(service.rate_per || 1000) === 100  ? 'selected' : '' %>>100 units</option>
+                    <option value="1"    <%= Number(service.rate_per || 1000) === 1    ? 'selected' : '' %>>1 unit</option>
+                  </select>
+                  <div class="form-text">
+                    How many units the rate value applies to.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Min / Max -->
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Min quantity</label>
+                  <input
+                    type="number"
+                    min="0"
+                    name="min_qty"
+                    class="form-control"
+                    value="<%= service.min_qty || 0 %>"
+                  />
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Max quantity</label>
+                  <input
+                    type="number"
+                    min="0"
+                    name="max_qty"
+                    class="form-control"
+                    value="<%= service.max_qty || 0 %>"
+                  />
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- NOTES -->
+          <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+              Additional details
+            </div>
+            <div class="card-body">
+
+              <div class="mb-3">
+                <label class="form-label">Average time</label>
+                <input
+                  type="text"
+                  name="average_time"
+                  class="form-control"
+                  value="<%- service.average_time || '' %>"
+                />
+                <div class="form-text">
+                  Optional: e.g. "30 minutes – 2 hours".
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Admin notes</label>
+                <textarea
+                  name="notes"
+                  rows="4"
+                  class="form-control"
+                  placeholder="Internal notes, special conditions, etc."><%- service.notes || '' %></textarea>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="col-lg-4">
+
+          <!-- Status -->
+          <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+              Status
+            </div>
+            <div class="card-body">
+
+              <div class="form-check form-switch mb-2">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="is_active"
+                  name="is_active"
+                  value="1"
+                  <%= service.is_active ? 'checked' : '' %>
+                />
+                <label class="form-check-label" for="is_active">
+                  Service is active (visible to users)
+                </label>
+              </div>
+
+              <div class="small text-muted">
+                Turning this off will hide the service from the public website.
+              </div>
+            </div>
+          </div>
+
+          <!-- BADGES -->
+          <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+              Badges shown on public card
+            </div>
+            <div class="card-body small">
+
+              <div class="form-check mb-2">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="badge_best_price"
+                  name="badge_best_price"
+                  value="1"
+                  <%= service.badge_best_price ? 'checked' : '' %>
+                />
+                <label class="form-check-label" for="badge_best_price">
+                  Show <strong>"Best price"</strong> badge
+                </label>
+              </div>
+
+              <div class="form-check mb-2">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="badge_fast_start"
+                  name="badge_fast_start"
+                  value="1"
+                  <%= service.badge_fast_start ? 'checked' : '' %>
+                />
+                <label class="form-check-label" for="badge_fast_start">
+                  Show <strong>"Fast start"</strong> badge
+                </label>
+              </div>
+
+              <div class="form-check mb-2">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="badge_refill"
+                  name="badge_refill"
+                  value="1"
+                  <%= service.badge_refill ? 'checked' : '' %>
+                />
+                <label class="form-check-label" for="badge_refill">
+                  Show <strong>"Refill"</strong> badge
+                </label>
+              </div>
+
+              <div class="form-check mb-0">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="badge_no_refill"
+                  name="badge_no_refill"
+                  value="1"
+                  <%= service.badge_no_refill ? 'checked' : '' %>
+                />
+                <label class="form-check-label" for="badge_no_refill">
+                  Show <strong>"No refill"</strong> badge
+                </label>
+              </div>
+
+              <div class="form-text mt-2">
+                These flags only affect the small labels on the service card design.
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBMIT -->
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="bi bi-save"></i> Save changes
+            </button>
+          </div>
+
         </div>
       </form>
     </div>
