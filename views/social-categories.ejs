@@ -299,7 +299,6 @@
           const title   = cat.label || cat.name || cat.title || 'Social Media Category';
           const slug    = cat.slug || cat.handle || cat.id;
 
-          // ✅ read service_count first (your query alias)
           const count   = Number(
             cat.service_count ||
             cat.services_count ||
@@ -365,7 +364,7 @@
 
   <%- include('partials/footer') %>
 
-  <!-- Bootstrap bundle so the Menu offcanvas works on this page -->
-  <script src="/js/bootstrap.bundle.min.js"></script>
+  <!-- استخدم نفس CDN تبع Bootstrap اللي شغّال بباقي الصفحات عشان offcanvas يشتغل -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
