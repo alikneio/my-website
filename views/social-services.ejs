@@ -19,54 +19,47 @@
       background-color: #f3f5fb;
     }
 
-    /* ===== HERO ===== */
-    .smm-hero {
-      border-radius: 22px;
-      padding: 22px 20px;
-      background: radial-gradient(circle at top left, #dbeafe 0, #eef2ff 45%, #f5f5f5 100%);
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-    }
-    .smm-hero-icon {
-      width: 48px;
-      height: 48px;
+    /* ===== HEADER (خفيف و مودرن) ===== */
+    .smm-header {
       border-radius: 18px;
-      background: linear-gradient(135deg, #2563eb, #4f46e5);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      margin-right: 12px;
-      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.55);
+      padding: 14px 18px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
     }
-    .smm-hero-title {
-      font-size: 1.5rem;
+    .smm-header-title {
+      font-size: 1.3rem;
       font-weight: 800;
       color: #0f172a;
       margin-bottom: 4px;
     }
-    .smm-hero-subtitle {
-      font-size: 0.92rem;
-      color: #4b5563;
+    .smm-header-subtitle {
+      font-size: 0.88rem;
+      color: #6b7280;
+      margin: 0;
     }
-    .smm-hero-pill {
+    .smm-chip {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       padding: 4px 10px;
       border-radius: 999px;
       font-size: 0.78rem;
-      background: rgba(37, 99, 235, 0.08);
+      background: rgba(37, 99, 235, 0.06);
       color: #1d4ed8;
-      border: 1px solid rgba(37, 99, 235, 0.15);
+      border: 1px solid rgba(37, 99, 235, 0.12);
+    }
+    .smm-hint {
+      font-size: 0.8rem;
+      color: #6b7280;
     }
 
-    /* ===== FILTER BAR ===== */
-    .smm-filter-bar {
-      border-radius: 18px;
+    /* ===== FILTER BAR (أبسط) ===== */
+    .smm-filter {
+      border-radius: 16px;
       background: #ffffff;
-      padding: 12px 16px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 12px 14px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
     }
 
     /* ===== CARDS ===== */
@@ -199,11 +192,11 @@
     }
 
     @media (max-width: 575.98px) {
-      .smm-hero {
-        padding: 16px 14px;
+      .smm-header {
+        padding: 12px 12px;
       }
-      .smm-filter-bar {
-        padding: 10px 12px;
+      .smm-filter {
+        padding: 10px 10px;
       }
     }
   </style>
@@ -225,23 +218,21 @@
         </nav>
       </div>
 
-      <!-- HERO -->
-      <section class="smm-hero mb-3">
-        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-          <div class="d-flex align-items-center">
-            <div class="smm-hero-icon">
-              <i class="bi bi-broadcast-pin fs-5"></i>
+      <!-- HEADER البسيط -->
+      <section class="smm-header mb-2">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+          <div>
+            <div class="text-primary text-uppercase small fw-semibold mb-1">
+              Social media · Category
             </div>
-            <div>
-              <div class="smm-hero-title"><%= categoryName %></div>
-              <div class="smm-hero-subtitle">
-                اختر الخدمة المناسبة، ثم أدخل الرابط والكمية من صفحة الـ Checkout.
-              </div>
-            </div>
+            <h1 class="smm-header-title"><%= categoryName %></h1>
+            <p class="smm-header-subtitle">
+              اختر الخدمة المناسبة، ثم أدخل الرابط والكمية من صفحة الـ Checkout.
+            </p>
           </div>
 
           <div class="text-md-end">
-            <div class="smm-hero-pill mb-1">
+            <div class="smm-chip mb-1">
               <i class="bi bi-lightning-charge-fill"></i>
               <span>Instant / Auto services</span>
             </div>
@@ -252,14 +243,14 @@
         </div>
       </section>
 
-      <!-- Info line -->
-      <div class="alert alert-info py-2 px-3 mb-3 small">
+      <!-- سطر الفورمولا فقط -->
+      <div class="smm-hint mb-3">
         <i class="bi bi-info-circle me-1"></i>
         السعر النهائي = <strong>(الكمية × السعر لكل 1000) ÷ 1000</strong>.
       </div>
 
-      <!-- Filters -->
-      <section class="smm-filter-bar mb-3">
+      <!-- FILTER BAR البسيطة -->
+      <section class="smm-filter mb-3">
         <div class="row g-2 align-items-center">
           <div class="col-md-5">
             <label class="form-label mb-1 small text-muted">Search in this category</label>
@@ -295,7 +286,7 @@
         </div>
       </section>
 
-      <!-- SERVICES GRID -->
+      <!-- GRID -->
       <% if (!services || !services.length) { %>
         <div class="smm-empty text-center">
           <h6 class="mb-1">لا توجد خدمات متاحة حالياً في هذه الفئة.</h6>
@@ -337,7 +328,7 @@
                   <% } %>
                 </div>
 
-                <!-- Little chips (optional info) -->
+                <!-- Little chips (اختيارية) -->
                 <div class="service-meta-chips">
                   <span class="service-chip">
                     <i class="bi bi-graph-up-arrow me-1"></i>
