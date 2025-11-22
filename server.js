@@ -1829,20 +1829,47 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
 
 // =============== ADMIN: SMM CATEGORIES ===============
 app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
-  const user = req.session.user;
+  const user   = req.session.user;
+  const search = (req.query.search || '').trim();
+  const status = req.query.status || 'all';
+
+  const filters = { search, status };
 
   try {
-    // ما منستخدم provider_category هون لأنو مش موجود بالجدول
-    const categories = await query(`
-      SELECT
-        id,
-        name,
-        slug,
-        sort_order,
-        is_active
+    let where = 'WHERE 1=1';
+    const params = [];
+
+    // بحث بالاسم + السِلَغ + ID لو كان رقم
+    if (search) {
+      where += ' AND (name LIKE ? OR slug LIKE ?';
+      const like = `%${search}%`;
+      params.push(like, like);
+
+      const asId = parseInt(search, 10);
+      if (Number.isFinite(asId)) {
+        where += ' OR id = ?';
+        params.push(asId);
+      }
+      where += ')';
+    }
+
+    // فلتر حالة الكاتيجوري
+    if (status === 'active') {
+      where += ' AND is_active = 1';
+    } else if (status === 'inactive') {
+      where += ' AND is_active = 0';
+    }
+
+    const categories = await query(
+      `
+      SELECT id, name, slug, sort_order, is_active
       FROM smm_categories
+      ${where}
       ORDER BY sort_order ASC, name ASC
-    `);
+      LIMIT 500
+      `,
+      params
+    );
 
     const flash = req.session.adminFlash
       ? { type: 'info', message: req.session.adminFlash }
@@ -1852,7 +1879,8 @@ app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
     res.render('admin-smm-categories', {
       user,
       categories,
-      flash
+      filters,
+      flash,
     });
   } catch (err) {
     console.error('❌ /admin/smm-categories error:', err.message);
@@ -1861,46 +1889,79 @@ app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
 });
 
 
+app.post('/admin/smm-categories/create', checkAdmin, async (req, res) => {
+  try {
+    const rawName   = (req.body.name || '').trim();
+    let sortOrder   = parseInt(req.body.sort_order || '0', 10);
+    if (!Number.isFinite(sortOrder)) sortOrder = 0;
 
-app.post('/admin/smm-categories/:id/update', checkAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (!Number.isFinite(id)) {
-    return res.status(400).send('Bad category id');
-  }
+    if (!rawName) {
+      req.session.adminFlash = 'Category name is required.';
+      return res.redirect('/admin/smm-categories');
+    }
 
-  const name = (req.body.name || '').trim();
-  const sort = parseInt(req.body.sort_order, 10) || 0;
-  const activeFlag = req.body.is_active === '1' || req.body.is_active === 'on' ? 1 : 0;
+    let slug = slugifyCategory(rawName);
 
-  if (!name) {
-    req.session.adminFlash = 'Name is required.';
+    await query(
+      `
+      INSERT INTO smm_categories (name, slug, sort_order, is_active)
+      VALUES (?, ?, ?, 1)
+      ON DUPLICATE KEY UPDATE
+        name       = VALUES(name),
+        sort_order = VALUES(sort_order),
+        is_active  = VALUES(is_active)
+      `,
+      [rawName, slug, sortOrder]
+    );
+
+    req.session.adminFlash = 'Category saved successfully.';
+    return res.redirect('/admin/smm-categories');
+  } catch (err) {
+    console.error('❌ /admin/smm-categories/create error:', err.message);
+    req.session.adminFlash = 'Error while saving category.';
     return res.redirect('/admin/smm-categories');
   }
+});
 
-  const slug = (req.body.slug || name)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 100);
+
+app.post('/admin/smm-categories/:id/update', checkAdmin, async (req, res) => {
+  const catId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(catId)) {
+    return res.status(400).send('Bad request');
+  }
 
   try {
-    await q(
+    const rawName  = (req.body.name || '').trim();
+    const rawSlug  = (req.body.slug || '').trim();
+    let sortOrder  = parseInt(req.body.sort_order || '0', 10);
+    if (!Number.isFinite(sortOrder)) sortOrder = 0;
+
+    if (!rawName) {
+      req.session.adminFlash = 'Name cannot be empty.';
+      return res.redirect('/admin/smm-categories');
+    }
+
+    const slug = rawSlug || slugifyCategory(rawName);
+
+    await query(
       `
       UPDATE smm_categories
-      SET name = ?, slug = ?, sort_order = ?, is_active = ?, updated_at = NOW()
+      SET name = ?, slug = ?, sort_order = ?
       WHERE id = ?
+      LIMIT 1
       `,
-      [name, slug, sort, activeFlag, id]
+      [rawName, slug, sortOrder, catId]
     );
 
     req.session.adminFlash = 'Category updated.';
-    res.redirect('/admin/smm-categories');
+    return res.redirect('/admin/smm-categories');
   } catch (err) {
     console.error('❌ /admin/smm-categories/:id/update error:', err.message);
-    req.session.adminFlash = 'Failed to update category.';
-    res.redirect('/admin/smm-categories');
+    req.session.adminFlash = 'Update error.';
+    return res.redirect('/admin/smm-categories');
   }
 });
+
 
 // UPDATE SMM CATEGORY (name / slug / sort)
 app.post('/admin/smm-categories/:id/edit', checkAdmin, (req, res) => {
