@@ -1888,6 +1888,15 @@ app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
   }
 });
 
+function slugifyCategory(name) {
+  return String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')   // anything not letters/numbers → -
+    .replace(/^-+|-+$/g, '')       // trim dashes
+    || 'category';
+}
+
 
 app.post('/admin/smm-categories/create', checkAdmin, async (req, res) => {
   try {
