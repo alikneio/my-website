@@ -46,22 +46,27 @@
       font-size: .96rem;
     }
 
-/* GRID – دايمًا 3 كروت بكل الشاشات */
-.categories-grid {
-  display: grid;
-  gap: 1.2rem;
-  margin-bottom: 3rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
+    /* GRID */
+    .categories-grid {
+      display: grid;
+      gap: 1.2rem;
+      margin-bottom: 3rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr)); /* Desktop: 3 per row */
+    }
 
-/* تعديل بسيط للشاشات الصغيرة لزيادة راحة */
-@media (max-width: 480px) {
-  .category-card {
-    padding: 1.1rem;
-    transform: scale(0.95);
-  }
-}
+    /* Tablet & mobile: 2 per row */
+    @media (max-width: 991.98px) {
+      .categories-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
 
+    /* Very small screens: still 2 لكن نضبط المقاس */
+    @media (max-width: 480px) {
+      .categories-grid {
+        gap: 0.9rem;
+      }
+    }
 
     /* CARD */
     .category-card {
@@ -79,7 +84,7 @@
         background .18s ease;
       display: flex;
       flex-direction: column;
-      min-height: 220px;
+      min-height: 230px;
       overflow: hidden;
     }
 
@@ -256,6 +261,7 @@
       color: #9ca3af;
     }
 
+    /* Mobile tuning */
     @media (max-width: 767.98px) {
       .page-header {
         padding-top: 1.6rem;
@@ -264,10 +270,18 @@
         font-size: 1.6rem;
       }
       .categories-grid {
-        gap: 1.2rem;
+        gap: 1rem;
       }
       .category-card {
-        padding: 1.2rem 1.3rem 1.05rem;
+        padding: 1.1rem 1.1rem 1rem;
+        min-height: 0; /* خفف الارتفاع الإجباري */
+      }
+      .category-description {
+        font-size: 0.8rem;
+        margin-bottom: 0.7rem;
+      }
+      .category-title {
+        font-size: 0.95rem;
       }
     }
   </style>
@@ -373,7 +387,7 @@
 
   <%- include('partials/footer') %>
 
-  <!-- استخدم نفس CDN تبع Bootstrap اللي شغّال بباقي الصفحات عشان offcanvas يشتغل -->
+  <!-- نفس Bootstrap JS عشان الـ Menu / offcanvas يشتغل -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
