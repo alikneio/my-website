@@ -1264,21 +1264,26 @@ app.get('/social-media', async (req, res) => {
         c.id,
         c.name,
         c.slug,
+        c.sort_order,
+        c.is_active,
         COUNT(s.id) AS service_count
       FROM smm_categories c
       LEFT JOIN smm_services s
         ON s.category_id = c.id
-       AND s.is_active = 1         -- بس الخدمات المفعّلة
-      WHERE c.is_active = 1        -- بس الكاتيجوري المفعّلة
-      GROUP BY c.id, c.name, c.slug
-      HAVING service_count > 0     -- لازم يكون في خدمات فعلياً
-      ORDER BY c.sort_order, c.name
+       AND s.is_active = 1           -- بس الخِدَمات المفعّلة
+      WHERE c.is_active = 1          -- الكاتيجوري نفسها لازم تكون مفعّلة
+      GROUP BY
+        c.id, c.name, c.slug, c.sort_order, c.is_active
+      ORDER BY
+        c.sort_order ASC,
+        c.name ASC
       `
     );
 
-    res.render('social-categories', {
+    res.render('social-media', {
       user: req.session.user || null,
-      categories,
+      categories,              // هون منبعتهم للـ EJS
+      smmCategories: categories
     });
   } catch (err) {
     console.error('❌ /social-media error:', err.message);
