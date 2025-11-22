@@ -46,13 +46,22 @@
       font-size: .96rem;
     }
 
-    /* GRID */
-    .categories-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1.6rem;
-      margin-bottom: 3rem;
-    }
+/* GRID – دايمًا 3 كروت بكل الشاشات */
+.categories-grid {
+  display: grid;
+  gap: 1.2rem;
+  margin-bottom: 3rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* تعديل بسيط للشاشات الصغيرة لزيادة راحة */
+@media (max-width: 480px) {
+  .category-card {
+    padding: 1.1rem;
+    transform: scale(0.95);
+  }
+}
+
 
     /* CARD */
     .category-card {
