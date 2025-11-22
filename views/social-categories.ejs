@@ -46,35 +46,29 @@
       font-size: .96rem;
     }
 
-    /* GRID */
+    /* ===== GRID ===== */
     .categories-grid {
       display: grid;
-      gap: 1.2rem;
+      gap: 1.4rem;
       margin-bottom: 3rem;
-      grid-template-columns: repeat(3, minmax(0, 1fr)); /* Desktop: 3 per row */
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    /* Tablet & mobile: 2 per row */
+    /* Tablet & down: 2 كروت بالصف */
     @media (max-width: 991.98px) {
       .categories-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.1rem;
       }
     }
 
-    /* Very small screens: still 2 لكن نضبط المقاس */
-    @media (max-width: 480px) {
-      .categories-grid {
-        gap: 0.9rem;
-      }
-    }
-
-    /* CARD */
+    /* ===== CARD ===== */
     .category-card {
       position: relative;
       background: rgba(255, 255, 255, 0.97);
       border-radius: var(--card-radius);
       box-shadow: var(--card-shadow);
-      padding: 1.4rem 1.6rem 1.25rem;
+      padding: 1.4rem 1.45rem 1.1rem;
       border: 1px solid rgba(148, 163, 184, 0.18);
       backdrop-filter: blur(14px);
       transition:
@@ -84,7 +78,7 @@
         background .18s ease;
       display: flex;
       flex-direction: column;
-      min-height: 230px;
+      min-height: 220px;
       overflow: hidden;
     }
 
@@ -163,7 +157,7 @@
     .category-title {
       font-size: 1.05rem;
       font-weight: 700;
-      margin-bottom: .2rem;
+      margin-bottom: .18rem;
       color: #111827;
       position: relative;
       z-index: 1;
@@ -174,15 +168,16 @@
       text-transform: uppercase;
       letter-spacing: .08em;
       color: var(--text-muted);
-      margin-bottom: .5rem;
+      margin-bottom: .45rem;
       position: relative;
       z-index: 1;
     }
 
     .category-description {
-      font-size: .86rem;
+      font-size: .84rem;
+      line-height: 1.5;
       color: var(--text-muted);
-      margin-bottom: .9rem;
+      margin-bottom: .85rem;
       position: relative;
       z-index: 1;
     }
@@ -261,27 +256,49 @@
       color: #9ca3af;
     }
 
-    /* Mobile tuning */
+    /* ===== Mobile tuning ===== */
     @media (max-width: 767.98px) {
       .page-header {
         padding-top: 1.6rem;
+        padding-bottom: 0.8rem;
       }
       .page-title {
-        font-size: 1.6rem;
+        font-size: 1.5rem;
       }
-      .categories-grid {
-        gap: 1rem;
+      .page-subtitle {
+        font-size: .86rem;
       }
       .category-card {
-        padding: 1.1rem 1.1rem 1rem;
-        min-height: 0; /* خفف الارتفاع الإجباري */
+        padding: 1.05rem 1rem 0.9rem;
+        border-radius: 16px;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.10);
       }
-      .category-description {
-        font-size: 0.8rem;
+      .category-icon {
+        width: 46px;
+        height: 46px;
         margin-bottom: 0.7rem;
       }
       .category-title {
-        font-size: 0.95rem;
+        font-size: .92rem;
+      }
+      .category-subtitle {
+        font-size: .7rem;
+      }
+      .category-description {
+        font-size: .78rem;
+        line-height: 1.45;
+      }
+      .services-pill {
+        font-size: .76rem;
+      }
+      .services-pill-count {
+        width: 20px;
+        height: 20px;
+        font-size: .76rem;
+      }
+      .view-link {
+        padding: .25rem .7rem;
+        font-size: .76rem;
       }
     }
   </style>
@@ -299,7 +316,6 @@
     </header>
 
     <%
-      // Ensure we have an array of categories
       const cats = Array.isArray(categories)
         ? categories
         : (Array.isArray(smmCategories) ? smmCategories : []);
@@ -321,7 +337,6 @@
         <% cats.forEach(function(cat) {
           const title   = cat.label || cat.name || cat.title || 'Social Media Category';
           const slug    = cat.slug || cat.handle || cat.id;
-
           const count   = Number(
             cat.service_count ||
             cat.services_count ||
@@ -330,7 +345,6 @@
             cat.total_services ||
             0
           );
-
           const isNew   = cat.is_new === 1 || cat.is_new === true || cat.isNew;
           const isFast  = cat.is_fast === 1 || cat.is_fast === true || cat.fastDelivery;
           const section = cat.section || cat.platform || '';
@@ -387,7 +401,6 @@
 
   <%- include('partials/footer') %>
 
-  <!-- نفس Bootstrap JS عشان الـ Menu / offcanvas يشتغل -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
