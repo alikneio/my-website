@@ -1270,8 +1270,8 @@ app.get('/social-media', async (req, res) => {
       FROM smm_categories c
       LEFT JOIN smm_services s
         ON s.category_id = c.id
-       AND s.is_active = 1           -- بس الخِدَمات المفعّلة
-      WHERE c.is_active = 1          -- الكاتيجوري نفسها لازم تكون مفعّلة
+       AND s.is_active = 1
+      WHERE c.is_active = 1
       GROUP BY
         c.id, c.name, c.slug, c.sort_order, c.is_active
       ORDER BY
@@ -1280,9 +1280,10 @@ app.get('/social-media', async (req, res) => {
       `
     );
 
-    res.render('social-media', {
+    // 👈 هون التعديل المهم
+    res.render('social-categories', {
       user: req.session.user || null,
-      categories,              // هون منبعتهم للـ EJS
+      categories,
       smmCategories: categories
     });
   } catch (err) {
@@ -1290,6 +1291,7 @@ app.get('/social-media', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
 
 
 // صفحة خدمات كاتيجوري معيّنة
