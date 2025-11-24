@@ -12,6 +12,8 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const multer = require('multer');
 
+
+
 // ثالثاً: تحديد PORT بعد تحميل dotenv
 const PORT = process.env.PORT || 3000;
 
@@ -28,6 +30,7 @@ const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
 const uploadNone = multer();
 require('./telegram/saveChatId');
+const crypto = require('crypto');
 
 
 
@@ -1371,6 +1374,12 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
 
   const [userRow] = await q(`SELECT balance FROM users WHERE id = ?`, [userId]);
 
+  // 🆕 نولّد idempotency key جديد لكل زيارة checkout
+  const idemKey = crypto.randomUUID(); // أو أي random string تاني لو حابب
+
+  // نخزّنه بالسيشن عشان /buy-social يقدّر يستعمله كـ fallback
+  req.session.idemKey = idemKey;
+
   res.render('social-checkout', {
     user: req.session.user,
     service,
@@ -1381,10 +1390,9 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
     rangeMax: max || service.max_qty,
     formLink: link || '',
     formQty: qty || '',
-    idemKey: req.session.idemKey || null,
+    idemKey, // 🆕 نبعته للـ view
   });
 });
-
 
 // شراء خدمات السوشيال ميديا
 app.post('/buy-social', checkAuth, async (req, res) => {
@@ -1397,23 +1405,47 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     serviceId,
     link,
     quantity,
+    idempotency_key: bodyIdemKey, // 🆕 نقرأ الـ idempotency key من الفورم (لو موجود)
   } = req.body;
 
   const serviceIdNum = parseInt(service_id || serviceId, 10);
   const qty = parseInt(quantity, 10);
 
-  // Helper بسيط للـ DB
+  // Helper بسيط للـ DB (نفس القديم)
   const q = (sql, params = []) =>
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
+
+  // 🆕 نفس منطق /buy: مفتاح منع التكرار
+  const idemKey = (bodyIdemKey || req.session.idemKey || '')
+    .toString()
+    .slice(0, 64);
 
   let total = 0;              // المبلغ اللي رح يُخصم
   let serviceName = '';       // اسم الخدمة لرسائل الترانزكشن
   let providerOrderId = '';   // رقم الطلب عند SMMGen
 
   try {
-    console.log('🟦 /buy-social START', { userId, serviceIdNum, link, qty });
+    console.log('🟦 /buy-social START', { userId, serviceIdNum, link, qty, idemKey });
+
+    // 🆕 0) Idempotency gate
+    if (idemKey) {
+      try {
+        await q(
+          `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
+          [userId, idemKey]
+        );
+        // إذا نجح الإدخال → أول طلب، كمّل عادي
+      } catch (e) {
+        // مفتاح مكرر → اعتبره طلب مكرر (Refresh أو كبسة مرتين)
+        console.log('⏩ duplicate /buy-social detected, skipping', {
+          userId,
+          idemKey,
+        });
+        return res.redirect('/processing');
+      }
+    }
 
     // 1) تحقّق من المدخلات الأساسية
     if (!serviceIdNum || !link || !quantity) {
@@ -1454,16 +1486,16 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       );
     }
 
-   // 4) السعر (rate لكل rate_per)
-const rate = Number(service.rate || 0);
-const ratePer = Number(service.rate_per || 1000) || 1000; // الوحدة (مثل 1000 أو 100000)
+    // 4) السعر (rate لكل rate_per)
+    const rate = Number(service.rate || 0);
+    const ratePer = Number(service.rate_per || 1000) || 1000; // الوحدة (مثل 1000 أو 100000)
 
-if (!Number.isFinite(rate) || rate <= 0) {
-  return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
-}
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
+    }
 
-// totalCents = round(qty * rate * 100 / ratePer)
-const totalCents = Math.round((qty * rate * 100) / ratePer);
+    // totalCents = round(qty * rate * 100 / ratePer)
+    const totalCents = Math.round((qty * rate * 100) / ratePer);
 
     if (!Number.isFinite(totalCents) || totalCents <= 0) {
       console.log('❌ pricing_too_low', { totalCents });
@@ -1471,7 +1503,7 @@ const totalCents = Math.round((qty * rate * 100) / ratePer);
     }
     total = totalCents / 100; // رقم بكسور 2 digits
 
-    // 5) خصم من رصيد المستخدم (ذَرّي)
+    // 5) خصم من رصيد المستخدم (ذَرّي)  **نفس القديم**
     const upd = await q(
       `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
       [total, userId, total]
@@ -1536,7 +1568,7 @@ const totalCents = Math.round((qty * rate * 100) / ratePer);
       );
     }
 
-    // 8) حفظ الطلب في جدول orders (بدون provider وبدون source)
+    // 8) حفظ الطلب في جدول orders (نفس القديم)
     const orderDetails = `Link: ${link} | Quantity: ${qty}`;
 
     const insertOrderSql = `
@@ -1558,7 +1590,7 @@ const totalCents = Math.round((qty * rate * 100) / ratePer);
     const orderId = insertRes.insertId || null;
     console.log('✅ order_inserted', { orderId });
 
-    // 9) حفظ الطلب في جدول smm_orders
+    // 9) حفظ الطلب في جدول smm_orders (نفس القديم)
     await q(
       `
       INSERT INTO smm_orders
@@ -1570,7 +1602,7 @@ const totalCents = Math.round((qty * rate * 100) / ratePer);
 
     console.log('✅ smm_orders_inserted');
 
-    // 10) إشعار داخلي
+    // 10) إشعار داخلي (نفس القديم)
     await q(
       `INSERT INTO notifications (user_id, message, created_at, is_read)
        VALUES (?, ?, NOW(), 0)`,
@@ -1580,9 +1612,82 @@ const totalCents = Math.round((qty * rate * 100) / ratePer);
       ]
     );
 
-    // لو حابب ترجع تيليغرام هنا نفس الكود القديم
+    // 🆕 10.1) إشعارات تيليغرام (للزبون + الإدمن)
+    try {
+      const now = new Date();
 
-    // 11) حفظ رقم الطلب للصفحة /processing
+      // معلومات اليوزر + telegram_chat_id
+      const userRows = await q(
+        'SELECT username, telegram_chat_id FROM users WHERE id = ? LIMIT 1',
+        [userId]
+      );
+      const userRow = userRows[0] || {};
+      const chatId = userRow.telegram_chat_id;
+
+      // إشعار للزبون لو مفعّل تيليغرام
+      if (chatId) {
+        const userMsg = `
+📥 *تم استلام طلب خدمتك بنجاح*
+
+🧾 *الخدمة:* ${serviceName}
+🔢 *الكمية:* ${qty}
+💰 *السعر:* ${total}$
+📌 *الحالة:* جاري التنفيذ
+        `.trim();
+
+        try {
+          await axios.post(
+            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+              chat_id: chatId,
+              text: userMsg,
+              parse_mode: 'Markdown',
+            }
+          );
+        } catch (e) {
+          console.warn('⚠️ Failed to send Telegram to user (social):', e.message);
+        }
+      } else {
+        console.log(
+          "ℹ️ No telegram_chat_id for this user (social order) أو ما كبس Start على البوت."
+        );
+      }
+
+      // إشعار للإدمن
+      try {
+        const adminChatId = '2096387191'; // غيّرها لو بدك
+        const adminMsg = `
+🆕 <b>طلب سوشيال ميديا جديد!</b>
+
+👤 <b>الزبون:</b> ${userRow.username || userId}
+🧾 <b>الخدمة:</b> ${serviceName}
+🔢 <b>الكمية:</b> ${qty}
+💰 <b>السعر:</b> ${total}$
+🔗 <b>الرابط:</b> ${link}
+🔢 <b>رقم الطلب عند المزود:</b> ${providerOrderId}
+🕒 <b>الوقت:</b> ${now.toLocaleString()}
+        `.trim();
+
+        await axios.post(
+          `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+          {
+            chat_id: adminChatId,
+            text: adminMsg,
+            parse_mode: 'HTML',
+          }
+        );
+        console.log('📢 Admin notified via Telegram (social)');
+      } catch (e) {
+        console.warn(
+          '⚠️ Failed to notify admin via Telegram (social):',
+          e.message
+        );
+      }
+    } catch (e) {
+      console.warn('⚠️ Telegram notification flow error (social):', e.message);
+    }
+
+    // 11) حفظ رقم الطلب للصفحة /processing (نفس القديم)
     req.session.pendingOrderId = orderId;
     console.log('✅ /buy-social DONE, redirect /processing');
 
@@ -1590,7 +1695,7 @@ const totalCents = Math.round((qty * rate * 100) / ratePer);
   } catch (err) {
     console.error('❌ /buy-social error:', err?.message || err);
 
-    // محاولة Refund لو صار Error بعد الخصم وما تم الـ Refund فوق
+    // محاولة Refund لو صار Error بعد الخصم وما تم الـ Refund فوق (نفس القديم)
     try {
       if (total > 0) {
         await q(
