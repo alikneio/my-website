@@ -1104,7 +1104,7 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
     // ملاحظة مهمة: هلق ما منعمل UPDATE على name/rate/min/max/category_id/is_active
     const insertCatSql = `
       INSERT INTO smm_categories (name, slug, is_active, sort_order)
-      VALUES (?, ?, 1, 0)
+      VALUES (?, ?, 0, 0) 
       ON DUPLICATE KEY UPDATE
         name = VALUES(name)
     `;
@@ -1112,7 +1112,7 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
     const insertServiceSql = `
       INSERT INTO smm_services
         (provider_service_id, category_id, category, name, type, rate, min_qty, max_qty, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
       ON DUPLICATE KEY UPDATE
         -- 👇 ما منعدل شي حساس حتى ما نكسر التعديلات اليدوية
         category = VALUES(category)
