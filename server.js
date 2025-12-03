@@ -4447,6 +4447,21 @@ app.get('/canva-section', (req, res) => {
     });
 });
 
+app.get('/appletv', (req, res) => {
+    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Apple Tv+'";
+    db.query(sql, [], (err, products) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Server error");
+        }
+        res.render('appletv', { 
+            user: req.session.user || null,
+            products: products  // تأكد من تمرير المنتجات
+        });
+    });
+});
+
+
 app.get('/autodesk', (req, res) => {
     const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'AUTODESK'";
     db.query(sql, [], (err, products) => {

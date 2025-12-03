@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apple tv products - AK Cell</title>
+ <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper/swiper-bundle.min.css">
+</head>
+<body>
+
+ <%- include('partials/header') %>
+
+
+  <div class="container my-5">
+    <h1 class="text-center mb-4">Apple TV+ Products</h1>
+      <div class="container my-5 ">
+    <div class="search-bar-container">
+        <form id="searchForm" action="#" method="GET" role="search">
+            <input type="search" id="searchInput" class="search-input" placeholder="Search for any service...">
+            <button type="submit" class="search-btn">
+                <i class="bi bi-search"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+
+    <div class="row g-3">
+      <% if (products && products.length > 0) { %>
+        <% products.forEach(function(product) { %>
+          <div class="col-6 col-sm-4 col-md-3">
+        
+            <% const checkoutLink = user ? (product.requires_player_id == 1 ? `/checkout/${product.id}` : `/checkout/${product.id}`) : '/login'; %>
+
+            <a href="<%= checkoutLink %>" class="text-decoration-none h-100">
+              <div class="product-card border-0 shadow-sm rounded-4 overflow-hidden text-center bg-white h-100 animate-zoom">
+
+                <!-- الصورة -->
+                <div class="product-image-wrapper mb-2">
+                  <img src="<%= product.image %>" alt="<%= product.name %>" class="img-fluid rounded-3">
+                </div>
+
+                <!-- اسم المنتج -->
+                <h6 class="fw-semibold text-dark mb-1"><%= product.custom_name || product.name %></h6>
+
+                <!-- السعر -->
+                <p class="text-primary fw-bold mb-0">$<%= parseFloat(product.price).toFixed(2) %></p>
+              </div>
+            </a>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <div class="col-12 text-center">
+          <p class="text-muted fs-5">No products available in this category.</p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <%- include('partials/footer') %>
+
+ <script src="/main.js"></script>
+ <script>
+  console.log("✅ Search JS loaded!");
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  console.log("✅ Search script loaded!");
+
+  const searchInput = document.getElementById("searchInput");
+  if (!searchInput) return;
+
+  const searchForm = document.getElementById("searchForm");
+  if (searchForm) {
+    searchForm.addEventListener("submit", e => e.preventDefault());
+  }
+
+  searchInput.addEventListener("input", function () {
+    const query = this.value.toLowerCase();
+
+    // تأكد من وجود الكروت من هذا الكلاس
+    const cards = document.querySelectorAll(".product-card");
+
+    cards.forEach(card => {
+      const title = card.querySelector("h6")?.textContent?.toLowerCase() || "";
+      const cardWrapper = card.closest("div[class^='col']");
+ // ضروري تحتوي الكرت
+
+      if (cardWrapper) {
+        if (title.includes(query)) {
+          cardWrapper.style.display = "";
+        } else {
+          cardWrapper.style.display = "none";
+        }
+      }
+    });
+  });
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
