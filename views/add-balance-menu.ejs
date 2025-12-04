@@ -14,9 +14,9 @@
     :root {
       --ak-primary: #0d6efd;
       --ak-primary-soft: rgba(13, 110, 253, 0.18);
-      --ak-success: #28a745;
-      --ak-success-soft: rgba(40, 167, 69, 0.16);
-      --ak-bg: linear-gradient(135deg, #f5f7fb, #d6e2ff);
+      --ak-success: #27ae60;
+      --ak-bg: radial-gradient(circle at top, #e6f0ff 0, #f5f7fd 45%, #dde7ff 100%);
+      --ak-border-soft: rgba(15, 23, 42, 0.06);
     }
 
     * {
@@ -34,179 +34,435 @@
       padding: 16px;
       position: relative;
       overflow: hidden;
+      color: #111827;
     }
 
-    /* خلفيات دوائر ناعمة */
-    .bg-bubble {
+    /* خلفيات خفيفة */
+    .bg-orbit {
       position: absolute;
-      border-radius: 50%;
-      filter: blur(40px);
-      opacity: 0.5;
+      border-radius: 999px;
       pointer-events: none;
       z-index: 0;
+      filter: blur(30px);
+      opacity: 0.6;
     }
-    .bg-bubble.b1 {
-      width: 260px;
-      height: 260px;
+    .bg-orbit.o1 {
+      width: 420px;
+      height: 420px;
       background: rgba(13, 110, 253, 0.35);
-      top: -60px;
-      left: -80px;
+      top: -140px;
+      left: -120px;
     }
-    .bg-bubble.b2 {
-      width: 220px;
-      height: 220px;
-      background: rgba(40, 167, 69, 0.3);
-      bottom: -60px;
-      right: -40px;
+    .bg-orbit.o2 {
+      width: 360px;
+      height: 360px;
+      background: rgba(39, 174, 96, 0.32);
+      bottom: -140px;
+      right: -80px;
     }
 
-    .balance-box {
+    .shell {
       position: relative;
       z-index: 1;
-      max-width: 480px;
+      max-width: 880px;
       width: 100%;
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 24px;
-      padding: 32px 28px 26px;
-      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
-      backdrop-filter: blur(12px);
-      text-align: center;
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 28px;
+      box-shadow:
+        0 22px 60px rgba(15, 23, 42, 0.25),
+        0 0 0 1px rgba(148, 163, 184, 0.08);
+      padding: 26px 26px 22px;
+      backdrop-filter: blur(14px);
     }
 
-    .balance-icon {
-      width: 64px;
-      height: 64px;
+    @media (min-width: 768px) {
+      .shell {
+        padding: 30px 34px 26px;
+      }
+    }
+
+    .shell-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .shell-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .shell-icon {
+      width: 54px;
+      height: 54px;
       border-radius: 20px;
-      background: radial-gradient(circle at 30% 20%, #ffffff, #0d6efd);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 32px;
-      margin: 0 auto 12px;
-      box-shadow: 0 10px 30px rgba(13, 110, 253, 0.5);
-    }
-
-    .balance-box h1 {
-      font-size: 1.7rem;
-      font-weight: 700;
-      margin-bottom: 4px;
-      color: #1f2933;
-    }
-
-    .balance-subtext {
-      font-size: 0.95rem;
-      color: #6c757d;
-      margin-bottom: 24px;
-    }
-
-    .btn-option {
+      background: conic-gradient(from 160deg, #4f46e5, #0ea5e9, #22c55e, #4f46e5);
+      padding: 2px;
       position: relative;
-      padding: 14px 22px;
-      font-size: 1.05rem;
-      font-weight: 600;
-      border-radius: 14px;
-      margin: 6px 0;
+      overflow: hidden;
+    }
+    .shell-icon-inner {
       width: 100%;
-      border: none;
+      height: 100%;
+      border-radius: inherit;
+      background: radial-gradient(circle at 30% 20%, #e5f3ff, #0f172a);
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      transition:
-        transform 0.12s ease-out,
-        box-shadow 0.12s ease-out,
-        background 0.12s ease-out;
+      color: #f9fafb;
+      font-size: 26px;
     }
 
-    .btn-option i {
-      font-size: 1.25rem;
+    .shell-title-text h1 {
+      font-size: 1.6rem;
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.01em;
     }
 
-    .btn-usd {
-      background: linear-gradient(135deg, var(--ak-primary), #0053c7);
-      color: #fff;
-      box-shadow: 0 8px 24px rgba(13, 110, 253, 0.45);
-    }
-    .btn-usd:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 28px rgba(13, 110, 253, 0.55);
-      color: #fff;
+    .shell-title-text p {
+      margin: 2px 0 0;
+      font-size: 0.9rem;
+      color: #6b7280;
     }
 
-    .btn-lbp {
-      background: linear-gradient(135deg, var(--ak-success), #1f8a3a);
-      color: #fff;
-      box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
-    }
-    .btn-lbp:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 28px rgba(40, 167, 69, 0.5);
-      color: #fff;
-    }
-
-    .btn-option small {
-      display: block;
+    /* Steps */
+    .steps {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       font-size: 0.8rem;
-      font-weight: 400;
-      opacity: 0.9;
+      color: #6b7280;
     }
 
-    .helper-text {
-      margin-top: 18px;
-      font-size: 0.85rem;
-      color: #7b8a9a;
+    .step-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      background: #fff;
+    }
+    .step-dot.active {
+      background: #0d6efd;
+      border-color: #0d6efd;
+      color: #fff;
+      box-shadow: 0 0 0 5px rgba(13, 110, 253, 0.18);
     }
 
-    @media (max-width: 480px) {
-      .balance-box {
-        padding: 26px 20px 22px;
-        border-radius: 20px;
+    .step-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, #0d6efd, rgba(148, 163, 184, 0.5));
+      opacity: 0.7;
+    }
+
+    .step-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 4px;
+      font-size: 0.7rem;
+      color: #9ca3af;
+    }
+
+    /* Body */
+    .shell-body {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    @media (min-width: 768px) {
+      .shell-body {
+        flex-direction: row;
       }
-      .balance-box h1 {
-        font-size: 1.45rem;
+    }
+
+    .left-col {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .right-col {
+      width: 100%;
+      max-width: 320px;
+    }
+
+    /* Currency cards */
+    .currency-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    @media (min-width: 576px) {
+      .currency-grid {
+        grid-template-columns: 1fr 1fr;
       }
-      .balance-subtext {
-        font-size: 0.9rem;
+    }
+
+    .currency-card {
+      position: relative;
+      border-radius: 18px;
+      padding: 14px 14px 12px;
+      background: #ffffff;
+      border: 1px solid var(--ak-border-soft);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition:
+        transform 0.13s ease-out,
+        box-shadow 0.13s ease-out,
+        border-color 0.13s ease-out,
+        background 0.13s ease-out;
+    }
+
+    .currency-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+    }
+
+    .currency-card.usd {
+      background: radial-gradient(circle at top left, var(--ak-primary-soft), #ffffff);
+      border-color: rgba(37, 99, 235, 0.28);
+    }
+    .currency-card.lbp {
+      background: radial-gradient(circle at top left, rgba(39, 174, 96, 0.18), #ffffff);
+      border-color: rgba(22, 163, 74, 0.28);
+    }
+
+    .currency-tag {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: #0f172a;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18);
+    }
+
+    .currency-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .currency-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: #fff;
+    }
+    .currency-icon.usd {
+      background: linear-gradient(135deg, #2563eb, #0ea5e9);
+    }
+    .currency-icon.lbp {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+    }
+
+    .currency-main {
+      text-align: left;
+    }
+    .currency-main h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .currency-main span {
+      display: block;
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+
+    .currency-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+
+    .pill {
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.9);
+      color: #0f172a;
+    }
+
+    /* Right column info */
+    .info-card {
+      border-radius: 18px;
+      padding: 16px 16px 14px;
+      background: #f9fafb;
+      border: 1px dashed rgba(148, 163, 184, 0.7);
+      font-size: 0.82rem;
+      color: #4b5563;
+    }
+
+    .info-card h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .info-card ul {
+      padding-left: 18px;
+      margin: 0;
+    }
+    .info-card li {
+      margin-bottom: 4px;
+    }
+
+    .small-note {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: #9ca3af;
+      text-align: right;
+    }
+
+    @media (max-width: 767px) {
+      .shell {
+        border-radius: 22px;
+      }
+      .shell-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .steps {
+        align-self: stretch;
+        justify-content: space-between;
+      }
+      .step-labels {
+        display: none;
+      }
+      .right-col {
+        max-width: none;
       }
     }
   </style>
 </head>
 <body>
 
-  <!-- soft background bubbles -->
-  <div class="bg-bubble b1"></div>
-  <div class="bg-bubble b2"></div>
+  <!-- soft background decor -->
+  <div class="bg-orbit o1"></div>
+  <div class="bg-orbit o2"></div>
 
-  <div class="balance-box">
-    <div class="balance-icon">
-      <i class="bi bi-wallet2"></i>
+  <div class="shell">
+    <!-- Header -->
+    <div class="shell-header">
+      <div class="shell-title">
+        <div class="shell-icon">
+          <div class="shell-icon-inner">
+            <i class="bi bi-wallet2"></i>
+          </div>
+        </div>
+        <div class="shell-title-text">
+          <h1>Add Balance with Whish</h1>
+          <p>Choose your preferred currency to fund your AK CELL wallet.</p>
+        </div>
+      </div>
+
+      <!-- Steps indicator (decorative) -->
+      <div>
+        <div class="steps">
+          <div class="step-dot active">1</div>
+          <div class="step-line"></div>
+          <div class="step-dot">2</div>
+          <div class="step-dot">3</div>
+        </div>
+        <div class="step-labels">
+          <span>Currency</span>
+          <span>Method</span>
+          <span>Payment</span>
+        </div>
+      </div>
     </div>
 
-    <h1>Choose Whish Currency</h1>
-    <p class="balance-subtext">
-      Select the currency you want to use to add balance to your AK CELL account.
-    </p>
+    <!-- Body -->
+    <div class="shell-body">
+      <!-- Left: currency options -->
+      <div class="left-col">
+        <div class="currency-grid">
 
-    <a href="/add-balance/whish/usd" class="btn btn-option btn-usd">
-      <i class="bi bi-currency-dollar"></i>
-      <span>
-        Add in USD
-        <small>Pay in US dollars</small>
-      </span>
-    </a>
+          <!-- USD -->
+          <a href="/add-balance/whish/usd" class="currency-card usd">
+            <span class="currency-tag">Recommended</span>
+            <div class="currency-header">
+              <div class="currency-icon usd">
+                <i class="bi bi-currency-dollar"></i>
+              </div>
+              <div class="currency-main">
+                <h3>Add in USD</h3>
+                <span>Best for international payments & stable pricing.</span>
+              </div>
+            </div>
+            <div class="currency-footer">
+              <span>Pay in US dollars (USD)</span>
+              <span class="pill">Lower volatility</span>
+            </div>
+          </a>
 
-    <a href="/add-balance/whish/lbp" class="btn btn-option btn-lbp">
-      <i class="bi bi-cash-coin"></i>
-      <span>
-        Add in LBP
-        <small>Pay in Lebanese pounds</small>
-      </span>
-    </a>
+          <!-- LBP -->
+          <a href="/add-balance/whish/lbp" class="currency-card lbp">
+            <div class="currency-header">
+              <div class="currency-icon lbp">
+                <i class="bi bi-cash-coin"></i>
+              </div>
+              <div class="currency-main">
+                <h3>Add in LBP</h3>
+                <span>Ideal if you are paying in Lebanese pounds.</span>
+              </div>
+            </div>
+            <div class="currency-footer">
+              <span>Pay in Lebanese pounds (LBP)</span>
+              <span class="pill">Local currency</span>
+            </div>
+          </a>
 
-    <p class="helper-text">
-      You can always switch currency later by returning to this page.
-    </p>
+        </div>
+      </div>
+
+      <!-- Right: info / tips -->
+      <div class="right-col mt-3 mt-md-0">
+        <div class="info-card">
+          <h4>
+            <i class="bi bi-info-circle-fill text-primary"></i>
+            Helpful notes
+          </h4>
+          <ul>
+            <li>Your balance will appear instantly after a successful payment.</li>
+            <li>You can always come back and add funds in a different currency later.</li>
+            <li>Make sure the amount you choose matches your preferred payment method.</li>
+          </ul>
+          <div class="small-note">
+            Need help? Contact support from the Help section.
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
