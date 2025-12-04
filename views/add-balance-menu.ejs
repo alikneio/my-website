@@ -4,66 +4,212 @@
   <meta charset="UTF-8">
   <title>Add Balance - Whish</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="/css/bootstrap.css">
-    <link rel="stylesheet" href="/css/custom.css">
-    <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
   <style>
+    :root {
+      --ak-primary: #0d6efd;
+      --ak-primary-soft: rgba(13, 110, 253, 0.18);
+      --ak-success: #28a745;
+      --ak-success-soft: rgba(40, 167, 69, 0.16);
+      --ak-bg: linear-gradient(135deg, #f5f7fb, #d6e2ff);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: 'Cairo', sans-serif;
-      background: linear-gradient(to bottom, #f5f7fa, #c3cfe2);
+      font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       min-height: 100vh;
+      margin: 0;
+      background: var(--ak-bg);
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
     }
+
+    /* خلفيات دوائر ناعمة */
+    .bg-bubble {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(40px);
+      opacity: 0.5;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bg-bubble.b1 {
+      width: 260px;
+      height: 260px;
+      background: rgba(13, 110, 253, 0.35);
+      top: -60px;
+      left: -80px;
+    }
+    .bg-bubble.b2 {
+      width: 220px;
+      height: 220px;
+      background: rgba(40, 167, 69, 0.3);
+      bottom: -60px;
+      right: -40px;
+    }
+
     .balance-box {
-      background: white;
-      border-radius: 15px;
-      padding: 30px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-      max-width: 500px;
+      position: relative;
+      z-index: 1;
+      max-width: 480px;
       width: 100%;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 24px;
+      padding: 32px 28px 26px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+      backdrop-filter: blur(12px);
       text-align: center;
     }
-    .balance-box h2 {
-      font-weight: bold;
-      margin-bottom: 30px;
+
+    .balance-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: radial-gradient(circle at 30% 20%, #ffffff, #0d6efd);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 32px;
+      margin: 0 auto 12px;
+      box-shadow: 0 10px 30px rgba(13, 110, 253, 0.5);
     }
+
+    .balance-box h1 {
+      font-size: 1.7rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #1f2933;
+    }
+
+    .balance-subtext {
+      font-size: 0.95rem;
+      color: #6c757d;
+      margin-bottom: 24px;
+    }
+
     .btn-option {
-      padding: 15px 25px;
-      font-size: 1.2rem;
-      border-radius: 10px;
-      margin: 10px 0;
+      position: relative;
+      padding: 14px 22px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      border-radius: 14px;
+      margin: 6px 0;
       width: 100%;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition:
+        transform 0.12s ease-out,
+        box-shadow 0.12s ease-out,
+        background 0.12s ease-out;
     }
-    .btn-usd {
-      background: #007bff;
-      color: white;
-    }
-    .btn-lbp {
-      background: #28a745;
-      color: white;
-    }
+
     .btn-option i {
-      margin-right: 10px;
+      font-size: 1.25rem;
+    }
+
+    .btn-usd {
+      background: linear-gradient(135deg, var(--ak-primary), #0053c7);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(13, 110, 253, 0.45);
+    }
+    .btn-usd:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 28px rgba(13, 110, 253, 0.55);
+      color: #fff;
+    }
+
+    .btn-lbp {
+      background: linear-gradient(135deg, var(--ak-success), #1f8a3a);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
+    }
+    .btn-lbp:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 28px rgba(40, 167, 69, 0.5);
+      color: #fff;
+    }
+
+    .btn-option small {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 400;
+      opacity: 0.9;
+    }
+
+    .helper-text {
+      margin-top: 18px;
+      font-size: 0.85rem;
+      color: #7b8a9a;
+    }
+
+    @media (max-width: 480px) {
+      .balance-box {
+        padding: 26px 20px 22px;
+        border-radius: 20px;
+      }
+      .balance-box h1 {
+        font-size: 1.45rem;
+      }
+      .balance-subtext {
+        font-size: 0.9rem;
+      }
     }
   </style>
 </head>
 <body>
+
+  <!-- soft background bubbles -->
+  <div class="bg-bubble b1"></div>
+  <div class="bg-bubble b2"></div>
+
   <div class="balance-box">
-    <h2>Choose Whish Currency</h2>
+    <div class="balance-icon">
+      <i class="bi bi-wallet2"></i>
+    </div>
+
+    <h1>Choose Whish Currency</h1>
+    <p class="balance-subtext">
+      Select the currency you want to use to add balance to your AK CELL account.
+    </p>
+
     <a href="/add-balance/whish/usd" class="btn btn-option btn-usd">
-      <i class="bi bi-currency-dollar"></i> Add in USD
+      <i class="bi bi-currency-dollar"></i>
+      <span>
+        Add in USD
+        <small>Pay in US dollars</small>
+      </span>
     </a>
+
     <a href="/add-balance/whish/lbp" class="btn btn-option btn-lbp">
-      <i class="bi bi-currency-exchange"></i> Add in LBP
+      <i class="bi bi-cash-coin"></i>
+      <span>
+        Add in LBP
+        <small>Pay in Lebanese pounds</small>
+      </span>
     </a>
+
+    <p class="helper-text">
+      You can always switch currency later by returning to this page.
+    </p>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  
-    <script src="/main.js"></script>
+  <script src="/main.js"></script>
 </body>
 </html>
