@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Home - AK Cell</title>
-   <link rel="stylesheet" href="/css/bootstrap.css">
-  <link rel="stylesheet" href="/css/custom.css">
-<link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper/swiper-bundle.min.css">
 
@@ -31,6 +31,7 @@
 </head>
 
 <body>
+
 <%- include('partials/header') %>
 
 <!-- Swiper Slider (Mobile only) -->
@@ -38,13 +39,13 @@
   <div class="swiper mySwiper">
     <div class="swiper-wrapper">
       <div class="swiper-slide hero-slide">
-        <img src="/images/webp/slider-gamesx.webp" alt="Slide 1"  loading="lazy">
+        <img src="/images/webp/slider-gamesx.webp" loading="lazy">
       </div>
       <div class="swiper-slide hero-slide">
-        <img src="/images/webp/slider-moviex.webp" alt="Slide 2"  loading="lazy">
+        <img src="/images/webp/slider-moviex.webp" loading="lazy">
       </div>
       <div class="swiper-slide hero-slide">
-        <img src="/images/webp/slider-rechargex.webp" alt="Slide 3" loading="lazy">
+        <img src="/images/webp/slider-rechargex.webp" loading="lazy">
       </div>
     </div>
     <div class="swiper-pagination"></div>
@@ -53,22 +54,22 @@
 
 <!-- Banner (Desktop only) -->
 <div class="container mt-3 d-none d-md-block">
-  <img src="/images/webp/bannerak.webp" alt="Banner" class="img-fluid rounded" style="width:100%; height:280px; object-fit:cover;">
+  <img src="/images/webp/bannerak.webp" class="img-fluid rounded" style="width:100%; height:280px; object-fit:cover;">
 </div>
 
 <!-- Search Bar -->
 <div class="container my-3">
-   <div class="search-bar-container">
-        <form id="searchForm" action="#" method="GET" role="search">
-            <input type="search" id="searchInput" class="search-input" placeholder="Search for any service...">
-            <button type="submit" class="search-btn">
-                <i class="bi bi-search"></i>
-            </button>
-        </form>
-    </div>
+  <div class="search-bar-container">
+      <form id="searchForm" method="GET" role="search">
+          <input type="search" id="searchInput" class="search-input" placeholder="Search for any service...">
+          <button type="submit" class="search-btn">
+              <i class="bi bi-search"></i>
+          </button>
+      </form>
+  </div>
 </div>
 
-<!-- Results container (جديد) -->
+<!-- Results -->
 <div class="container my-3" id="searchResults" style="display:none;">
   <h2 class="text-center section-title mb-3">Results</h2>
   <div id="resultsGrid" class="row row-cols-2 row-cols-md-4 g-3"></div>
@@ -77,7 +78,7 @@
   </div>
 </div>
 
-<!-- Services Section (fixed) -->
+<!-- Services -->
 <div id="quick-services" class="container my-3">
   <h2 class="text-center section-title mb-3">Our Services</h2>
 
@@ -85,52 +86,48 @@
 
     <div class="col">
       <a href="/accounts" class="category-card service-card">
-        <img src="/images/webp/Accountslogo.webp" class="card-img" alt="Accounts" loading="lazy" onerror="this.src='/images/webp/default-category.webp'">
+        <img src="/images/webp/Accountslogo.webp" class="card-img" loading="lazy">
         <div class="card-body text-center">Accounts</div>
       </a>
     </div>
 
     <div class="col">
       <a href="/games" class="category-card service-card">
-        <img src="/images/webp/Gameslogo.webp" class="card-img" alt="Games" loading="lazy" onerror="this.src='/images/webp/default-category.webp'">
+        <img src="/images/webp/Gameslogo.webp" class="card-img" loading="lazy">
         <div class="card-body text-center">Games</div>
       </a>
     </div>
 
-    <!-- Gift Cards -->
     <div class="col">
       <a href="/giftcards" class="category-card service-card">
-        <img src="/images/giftcards.png" class="card-img" alt="Gift Cards" loading="lazy" onerror="this.src='/images/webp/default-category.webp'">
+        <img src="/images/giftcards.png" class="card-img" loading="lazy">
         <div class="card-body text-center">Gift Cards</div>
       </a>
     </div>
 
-    <!-- Communication -->
     <div class="col">
       <a href="/communication" class="category-card service-card">
-        <img src="/images/webp/communicationlogo.webp" class="card-img" alt="Communication" loading="lazy" onerror="this.src='/images/webp/default-category.webp'">
+        <img src="/images/webp/communicationlogo.webp" class="card-img" loading="lazy">
         <div class="card-body text-center">Communication</div>
       </a>
     </div>
 
     <div class="col">
       <a href="/apps-section" class="category-card service-card">
-        <img src="/images/webp/apps-section.webp" class="card-img" alt="Apps" loading="lazy" onerror="this.src='/images/webp/default-category.webp'">
+        <img src="/images/webp/apps-section.webp" class="card-img" loading="lazy">
         <div class="card-body text-center">Apps</div>
       </a>
     </div>
 
-    <!-- 🆕 Social Media Services -->
     <div class="col">
-     <a href="/social-media" class="category-card service-card">
-        <img src="/images/socialmedia.png" class="card-img" alt="Social Media Services" loading="lazy" onerror="this.src='/images/webp/default-category.webp'">
+      <a href="/social-media" class="category-card service-card">
+        <img src="/images/socialmedia.png" class="card-img" loading="lazy">
         <div class="card-body text-center">Social Media</div>
       </a>
     </div>
 
   </div>
 </div>
-
 
 <!-- Why Choose Us -->
 <div class="container my-4">
@@ -157,126 +154,100 @@
 <!-- Telegram Notice -->
 <% if (showTelegramToast) { %>
 <div id="telegram-toast" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
-  <div class="toast show align-items-center text-white bg-primary border-0 shadow" role="alert">
+  <div class="toast show align-items-center text-white bg-primary border-0 shadow">
     <div class="d-flex align-items-center">
       <div class="toast-body">
-        📢 <strong>فعل التنبيهات عبر تيليغرام</strong><br>
-        لتصلك حالة طلبك  مباشرة على تليفونك!
-        <br>
+        📢 <strong>Enable Telegram notifications</strong><br>
+        Get your order status instantly on your phone!<br>
         👉 <a href="https://t.me/AKorder_notifier_bot" target="_blank" class="text-warning fw-bold text-decoration-underline">
-          افتح البوت واضغط /start
+          Open bot & press /start
         </a>
       </div>
-      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
     </div>
   </div>
 </div>
 <% } %>
 
- <%- include('partials/footer') %>
+<%- include('partials/footer') %>
 
+<!-- COMMUNITY INVITE MODAL -->
+<div class="modal fade" id="communityModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow-lg">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold">Join Our Community 💬</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body pt-0">
+        <p class="mb-3">
+          Be the first to get exclusive offers, updates, support, and special discounts for AK CELL members!
+        </p>
+
+        <a href="https://chat.whatsapp.com/FQr850GMDhKFNniAn63vHa"
+           target="_blank"
+           id="communityJoinBtn"
+           class="btn btn-success w-100 fw-semibold">
+          <i class="bi bi-whatsapp"></i> Join WhatsApp Community
+        </a>
+
+        <p class="small text-muted mt-3 mb-0">
+          We don’t spam — just useful updates and offers 😉
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/swiper/swiper-bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     const swiper = new Swiper(".mySwiper", {
       loop: true,
-      autoplay: {
-        delay: 3000,
-        disableOnInteraction: false,
-      },
-      pagination: {
-        el: ".swiper-pagination",
-        clickable: true,
-      },
+      autoplay: { delay: 3000, disableOnInteraction: false },
+      pagination: { el: ".swiper-pagination", clickable: true },
     });
   });
 </script>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  const form = document.getElementById("searchForm");
-  const input = document.getElementById("searchInput");
-  const cats = document.getElementById("quick-services");
-  const box  = document.getElementById("searchResults");
-  const grid = document.getElementById("resultsGrid");
-  const noRes= document.getElementById("noResults");
-
-  const toCard = (r) => {
-    const price = (r.price != null) ? `$${Number(r.price).toFixed(2)}` : 'Variable';
-    const badge = r.source === 'api' ? 'info' : 'secondary';
-    return `
-      <div class="col">
-        <a href="${r.href}" class="card h-100 text-decoration-none">
-          <img src="${r.image || '/images/webp/default-product.webp'}" class="card-img-top" style="height:160px;object-fit:cover;">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start">
-              <h6 class="card-title mb-1">${r.title || ''}</h6>
-              <span class="badge text-bg-${badge}">${r.source.toUpperCase()}</span>
-            </div>
-            ${r.category ? `<div class="text-muted small">${r.category}</div>`:''}
-            ${r.subcategory ? `<div class="text-muted small">${r.subcategory}</div>`:''}
-            <div class="mt-2 fw-bold">${price}</div>
-          </div>
-        </a>
-      </div>`;
-  };
-
-  async function runSearch(q) {
-    if (!q || q.trim().length < 2) {
-      // رجّع الكاتيجوريز إذا البحث فاضي أو قصير
-      box.style.display = 'none';
-      cats.style.display = '';
-      return;
-    }
-    try {
-      const res = await fetch(`/search/json?q=${encodeURIComponent(q.trim())}`);
-      const data = await res.json();
-      grid.innerHTML = '';
-      if (!Array.isArray(data) || data.length === 0) {
-        noRes.style.display = '';
-      } else {
-        noRes.style.display = 'none';
-        grid.innerHTML = data.map(toCard).join('');
-      }
-      cats.style.display = 'none';
-      box.style.display  = '';
-    } catch (e) {
-      console.error('Search error:', e);
-      noRes.style.display = '';
-      cats.style.display = 'none';
-      box.style.display  = '';
-    }
-  }
-
-  // منع سَبمت الإفتراضي وتحويله لبحث داخل الصفحة
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    runSearch(input.value);
-  });
-
-  // بحث فوري مع ديباونس بسيط
-  let t;
-  input.addEventListener("input", () => {
-    clearTimeout(t);
-    t = setTimeout(() => runSearch(input.value), 250);
-  });
-});
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/swiper/swiper-bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
   document.addEventListener("DOMContentLoaded", function () {
     const toastEl = document.querySelector('#telegram-toast .toast');
     if (toastEl) {
-      const toast = new bootstrap.Toast(toastEl, {
-        delay: 8000,
-        autohide: true
-      });
+      const toast = new bootstrap.Toast(toastEl, { delay: 8000, autohide: true });
       toast.show();
     }
   });
 </script>
-  <script src="/main.js"></script>
+
+<!-- COMMUNITY POPUP LOGIC -->
+<script>
+(function () {
+  const key = "akcell_seen_community_popup";
+  if (localStorage.getItem(key) === "1") return;
+
+  const modalEl = document.getElementById("communityModal");
+  if (!modalEl) return;
+
+  const modal = new bootstrap.Modal(modalEl);
+
+  setTimeout(() => { modal.show(); }, 1500);
+
+  modalEl.addEventListener("hidden.bs.modal", () => {
+    localStorage.setItem(key, "1");
+  });
+
+  const joinBtn = document.getElementById("communityJoinBtn");
+  joinBtn.addEventListener("click", () => {
+    localStorage.setItem(key, "1");
+  });
+})();
+</script>
+
+<script src="/main.js"></script>
 </body>
 </html>
