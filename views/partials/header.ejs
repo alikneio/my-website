@@ -1,4 +1,4 @@
-<!-- ======= AK CELL HEADER & MENU ======= -->
+<!-- ======= AK CELL HEADER & SIDE MENU ======= -->
 
 <style>
   .ak-navbar {
@@ -10,6 +10,7 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     font-size: 1rem;
+    line-height: 1.1;
   }
   .ak-navbar-brand span {
     color: #38bdf8;
@@ -19,6 +20,35 @@
     opacity: 0.75;
   }
 
+  /* زر القائمة الجانبي (تحت الهيدر) */
+  .ak-floating-menu-wrapper {
+    padding: 0.75rem 1rem 0;
+  }
+  .ak-floating-menu-btn {
+    background: #0ea5e9;
+    border: none;
+    padding: 0.45rem 0.95rem;
+    border-radius: 999px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: #fff;
+    cursor: pointer;
+    transition: 0.18s ease;
+    box-shadow: 0 4px 12px rgba(56,189,248,0.4);
+  }
+  .ak-floating-menu-btn i {
+    font-size: 1.1rem;
+  }
+  .ak-floating-menu-btn:hover {
+    background: #38bdf8;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(56,189,248,0.55);
+  }
+
+  /* OFFCANVAS MENU STYLES */
   .ak-menu-offcanvas {
     background: radial-gradient(circle at top left, #111827, #020617);
     color: #f9fafb;
@@ -30,6 +60,7 @@
     font-weight: 600;
     letter-spacing: 0.03em;
   }
+
   .ak-user-card {
     border-radius: 16px;
     background: rgba(15, 23, 42, 0.92);
@@ -52,6 +83,7 @@
     margin-top: 8px;
     font-size: 0.8rem;
   }
+
   .ak-pill {
     border-radius: 999px;
     padding: 3px 10px;
@@ -70,10 +102,12 @@
     color: #022c22;
     font-weight: 600;
   }
+
   .ak-divider {
     border-top: 1px solid rgba(148, 163, 184, 0.35);
     margin: 14px 0;
   }
+
   .ak-menu-link {
     border-radius: 10px;
     padding: 7px 10px;
@@ -87,6 +121,7 @@
     background: rgba(15, 23, 42, 0.85);
     color: #e5e7eb;
   }
+
   .ak-admin-btn {
     border-radius: 999px;
     font-weight: 600;
@@ -96,59 +131,37 @@
 <!-- Top Navbar -->
 <nav class="navbar navbar-dark ak-navbar">
   <div class="container-fluid">
-    <div class="d-flex align-items-center">
-      <a class="navbar-brand d-flex flex-column ak-navbar-brand" href="/">
-        AK <span>CELL</span>
-        <small class="ak-navbar-sub">Gaming • Cards • Services</small>
-      </a>
-    </div>
+    <a class="navbar-brand d-flex flex-column ak-navbar-brand" href="/">
+      AK <span>CELL</span>
+      <small class="ak-navbar-sub">CARDS • SERVICES</small>
+    </a>
 
-    <div class="d-flex align-items-center">
-
-      <% if (user) { %>
-        <div class="me-2 d-none d-md-block text-end text-white-50">
-          <div style="font-size: 0.8rem;">
-            Hello, <span class="fw-semibold"><%= user.username %></span>
-          </div>
-          <div style="font-size: 0.78rem;">
-            Balance:
-            <span class="text-success fw-semibold">$<%= Number(user.balance || 0).toFixed(2) %></span>
-          </div>
+    <% if (user) { %>
+      <div class="text-end text-white-50">
+        <div style="font-size: 0.8rem;">
+          Hello, <span class="fw-semibold"><%= user.username %></span>
         </div>
-      <% } %>
-
-     <button class="ak-side-menu-btn"
-        data-bs-toggle="offcanvas"
-        data-bs-target="#offcanvasMenu"
-        aria-controls="offcanvasMenu">
-    <i class="bi bi-list"></i>
-</button>
-
-<style>
-  .ak-side-menu-btn {
-    background: #0ea5e9;
-    border: none;
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 1.4rem;
-    color: #fff;
-    cursor: pointer;
-    transition: 0.2s ease;
-    margin-left: 12px;
-  }
-  .ak-side-menu-btn:hover {
-    background: #38bdf8;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(56,189,248,0.4);
-  }
-</style>
-    </div>
+        <div style="font-size: 0.78rem;">
+          Balance:
+          <span class="text-success fw-semibold">
+            $<%= Number(user.balance || 0).toFixed(2) %>
+          </span>
+        </div>
+      </div>
+    <% } %>
   </div>
 </nav>
+
+<!-- زر القائمة الجانبي تحت الهيدر -->
+<div class="ak-floating-menu-wrapper">
+  <button class="ak-floating-menu-btn"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#offcanvasMenu"
+          aria-controls="offcanvasMenu">
+    <i class="bi bi-list"></i>
+    <span>Menu</span>
+  </button>
+</div>
 
 <!-- Offcanvas MENU -->
 <div class="offcanvas offcanvas-start ak-menu-offcanvas" tabindex="-1"
@@ -216,7 +229,9 @@
             <h6 class="mb-0">Welcome, <%= user.username %></h6>
             <div class="ak-user-meta">
               Balance:
-              <span class="text-success fw-semibold">$<%= userBalance.toFixed(2) %></span>
+              <span class="text-success fw-semibold">
+                $<%= userBalance.toFixed(2) %>
+              </span>
             </div>
           </div>
           <div class="text-end">
