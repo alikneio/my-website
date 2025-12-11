@@ -1,0 +1,47 @@
+<%
+  // السعر الأصلي
+  const basePrice = Number(
+    product.price ||
+    product.unit_price ||
+    product.custom_price ||
+    0
+  );
+
+  // خصم المستخدم
+  const disc = user ? Number(user.discount_percent || 0) : 0;
+  const hasDisc = user && disc > 0;
+
+  // سعر بعد الخصم
+  const finalPrice = hasDisc
+    ? Number((basePrice * (100 - disc) / 100).toFixed(2))
+    : Number(basePrice.toFixed(2));
+%>
+
+<div class="d-flex align-items-center gap-2">
+
+  <% if (hasDisc) { %>
+
+    <!-- السعر القديم -->
+    <span class="text-muted text-decoration-line-through small">
+      $<%= basePrice.toFixed(2) %>
+    </span>
+
+    <!-- السعر بعد الخصم -->
+    <span class="fw-bold text-success">
+      $<%= finalPrice.toFixed(2) %>
+    </span>
+
+    <!-- نسبة الخصم -->
+    <span class="badge bg-success ms-1">
+      -<%= disc.toFixed(0) %>%
+    </span>
+
+  <% } else { %>
+
+    <!-- السعر العادي -->
+    <span class="fw-bold">
+      $<%= basePrice.toFixed(2) %>
+    </span>
+
+  <% } %>
+</div>

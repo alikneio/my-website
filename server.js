@@ -302,6 +302,41 @@ app.use((req, res, next) => {
 });
 
 
+function applyUserDiscountToProducts(products, user) {
+  // إذا ما في يوزر أو ما عندو خصم → رجّع المنتجات مثل ما هي
+  if (!user || !user.discount_percent) return products;
+
+  const disc = Number(user.discount_percent || 0);
+  if (!Number.isFinite(disc) || disc <= 0) return products;
+
+  // عدّل الأسعار للي عندو خصم فقط
+  return products.map(p => {
+    const base = Number(
+      p.price ??
+      p.unit_price ??
+      p.custom_price ??
+      0
+    );
+
+    if (!Number.isFinite(base) || base <= 0) {
+      return p; // لو في شي غلط بالسعر، خليها متل ما هي
+    }
+
+    const final = Number((base * (100 - disc) / 100).toFixed(2));
+
+    // خزن السعر الأصلي احتياطاً لو حبّيت تستخدمه لاحقاً
+    p.original_price = base;
+    p.discount_percent = disc;
+
+    // أهم خطوة: عدّل السعر المستخدم في كل الواجهات
+    p.price = final;
+
+    return p;
+  });
+}
+
+
+
 
 // =============================================
 //                  PAGE ROUTES
@@ -718,15 +753,22 @@ app.get('/processing', checkAuth, (req, res) => {
 
 // --- صفحات المنتجات (ديناميكية) ---
 app.get('/netflixH-section', (req, res) => {
+    const user = req.session.user || null;
+
     const sql = "SELECT * FROM products WHERE sub_category = 'Netflix High Quality'";
     db.query(sql, [], (err, products) => {
         if (err) throw err;
+
+        // نطبق الخصم إذا موجود
+        const finalProducts = applyUserDiscountToProducts(products, user);
+
         res.render('netflixH-section', {
-            user: req.session.user || null,
-            products: products
+            user: user,
+            products: finalProducts
         });
     });
 });
+
 
 app.get('/windows-section', (req, res) => {
     const sql = "SELECT * FROM products WHERE sub_category = 'Windows key'";
