@@ -1,70 +1,56 @@
-<!-- ======= SIDE MENU ONLY (BUTTON HIDES WHEN OPEN) ======= -->
+<!-- ======= AK CELL HEADER & MENU ======= -->
 
 <style>
-  /* زر القائمة (كمبيوتر + موبايل) */
-  .ak-menu-button {
-    position: fixed;
-    top: 24px;
-    left: 24px;
-    background: linear-gradient(135deg, #0ea5e9, #2563eb);
-    color: #fff;
-    border: none;
-    width: 50px;
-    height: 50px;
-    border-radius: 16px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 1.7rem;
-    z-index: 2000;
-    cursor: pointer;
-    box-shadow: 0 6px 16px rgba(15,23,42,0.55);
-    transition: 0.2s ease;
+  .ak-navbar {
+    background: linear-gradient(90deg, #020617, #0f172a, #1e293b);
+    box-shadow: 0 4px 18px rgba(15,23,42,0.75);
   }
-  .ak-menu-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 24px rgba(37,99,235,0.5);
+  .ak-navbar-brand {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 1rem;
+  }
+  .ak-navbar-brand span {
+    color: #38bdf8;
+  }
+  .ak-navbar-sub {
+    font-size: 0.72rem;
+    opacity: 0.75;
   }
 
-  /* موبايل: نفس المكان فوق يسار، لكن أصغر + نزّل المحتوى شوي لتحت */
-  @media (max-width: 768px) {
-    .ak-menu-button {
-      top: 16px;
-      left: 16px;
-      width: 44px;
-      height: 44px;
-      font-size: 1.5rem;
-      border-radius: 14px;
-    }
-
-    body {
-      padding-top: 80px; /* خفّف/زد شوي إذا بدك */
-    }
-  }
-
-  /* OFFCANVAS STYLE */
   .ak-menu-offcanvas {
     background: radial-gradient(circle at top left, #111827, #020617);
     color: #f9fafb;
-    width: 310px;
   }
   .ak-menu-offcanvas .offcanvas-header {
-    background: linear-gradient(90deg, #0f172a, #1f2937);
+    background: linear-gradient(90deg, #0f172a, #1e293b);
   }
   .ak-menu-offcanvas .offcanvas-title {
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
   }
-
   .ak-user-card {
     border-radius: 16px;
-    background: rgba(15, 23, 42, 0.96);
+    background: rgba(15, 23, 42, 0.92);
     border: 1px solid rgba(148, 163, 184, 0.4);
-    padding: 14px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .ak-user-card h6 {
+    font-size: 0.95rem;
+    margin-bottom: 2px;
   }
   .ak-user-meta {
-    font-size: 0.82rem;
-    opacity: 0.9;
+    font-size: 0.8rem;
+    opacity: 0.85;
+  }
+  .ak-user-stats {
+    background: rgba(15, 23, 42, 0.9);
+    border-radius: 12px;
+    padding: 6px 10px;
+    margin-top: 8px;
+    font-size: 0.8rem;
   }
   .ak-pill {
     border-radius: 999px;
@@ -74,52 +60,95 @@
     align-items: center;
     gap: 4px;
   }
-  .ak-pill-level { background: #facc15; color: #1f2937; font-weight: 600; }
-  .ak-pill-discount { background: #22c55e; color: #022c22; font-weight: 600; }
+  .ak-pill-level {
+    background: #facc15;
+    color: #1f2937;
+    font-weight: 600;
+  }
+  .ak-pill-discount {
+    background: #22c55e;
+    color: #022c22;
+    font-weight: 600;
+  }
+  .ak-divider {
+    border-top: 1px solid rgba(148, 163, 184, 0.35);
+    margin: 14px 0;
+  }
   .ak-menu-link {
     border-radius: 10px;
     padding: 7px 10px;
     margin-bottom: 4px;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
   }
-  .ak-menu-link i { width: 18px; }
+  .ak-menu-link i {
+    width: 18px;
+  }
   .ak-menu-link:hover {
-    background: rgba(255,255,255,0.06);
+    background: rgba(15, 23, 42, 0.85);
+    color: #e5e7eb;
+  }
+  .ak-admin-btn {
+    border-radius: 999px;
+    font-weight: 600;
   }
 </style>
 
+<!-- Top Navbar -->
+<nav class="navbar navbar-dark ak-navbar">
+  <div class="container-fluid">
+    <div class="d-flex align-items-center">
+      <a class="navbar-brand d-flex flex-column ak-navbar-brand" href="/">
+        AK <span>CELL</span>
+        <small class="ak-navbar-sub">Gaming • Cards • Services</small>
+      </a>
+    </div>
 
-<!-- زر القائمة (يختفي عند فتح الاوف كانفس) -->
-<button class="ak-menu-button"
-        id="akMenuButton"
+    <div class="d-flex align-items-center">
+
+      <% if (user) { %>
+        <div class="me-2 d-none d-md-block text-end text-white-50">
+          <div style="font-size: 0.8rem;">
+            Hello, <span class="fw-semibold"><%= user.username %></span>
+          </div>
+          <div style="font-size: 0.78rem;">
+            Balance:
+            <span class="text-success fw-semibold">$<%= Number(user.balance || 0).toFixed(2) %></span>
+          </div>
+        </div>
+      <% } %>
+
+     <button class="ak-side-menu-btn"
         data-bs-toggle="offcanvas"
         data-bs-target="#offcanvasMenu"
         aria-controls="offcanvasMenu">
-  <i class="bi bi-list"></i>
+    <i class="bi bi-list"></i>
 </button>
+    </div>
+  </div>
+</nav>
 
-<!-- OFFCANVAS MENU -->
-<div class="offcanvas offcanvas-start ak-menu-offcanvas"
-     tabindex="-1"
-     id="offcanvasMenu"
-     aria-labelledby="offcanvasMenuLabel">
-
-  <div class="offcanvas-header">
-    <h5 class="offcanvas-title" id="offcanvasMenuLabel">
-      <i class="bi bi-grid-3x3-gap me-2"></i> AK Cell Menu
+<!-- Offcanvas MENU -->
+<div class="offcanvas offcanvas-start ak-menu-offcanvas" tabindex="-1"
+     id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
+  
+  <div class="offcanvas-header border-bottom border-secondary">
+    <h5 class="offcanvas-title d-flex align-items-center" id="offcanvasMenuLabel">
+      <i class="bi bi-controller me-2"></i> AK Cell Menu
     </h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
   </div>
 
   <div class="offcanvas-body d-flex flex-column">
 
     <!-- Notifications -->
     <div class="d-flex justify-content-end mb-2">
-      <a href="/notifications" class="btn btn-outline-light btn-sm position-relative">
-        <i class="bi bi-bell"></i>
+      <a href="/notifications" class="btn btn-outline-light btn-sm position-relative" id="notifLink">
+        <i class="bi bi-bell" id="notifIcon"></i>
         <span id="notifBadge"
               class="position-absolute top-0 start-100 translate-middle badge bg-danger rounded-pill"
-              style="display:none;">0</span>
+              style="display: none;">
+          0
+        </span>
       </a>
     </div>
 
@@ -131,9 +160,7 @@
           const count = data.count || 0;
 
           const badge = document.getElementById('notifBadge');
-          const icon  = document.querySelector('#offcanvasMenu .bi-bell');
-
-          if (!badge || !icon) return;
+          const icon = document.getElementById('notifIcon');
 
           if (count > 0) {
             badge.textContent = count;
@@ -143,107 +170,133 @@
             badge.style.display = 'none';
             icon.classList.remove('text-warning');
           }
-        } catch (e) {
-          console.error('❌ notif error:', e);
+        } catch (err) {
+          console.error("❌ Failed to fetch notifications:", err);
         }
       }
-
-      document.addEventListener('DOMContentLoaded', () => {
-        fetchNotificationsCount();
-        setInterval(fetchNotificationsCount, 30000);
-
-        const menuBtn = document.getElementById('akMenuButton');
-        const offcanvasEl = document.getElementById('offcanvasMenu');
-
-        if (menuBtn && offcanvasEl) {
-          offcanvasEl.addEventListener('show.bs.offcanvas', () => {
-            menuBtn.classList.add('d-none');   // إخفاء الزر عند فتح القائمة
-          });
-          offcanvasEl.addEventListener('hidden.bs.offcanvas', () => {
-            menuBtn.classList.remove('d-none'); // إرجاع الزر بعد الإغلاق
-          });
-        }
-      });
+      document.addEventListener("DOMContentLoaded", fetchNotificationsCount);
+      setInterval(fetchNotificationsCount, 30000);
     </script>
 
     <% if (user) { %>
       <% 
         const userBalance = Number(user.balance || 0);
-        const userLevel   = user.level || 1;
+        const userLevel = user.level || 1;
         const userDiscount = Number(user.discount_percent || 0);
         const userTotalSpent = Number(user.total_spent || 0);
       %>
 
-      <div class="ak-user-card mb-3">
+      <!-- USER CARD -->
+      <div class="ak-user-card">
         <div class="d-flex justify-content-between align-items-center">
           <div>
-            <div class="fw-semibold mb-1">Welcome, <%= user.username %></div>
+            <h6 class="mb-0">Welcome, <%= user.username %></h6>
             <div class="ak-user-meta">
               Balance:
-              <span class="text-success fw-bold">
-                $<%= userBalance.toFixed(2) %>
-              </span>
+              <span class="text-success fw-semibold">$<%= userBalance.toFixed(2) %></span>
             </div>
           </div>
           <div class="text-end">
             <span class="small text-muted d-block">Level</span>
-            <span class="badge bg-light text-dark"><%= userLevel %></span>
+            <span class="badge bg-light text-dark">
+              <%= userLevel %>
+            </span>
           </div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2 mt-2">
+        <div class="mt-2 d-flex flex-wrap gap-2">
           <span class="ak-pill ak-pill-level">
-            <i class="bi bi-arrow-up-circle"></i> Level <%= userLevel %>
+            <i class="bi bi-arrow-up-circle"></i>
+            Level <%= userLevel %>
           </span>
           <span class="ak-pill ak-pill-discount">
-            <i class="bi bi-percent"></i> Discount <%= userDiscount.toFixed(0) %>%
+            <i class="bi bi-percent"></i>
+            Discount <%= userDiscount.toFixed(0) %>%
           </span>
         </div>
 
-        <div class="text-muted small mt-2">
-          Total spent:
-          $<%= userTotalSpent.toFixed(2) %>
+        <div class="ak-user-stats mt-2">
+          <div class="d-flex justify-content-between">
+            <span class="text-muted">Total spent</span>
+            <span class="fw-semibold">$<%= userTotalSpent.toFixed(2) %></span>
+          </div>
         </div>
       </div>
 
-      <div class="mb-3">
-        <a class="nav-link text-white ak-menu-link" href="/profile">
-          <i class="bi bi-person"></i> My Profile
-        </a>
-        <a class="nav-link text-white ak-menu-link" href="/add-balance/whish">
-          <i class="bi bi-credit-card"></i> Add Balance
-        </a>
-        <a class="nav-link text-white ak-menu-link" href="/">
-          <i class="bi bi-house"></i> Home
-        </a>
-        <a class="nav-link text-white ak-menu-link" href="/my-orders">
-          <i class="bi bi-bag"></i> My Orders
-        </a>
-        <a class="nav-link text-white ak-menu-link" href="/transactions">
-          <i class="bi bi-cash-coin"></i> Transactions
-        </a>
-      </div>
+      <div class="ak-divider"></div>
+
+      <!-- LINKS -->
+      <ul class="navbar-nav flex-grow-1">
+        <li class="nav-item">
+          <a class="nav-link text-white ak-menu-link" href="/profile">
+            <i class="bi bi-person-fill me-2"></i> My Profile
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a href="/add-balance/whish" class="nav-link text-white ak-menu-link d-flex align-items-center">
+            <i class="bi bi-credit-card-2-front me-2"></i>
+            Add Balance
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link text-white ak-menu-link" href="/">
+            <i class="bi bi-house-door-fill me-2"></i> Home
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link text-white ak-menu-link" href="/my-orders">
+            <i class="bi bi-bag-fill me-2"></i> My Orders
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a href="/transactions" class="nav-link text-white ak-menu-link">
+            <i class="bi bi-cash-coin me-2"></i> Transactions
+          </a>
+        </li>
+      </ul>
+
+      <div class="ak-divider"></div>
 
       <% if (user.role === 'admin') { %>
-        <a class="btn btn-warning w-100 mb-2" href="/admin">
-          <i class="bi bi-person-gear"></i> Admin Panel
+        <a class="btn btn-warning ak-admin-btn w-100 mb-3" href="/admin">
+          <i class="bi bi-person-circle me-2"></i> Admin Panel
         </a>
       <% } %>
 
-      <a class="btn btn-outline-danger w-100" href="/logout">
-        <i class="bi bi-box-arrow-right"></i> Logout
+      <a class="btn btn-outline-danger w-100 mt-auto" href="/logout">
+        <i class="bi bi-box-arrow-right me-2"></i> Logout
       </a>
 
     <% } else { %>
 
-      <a class="nav-link text-white ak-menu-link" href="/login">
-        <i class="bi bi-box-arrow-in-right"></i> Login
-      </a>
-      <a class="nav-link text-white ak-menu-link" href="/register">
-        <i class="bi bi-person-plus"></i> Register
-      </a>
+      <div class="text-center mb-3">
+        <p class="mb-1">Welcome to AK Cell</p>
+        <small class="text-muted">Login to see your level & discounts</small>
+      </div>
+
+      <ul class="navbar-nav flex-grow-1">
+        <li class="nav-item">
+          <a class="nav-link text-white ak-menu-link" href="/">
+            <i class="bi bi-house-door-fill me-2"></i> Home
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white ak-menu-link" href="/login">
+            <i class="bi bi-box-arrow-in-right me-2"></i> Login
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white ak-menu-link" href="/register">
+            <i class="bi bi-person-plus-fill me-2"></i> Register
+          </a>
+        </li>
+      </ul>
 
     <% } %>
-
+    
   </div>
 </div>
