@@ -3605,14 +3605,41 @@ app.get('/admin/users/edit/:id', checkAdmin, (req, res) => {
 });
 
 app.post('/admin/users/edit/:id', checkAdmin, (req, res) => {
-  const { username, email, phone, role } = req.body;
-  const sql = "UPDATE users SET username = ?, email = ?, phone = ?, role = ? WHERE id = ?";
+  const {
+    username,
+    email,
+    phone,
+    role,
+    level,
+    discount_percent,
+    total_spent
+  } = req.body;
 
-  db.query(sql, [username, email, phone, role, req.params.id], (err) => {
-    if (err) return res.status(500).send("❌ Error updating user.");
+  const lvl   = parseInt(level || 1, 10);
+  const disc  = parseFloat(discount_percent || 0);
+  const spent = parseFloat(total_spent || 0);
+
+  const sql = `
+    UPDATE users
+    SET username = ?,
+        email = ?,
+        phone = ?,
+        role = ?,
+        level = ?,
+        discount_percent = ?,
+        total_spent = ?
+    WHERE id = ?
+  `;
+
+  db.query(sql, [username, email, phone, role, lvl, disc, spent, req.params.id], (err) => {
+    if (err) {
+      console.error("❌ Error updating user:", err.message);
+      return res.status(500).send("❌ Error updating user.");
+    }
     res.redirect('/admin/users');
   });
 });
+
 
 app.post('/admin/users/delete/:id', checkAdmin, (req, res) => {
   const userId = req.params.id;
