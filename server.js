@@ -759,7 +759,6 @@ app.get('/netflixH-section', (req, res) => {
     db.query(sql, [], (err, products) => {
         if (err) throw err;
 
-        // نطبق الخصم إذا موجود
         const finalProducts = applyUserDiscountToProducts(products, user);
 
         res.render('netflixH-section', {
