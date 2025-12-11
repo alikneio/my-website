@@ -2,86 +2,386 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Manage Users</title>
+  <title>Manage Users - Admin Panel</title>
+
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-</head>
-<body class="bg-light">
 
-<div class="d-flex">
+  <style>
+    body {
+      background: #0f172a; /* أزرق غامق محترم */
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    .admin-wrapper {
+      min-height: 100vh;
+    }
+
+    .admin-main {
+      background: radial-gradient(circle at top left, #1f2937, #020617);
+      color: #e5e7eb;
+    }
+
+    .page-title {
+      letter-spacing: 0.04em;
+    }
+
+    .card-glass {
+      background: rgba(15,23,42,0.9);
+      border-radius: 18px;
+      border: 1px solid rgba(148,163,184,0.4);
+      box-shadow: 0 18px 45px rgba(0,0,0,0.45);
+    }
+
+    .stat-card {
+      border-radius: 16px;
+      background: linear-gradient(135deg, #0f172a, #111827);
+      border: 1px solid rgba(148,163,184,0.35);
+      padding: 14px 16px;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+    }
+
+    .stat-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f9fafb;
+    }
+
+    .users-table-wrapper {
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(55,65,81,0.8);
+      background: #020617;
+    }
+
+    table.users-table {
+      margin-bottom: 0;
+      color: #e5e7eb;
+      font-size: 0.9rem;
+    }
+
+    .users-table thead {
+      background: linear-gradient(90deg, #111827, #1f2937);
+    }
+
+    .users-table thead th {
+      border-bottom-width: 0;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+      padding-top: 0.75rem;
+      padding-bottom: 0.75rem;
+    }
+
+    .users-table tbody tr {
+      background: #020617;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+
+    .users-table tbody tr:nth-child(even) {
+      background: #030712;
+    }
+
+    .users-table tbody tr:hover {
+      background: rgba(30,64,175,0.45);
+      transform: translateY(-1px);
+    }
+
+    .badge-role-admin {
+      background: rgba(248,113,113,0.12);
+      color: #fecaca;
+      border: 1px solid rgba(248,113,113,0.6);
+    }
+
+    .badge-role-user {
+      background: rgba(59,130,246,0.12);
+      color: #bfdbfe;
+      border: 1px solid rgba(59,130,246,0.6);
+    }
+
+    .badge-level {
+      background: rgba(251,191,36,0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(251,191,36,0.6);
+    }
+
+    .badge-discount {
+      background: rgba(34,197,94,0.12);
+      color: #bbf7d0;
+      border: 1px solid rgba(34,197,94,0.7);
+    }
+
+    .badge-balance-low {
+      background: rgba(248,250,252,0.05);
+      color: #e5e7eb;
+    }
+
+    .search-input {
+      background: #020617;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+      color: #e5e7eb;
+      padding-left: 2.2rem;
+    }
+
+    .search-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 1px rgba(59,130,246,0.7);
+      border-color: rgba(59,130,246,0.9);
+      background: #020617;
+      color: #f9fafb;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.9rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+    }
+
+    .table-actions .btn {
+      padding: 0.18rem 0.55rem;
+      font-size: 0.75rem;
+    }
+
+    .created-small {
+      font-size: 0.78rem;
+      color: #9ca3af;
+    }
+
+    @media (max-width: 992px) {
+      .admin-main {
+        padding: 1rem !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="d-flex admin-wrapper">
   <%- include('partials/admin-sidebar') %>
 
-  <div class="container-fluid p-4">
-    <h1>Manage Users</h1>
-    <hr>
+  <div class="container-fluid p-4 admin-main">
 
-    <a href="/admin/users/add" class="btn btn-success mb-3">
-      <i class="bi bi-person-plus"></i> Add New User
-    </a>
-    <a href="/admin/users/reset-password/<%= user.id %>" class="btn btn-sm btn-secondary">
-      🔐 Reset My Password
-    </a>
+    <!-- عنوان و أزرار أعلى الصفحة -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+      <div>
+        <h2 class="page-title fw-semibold mb-1 text-white">
+          <i class="bi bi-people-fill me-2"></i> Users Management
+        </h2>
+        <p class="text-muted mb-0 small">
+          Monitor balances, levels and discounts for all users.
+        </p>
+      </div>
 
-    <div class="table-responsive mt-3">
-      <table class="table table-bordered table-hover bg-white shadow-sm">
-        <thead class="table-dark">
-          <tr>
-            <th>ID</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Balance</th>
-            <th>Level</th>
-            <th>Total Spent</th>
-            <th>Discount %</th>
-            <th>Role</th>
-            <th>Phone</th>
-            <th>Created At</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-        <% users.forEach(u => { %>
-          <tr>
-            <td><%= u.id %></td>
-            <td><%= u.username %></td>
-            <td><%= u.email %></td>
-            <td>$<%= Number(u.balance || 0).toFixed(2) %></td>
-
-            <!-- 🟡 Level / Loyalty Data -->
-            <td><%= u.level || 1 %></td>
-            <td>$<%= Number(u.total_spent || 0).toFixed(2) %></td>
-            <td><%= Number(u.discount_percent || 0).toFixed(0) %>%</td>
-
-            <td><%= u.role %></td>
-            <td><%= u.phone || '-' %></td>
-            <td><%= u.created_at %></td>
-
-            <td>
-              <a href="/admin/users/edit/<%= u.id %>" class="btn btn-warning btn-sm">
-                ✏ Edit
-              </a>
-
-              <form action="/admin/users/delete/<%= u.id %>"
-                    method="POST"
-                    onsubmit="return confirm('Are you sure you want to delete this user?');"
-                    style="display:inline;">
-                <button type="submit" class="btn btn-danger btn-sm">
-                  <i class="bi bi-trash"></i> Delete
-                </button>
-              </form>
-
-              <a href="/admin/users/reset-password/<%= u.id %>"
-                 class="btn btn-secondary btn-sm">
-                🔒 Reset
-              </a>
-            </td>
-          </tr>
-        <% }) %>
-        </tbody>
-      </table>
+      <div class="d-flex gap-2">
+        <a href="/admin/users/add" class="btn btn-success">
+          <i class="bi bi-person-plus me-1"></i> Add New User
+        </a>
+        <a href="/admin/users/reset-password/<%= user.id %>" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-shield-lock me-1"></i> Reset My Password
+        </a>
+      </div>
     </div>
+
+    <!-- بطاقات إحصائيات سريعة -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Users</div>
+          <div class="stat-value">
+            <%= users.length %>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Admins</div>
+          <div class="stat-value">
+            <%= users.filter(u => u.role === 'admin').length %>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Balance</div>
+          <div class="stat-value">
+            $<%= users.reduce((sum, u) => sum + Number(u.balance || 0), 0).toFixed(2) %>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Avg Discount</div>
+          <div class="stat-value">
+            <% 
+              const avgDisc = users.length 
+                ? users.reduce((sum, u) => sum + Number(u.discount_percent || 0), 0) / users.length 
+                : 0;
+            %>
+            <%= avgDisc.toFixed(1) %>%
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- card الأساسي يلي فيه البحث و الجدول -->
+    <div class="card-glass p-3 mt-2">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h5 class="mb-0 text-white">
+          <i class="bi bi-list-ul me-1"></i> All Users
+        </h5>
+
+        <!-- حقل البحث -->
+        <div class="position-relative" style="min-width: 220px; max-width: 300px;">
+          <i class="bi bi-search search-icon"></i>
+          <input type="text"
+                 id="userSearch"
+                 class="form-control form-control-sm search-input"
+                 placeholder="Search by name, email, ID...">
+        </div>
+      </div>
+
+      <div class="users-table-wrapper">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle users-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>Balance</th>
+                <th>Level</th>
+                <th>Total Spent</th>
+                <th>Discount</th>
+                <th>Role</th>
+                <th>Phone</th>
+                <th>Created</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <% users.forEach(u => { %>
+                <tr>
+                  <td class="fw-semibold">#<%= u.id %></td>
+
+                  <!-- User / Email -->
+                  <td>
+                    <div class="fw-semibold text-white"><%= u.username %></div>
+                    <div class="small text-muted"><%= u.email || '—' %></div>
+                  </td>
+
+                  <!-- Balance -->
+                  <td>
+                    <span class="badge badge-balance-low">
+                      $<%= Number(u.balance || 0).toFixed(2) %>
+                    </span>
+                  </td>
+
+                  <!-- Level -->
+                  <td>
+                    <span class="badge badge-level">
+                      L<%= u.level || 1 %>
+                    </span>
+                  </td>
+
+                  <!-- Total Spent -->
+                  <td>
+                    $<%= Number(u.total_spent || 0).toFixed(2) %>
+                  </td>
+
+                  <!-- Discount -->
+                  <td>
+                    <span class="badge badge-discount">
+                      <%= Number(u.discount_percent || 0).toFixed(0) %>%
+                    </span>
+                  </td>
+
+                  <!-- Role -->
+                  <td>
+                    <% if (u.role === 'admin') { %>
+                      <span class="badge badge-role-admin">
+                        <i class="bi bi-shield-lock me-1"></i> Admin
+                      </span>
+                    <% } else { %>
+                      <span class="badge badge-role-user">
+                        <i class="bi bi-person me-1"></i> User
+                      </span>
+                    <% } %>
+                  </td>
+
+                  <!-- Phone -->
+                  <td>
+                    <span class="small"><%= u.phone || '—' %></span>
+                  </td>
+
+                  <!-- Created At -->
+                  <td>
+                    <div class="created-small">
+                      <%= u.created_at %>
+                    </div>
+                  </td>
+
+                  <!-- Actions -->
+                  <td class="text-end table-actions">
+                    <a href="/admin/users/edit/<%= u.id %>" 
+                       class="btn btn-outline-warning btn-sm me-1">
+                      <i class="bi bi-pencil-square"></i>
+                    </a>
+
+                    <a href="/admin/users/reset-password/<%= u.id %>"
+                       class="btn btn-outline-light btn-sm me-1">
+                      <i class="bi bi-key"></i>
+                    </a>
+
+                    <form action="/admin/users/delete/<%= u.id %>"
+                          method="POST"
+                          onsubmit="return confirm('Are you sure you want to delete this user?');"
+                          style="display:inline;">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
+
+<script src="/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// بحث بسيط داخل جدول المستخدمين (ID + username + email)
+document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = document.getElementById('userSearch');
+  const rows = document.querySelectorAll('#usersTableBody tr');
+
+  if (!searchInput) return;
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase();
+
+    rows.forEach(row => {
+      const text = row.innerText.toLowerCase();
+      row.style.display = text.includes(q) ? '' : 'none';
+    });
+  });
+});
+</script>
 
 </body>
 </html>
