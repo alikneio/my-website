@@ -96,7 +96,7 @@ function processViews(dir) {
   }
 }
 
-// ----- التشغيل -----
+// ----- التشغيل ------
 (async () => {
   try {
     console.log('— Step 1/2: Convert images to WebP —');
@@ -111,3 +111,4 @@ function processViews(dir) {
     process.exit(1);
   }
 })();
+
