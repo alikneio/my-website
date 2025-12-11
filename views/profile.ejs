@@ -6,11 +6,59 @@
     <style>
         .profile-card {
             border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            border: none;
         }
         .form-control:focus {
             border-color: #0d6efd;
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .loyalty-card {
+            border-radius: 16px;
+            background: radial-gradient(circle at top left, #0d6efd, #111827);
+            color: #fff;
+            box-shadow: 0 10px 30px rgba(15,23,42,0.5);
+            overflow: hidden;
+        }
+        .loyalty-badge {
+            border-radius: 999px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            background: rgba(15,23,42,0.75);
+            border: 1px solid rgba(248,250,252,0.15);
+        }
+        .loyalty-stat {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .loyalty-stat strong {
+            font-size: 1rem;
+        }
+        .progress {
+            height: 10px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(15,23,42,0.6);
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #22c55e, #a3e635);
+        }
+        .tier-pill {
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.75rem;
+        }
+        .tier-pill.bronze { background: #78350f; color: #fef3c7; }
+        .tier-pill.silver { background: #9ca3af; color: #111827; }
+        .tier-pill.gold { background: #facc15; color: #111827; }
+        .tier-pill.platinum { background: #4b5563; color: #e5e7eb; }
+        .tier-pill.diamond { background: #0ea5e9; color: #f9fafb; }
+        .tier-table td, .tier-table th {
+            font-size: 0.85rem;
+            vertical-align: middle;
+        }
+        .tier-table th {
+            background: #f3f4f6;
         }
     </style>
 </head>
@@ -19,7 +67,173 @@
     
     <div class="container py-5">
         <div class="row justify-content-center">
-            <div class="col-lg-8">
+            <div class="col-lg-10">
+
+                <% 
+                  const level = user.level || 1;
+                  const discount = Number(user.discount_percent || 0);
+                  const totalSpent = Number(user.total_spent || 0);
+                  const createdAt = user.createdAt || user.created_at;
+
+                  const tiers = [
+                    { level: 1, label: 'Bronze',   min: 0,    max: 100,   discount: 0,  className: 'bronze'   },
+                    { level: 2, label: 'Silver',   min: 100,  max: 300,   discount: 2,  className: 'silver'   },
+                    { level: 3, label: 'Gold',     min: 300,  max: 700,   discount: 4,  className: 'gold'     },
+                    { level: 4, label: 'Platinum', min: 700,  max: 1500,  discount: 6,  className: 'platinum' },
+                    { level: 5, label: 'Diamond',  min: 1500, max: null, discount: 8,  className: 'diamond'  },
+                  ];
+
+                  let currentTier =
+                    tiers.find(t => level === t.level) ||
+                    tiers.find(t => totalSpent >= t.min && (t.max === null || totalSpent < t.max)) ||
+                    tiers[0];
+
+                  const nextTier = tiers.find(t => t.level === currentTier.level + 1) || null;
+
+                  let progress = 100;
+                  let remainingAmount = 0;
+
+                  if (nextTier) {
+                    const range = nextTier.min - currentTier.min;
+                    progress = Math.min(100, Math.max(0, ((totalSpent - currentTier.min) / range) * 100));
+                    remainingAmount = Math.max(0, nextTier.min - totalSpent);
+                  }
+                %>
+
+                <!-- بطاقة مستوى التاجر / الخصم -->
+                <div class="loyalty-card mb-4">
+                  <div class="row g-0 align-items-center">
+                    <div class="col-md-7 p-4">
+                      <div class="d-flex align-items-center mb-2">
+                        <span class="loyalty-badge text-uppercase me-2">
+                          Loyalty Level
+                        </span>
+                        <span class="tier-pill <%= currentTier.className %>">
+                          <i class="bi bi-stars me-1"></i>
+                          <%= currentTier.label %> (Level <%= level %>)
+                        </span>
+                      </div>
+
+                      <h3 class="mb-1">
+                        <span class="fw-semibold">Hello, </span><%= user.username %> 👋
+                      </h3>
+                      <p class="mb-3 loyalty-stat">
+                        You are enjoying a <strong><%= discount.toFixed(0) %>% discount</strong> on your orders.
+                      </p>
+
+                      <div class="row mb-3">
+                        <div class="col-6">
+                          <div class="loyalty-stat">
+                            Total Spent<br>
+                            <strong>$<%= totalSpent.toFixed(2) %></strong>
+                          </div>
+                        </div>
+                        <div class="col-6">
+                          <div class="loyalty-stat">
+                            Current Balance<br>
+                            <strong>$<%= Number(user.balance || 0).toFixed(2) %></strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="mb-2 d-flex justify-content-between align-items-center">
+                        <% if (nextTier) { %>
+                          <small>
+                            Progress to <strong><%= nextTier.label %> (Level <%= nextTier.level %>)</strong>
+                          </small>
+                          <small>
+                            Remaining: <strong>$<%= remainingAmount.toFixed(2) %></strong>
+                          </small>
+                        <% } else { %>
+                          <small>
+                            You reached the highest tier 🎉
+                          </small>
+                        <% } %>
+                      </div>
+
+                      <div class="progress mb-1">
+                        <div class="progress-bar" role="progressbar"
+                             style="width: <%= progress %>%"
+                             aria-valuenow="<%= progress %>" aria-valuemin="0" aria-valuemax="100"></div>
+                      </div>
+
+                      <% if (nextTier) { %>
+                        <small class="text-light opacity-75">
+                          Spend more to unlock better discounts and perks.
+                        </small>
+                      <% } else { %>
+                        <small class="text-light opacity-75">
+                          You are a top-tier member. Thank you for being awesome! 💙
+                        </small>
+                      <% } %>
+                    </div>
+
+                    <div class="col-md-5 p-4 text-md-end text-center">
+                      <div class="mb-2">
+                        <i class="bi bi-gem" style="font-size: 3rem;"></i>
+                      </div>
+                      <p class="mb-1 loyalty-stat">
+                        Member since<br>
+                        <strong><%= createdAt ? new Date(createdAt).toLocaleDateString() : '' %></strong>
+                      </p>
+                      <p class="mb-0 loyalty-stat">
+                        Current Discount<br>
+                        <strong><%= discount.toFixed(0) %>%</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- جدول المستويات والخصومات -->
+                <div class="card profile-card mb-4">
+                  <div class="card-header bg-white border-0">
+                    <h5 class="mb-0">
+                      <i class="bi bi-trophy me-2 text-warning"></i>
+                      Levels & Discounts
+                    </h5>
+                  </div>
+                  <div class="card-body pt-0">
+                    <div class="table-responsive">
+                      <table class="table table-sm align-middle tier-table mb-0">
+                        <thead>
+                          <tr>
+                            <th>Level</th>
+                            <th>Tier</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Discount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <% tiers.forEach(t => { %>
+                            <tr class="<%= t.level === level ? 'table-primary' : '' %>">
+                              <td>#<%= t.level %></td>
+                              <td>
+                                <span class="tier-pill <%= t.className %>">
+                                  <%= t.label %>
+                                </span>
+                              </td>
+                              <td>$<%= t.min.toFixed(2) %></td>
+                              <td>
+                                <% if (t.max === null) { %>
+                                  Unlimited
+                                <% } else { %>
+                                  $<%= t.max.toFixed(2) %>
+                                <% } %>
+                              </td>
+                              <td><%= t.discount %>%</td>
+                            </tr>
+                          <% }) %>
+                        </tbody>
+                      </table>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                      * Levels are calculated based on your total spent across all completed orders.
+                    </small>
+                  </div>
+                </div>
+
+                <!-- إعدادات الحساب الأساسية -->
                 <div class="card profile-card mb-4">
                     <div class="card-header bg-primary text-white">
                         <h3 class="mb-0"><i class="bi bi-person-gear me-2"></i>Profile Settings</h3>
@@ -28,7 +242,9 @@
                         
                         <!-- قسم معلومات الحساب -->
                         <div class="mb-5">
-                            <h4 class="border-bottom pb-2"><i class="bi bi-info-circle me-2"></i>Account Information</h4>
+                            <h4 class="border-bottom pb-2">
+                              <i class="bi bi-info-circle me-2"></i>Account Information
+                            </h4>
                             <div class="row mt-3">
                                 <div class="col-md-6 mb-3">
                                     <p><strong>Username:</strong> <%= user.username %></p>
@@ -37,10 +253,10 @@
                                     <p><strong>Email:</strong> <%= user.email %></p>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                   p><strong>Balance:</strong> $<%= parseFloat(user.balance).toFixed(2) %></p>
+                                    <p><strong>Balance:</strong> $<%= Number(user.balance || 0).toFixed(2) %></p>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <p><strong>Member Since:</strong> <%= new Date(user.createdAt).toLocaleDateString() %></p>
+                                    <p><strong>Member Since:</strong> <%= createdAt ? new Date(createdAt).toLocaleDateString() : '' %></p>
                                 </div>
                             </div>
                         </div>
@@ -109,8 +325,12 @@
                             <div class="col-md-6 mb-4">
                                 <div class="card h-100 border-danger">
                                     <div class="card-body">
-                                        <h5 class="text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Danger Zone</h5>
-                                        <button class="btn btn-outline-danger w-100 mt-3" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                                        <h5 class="text-danger">
+                                          <i class="bi bi-exclamation-triangle me-2"></i>Danger Zone
+                                        </h5>
+                                        <button class="btn btn-outline-danger w-100 mt-3"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deleteAccountModal">
                                             Delete Account
                                         </button>
                                     </div>
@@ -119,6 +339,7 @@
                         </div>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
