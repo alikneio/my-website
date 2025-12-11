@@ -5,7 +5,6 @@
   <title>Edit User</title>
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-
 </head>
 <body class="bg-light">
 
@@ -13,35 +12,121 @@
   <%- include('partials/admin-sidebar') %>
 
   <div class="container-fluid p-4">
-    <h2>Edit User</h2>
+    <h2 class="mb-3">
+      Edit User
+      <small class="text-muted">(#<%= editUser.id %>)</small>
+    </h2>
     <hr>
 
     <form action="/admin/users/edit/<%= editUser.id %>" method="POST" class="row g-3">
+
+      <!-- Basic Info -->
       <div class="col-md-6">
         <label class="form-label">Username</label>
-        <input type="text" name="username" class="form-control" value="<%= editUser.username %>" required>
+        <input
+          type="text"
+          name="username"
+          class="form-control"
+          value="<%= editUser.username %>"
+          required>
       </div>
 
       <div class="col-md-6">
         <label class="form-label">Email</label>
-        <input type="email" name="email" class="form-control" value="<%= editUser.email %>">
+        <input
+          type="email"
+          name="email"
+          class="form-control"
+          value="<%= editUser.email %>">
       </div>
 
       <div class="col-md-6">
         <label class="form-label">Phone</label>
-        <input type="text" name="phone" class="form-control" value="<%= editUser.phone %>">
+        <input
+          type="text"
+          name="phone"
+          class="form-control"
+          value="<%= editUser.phone %>">
       </div>
 
       <div class="col-md-6">
         <label class="form-label">Role</label>
         <select name="role" class="form-select">
-          <option value="user" <%= editUser.role === 'user' ? 'selected' : '' %>>User</option>
+          <option value="user"  <%= editUser.role === 'user'  ? 'selected' : '' %>>User</option>
           <option value="admin" <%= editUser.role === 'admin' ? 'selected' : '' %>>Admin</option>
         </select>
       </div>
 
+      <!-- Read-only balance (just for info) -->
+      <div class="col-md-6">
+        <label class="form-label">Current Balance ($)</label>
+        <input
+          type="text"
+          class="form-control"
+          value="<%= Number(editUser.balance || 0).toFixed(2) %>"
+          disabled>
+        <div class="form-text">
+          تعديل الرصيد يتم من صفحة أخرى (إيداع / خصم).
+        </div>
+      </div>
+
+      <!-- Loyalty / Level Settings -->
       <div class="col-12">
-        <button class="btn btn-primary">Update User</button>
+        <hr>
+        <h5>Loyalty / Level Settings</h5>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">User Level</label>
+        <input
+          type="number"
+          name="level"
+          class="form-control"
+          min="1"
+          max="50"
+          value="<%= editUser.level || 1 %>">
+        <div class="form-text">
+          رقم مستوى التاجر. يستخدم مع نظام الخصومات.
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">Discount (%)</label>
+        <input
+          type="number"
+          name="discount_percent"
+          class="form-control"
+          min="0"
+          max="100"
+          step="1"
+          value="<%= editUser.discount_percent || 0 %>">
+        <div class="form-text">
+          نسبة الخصم التي يحصل عليها هذا المستخدم على الطلبات.
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">Total Spent ($)</label>
+        <input
+          type="number"
+          name="total_spent"
+          class="form-control"
+          min="0"
+          step="0.01"
+          value="<%= Number(editUser.total_spent || 0).toFixed(2) %>">
+        <div class="form-text">
+          إجمالي ما صرفه هذا المستخدم. ممكن تعتمد عليه لحساب المستوى تلقائياً.
+        </div>
+      </div>
+
+      <div class="col-12 mt-3">
+        <button class="btn btn-primary">
+          <i class="bi bi-save me-1"></i>
+          Update User
+        </button>
+        <a href="/admin/users" class="btn btn-outline-secondary ms-2">
+          Cancel
+        </a>
       </div>
     </form>
   </div>
