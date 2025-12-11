@@ -1,57 +1,55 @@
-<!-- ======= SIDE MENU ONLY (NO NAVBAR) ======= -->
+<!-- ======= SIDE MENU ONLY (BUTTON HIDES WHEN OPEN) ======= -->
 
 <style>
   /* زر القائمة */
   .ak-menu-button {
     position: fixed;
-    top: 20px;
-    left: 20px;
-    background: #0ea5e9;
+    top: 30px;
+    left: 30px;
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
     color: #fff;
     border: none;
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 1.6rem;
+    font-size: 1.7rem;
     z-index: 2000;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(14,165,233,0.4);
+    box-shadow: 0 6px 16px rgba(15,23,42,0.55);
     transition: 0.2s ease;
   }
   .ak-menu-button:hover {
-    background: #38bdf8;
     transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(37,99,235,0.5);
   }
 
   /* OFFCANVAS STYLE */
   .ak-menu-offcanvas {
     background: radial-gradient(circle at top left, #111827, #020617);
     color: #f9fafb;
-    width: 300px;
+    width: 310px;
   }
   .ak-menu-offcanvas .offcanvas-header {
-    background: linear-gradient(90deg, #0f172a, #1e293b);
+    background: linear-gradient(90deg, #0f172a, #1f2937);
   }
   .ak-menu-offcanvas .offcanvas-title {
-    font-weight: 700;
-    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
   }
 
   .ak-user-card {
     border-radius: 16px;
-    background: rgba(15, 23, 42, 0.92);
+    background: rgba(15, 23, 42, 0.96);
     border: 1px solid rgba(148, 163, 184, 0.4);
     padding: 14px;
   }
-
   .ak-user-meta {
     font-size: 0.82rem;
     opacity: 0.9;
   }
-
   .ak-pill {
     border-radius: 999px;
     padding: 3px 10px;
@@ -61,8 +59,7 @@
     gap: 4px;
   }
   .ak-pill-level { background: #facc15; color: #1f2937; font-weight: 600; }
-  .ak-pill-discount { background: #22c55e; color: #042f2e; font-weight: 600; }
-
+  .ak-pill-discount { background: #22c55e; color: #022c22; font-weight: 600; }
   .ak-menu-link {
     border-radius: 10px;
     padding: 7px 10px;
@@ -71,30 +68,33 @@
   }
   .ak-menu-link i { width: 18px; }
   .ak-menu-link:hover {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.06);
   }
 </style>
 
-<!-- زر القائمة -->
+<!-- زر القائمة (يختفي عند فتح الاوف كانفس) -->
 <button class="ak-menu-button"
+        id="akMenuButton"
         data-bs-toggle="offcanvas"
-        data-bs-target="#offcanvasMenu">
-    <i class="bi bi-list"></i>
+        data-bs-target="#offcanvasMenu"
+        aria-controls="offcanvasMenu">
+  <i class="bi bi-list"></i>
 </button>
 
 <!-- OFFCANVAS MENU -->
 <div class="offcanvas offcanvas-start ak-menu-offcanvas"
      tabindex="-1"
-     id="offcanvasMenu">
+     id="offcanvasMenu"
+     aria-labelledby="offcanvasMenuLabel">
 
   <div class="offcanvas-header">
-    <h5 class="offcanvas-title">
-      <i class="bi bi-grid-3x3-gap me-2"></i> Menu
+    <h5 class="offcanvas-title" id="offcanvasMenuLabel">
+      <i class="bi bi-grid-3x3-gap me-2"></i> AK Cell Menu
     </h5>
     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
   </div>
 
-  <div class="offcanvas-body">
+  <div class="offcanvas-body d-flex flex-column">
 
     <!-- Notifications -->
     <div class="d-flex justify-content-end mb-2">
@@ -106,22 +106,86 @@
       </a>
     </div>
 
+    <script>
+      async function fetchNotificationsCount() {
+        try {
+          const res = await fetch('/notifications/count');
+          const data = await res.json();
+          const count = data.count || 0;
+
+          const badge = document.getElementById('notifBadge');
+          const icon  = document.querySelector('#offcanvasMenu .bi-bell');
+
+          if (!badge || !icon) return;
+
+          if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'inline-block';
+            icon.classList.add('text-warning');
+          } else {
+            badge.style.display = 'none';
+            icon.classList.remove('text-warning');
+          }
+        } catch (e) {
+          console.error('❌ notif error:', e);
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        fetchNotificationsCount();
+        setInterval(fetchNotificationsCount, 30000);
+
+        const menuBtn = document.getElementById('akMenuButton');
+        const offcanvasEl = document.getElementById('offcanvasMenu');
+
+        if (menuBtn && offcanvasEl) {
+          offcanvasEl.addEventListener('show.bs.offcanvas', () => {
+            menuBtn.classList.add('d-none');   // إخفاء الزر عند فتح القائمة
+          });
+          offcanvasEl.addEventListener('hidden.bs.offcanvas', () => {
+            menuBtn.classList.remove('d-none'); // إرجاع الزر بعد الإغلاق
+          });
+        }
+      });
+    </script>
+
     <% if (user) { %>
+      <% 
+        const userBalance = Number(user.balance || 0);
+        const userLevel   = user.level || 1;
+        const userDiscount = Number(user.discount_percent || 0);
+        const userTotalSpent = Number(user.total_spent || 0);
+      %>
 
       <div class="ak-user-card mb-3">
-        <h6 class="mb-1">Welcome, <%= user.username %></h6>
-        <div class="ak-user-meta mb-1">
-          Balance:
-          <span class="text-success fw-bold">$<%= Number(user.balance || 0).toFixed(2) %></span>
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fw-semibold mb-1">Welcome, <%= user.username %></div>
+            <div class="ak-user-meta">
+              Balance:
+              <span class="text-success fw-bold">
+                $<%= userBalance.toFixed(2) %>
+              </span>
+            </div>
+          </div>
+          <div class="text-end">
+            <span class="small text-muted d-block">Level</span>
+            <span class="badge bg-light text-dark"><%= userLevel %></span>
+          </div>
         </div>
 
-        <div class="d-flex gap-2 mt-2 flex-wrap">
-          <span class="ak-pill ak-pill-level">Level <%= user.level %></span>
-          <span class="ak-pill ak-pill-discount">Discount <%= user.discount_percent %>%</span>
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          <span class="ak-pill ak-pill-level">
+            <i class="bi bi-arrow-up-circle"></i> Level <%= userLevel %>
+          </span>
+          <span class="ak-pill ak-pill-discount">
+            <i class="bi bi-percent"></i> Discount <%= userDiscount.toFixed(0) %>%
+          </span>
         </div>
 
         <div class="text-muted small mt-2">
-          Total spent: $<%= Number(user.total_spent || 0).toFixed(2) %>
+          Total spent:
+          $<%= userTotalSpent.toFixed(2) %>
         </div>
       </div>
 
@@ -139,7 +203,7 @@
           <i class="bi bi-bag"></i> My Orders
         </a>
         <a class="nav-link text-white ak-menu-link" href="/transactions">
-          <i class="bi bi-cash"></i> Transactions
+          <i class="bi bi-cash-coin"></i> Transactions
         </a>
       </div>
 
