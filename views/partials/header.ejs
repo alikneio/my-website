@@ -1,11 +1,11 @@
 <!-- ======= SIDE MENU ONLY (BUTTON HIDES WHEN OPEN) ======= -->
 
 <style>
-  /* زر القائمة */
+  /* زر القائمة (كمبيوتر + موبايل) */
   .ak-menu-button {
     position: fixed;
-    top: 30px;
-    left: 30px;
+    top: 24px;
+    left: 24px;
     background: linear-gradient(135deg, #0ea5e9, #2563eb);
     color: #fff;
     border: none;
@@ -26,18 +26,19 @@
     box-shadow: 0 10px 24px rgba(37,99,235,0.5);
   }
 
-  /* موبايل: نخلي الزر عائم تحت عاليمين */
+  /* موبايل: نفس المكان فوق يسار، لكن أصغر + نزّل المحتوى شوي لتحت */
   @media (max-width: 768px) {
     .ak-menu-button {
-      top: auto;
-      left: auto;
-      right: 16px;
-      bottom: 16px;
-      width: 46px;
-      height: 46px;
+      top: 16px;
+      left: 16px;
+      width: 44px;
+      height: 44px;
       font-size: 1.5rem;
-      border-radius: 999px;
-      box-shadow: 0 6px 18px rgba(15,23,42,0.6);
+      border-radius: 14px;
+    }
+
+    body {
+      padding-top: 80px; /* خفّف/زد شوي إذا بدك */
     }
   }
 
