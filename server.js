@@ -76,6 +76,63 @@ setInterval(async () => {
 }, 50 * 1000);
 
 
+// ===============================
+//  User Levels & Discounts System
+// ===============================
+
+// حساب مستوى المستخدم والخصم بناءً على total_spent
+async function recalcUserLevel(userId) {
+  try {
+    const [[row]] = await promisePool.query(
+      "SELECT total_spent FROM users WHERE id = ? LIMIT 1",
+      [userId]
+    );
+
+    const spent = Number(row?.total_spent || 0);
+
+    let level = 1;
+    let discount = 0;
+
+    // 🎯 هنا منعرّف مستويات التاجر
+    if (spent >= 100 && spent < 300) {
+      level = 2;
+      discount = 2;   // 2%
+    } else if (spent >= 300 && spent < 700) {
+      level = 3;
+      discount = 4;   // 4%
+    } else if (spent >= 700 && spent < 1500) {
+      level = 4;
+      discount = 6;   // 6%
+    } else if (spent >= 1500) {
+      level = 5;
+      discount = 8;   // 8%
+    }
+
+    await promisePool.query(
+      "UPDATE users SET level = ?, discount_percent = ? WHERE id = ?",
+      [level, discount, userId]
+    );
+
+    return { level, discount };
+  } catch (err) {
+    console.error("❌ recalcUserLevel error:", err.message || err);
+    return null;
+  }
+}
+
+// دالة مساعدة لتطبيق خصم التاجر على أي سعر
+function applyUserDiscount(rawPrice, user) {
+  const price = Number(rawPrice || 0);
+  if (!Number.isFinite(price) || price <= 0) return 0;
+
+  const discount = Number(user?.discount_percent || 0);
+  if (!discount || discount <= 0) return Number(price.toFixed(2));
+
+  const discounted = price - (price * (discount / 100));
+  return Number(discounted.toFixed(2));
+}
+
+
 
 
 
@@ -3191,7 +3248,9 @@ app.post('/profile/update-email', checkAuth, (req, res) => {
 app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
   const { productId, playerId, idempotency_key: bodyIdemKey } = req.body;
   const user = req.session.user;
-  if (!user?.id) return res.status(401).json({ success: false, message: 'Session expired. Please log in.' });
+  if (!user?.id) {
+    return res.status(401).json({ success: false, message: 'Session expired. Please log in.' });
+  }
 
   // ✅ Idempotency: من الـ body أو من السيشن (fallback)
   const idemKey = (bodyIdemKey || req.session.idemKey || '').toString().slice(0, 64);
@@ -3200,7 +3259,10 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     // 0) Idempotency gate (اختياري لكنه مفضّل)
     if (idemKey) {
       try {
-        await q(`INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`, [user.id, idemKey]);
+        await q(
+          `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
+          [user.id, idemKey]
+        );
         // إذا نجح الإدراج → أول طلب، كمّل طبيعي
       } catch (e) {
         // مفتاح مكرر → اعتبر الطلب مكرر: لا خصم، لا إدخال Order
@@ -3221,42 +3283,58 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
     const product = result[0];
 
-    // 2) السعر
-    const purchasePrice = Number(product.price || 0);
-    if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
+    // 2) السعر الأساسي
+    let basePrice = Number(product.price || 0);
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
       return res.status(400).json({ success: false, message: 'Pricing error' });
     }
 
-    // 3) تحقق رصيد سريع (دليل مبكر فقط؛ الخصم الحقيقي بالترانزاكشن كما هو)
+    // نسبة خصم التاجر الحالية (من user.discount_percent)
+    const currentDiscountPercent = Number(user.discount_percent || 0) || 0;
+
+    // 🔥 3) تطبيق الخصم حسب ليفل التاجر
+    const purchasePrice = applyUserDiscount(basePrice, user);
+
+    // 4) تحقق رصيد سريع (دليل مبكر فقط؛ الخصم الحقيقي بالترانزاكشن كما هو)
     if (user.balance < purchasePrice) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
-    // 4) قيم جاهزة
-    const newBalance = user.balance - purchasePrice;
+    const newBalance = Number((user.balance - purchasePrice).toFixed(2));
     const now = new Date();
-    const orderDetails = playerId && playerId.trim() !== '' ? playerId.trim() : null;
+    const orderDetails =
+      playerId && playerId.trim() !== ''
+        ? `Player ID: ${playerId.trim()}`
+        : null;
 
-    const updateUserSql = 'UPDATE users SET balance = ? WHERE id = ?';
-    const insertOrderSql = `
-      INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status)
-      VALUES (?, ?, ?, ?, ?, 'Waiting')
-    `;
-    const notifSql = `
-      INSERT INTO notifications (user_id, message, created_at, is_read)
-      VALUES (?, ?, NOW(), 0)
-    `;
     const notifMsg = `✅ تم استلام طلبك (${product.name}) بنجاح. سيتم معالجته قريبًا.`;
 
-    // ✅ النسخة المعتمدة على Pool + Transaction (منطقك نفسه)
     const conn = await promisePool.getConnection();
     try {
       await conn.beginTransaction();
 
-      // خصم الرصيد (تبقي منطقك كما هو)
-      await conn.query(updateUserSql, [newBalance, user.id]);
+      // 🔒 خصم الرصيد بشكل ذري + حماية لو الرصيد ما عاد يكفي
+      const [updRes] = await conn.query(
+        `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
+        [purchasePrice, user.id, purchasePrice]
+      );
 
-      // إدخال الطلب
+      if (!updRes || !updRes.affectedRows) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: 'Insufficient balance' });
+      }
+
+      // 🧮 زيادة مجموع المصاريف total_spent
+      await conn.query(
+        'UPDATE users SET total_spent = total_spent + ? WHERE id = ?',
+        [purchasePrice, user.id]
+      );
+
+      // إنشاء الطلب
+      const insertOrderSql = `
+        INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status)
+        VALUES (?, ?, ?, ?, ?, 'Waiting')
+      `;
       const [orderResult] = await conn.query(insertOrderSql, [
         user.id,
         product.name,
@@ -3267,12 +3345,45 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       const orderId = orderResult.insertId;
 
       // إشعار داخلي
+      const notifSql = `
+        INSERT INTO notifications (user_id, message, created_at, is_read)
+        VALUES (?, ?, NOW(), 0)
+      `;
       await conn.query(notifSql, [user.id, notifMsg]);
 
-      // إنهاء المعاملة
       await conn.commit();
 
-      // 🔔 إشعارات تيليغرام بعد الـ COMMIT (منطقك كما هو)
+      // ✅ بعد ما خلّصنا الترانزاكشن بأمان:
+
+      // 🆙 إعادة حساب مستوى التاجر والخصم
+      try {
+        await recalcUserLevel(user.id);
+      } catch (lvlErr) {
+        console.error('⚠️ recalcUserLevel error (buy):', lvlErr.message || lvlErr);
+      }
+
+      // 🔄 تحديث بيانات المستخدم في الـ session (Balance + Level + Discount)
+      try {
+        const [[freshUser]] = await promisePool.query(
+          'SELECT * FROM users WHERE id = ? LIMIT 1',
+          [user.id]
+        );
+        if (freshUser) {
+          req.session.user = freshUser;
+        } else {
+          // كـ fallback على الأقل نزبط الرصيد بالسيشن
+          req.session.user.balance = newBalance;
+        }
+      } catch (sessErr) {
+        console.error('⚠️ Failed to refresh session user (buy):', sessErr.message || sessErr);
+        // fallback: نزبط الرصيد فقط
+        req.session.user.balance = newBalance;
+      }
+
+      // حفظ رقم الطلب للصفحة /processing
+      req.session.pendingOrderId = orderId;
+
+      // 🔔 إشعارات تيليغرام بعد الـ COMMIT (نفس منطقك القديم مع تعديل السعر)
       try {
         const [rows] = await promisePool.query(
           'SELECT telegram_chat_id FROM users WHERE id = ?',
@@ -3285,16 +3396,20 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 📥 *تم استلام طلبك بنجاح*
 
 🛍️ *المنتج:* ${product.name}
-💰 *السعر:* ${purchasePrice}$
+💰 *السعر بعد الخصم:* ${purchasePrice}$
+📉 *نسبة الخصم الحالية:* ${currentDiscountPercent}%
 📌 *الحالة:* جاري المعالجة
           `.trim();
 
           try {
-            await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-              chat_id: chatId,
-              text: msg,
-              parse_mode: 'Markdown'
-            });
+            await axios.post(
+              `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+              {
+                chat_id: chatId,
+                text: msg,
+                parse_mode: 'Markdown'
+              }
+            );
           } catch (e) {
             console.warn('⚠️ Failed to send Telegram to user:', e.message);
           }
@@ -3310,16 +3425,20 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
 👤 <b>الزبون:</b> ${user.username}
 🛍️ <b>المنتج:</b> ${product.name}
-💰 <b>السعر:</b> ${purchasePrice}$
+💰 <b>السعر بعد الخصم:</b> ${purchasePrice}$
+📉 <b>خصم التاجر الحالي:</b> ${currentDiscountPercent}%
 📋 <b>التفاصيل:</b> ${orderDetails || 'لا يوجد'}
 🕒 <b>الوقت:</b> ${now.toLocaleString()}
           `.trim();
 
-          await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-            chat_id: adminChatId,
-            text: adminMsg,
-            parse_mode: 'HTML'
-          });
+          await axios.post(
+            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+              chat_id: adminChatId,
+              text: adminMsg,
+              parse_mode: 'HTML'
+            }
+          );
           console.log('📢 Admin notified via Telegram');
         } catch (e) {
           console.warn('⚠️ Failed to notify admin via Telegram:', e.message);
@@ -3327,12 +3446,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       } catch (e) {
         console.warn('⚠️ Telegram notification flow error:', e.message);
       }
-
-      // تحديث الرصيد في السيشن
-      req.session.user.balance = newBalance;
-
-      // (اختياري) مسح المفتاح من السيشن بعد الاستخدام
-      // delete req.session.idemKey;
 
       // نجاح
       return res.json({ success: true, redirectUrl: '/processing' });

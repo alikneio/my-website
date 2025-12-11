@@ -1,11 +1,6 @@
-
-
 <a class="btn btn-dark m-3" data-bs-toggle="offcanvas" href="#offcanvasMenu" role="button" aria-controls="offcanvasMenu">
   <i class="bi bi-list"></i> Menu
 </a>
-
-
-
 
 <div class="offcanvas offcanvas-start bg-dark text-white" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
   
@@ -14,86 +9,136 @@
     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
   </div>
 
-
   <div class="offcanvas-body d-flex flex-column">
 
-<a href="/notifications" class="btn btn-outline-secondary position-relative me-2" id="notifLink">
-  <i class="bi bi-bell" id="notifIcon"></i>
-  <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge bg-danger rounded-pill" style="display: none;">
-    0
-  </span>
-</a>
+    <a href="/notifications" class="btn btn-outline-secondary position-relative me-2" id="notifLink">
+      <i class="bi bi-bell" id="notifIcon"></i>
+      <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge bg-danger rounded-pill" style="display: none;">
+        0
+      </span>
+    </a>
 
-<script>
-  async function fetchNotificationsCount() {
-    try {
-      const res = await fetch('/notifications/count');
-      const data = await res.json();
-      const count = data.count || 0;
+    <script>
+      async function fetchNotificationsCount() {
+        try {
+          const res = await fetch('/notifications/count');
+          const data = await res.json();
+          const count = data.count || 0;
 
-      const badge = document.getElementById('notifBadge');
-      const icon = document.getElementById('notifIcon');
+          const badge = document.getElementById('notifBadge');
+          const icon = document.getElementById('notifIcon');
 
-      if (count > 0) {
-        badge.textContent = count;
-        badge.style.display = 'inline-block';
-        icon.classList.add('text-warning');
-      } else {
-        badge.style.display = 'none';
-        icon.classList.remove('text-warning');
+          if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'inline-block';
+            icon.classList.add('text-warning');
+          } else {
+            badge.style.display = 'none';
+            icon.classList.remove('text-warning');
+          }
+        } catch (err) {
+          console.error("❌ Failed to fetch notifications:", err);
+        }
       }
-    } catch (err) {
-      console.error("❌ Failed to fetch notifications:", err);
-    }
-  }
 
-  // تحميل أولي وتشغيل تحديث كل 30 ثانية
-  document.addEventListener("DOMContentLoaded", fetchNotificationsCount);
-  setInterval(fetchNotificationsCount, 30000);
-</script>
+      // تحميل أولي وتشغيل تحديث كل 30 ثانية
+      document.addEventListener("DOMContentLoaded", fetchNotificationsCount);
+      setInterval(fetchNotificationsCount, 30000);
+    </script>
 
-
-    
     <% if (user) { %>
-        <div class="mb-4">
-            <h5>Welcome, <%= user.username %></h5>
-            <p class="text-success fw-bold mb-0">Balance: $<%= parseFloat(user.balance).toFixed(2) %></p>
+      <% 
+        const userBalance = Number(user.balance || 0);
+        const userLevel = user.level || 1;
+        const userDiscount = Number(user.discount_percent || 0);
+        const userTotalSpent = Number(user.total_spent || 0);
+      %>
+
+      <div class="mb-4">
+        <h5>Welcome, <%= user.username %></h5>
+        <p class="text-success fw-bold mb-1">
+          Balance: $<%= userBalance.toFixed(2) %>
+        </p>
+
+        <!-- 🔥 Loyalty / Level Box -->
+        <div class="bg-secondary bg-opacity-25 rounded-3 p-2 mt-2">
+          <div class="d-flex align-items-center mb-1 flex-wrap">
+            <span class="badge bg-warning text-dark me-2 mb-1">
+              Level <%= userLevel %>
+            </span>
+            <span class="badge bg-success mb-1">
+              Discount <%= userDiscount.toFixed(0) %>%
+            </span>
+          </div>
+          <small class="text-muted d-block">
+            Total spent: $<%= userTotalSpent.toFixed(2) %>
+          </small>
         </div>
-        <hr>
-        <ul class="navbar-nav flex-grow-1">
-     <li class="nav-item mb-2">
-    <a class="nav-link" href="/profile"><i class="bi bi-person-fill me-2"></i>My Profile</a>
-</li>
+      </div>
 
-<li>
-  <a href="/add-balance/whish" class="nav-link text-white d-flex align-items-center">
-    <i class="bi bi-credit-card-2-front me-2"></i>
-    Add Balance
-  </a>
-</li>
+      <hr>
 
+      <ul class="navbar-nav flex-grow-1">
+        <li class="nav-item mb-2">
+          <a class="nav-link" href="/profile">
+            <i class="bi bi-person-fill me-2"></i>My Profile
+          </a>
+        </li>
 
+        <li>
+          <a href="/add-balance/whish" class="nav-link text-white d-flex align-items-center">
+            <i class="bi bi-credit-card-2-front me-2"></i>
+            Add Balance
+          </a>
+        </li>
 
-            <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-house-door-fill me-2"></i>Home</a></li>
-            <li class="nav-item"><a class="nav-link" href="/my-orders"><i class="bi bi-bag-fill me-2"></i>My Orders</a></li>
+        <li class="nav-item">
+          <a class="nav-link" href="/">
+            <i class="bi bi-house-door-fill me-2"></i>Home
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="/my-orders">
+            <i class="bi bi-bag-fill me-2"></i>My Orders
+          </a>
+        </li>
+
+        <li class="nav-item">
           <a href="/transactions" class="nav-link">
-  <i class="bi bi-cash-coin me-2"></i> Transactions
-</a>
+            <i class="bi bi-cash-coin me-2"></i> Transactions
+          </a>
+        </li>
+      </ul>
 
-        </ul>
+      <% if (user.role === 'admin') { %>
+        <a class="btn btn-warning w-100 mb-3" href="/admin">
+          <i class="bi bi-person-circle me-2"></i>Admin Panel
+        </a>
+      <% } %>
 
-        <% if (user.role === 'admin') { %>
-            <a class="btn btn-warning w-100 mb-3" href="/admin"><i class="bi bi-person-circle me-2"></i>Admin Panel</a>
-        <% } %>
-
-        <a class="btn btn-outline-danger w-100 mt-auto" href="/logout"><i class="bi bi-box-arrow-right me-2"></i>Logout</a>
+      <a class="btn btn-outline-danger w-100 mt-auto" href="/logout">
+        <i class="bi bi-box-arrow-right me-2"></i>Logout
+      </a>
 
     <% } else { %>
-        <ul class="navbar-nav flex-grow-1">
-            <li class="nav-item"><a class="nav-link active" href="/"><i class="bi bi-house-door-fill me-2"></i>Home</a></li>
-            <li class="nav-item"><a class="nav-link" href="/login"><i class="bi bi-box-arrow-in-right me-2"></i>Login</a></li>
-            <li class="nav-item"><a class="nav-link" href="/register"><i class="bi bi-person-plus-fill me-2"></i>Register</a></li>
-        </ul>
+      <ul class="navbar-nav flex-grow-1">
+        <li class="nav-item">
+          <a class="nav-link active" href="/">
+            <i class="bi bi-house-door-fill me-2"></i>Home
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/login">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Login
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/register">
+            <i class="bi bi-person-plus-fill me-2"></i>Register
+          </a>
+        </li>
+      </ul>
     <% } %>
     
   </div>
