@@ -26,65 +26,26 @@
     box-shadow: 0 10px 24px rgba(37,99,235,0.5);
   }
 
-  /* موبايل: نخلي الزر عائم تحت عاليمين */
+  /* على الموبايل: الزر يصير عادي فوق، مش ثابت ولا عائم */
   @media (max-width: 768px) {
     .ak-menu-button {
+      position: static;     /* مش fixed */
       top: auto;
       left: auto;
-      right: 16px;
-      bottom: 16px;
-      width: 46px;
-      height: 46px;
-      font-size: 1.5rem;
-      border-radius: 999px;
-      box-shadow: 0 6px 18px rgba(15,23,42,0.6);
+      right: auto;
+      bottom: auto;
+      margin: 12px 0 0 12px;  /* شوي مسافة من فوق ويسار */
+      box-shadow: 0 4px 10px rgba(15,23,42,0.35);
     }
   }
 
-  /* OFFCANVAS STYLE */
+  /* باقي الستايل تبع الأوف كانفس... (خليه كما هو عندك) */
   .ak-menu-offcanvas {
     background: radial-gradient(circle at top left, #111827, #020617);
     color: #f9fafb;
     width: 310px;
   }
-  .ak-menu-offcanvas .offcanvas-header {
-    background: linear-gradient(90deg, #0f172a, #1f2937);
-  }
-  .ak-menu-offcanvas .offcanvas-title {
-    font-weight: 600;
-    letter-spacing: 0.04em;
-  }
-
-  .ak-user-card {
-    border-radius: 16px;
-    background: rgba(15, 23, 42, 0.96);
-    border: 1px solid rgba(148, 163, 184, 0.4);
-    padding: 14px;
-  }
-  .ak-user-meta {
-    font-size: 0.82rem;
-    opacity: 0.9;
-  }
-  .ak-pill {
-    border-radius: 999px;
-    padding: 3px 10px;
-    font-size: 0.75rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .ak-pill-level { background: #facc15; color: #1f2937; font-weight: 600; }
-  .ak-pill-discount { background: #22c55e; color: #022c22; font-weight: 600; }
-  .ak-menu-link {
-    border-radius: 10px;
-    padding: 7px 10px;
-    margin-bottom: 4px;
-    font-size: 0.95rem;
-  }
-  .ak-menu-link i { width: 18px; }
-  .ak-menu-link:hover {
-    background: rgba(255,255,255,0.06);
-  }
+  /* ... الخ */
 </style>
 
 
