@@ -124,10 +124,10 @@ function getUserEffectiveDiscount(user) {
   let levelDiscount = 0;
 
   // عدّل الأرقام حسب النظام اللي بدك ياه
-  if (level === 2) levelDiscount = 2;
-  else if (level === 3) levelDiscount = 4;
-  else if (level === 4) levelDiscount = 6;
-  else if (level >= 5) levelDiscount = 8; // مثال: لفل 5 وما فوق 8%
+  if (level === 2) levelDiscount = 3;
+  else if (level === 3) levelDiscount = 5;
+  else if (level === 4) levelDiscount = 7;
+  else if (level >= 5) levelDiscount = 11; // مثال: لفل 5 وما فوق 8%
 
   return levelDiscount;
 }
