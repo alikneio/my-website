@@ -70,23 +70,34 @@
             <div class="col-lg-10">
 
                 <% 
-                  const level = user.level || 1;
-                  const discount = Number(user.discount_percent || 0);
-                  const totalSpent = Number(user.total_spent || 0);
-                  const createdAt = user.createdAt || user.created_at;
+                  const level = Number(user?.level || 1);
+                  const discount = Number(user?.discount_percent || 0); // الخصم اليدوي/الفعلي المعروض
+                  const totalSpent = Number(user?.total_spent || 0);
+                  const createdAt = user?.createdAt || user?.created_at;
 
+                  // ✅ Ranges متصلة (بدون gaps)
+                  // Bronze:   0   - <100
+                  // Silver:   100 - <500
+                  // Gold:     500 - <1000
+                  // Platinum: 1000- <5000
+                  // Diamond:  5000- ∞
                   const tiers = [
-                    { level: 1, label: 'Bronze',   min: 0,    max: 100,   discount: 0,  className: 'bronze'   },
-                    { level: 2, label: 'Silver',   min: 100,  max: 500,   discount: 2,  className: 'silver'   },
-                    { level: 3, label: 'Gold',     min: 501,  max: 1500,   discount: 4,  className: 'gold'     },
-                    { level: 4, label: 'Platinum', min: 1501,  max: 5000,  discount: 6,  className: 'platinum' },
-                    { level: 5, label: 'Diamond',  min: 5001, max: null, discount: 8,  className: 'diamond'  },
+                    { level: 1, label: 'Bronze',   min: 0,    max: 100,   discount: 0, className: 'bronze' },
+                    { level: 2, label: 'Silver',   min: 100,  max: 500,   discount: 2, className: 'silver' },
+                    { level: 3, label: 'Gold',     min: 500,  max: 1500,  discount: 4, className: 'gold' },
+                    { level: 4, label: 'Platinum', min: 1500, max: 5000,  discount: 6, className: 'platinum' },
+                    { level: 5, label: 'Diamond',  min: 5000, max: null,  discount: 8, className: 'diamond' },
                   ];
 
-                  let currentTier =
-                    tiers.find(t => level === t.level) ||
-                    tiers.find(t => totalSpent >= t.min && (t.max === null || totalSpent < t.max)) ||
-                    tiers[0];
+                  // ✅ الأفضل للعرض: نحدد الـ Tier حسب total_spent (لأنه "الحقيقة")
+                  // وإذا totalSpent مش موجود لأي سبب، بنرجع للـ level.
+                  const bySpentTier =
+                    tiers.find(t => totalSpent >= t.min && (t.max === null || totalSpent < t.max));
+
+                  const byLevelTier =
+                    tiers.find(t => t.level === level) || tiers[0];
+
+                  const currentTier = bySpentTier || byLevelTier;
 
                   const nextTier = tiers.find(t => t.level === currentTier.level + 1) || null;
 
@@ -110,7 +121,7 @@
                         </span>
                         <span class="tier-pill <%= currentTier.className %>">
                           <i class="bi bi-stars me-1"></i>
-                          <%= currentTier.label %> (Level <%= level %>)
+                          <%= currentTier.label %> (Level <%= currentTier.level %>)
                         </span>
                       </div>
 
@@ -206,7 +217,7 @@
                         </thead>
                         <tbody>
                           <% tiers.forEach(t => { %>
-                            <tr class="<%= t.level === level ? 'table-primary' : '' %>">
+                            <tr class="<%= t.level === currentTier.level ? 'table-primary' : '' %>">
                               <td>#<%= t.level %></td>
                               <td>
                                 <span class="tier-pill <%= t.className %>">

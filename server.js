@@ -92,8 +92,8 @@ async function recalcUserLevel(userId) {
     let level = 1;
 
     if (spent >= 100 && spent < 500) level = 2;
-    else if (spent >= 501 && spent < 1500) level = 3;
-    else if (spent >= 1501 && spent < 5000) level = 4;
+    else if (spent >= 500 && spent < 1500) level = 3;
+    else if (spent >= 1500 && spent < 5000) level = 4;
     else if (spent >= 5000) level = 5;
 
     // ✅ نحدّث level فقط (ما نلمس discount_percent نهائياً)
