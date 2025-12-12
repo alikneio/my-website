@@ -1,7 +1,9 @@
-<!-- زر المنيو نفسه بدون تغيير -->
-<a class="btn btn-dark m-3" data-bs-toggle="offcanvas" href="#offcanvasMenu" role="button" aria-controls="offcanvasMenu">
+<!-- زر المنيو -->
+<button class="btn btn-dark m-3" type="button"
+        data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu"
+        aria-controls="offcanvasMenu">
   <i class="bi bi-list"></i> Menu
-</a>
+</button>
 
 <style>
   .ak-menu-offcanvas {
@@ -46,6 +48,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    text-decoration: none;
   }
   .ak-menu-link i {
     width: 18px;
@@ -60,59 +63,44 @@
   }
 </style>
 
-<div class="offcanvas offcanvas-start ak-menu-offcanvas" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
-  
+<%
+  // suffix لمنع تكرار IDs لو الpartial تكرر
+  const _menuUid = (typeof menuUid !== 'undefined' && menuUid) ? String(menuUid) : String(Date.now());
+%>
+
+<div class="offcanvas offcanvas-start ak-menu-offcanvas"
+     tabindex="-1"
+     id="offcanvasMenu"
+     aria-labelledby="offcanvasMenuLabel-<%= _menuUid %>">
+
   <div class="offcanvas-header border-bottom border-secondary">
-    <h5 class="offcanvas-title" id="offcanvasMenuLabel">AK Cell Menu</h5>
+    <h5 class="offcanvas-title" id="offcanvasMenuLabel-<%= _menuUid %>">AK Cell Menu</h5>
     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
   </div>
 
   <div class="offcanvas-body d-flex flex-column">
 
     <!-- Notifications -->
-    <a href="/notifications" class="btn btn-outline-light btn-sm position-relative mb-3" id="notifLink">
-      <i class="bi bi-bell" id="notifIcon"></i>
-      <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge bg-danger rounded-pill" style="display: none;">
+    <a href="/notifications"
+       class="btn btn-outline-light btn-sm position-relative mb-3"
+       id="notifLink-<%= _menuUid %>">
+      <i class="bi bi-bell" id="notifIcon-<%= _menuUid %>"></i>
+      <span id="notifBadge-<%= _menuUid %>"
+            class="position-absolute top-0 start-100 translate-middle badge bg-danger rounded-pill"
+            style="display:none;">
         0
       </span>
     </a>
 
-    <script>
-      async function fetchNotificationsCount() {
-        try {
-          const res = await fetch('/notifications/count');
-          const data = await res.json();
-          const count = data.count || 0;
-
-          const badge = document.getElementById('notifBadge');
-          const icon = document.getElementById('notifIcon');
-
-          if (count > 0) {
-            badge.textContent = count;
-            badge.style.display = 'inline-block';
-            icon.classList.add('text-warning');
-          } else {
-            badge.style.display = 'none';
-            icon.classList.remove('text-warning');
-          }
-        } catch (err) {
-          console.error("❌ Failed to fetch notifications:", err);
-        }
-      }
-
-      document.addEventListener("DOMContentLoaded", fetchNotificationsCount);
-      setInterval(fetchNotificationsCount, 30000);
-    </script>
-
     <% if (user) { %>
-      <% 
+      <%
         const userBalance    = Number(user.balance || 0);
         const userLevel      = user.level || 1;
         const userDiscount   = Number(user.discount_percent || 0);
         const userTotalSpent = Number(user.total_spent || 0);
       %>
 
-      <!-- كرت المستخدم / الليفل / الخصم -->
+      <!-- User card -->
       <div class="ak-user-card">
         <div class="d-flex justify-content-between align-items-center">
           <div>
@@ -142,14 +130,13 @@
         </div>
 
         <div class="text-muted small mt-2">
-          Total spent:
-          $<%= userTotalSpent.toFixed(2) %>
+          Total spent: $<%= userTotalSpent.toFixed(2) %>
         </div>
       </div>
 
       <div class="ak-divider"></div>
 
-      <!-- روابط القائمة -->
+      <!-- Links -->
       <ul class="navbar-nav flex-grow-1">
         <li class="nav-item">
           <a class="ak-menu-link" href="/profile">
@@ -195,10 +182,12 @@
       </a>
 
     <% } else { %>
+
       <div class="mb-3">
         <p class="mb-1">Welcome to AK Cell</p>
         <small class="text-muted">Login to see your level & discounts</small>
       </div>
+
       <ul class="navbar-nav flex-grow-1">
         <li class="nav-item">
           <a class="ak-menu-link" href="/">
@@ -216,7 +205,62 @@
           </a>
         </li>
       </ul>
+
     <% } %>
-    
+
   </div>
 </div>
+
+<script>
+  (function(){
+    const uid = "<%= _menuUid %>";
+    const badge = document.getElementById("notifBadge-" + uid);
+    const icon  = document.getElementById("notifIcon-" + uid);
+
+    // لو العناصر مش موجودة ما منعمل شي (حتى ما يصير errors)
+    if (!badge || !icon) return;
+
+    let timer = null;
+
+    async function fetchNotificationsCount() {
+      try {
+        const res = await fetch('/notifications/count', { headers: { 'Accept': 'application/json' } });
+
+        if (!res.ok) {
+          // 401/403/500... لا تكسر الصفحة
+          badge.style.display = 'none';
+          icon.classList.remove('text-warning');
+          return;
+        }
+
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return;
+
+        const data = await res.json();
+        const count = Number(data?.count || 0);
+
+        if (count > 0) {
+          badge.textContent = count > 99 ? "99+" : String(count);
+          badge.style.display = 'inline-block';
+          icon.classList.add('text-warning');
+        } else {
+          badge.style.display = 'none';
+          icon.classList.remove('text-warning');
+        }
+      } catch (err) {
+        console.error("❌ Failed to fetch notifications:", err);
+      }
+    }
+
+    // أول تحميل
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchNotificationsCount();
+      timer = setInterval(fetchNotificationsCount, 30000);
+    });
+
+    // تنظيف (اختياري)
+    window.addEventListener("beforeunload", () => {
+      if (timer) clearInterval(timer);
+    });
+  })();
+</script>
