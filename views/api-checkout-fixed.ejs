@@ -29,10 +29,44 @@
       <% if (product.image) { %>
         <img src="<%= product.image %>" alt="<%= product.name %>" class="img-fluid mb-3" style="max-height: 100px;">
       <% } %>
+
       <h4 class="fw-bold mb-1"><%= product.custom_name || product.name %></h4>
-      <p class="text-success fs-5 mb-0">
-        $<%= (parseFloat(product.custom_price || product.price || 0)).toFixed(2) %>
-      </p>
+
+      <%
+        // ✅ السعر النهائي (بعد الخصم) المفروض يجي من السيرفر ضمن product.price
+        const finalPrice = Number(product.price || product.custom_price || 0);
+
+        // ✅ السعر الأصلي (قبل الخصم) لو السيرفر مرّره
+        const originalPrice = Number(
+          product.original_price ||
+          product.original_unit_price ||
+          product.custom_price ||
+          0
+        );
+
+        // ✅ الخصم الفعلي (لو مرّرناه من السيرفر)
+        const disc = Number(product.effective_discount || effectiveDiscount || 0);
+
+        const hasDiscount =
+          disc > 0 &&
+          Number.isFinite(finalPrice) && finalPrice > 0 &&
+          Number.isFinite(originalPrice) && originalPrice > 0 &&
+          finalPrice < originalPrice;
+      %>
+
+      <div class="d-flex flex-column align-items-center">
+        <% if (hasDiscount) { %>
+          <div class="text-muted small">
+            <span class="text-decoration-line-through">$<%= originalPrice.toFixed(2) %></span>
+            <span class="badge bg-success ms-2"><%= disc.toFixed(0) %>% OFF</span>
+          </div>
+        <% } %>
+
+        <p class="text-success fs-5 mb-0">
+          $<%= Number.isFinite(finalPrice) ? finalPrice.toFixed(2) : '0.00' %>
+        </p>
+      </div>
+
       <div class="small text-muted mt-1">
         Balance: $<%= (user ? Number(user.balance || 0).toFixed(2) : '0.00') %>
       </div>
@@ -84,8 +118,6 @@
             </button>
           </div>
         </div>
-
-        <!-- تم حذف مربع التحذير الأصفر هنا -->
 
         <div id="verifyResult" class="mt-2 small text-muted"></div>
       </div>

@@ -1034,7 +1034,6 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const error = req.query.error || null;
 
-  // إذا عندك عمود active بالجدول، استعمله. إذا ما عندك، رجّع للسطر القديم:
   const sql = "SELECT * FROM products WHERE id = ? /* AND active = 1 */";
 
   db.query(sql, [productId], (err, results) => {
@@ -1042,47 +1041,53 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
       return res.status(404).send('❌ Product not found.');
     }
 
+    const user = req.session.user || null;
+
     const product = results[0];
     product.source = 'sql';
 
     // (اختياري) لو عندك عمود is_out_of_stock بالجدول
     if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
       const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
-      if (oos) {
-        return res.status(403).send('This product is currently out of stock.');
-      }
+      if (oos) return res.status(403).send('This product is currently out of stock.');
     }
 
     // رسائل الخطأ
     let errorMessage = '';
-    if (error === 'balance') {
-      errorMessage = 'Insufficient balance.';
-    } else if (error === 'server') {
-      errorMessage = 'Server error during purchase. Please try again.';
-    }
+    if (error === 'balance') errorMessage = 'Insufficient balance.';
+    else if (error === 'server') errorMessage = 'Server error during purchase. Please try again.';
 
     // ملاحظات المنتج
     const notes = (product.notes && String(product.notes).trim() !== '') ? String(product.notes).trim() : null;
 
-    // ✅ ولادة idempotency key وتمريره للواجهة
+    // ✅ طبّق الخصم على سعر المنتج بالـ checkout
+    // نخلي السعر الأصلي محفوظ للعرض لو بدك
+    const originalPrice = Number(product.price || 0);
+    const finalPrice = applyUserDiscount(originalPrice, user);
+
+    product.original_price = Number.isFinite(originalPrice) ? Number(originalPrice.toFixed(2)) : 0;
+    product.price = finalPrice; // 🔥 هذا اللي رح ينعرض بالـ checkout
+
+    // ✅ key للـ idempotency
     const idemKey = uuidv4();
     req.session.idemKey = idemKey;
 
     return res.render('checkout', {
-      user: req.session.user || null,
+      user,
       product,
       error: errorMessage,
       notes,
-      idemKey              // ← مهم: استعمله hidden input بالـ EJS
+      idemKey,
+      effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0) // (اختياري للـ EJS)
     });
   });
 });
 
 
 
-
 app.get('/api-checkout/:id', checkAuth, async (req, res) => {
   const productId = parseInt(req.params.id, 10);
+  const error = req.query.error || null;
 
   const query = (sql, params) =>
     new Promise((resolve, reject) =>
@@ -1090,12 +1095,13 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
     );
 
   try {
+    const user = req.session.user || null;
+
     // 1) جلب المنتج
     const sqlSel = "SELECT * FROM selected_api_products WHERE product_id = ? AND active = 1";
     const results = await query(sqlSel, [productId]);
-    const error = req.query.error || null;
 
-    if (results.length === 0) {
+    if (!results || results.length === 0) {
       return res.status(404).send("❌ Product not found or not activated.");
     }
 
@@ -1113,43 +1119,69 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
     const minQty  = isQuantity ? parseInt(product.min_quantity || 1, 10) || 1 : undefined;
     const maxQty  = isQuantity ? parseInt(product.max_quantity || 999999, 10) || 999999 : undefined;
 
-    const unitPriceNum = parseFloat(product.custom_price || product.unit_price || 0) || 0;
+    // السعر الخام (قبل الخصم)
+    const rawUnitPrice = parseFloat(product.custom_price || product.unit_price || 0) || 0;
+
+    // ✅ الخصم الفعلي (VIP أو Level)
+    const effectiveDiscount = getUserEffectiveDiscount(user);
+
+    // ✅ تطبيق الخصم حسب نوع المنتج
+    const fixedFinalPrice = !isQuantity
+      ? applyUserDiscount(rawUnitPrice, user)
+      : null;
+
+    const discountedUnitPrice = isQuantity
+      ? applyUserDiscount(rawUnitPrice, user)
+      : undefined;
 
     const productData = {
       id: product.product_id,
       name: product.custom_name || 'API Product',
       image: product.custom_image || '/images/default-product.png',
-      price: isQuantity ? null : unitPriceNum.toFixed(2),
-      unit_price: isQuantity ? unitPriceNum : undefined,
+
+      // FIXED: السعر بعد الخصم
+      price: isQuantity ? null : Number(fixedFinalPrice).toFixed(2),
+
+      // QUANTITY: unit_price بعد الخصم
+      unit_price: isQuantity ? Number(discountedUnitPrice) : undefined,
+
       unit_quantity: unitQty,
       min_quantity: minQty,
       max_quantity: maxQty,
+
       requires_player_id: Number(product.player_check) === 1,
       requires_verification: Number(product.requires_verification) === 1,
       variable_quantity: isQuantity,
       unit_label: isQuantity ? (product.unit_label || 'units') : undefined,
+
+      // (اختياري للعرض)
+      original_unit_price: Number(rawUnitPrice.toFixed(2)),
+      effective_discount: Number(effectiveDiscount || 0)
     };
 
-    // 2.1) حساب أقل كلفة لازمة للطلب (minCost) + canVerify
+    // 2.1) حساب أقل كلفة لازمة للطلب (minCost) + canVerify (بعد الخصم)
     const floor = Number(process.env.VERIFY_BALANCE_FLOOR || 0) || 0;
     let minCost = 0;
 
     if (isQuantity) {
-      const uPrice = Number(product.unit_price) || 0;
+      const uPrice = applyUserDiscount(rawUnitPrice, user); // ✅ بعد الخصم
       const uQty   = Math.max(1, parseInt(product.unit_quantity || 1, 10));
       const mQty   = Math.max(1, parseInt(product.min_quantity || 1, 10));
       const blocks = Math.ceil(mQty / uQty);
       minCost = parseFloat((blocks * uPrice).toFixed(2));
     } else {
-      minCost = Number(product.custom_price || product.unit_price || 0) || 0;
+      minCost = applyUserDiscount(rawUnitPrice, user); // ✅ بعد الخصم
+
+      // fallback لو السعر صفر
       if (minCost === 0) {
         try {
           const list = await getCachedAPIProducts();
           const apiItem = list.find(p => Number(p.id) === Number(productId));
-          if (apiItem) minCost = Number(apiItem.price) || 0;
+          if (apiItem) minCost = applyUserDiscount(Number(apiItem.price) || 0, user);
         } catch (_) { /* ignore */ }
       }
     }
+
     minCost = Math.max(minCost, floor);
 
     const userBalance = Number(req.session.user?.balance || 0);
@@ -1157,15 +1189,16 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
 
     // 3) ولادة idempotency_key وتمريره للواجهة
     const idemKey = uuidv4();
-    req.session.idemKey = idemKey; // لتتبع آخر مفتاح تولّد لهالزيارة
+    req.session.idemKey = idemKey;
 
     const viewData = {
-      user: req.session.user || null,
+      user,
       product: productData,
       error,
       minCost,
       canVerify,
-      idemKey,                 // << مهم: يُستخدم بالـ form كـ hidden input
+      idemKey,
+      effectiveDiscount
     };
 
     if (isQuantity) {
@@ -1179,20 +1212,6 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
     res.status(500).send("Internal Server Error");
   }
 });
-
-// دالة توليد slug موحّدة وخالية من الرموز الشاذة
-function smmSlugify(text) {
-  return (text || '')
-    .toString()
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')                   // إزالة اللكنة/accent
-    .replace(/[\u0300-\u036f]/g, '')    // remove accents
-    .replace(/[^a-z0-9]+/g, '-')        // أي شيء ليس حرف/رقم → -
-    .replace(/-+/g, '-')                // دمج الشرطات
-    .replace(/^-|-$/g, '');             // إزالة - من البداية والنهاية
-}
-
 
 
 
@@ -2971,7 +2990,6 @@ app.get('/api/out-of-stock', (req, res) => {
 // شراء منتج كمي بدقة سنت (Round) + حماية من الخصم المزدوج
 app.post('/buy-quantity-product', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
-  const sessionUser = req.session.user;
   if (!userId) return res.redirect('/login?error=session');
 
   const rawIdemKey = (req.body.idempotency_key || req.session.idemKey || '').toString().slice(0, 64);
@@ -2981,6 +2999,17 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
+
+  // ✅ محاولة إلغاء/Refund عند المزود إذا فشل الخصم بعد إنشاء الطلب
+  async function refundProviderOrder(providerOrderId) {
+    if (!providerOrderId) return;
+    try {
+      // عدّل endpoint حسب مزودك إن كان مختلف
+      await dailycardAPI.post('/api-keys/orders/cancel/', { id: providerOrderId });
+    } catch (e) {
+      console.warn('⚠️ Provider cancel/refund failed (ignored):', e?.message || e);
+    }
+  }
 
   try {
     // 0) Idempotency gate
@@ -2993,6 +3022,19 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       } catch (e) {
         return res.redirect('/processing');
       }
+    }
+
+    // ✅ 0.5) Fresh user from DB (حتى اللفل/الخصم يكونوا آخر تحديث)
+    let sessionUser = null;
+    try {
+      const [[freshUser]] = await promisePool.query(
+        'SELECT * FROM users WHERE id = ? LIMIT 1',
+        [userId]
+      );
+      sessionUser = freshUser || req.session.user || null;
+      if (freshUser) req.session.user = freshUser; // حدّث السيشن فوراً
+    } catch (_) {
+      sessionUser = req.session.user || null;
     }
 
     // 1) Fetch product (variable qty)
@@ -3010,8 +3052,10 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
 
     // 2) Validate qty
     const qty = parseInt(quantity, 10);
+
     const unitQty = Math.max(1, parseInt(product.unit_quantity ?? 1, 10));
-    const unitPrice = Number(product.unit_price) || 0;
+    // ✅ مهم: السعر الخام للـ variable غالباً unit_price (ولو عندك custom_price استعمله)
+    const rawUnitPrice = Number(product.custom_price || product.unit_price || 0) || 0;
 
     const min = Number.isFinite(parseInt(product.min_quantity, 10)) ? parseInt(product.min_quantity, 10) : 1;
     const max = Number.isFinite(parseInt(product.max_quantity, 10)) ? parseInt(product.max_quantity, 10) : 999999;
@@ -3038,24 +3082,25 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       }
     }
 
-    // 4) Base pricing (rounded)
-    const baseTotalCents = Math.round((qty * unitPrice * 100) / unitQty);
+    // 4) Base pricing (rounded to cents)
+    const baseTotalCents = Math.round((qty * rawUnitPrice * 100) / unitQty);
     if (!Number.isFinite(baseTotalCents) || baseTotalCents <= 0) {
       return res.redirect(`/api-checkout/${productId}?error=pricing`);
     }
     const baseTotal = baseTotalCents / 100;
 
-    // 5) Effective discount (VIP override level)
-    const effectiveDiscountPercent = typeof getUserEffectiveDiscount === 'function'
+    // 5) Effective discount (VIP overrides level)
+    const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
       ? Number(getUserEffectiveDiscount(sessionUser) || 0)
       : Number(sessionUser?.discount_percent || 0) || 0;
 
-    const discountedTotal = Math.round((baseTotal * (100 - effectiveDiscountPercent) / 100) * 100) / 100;
+    // ✅ 6) Discounted total (استخدم helper لتوحيد المنطق والـ rounding)
+    const discountedTotal = applyUserDiscount(baseTotal, sessionUser);
     if (!Number.isFinite(discountedTotal) || discountedTotal <= 0) {
       return res.redirect(`/api-checkout/${productId}?error=pricing`);
     }
 
-    // 6) Call provider FIRST (cleaner: no refund scenarios)
+    // 7) Call provider FIRST (مثل ما عندك)
     const orderBody = {
       product: parseInt(productId, 10),
       quantity: qty,
@@ -3074,12 +3119,15 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       return res.redirect(`/api-checkout/${productId}?error=order_failed`);
     }
 
-    // 7) Transaction: debit + total_spent + insert order + insert transaction + notification
+    // 8) Transaction: debit + total_spent + insert order + insert transaction + notification
     const conn = await promisePool.getConnection();
+    let insertId = null;
+
     try {
       await conn.beginTransaction();
 
-      const spentValue = discountedTotal; // أو baseTotal إذا بدك total_spent قبل الخصم
+      // إذا بدك total_spent قبل الخصم حط baseTotal بدل discountedTotal
+      const spentValue = discountedTotal;
 
       const [updRes] = await conn.query(
         `UPDATE users
@@ -3091,6 +3139,10 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
 
       if (!updRes?.affectedRows) {
         await conn.rollback();
+
+        // ✅ مهم: مزود صار عنده order — حاول نلغيه
+        await refundProviderOrder(providerOrderId);
+
         return res.redirect(`/api-checkout/${productId}?error=balance`);
       }
 
@@ -3114,7 +3166,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
           : [userId, product.custom_name || `API Product ${productId}`, discountedTotal, orderDetails, providerOrderId]
       );
 
-      const insertId = orderRes.insertId;
+      insertId = orderRes.insertId;
 
       await conn.query(
         `INSERT INTO notifications (user_id, message, created_at, is_read)
@@ -3123,60 +3175,64 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       );
 
       await conn.commit();
-
-      // 8) Recalc level after commit (لا تمسح خصم VIP اليدوي)
-      try {
-        await recalcUserLevel(userId);
-      } catch (lvlErr) {
-        console.error('⚠️ recalcUserLevel error (buy-quantity):', lvlErr.message || lvlErr);
-      }
-
-      // 9) Refresh session
-      try {
-        const [[freshUser]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
-        if (freshUser) req.session.user = freshUser;
-      } catch (_) {}
-
-      // 10) Telegram (after commit)
-      try {
-        const [urows] = await promisePool.query('SELECT username, telegram_chat_id FROM users WHERE id = ?', [userId]);
-        const urow = urows[0];
-
-        if (urow?.telegram_chat_id) {
-          await sendTelegramMessage(
-            urow.telegram_chat_id,
-            `📥 <b>تم استلام طلبك بنجاح</b>\n\n🛍️ <b>المنتج:</b> ${product.custom_name || `API Product ${productId}`}\n🔢 <b>الكمية:</b> ${qty}\n💰 <b>السعر بعد الخصم:</b> ${discountedTotal}$\n📉 <b>الخصم الفعلي:</b> ${effectiveDiscountPercent}%\n📌 <b>الحالة:</b> جاري المعالجة`,
-            process.env.TELEGRAM_BOT_TOKEN
-          );
-        }
-
-        if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
-          await sendTelegramMessage(
-            process.env.ADMIN_TELEGRAM_CHAT_ID,
-            `🆕 طلب جديد (API Quantity)!\n👤 الزبون: ${urow?.username}\n🎁 المنتج: ${product.custom_name || `API Product ${productId}`}\n📦 الكمية: ${qty}\n💰 السعر بعد الخصم: ${discountedTotal}$\n📉 الخصم الفعلي: ${effectiveDiscountPercent}%\n🕓 الوقت: ${new Date().toLocaleString('en-US', { hour12: false })}`,
-            process.env.TELEGRAM_BOT_TOKEN
-          );
-        }
-      } catch (e) {
-        console.warn('⚠️ Telegram error (buy-quantity):', e.message || e);
-      }
-
-      req.session.pendingOrderId = insertId;
-      return res.redirect('/processing');
-
     } catch (e) {
       try { await conn.rollback(); } catch (_) {}
+
+      // ✅ لو فشل DB بعد إنشاء order عند المزود
+      await refundProviderOrder(providerOrderId);
+
       console.error('❌ buy-quantity tx error:', e);
       return res.redirect(`/api-checkout/${productId}?error=server`);
     } finally {
       conn.release();
     }
 
+    // 9) Recalc level after commit (لا تمسح خصم VIP اليدوي)
+    try {
+      await recalcUserLevel(userId);
+    } catch (lvlErr) {
+      console.error('⚠️ recalcUserLevel error (buy-quantity):', lvlErr.message || lvlErr);
+    }
+
+    // 10) Refresh session after commit
+    try {
+      const [[freshUserAfter]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
+      if (freshUserAfter) req.session.user = freshUserAfter;
+    } catch (_) {}
+
+    // 11) Telegram (after commit)
+    try {
+      const [urows] = await promisePool.query('SELECT username, telegram_chat_id FROM users WHERE id = ?', [userId]);
+      const urow = urows[0];
+
+      if (urow?.telegram_chat_id) {
+        await sendTelegramMessage(
+          urow.telegram_chat_id,
+          `📥 <b>تم استلام طلبك بنجاح</b>\n\n🛍️ <b>المنتج:</b> ${product.custom_name || `API Product ${productId}`}\n🔢 <b>الكمية:</b> ${qty}\n💰 <b>السعر بعد الخصم:</b> ${Number(discountedTotal).toFixed(2)}$\n📉 <b>الخصم الفعلي:</b> ${Number(effectiveDiscountPercent).toFixed(0)}%\n📌 <b>الحالة:</b> جاري المعالجة`,
+          process.env.TELEGRAM_BOT_TOKEN
+        );
+      }
+
+      if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
+        await sendTelegramMessage(
+          process.env.ADMIN_TELEGRAM_CHAT_ID,
+          `🆕 طلب جديد (API Quantity)!\n👤 الزبون: ${urow?.username}\n🎁 المنتج: ${product.custom_name || `API Product ${productId}`}\n📦 الكمية: ${qty}\n💰 السعر بعد الخصم: ${Number(discountedTotal).toFixed(2)}$\n📉 الخصم الفعلي: ${Number(effectiveDiscountPercent).toFixed(0)}%\n🕓 الوقت: ${new Date().toLocaleString('en-US', { hour12: false })}`,
+          process.env.TELEGRAM_BOT_TOKEN
+        );
+      }
+    } catch (e) {
+      console.warn('⚠️ Telegram error (buy-quantity):', e.message || e);
+    }
+
+    req.session.pendingOrderId = insertId;
+    return res.redirect('/processing');
+
   } catch (err) {
     console.error('❌ Quantity Order Error:', err?.response?.data || err.message || err);
     return res.redirect(`/api-checkout/${productId}?error=server`);
   }
 });
+
 
 
 
@@ -3298,11 +3354,11 @@ app.post('/profile/update-email', checkAuth, (req, res) => {
 
 
 
-
 app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
   const { productId, playerId, idempotency_key: bodyIdemKey } = req.body;
-  const user = req.session.user;
-  if (!user?.id) {
+
+  const sessionUser = req.session.user;
+  if (!sessionUser?.id) {
     return res.status(401).json({ success: false, message: 'Session expired. Please log in.' });
   }
 
@@ -3314,10 +3370,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       try {
         await q(
           `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
-          [user.id, idemKey]
+          [sessionUser.id, idemKey]
         );
       } catch (e) {
-        // مفتاح مكرر → اعتبر الطلب مكرر
         return res.json({ success: true, redirectUrl: '/processing' });
       }
     }
@@ -3326,50 +3381,67 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid product ID' });
     }
 
-    // 1) جلب المنتج
-    const [product] = await q('SELECT * FROM products WHERE id = ? AND active = 1 LIMIT 1', [productId]);
+    // ✅ 0.5) Fresh user from DB (حتى level/discount يكونوا آخر تحديث)
+    let freshUser = null;
+    try {
+      const [[u]] = await promisePool.query(
+        'SELECT * FROM users WHERE id = ? LIMIT 1',
+        [sessionUser.id]
+      );
+      freshUser = u || sessionUser;
+      if (u) req.session.user = u;
+    } catch (_) {
+      freshUser = sessionUser;
+    }
+
+    // 1) Fetch product (SQL)
+    const [product] = await q(
+      'SELECT * FROM products WHERE id = ? AND active = 1 LIMIT 1',
+      [productId]
+    );
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    // 2) السعر الأساسي
+    // 2) Base price
     const basePrice = Number(product.price || 0);
     if (!Number.isFinite(basePrice) || basePrice <= 0) {
       return res.status(400).json({ success: false, message: 'Pricing error' });
     }
 
-    // 3) حساب الخصم الفعلي + السعر بعد الخصم
-    const effectiveDiscountPercent = typeof getUserEffectiveDiscount === 'function'
-      ? Number(getUserEffectiveDiscount(user) || 0)
-      : Number(user.discount_percent || 0) || 0;
+    // 3) Effective discount + final price (موحّد)
+    const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
+      ? Number(getUserEffectiveDiscount(freshUser) || 0)
+      : Number(freshUser.discount_percent || 0) || 0;
 
-    const purchasePrice = Number((basePrice * (100 - effectiveDiscountPercent) / 100).toFixed(2));
+    // ✅ استخدم helper لتوحيد المنطق
+    const purchasePrice = applyUserDiscount(basePrice, freshUser);
+
     if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
       return res.status(400).json({ success: false, message: 'Pricing error' });
     }
 
-    // 4) تفاصيل الطلب
+    // 4) Order details
     const now = new Date();
     const orderDetails = playerId && playerId.trim() !== '' ? `Player ID: ${playerId.trim()}` : null;
-
     const notifMsg = `✅ تم استلام طلبك (${product.name}) بنجاح. سيتم معالجته قريبًا.`;
 
     const conn = await promisePool.getConnection();
     try {
       await conn.beginTransaction();
 
-      // ✅ خصم الرصيد + زيادة total_spent بعملية واحدة
-      // اختر واحدة من هالخيارات حسب منطقك:
-      // (A) total_spent += purchasePrice  (الصرف الفعلي بعد الخصم)
-      // (B) total_spent += basePrice      (الصرف على السعر الأصلي قبل الخصم)
+      // ✅ total_spent: اختار منطقك
+      // A) بعد الخصم: purchasePrice
+      // B) قبل الخصم: basePrice
       const spentValue = purchasePrice; // غيّرها لـ basePrice إذا بدك
 
+      // ✅ خصم ذري + زيادة total_spent بعملية واحدة
       const [updRes] = await conn.query(
         `UPDATE users
             SET balance = balance - ?,
                 total_spent = total_spent + ?
           WHERE id = ? AND balance >= ?`,
-        [purchasePrice, spentValue, user.id, purchasePrice]
+        [purchasePrice, spentValue, freshUser.id, purchasePrice]
       );
 
       if (!updRes?.affectedRows) {
@@ -3377,50 +3449,51 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         return res.status(400).json({ success: false, message: 'Insufficient balance' });
       }
 
-      // ✅ إدخال الطلب
+      // ✅ Insert order
       const [orderResult] = await conn.query(
         `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status)
          VALUES (?, ?, ?, ?, ?, 'Waiting')`,
-        [user.id, product.name, purchasePrice, now, orderDetails]
+        [freshUser.id, product.name, purchasePrice, now, orderDetails]
       );
       const orderId = orderResult.insertId;
 
-      // ✅ إشعار داخلي
+      // ✅ Internal notification
       await conn.query(
         `INSERT INTO notifications (user_id, message, created_at, is_read)
          VALUES (?, ?, NOW(), 0)`,
-        [user.id, notifMsg]
+        [freshUser.id, notifMsg]
       );
 
       await conn.commit();
 
-      // ✅ بعد الـ COMMIT: إعادة حساب Level (لا تخليها تعدّل خصم VIP اليدوي)
+      // ✅ Recalc level after commit
       try {
-        await recalcUserLevel(user.id);
+        await recalcUserLevel(freshUser.id);
       } catch (lvlErr) {
         console.error('⚠️ recalcUserLevel error (buy):', lvlErr.message || lvlErr);
       }
 
-      // ✅ تحديث session من DB
+      // ✅ Refresh session after purchase
       try {
-        const [[freshUser]] = await promisePool.query(
+        const [[freshAfter]] = await promisePool.query(
           'SELECT * FROM users WHERE id = ? LIMIT 1',
-          [user.id]
+          [freshUser.id]
         );
-        if (freshUser) req.session.user = freshUser;
+        if (freshAfter) req.session.user = freshAfter;
       } catch (sessErr) {
         console.error('⚠️ Failed to refresh session user (buy):', sessErr.message || sessErr);
       }
 
       req.session.pendingOrderId = orderId;
 
-      // ✅ تيليغرام بعد الـ COMMIT
+      // ✅ Telegram after commit
       try {
         const [rows] = await promisePool.query(
-          'SELECT telegram_chat_id FROM users WHERE id = ?',
-          [user.id]
+          'SELECT telegram_chat_id, username FROM users WHERE id = ?',
+          [freshUser.id]
         );
         const chatId = rows[0]?.telegram_chat_id;
+        const username = rows[0]?.username || freshUser.username;
 
         if (chatId) {
           const msg = `
@@ -3444,7 +3517,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         const adminMsg = `
 🆕 <b>طلب جديد!</b>
 
-👤 <b>الزبون:</b> ${user.username}
+👤 <b>الزبون:</b> ${username}
 🛍️ <b>المنتج:</b> ${product.name}
 💰 <b>السعر بعد الخصم:</b> ${purchasePrice}$
 📉 <b>الخصم الفعلي:</b> ${effectiveDiscountPercent}%
@@ -3476,7 +3549,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
 
 
 app.get('/order/:id', checkAuth, (req, res) => {
@@ -4201,22 +4273,37 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
 
 app.post('/buy-fixed-product', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
-  const sessionUser = req.session.user;
   if (!userId) {
     return res.status(401).json({ success: false, message: "Session expired. Please log in." });
   }
 
-  const idempotency_key = (req.body.idempotency_key || req.session.idemKey || '').toString().slice(0, 64);
-  const { productId, player_id } = req.body;
+  // ✅ Idempotency key (body أو session)
+  const idempotency_key = (req.body.idempotency_key || req.session.idemKey || '')
+    .toString()
+    .slice(0, 64);
 
+  const { productId, player_id } = req.body;
   if (!productId) return res.status(400).json({ success: false, message: "Missing product ID." });
 
-  const query = (sql, params) => new Promise((resolve, reject) => {
-    db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
-  });
+  const query = (sql, params) =>
+    new Promise((resolve, reject) => {
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
+    });
+
+  // ✅ helper: refund إذا صار طلب بالمزوّد وبعدين فشل الخصم
+  async function refundProviderOrder(providerOrderId) {
+    if (!providerOrderId) return;
+    try {
+      // إذا عندك endpoint للإلغاء/الاسترجاع، عدّل المسار هنا حسب مزودك
+      // بعض المزوّدين ما بيدعموا cancel، وقتها نخليه silent
+      await dailycardAPI.post('/api-keys/orders/cancel/', { id: providerOrderId });
+    } catch (e) {
+      console.warn("⚠️ Provider refund/cancel failed (ignored):", e?.message || e);
+    }
+  }
 
   try {
-    // 0) Idempotency gate
+    // ✅ 0) Idempotency gate
     if (idempotency_key) {
       try {
         await query(
@@ -4224,11 +4311,25 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
           [userId, idempotency_key]
         );
       } catch (e) {
+        // طلب مكرر → لا تكرر الخصم ولا الطلب
         return res.json({ success: true, redirectUrl: "/processing" });
       }
     }
 
-    // 1) Fetch product (fixed)
+    // ✅ 0.5) Fresh user from DB (حتى الـ level/discount يكونوا آخر تحديث)
+    let sessionUser = null;
+    try {
+      const [[freshUser]] = await promisePool.query(
+        "SELECT * FROM users WHERE id = ? LIMIT 1",
+        [userId]
+      );
+      sessionUser = freshUser || req.session.user || null;
+      if (freshUser) req.session.user = freshUser;
+    } catch (_) {
+      sessionUser = req.session.user || null;
+    }
+
+    // ✅ 1) Fetch product (fixed only)
     const [product] = await query(
       `SELECT * FROM selected_api_products
        WHERE product_id = ?
@@ -4243,24 +4344,26 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       return res.status(400).json({ success: false, message: "Product is out of stock." });
     }
 
-    // 2) Base price (rounded to cents)
+    // ✅ 2) Base price (rounded to cents)
     const rawPrice = Number(product.custom_price || product.unit_price || 0) || 0;
     const basePrice = Math.round(rawPrice * 100) / 100;
     if (!Number.isFinite(basePrice) || basePrice <= 0) {
       return res.status(400).json({ success: false, message: "Pricing error." });
     }
 
-    // 3) Effective discount (VIP overrides level)
-    const effectiveDiscountPercent = typeof getUserEffectiveDiscount === 'function'
-      ? Number(getUserEffectiveDiscount(sessionUser) || 0)
-      : Number(sessionUser?.discount_percent || 0) || 0;
+    // ✅ 3) Effective discount (VIP overrides level)
+    const effectiveDiscountPercent =
+      typeof getUserEffectiveDiscount === "function"
+        ? Number(getUserEffectiveDiscount(sessionUser) || 0)
+        : Number(sessionUser?.discount_percent || 0) || 0;
 
-    const finalPrice = Math.round((basePrice * (100 - effectiveDiscountPercent) / 100) * 100) / 100;
+    // ✅ 4) Final price after discount (use helper to avoid drift)
+    const finalPrice = applyUserDiscount(basePrice, sessionUser); // returns 2 decimals number
     if (!Number.isFinite(finalPrice) || finalPrice <= 0) {
       return res.status(400).json({ success: false, message: "Pricing error after discount." });
     }
 
-    // 4) Player ID requirements
+    // ✅ 5) Player ID requirements
     const requiresPlayerId = Number(product.player_check) === 1;
     if (requiresPlayerId && (!player_id || player_id.trim() === "")) {
       return res.status(400).json({ success: false, message: "Missing player ID." });
@@ -4273,9 +4376,7 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       }
     }
 
-    // 5) Call provider FIRST (optional but cleaner)
-    // إذا بتحب “تخصم أول وبعدين تطلب”، فينا نعكسها.
-    // أنا فضّلت أطلب أول: إذا فشل المزود ما منلمس رصيد الزبون أصلاً.
+    // ✅ 6) Create provider order FIRST (مثل ما أنت حاب)
     const orderBody = {
       product: parseInt(productId, 10),
       ...(player_id ? { account_id: player_id } : {})
@@ -4283,7 +4384,7 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
 
     let providerOrderId = null;
     try {
-      const { data: result } = await dailycardAPI.post('/api-keys/orders/create/', orderBody);
+      const { data: result } = await dailycardAPI.post("/api-keys/orders/create/", orderBody);
       providerOrderId = result?.id || result?.data?.id || result?.order_id || null;
     } catch (e) {
       return res.status(502).json({ success: false, message: "Provider error. Please try again." });
@@ -4293,13 +4394,17 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       return res.status(500).json({ success: false, message: "Order failed at provider." });
     }
 
-    // 6) DB Transaction: debit + total_spent + order + notification + transaction log
+    // ✅ 7) DB Transaction: debit + total_spent + order + notification + transaction log
     const conn = await promisePool.getConnection();
+    let insertId = null;
+
     try {
       await conn.beginTransaction();
 
-      // خصم ذري + زيادة total_spent بعملية واحدة
-      const spentValue = finalPrice; // غيّرها لـ basePrice إذا بدك total_spent قبل الخصم
+      // ✅ خصم ذري + زيادة total_spent بعملية واحدة
+      // إذا بدك total_spent قبل الخصم، حط basePrice بدل finalPrice
+      const spentValue = finalPrice;
+
       const [updRes] = await conn.query(
         `UPDATE users
             SET balance = balance - ?,
@@ -4309,18 +4414,20 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       );
 
       if (!updRes?.affectedRows) {
+        // ما في رصيد كافي → لازم نرجع/نلغي طلب المزود (قدر الإمكان)
         await conn.rollback();
+        await refundProviderOrder(providerOrderId);
         return res.status(400).json({ success: false, message: "Insufficient balance." });
       }
 
-      // سجل معاملة الخصم
+      // ✅ سجل معاملة الخصم
       await conn.query(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'debit', ?, ?)`,
         [userId, finalPrice, `Purchase: ${product.custom_name || product.name || `API Product ${productId}`}`]
       );
 
-      // Insert order
+      // ✅ Insert order
       const orderDetails = requiresPlayerId ? `User ID: ${player_id}` : '';
       const [orderRes] = await conn.query(
         `INSERT INTO orders
@@ -4332,9 +4439,9 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
           : [userId, product.custom_name || product.name || `API Product ${productId}`, finalPrice, orderDetails, providerOrderId]
       );
 
-      const insertId = orderRes.insertId;
+      insertId = orderRes.insertId;
 
-      // Notification
+      // ✅ Notification
       await conn.query(
         `INSERT INTO notifications (user_id, message, created_at, is_read)
          VALUES (?, ?, NOW(), 0)`,
@@ -4342,54 +4449,57 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       );
 
       await conn.commit();
-
-      // Recalc level بعد الـ commit
-      try {
-        await recalcUserLevel(userId);
-      } catch (lvlErr) {
-        console.error("⚠️ recalcUserLevel error (buy-fixed):", lvlErr.message || lvlErr);
-      }
-
-      // refresh session
-      try {
-        const [[freshUser]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
-        if (freshUser) req.session.user = freshUser;
-      } catch (_) {}
-
-      // Telegram (بعد الـ commit)
-      try {
-        const [urows] = await promisePool.query('SELECT username, telegram_chat_id FROM users WHERE id = ?', [userId]);
-        const urow = urows[0];
-
-        if (urow?.telegram_chat_id) {
-          await sendTelegramMessage(
-            urow.telegram_chat_id,
-            `📥 <b>Your order has been received</b>\n\n🛍️ <b>Product:</b> ${product.custom_name || product.name || `API Product ${productId}`}\n💰 <b>Price after discount:</b> ${finalPrice.toFixed(2)}$\n📉 <b>Effective discount:</b> ${effectiveDiscountPercent}%\n📌 <b>Status:</b> Processing`,
-            process.env.TELEGRAM_BOT_TOKEN
-          );
-        }
-
-        if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
-          await sendTelegramMessage(
-            process.env.ADMIN_TELEGRAM_CHAT_ID,
-            `🆕 New Fixed Product Order!\n👤 User: ${urow?.username}\n🎁 Product: ${product.custom_name || product.name || `API Product ${productId}`}\n💰 Price after discount: ${finalPrice.toFixed(2)}$\n📉 Effective discount: ${effectiveDiscountPercent}%\n🕓 Time: ${new Date().toLocaleString('en-US', { hour12: false })}`,
-            process.env.TELEGRAM_BOT_TOKEN
-          );
-        }
-      } catch (e) {
-        console.warn('⚠️ Telegram error (buy-fixed):', e.message || e);
-      }
-
-      req.session.pendingOrderId = insertId;
-      return res.json({ success: true, redirectUrl: "/processing" });
-
     } catch (e) {
       try { await conn.rollback(); } catch (_) {}
+
+      // لو فشل الـ DB بعد ما عملنا order عند المزود → حاول نرجع/نلغي
+      await refundProviderOrder(providerOrderId);
+
       console.error("❌ buy-fixed tx error:", e);
       return res.status(500).json({ success: false, message: "Transaction failed." });
     } finally {
       conn.release();
     }
+
+    // ✅ 8) Recalc level بعد الـ commit
+    try {
+      await recalcUserLevel(userId);
+    } catch (lvlErr) {
+      console.error("⚠️ recalcUserLevel error (buy-fixed):", lvlErr.message || lvlErr);
+    }
+
+    // ✅ 9) Refresh session from DB (حتى اللفل/الرصيد يتحدثوا فوراً بالواجهة)
+    try {
+      const [[freshUserAfter]] = await promisePool.query("SELECT * FROM users WHERE id = ? LIMIT 1", [userId]);
+      if (freshUserAfter) req.session.user = freshUserAfter;
+    } catch (_) {}
+
+    // ✅ 10) Telegram (بعد الـ commit)
+    try {
+      const [urows] = await promisePool.query("SELECT username, telegram_chat_id FROM users WHERE id = ?", [userId]);
+      const urow = urows[0];
+
+      if (urow?.telegram_chat_id) {
+        await sendTelegramMessage(
+          urow.telegram_chat_id,
+          `📥 <b>Your order has been received</b>\n\n🛍️ <b>Product:</b> ${product.custom_name || product.name || `API Product ${productId}`}\n💰 <b>Price after discount:</b> ${finalPrice.toFixed(2)}$\n📉 <b>Effective discount:</b> ${Number(effectiveDiscountPercent).toFixed(0)}%\n📌 <b>Status:</b> Processing`,
+          process.env.TELEGRAM_BOT_TOKEN
+        );
+      }
+
+      if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
+        await sendTelegramMessage(
+          process.env.ADMIN_TELEGRAM_CHAT_ID,
+          `🆕 New Fixed Product Order!\n👤 User: ${urow?.username}\n🎁 Product: ${product.custom_name || product.name || `API Product ${productId}`}\n💰 Price after discount: ${finalPrice.toFixed(2)}$\n📉 Effective discount: ${Number(effectiveDiscountPercent).toFixed(0)}%\n🕓 Time: ${new Date().toLocaleString('en-US', { hour12: false })}`,
+          process.env.TELEGRAM_BOT_TOKEN
+        );
+      }
+    } catch (e) {
+      console.warn("⚠️ Telegram error (buy-fixed):", e.message || e);
+    }
+
+    req.session.pendingOrderId = insertId;
+    return res.json({ success: true, redirectUrl: "/processing" });
 
   } catch (err) {
     const rawErr = err?.response?.data || err.message || err;

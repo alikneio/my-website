@@ -25,6 +25,22 @@
 
   <%- include('partials/header') %>
 
+  <%
+    // ✅ السعر بعد الخصم (المفروض جاي من السيرفر)
+    const unitPriceFinal = Number(product.unit_price || 0);
+
+    // ✅ السعر الأصلي قبل الخصم (لو السيرفر مرّره)
+    const unitPriceOriginal = Number(product.original_unit_price || 0);
+
+    const disc = Number(product.effective_discount || effectiveDiscount || 0);
+
+    const hasDiscount =
+      disc > 0 &&
+      Number.isFinite(unitPriceFinal) && unitPriceFinal > 0 &&
+      Number.isFinite(unitPriceOriginal) && unitPriceOriginal > 0 &&
+      unitPriceFinal < unitPriceOriginal;
+  %>
+
   <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5 mx-auto px-2">
 
     <div class="container py-4">
@@ -49,13 +65,23 @@
           </div>
 
           <div class="alert alert-light border small text-center">
-            <div>
-              <span class="text-success fw-bold fs-5">
-                $<%= parseFloat(product.unit_price || 0).toFixed(2) %>
-              </span>
-              <span class="text-secondary"> per </span>
-              <span class="fw-bold"><%= product.unit_quantity || 1 %> <%= product.unit_label || 'units' %></span>
+            <div class="d-flex flex-column align-items-center">
+              <% if (hasDiscount) { %>
+                <div class="text-muted small mb-1">
+                  <span class="text-decoration-line-through">$<%= unitPriceOriginal.toFixed(2) %></span>
+                  <span class="badge bg-success ms-2"><%= disc.toFixed(0) %>% OFF</span>
+                </div>
+              <% } %>
+
+              <div>
+                <span class="text-success fw-bold fs-5">
+                  $<%= (Number.isFinite(unitPriceFinal) ? unitPriceFinal : 0).toFixed(2) %>
+                </span>
+                <span class="text-secondary"> per </span>
+                <span class="fw-bold"><%= product.unit_quantity || 1 %> <%= product.unit_label || 'units' %></span>
+              </div>
             </div>
+
             <% if (product.min_quantity && product.max_quantity) { %>
               <div class="text-muted mt-1">
                 Min: <strong><%= product.min_quantity %></strong> | Max: <strong><%= product.max_quantity %></strong>
@@ -87,7 +113,7 @@
 <% } %>
 
           <%
-            // حسابات أوليّة للحد الأدنى والتفعيل المبدئي (منطق كما هو)
+            // نفس منطقك، بس هون unit_price صار مخصوم (لأننا عدلنا الراوت)
             const _userBalance = user && typeof user.balance !== 'undefined' ? Number(user.balance) : 0;
             const _unitPrice = Number(product.unit_price || 0) || 0;
             const _unitQty   = parseInt(product.unit_quantity || 1, 10) || 1;
@@ -96,9 +122,12 @@
             const _canVerifyInit = _userBalance >= _minCost;
           %>
 
-          <form method="POST" action="/buy-quantity-product">
+          <form method="POST" action="/buy-quantity-product" onsubmit="beforeSubmit()">
             <input type="hidden" name="productId" value="<%= product.id %>">
             <input type="hidden" name="player_id" id="hiddenPlayerId">
+
+            <!-- ✅ مهم جداً: idempotency_key -->
+            <input type="hidden" name="idempotency_key" value="<%= (typeof idemKey !== 'undefined' ? idemKey : '') %>">
 
             <div class="mb-3">
               <label class="form-label">Enter quantity</label>
@@ -119,37 +148,34 @@
             </div>
 
             <% if (product.requires_verification) { %>
-<div class="mb-3">
-  <label class="form-label fw-semibold">Player ID</label>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Player ID</label>
 
-  <div class="row g-2">
-    <div class="col-8 col-sm-9">
-      <input type="text"
-             class="form-control"
-             id="playerIdInput"
-             placeholder="Enter Player ID"
-             required
-             style="height: 42px;">
-    </div>
-    <div class="col-4 col-sm-3">
-      <button type="button"
-              id="btnVerify"
-              class="btn btn-outline-primary w-100"
-              onclick="verifyPlayer()"
-              style="height: 42px;"
-              <%= _canVerifyInit ? '' : 'disabled' %>
-              title="<%= _canVerifyInit ? '' : ('Requires balance ≥ $' + _minCost.toFixed(2)) %>">
-        Verify
-      </button>
-    </div>
-  </div>
+                <div class="row g-2">
+                  <div class="col-8 col-sm-9">
+                    <input type="text"
+                           class="form-control"
+                           id="playerIdInput"
+                           placeholder="Enter Player ID"
+                           required
+                           style="height: 42px;">
+                  </div>
+                  <div class="col-4 col-sm-3">
+                    <button type="button"
+                            id="btnVerify"
+                            class="btn btn-outline-primary w-100"
+                            onclick="verifyPlayer()"
+                            style="height: 42px;"
+                            <%= _canVerifyInit ? '' : 'disabled' %>
+                            title="<%= _canVerifyInit ? '' : ('Requires balance ≥ $' + _minCost.toFixed(2)) %>">
+                      Verify
+                    </button>
+                  </div>
+                </div>
 
-  <!-- أزلنا المربع الأصفر نهائياً، وخلّينا مُلمّح بسيط محايد -->
-  <div id="verifyHint" class="mt-2 small text-muted"></div>
-
-  <div id="verifyResult" class="mt-2 small text-muted"></div>
-</div>
-
+                <div id="verifyHint" class="mt-2 small text-muted"></div>
+                <div id="verifyResult" class="mt-2 small text-muted"></div>
+              </div>
             <% } else { %>
               <div class="mb-3 text-start">
                 <label class="form-label">Player ID</label>
@@ -157,7 +183,7 @@
               </div>
             <% } %>
 
-            <button type="submit" class="btn btn-success w-100 mt-3" onclick="beforeSubmit()">
+            <button type="submit" class="btn btn-success w-100 mt-3">
               Buy Now
             </button>
           </form>
@@ -197,7 +223,7 @@
     function updateVerifyState(currentTotal) {
       const btn = document.getElementById('btnVerify');
       const hint = document.getElementById('verifyHint');
-      if (!btn) return; // لا يوجد تحقق مطلوب
+      if (!btn) return;
 
       const userBalance = parseFloat(document.getElementById('productData').dataset.userBalance || 0) || 0;
 
@@ -208,14 +234,13 @@
         btn.disabled = true;
         if (hint) {
           hint.classList.add('small');
-          // بدون أي ستايل alert أصفر
           hint.innerHTML = "To verify player ID, your balance must be ≥ $" + (isFinite(currentTotal) ? currentTotal.toFixed(2) : '0.00');
         }
       }
     }
 
-    qtyInput.addEventListener('input', calculateTotal);
     window.addEventListener('DOMContentLoaded', calculateTotal);
+    qtyInput.addEventListener('input', calculateTotal);
 
     function beforeSubmit() {
       const playerIdField = document.getElementById('playerIdInput');
@@ -243,7 +268,6 @@
         return;
       }
 
-      // حارس رصيد قبل الإرسال (منطق كما هو)
       if (userBalance < required) {
         resultBox.innerHTML = "<span class='text-warning'>Balance too low to verify (requires ≥ $" + (isFinite(required) ? required.toFixed(2) : '0.00') + ").</span>";
         if (btn) btn.disabled = true;
