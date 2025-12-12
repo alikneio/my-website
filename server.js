@@ -89,7 +89,6 @@ async function recalcUserLevel(userId) {
     );
 
     const spent = Number(row?.total_spent || 0);
-
     let level = 1;
 
     if (spent >= 100 && spent < 300) level = 2;
@@ -97,7 +96,7 @@ async function recalcUserLevel(userId) {
     else if (spent >= 700 && spent < 1500) level = 4;
     else if (spent >= 1500) level = 5;
 
-    // ✅ نحدّث level فقط (ما نلمس discount_percent)
+    // ✅ نحدّث level فقط (ما نلمس discount_percent نهائياً)
     await promisePool.query(
       "UPDATE users SET level = ? WHERE id = ?",
       [level, userId]
@@ -110,20 +109,70 @@ async function recalcUserLevel(userId) {
   }
 }
 
+// ❷ احسب الخصم الفعلي للمستخدم (VIP + Level بنفس الوقت)
+function getUserEffectiveDiscount(user) {
+  if (!user) return 0;
 
-// دالة مساعدة لتطبيق خصم التاجر على أي سعر
+  // (A) أولوية 1: خصم يدوي VIP محفوظ في users.discount_percent
+  const manual = Number(user.discount_percent || 0);
+  if (Number.isFinite(manual) && manual > 0) {
+    return manual;
+  }
+
+  // (B) أولوية 2: خصم حسب LEVEL
+  const level = Number(user.level || 1);
+  let levelDiscount = 0;
+
+  // عدّل الأرقام حسب النظام اللي بدك ياه
+  if (level === 2) levelDiscount = 2;
+  else if (level === 3) levelDiscount = 4;
+  else if (level === 4) levelDiscount = 6;
+  else if (level >= 5) levelDiscount = 8; // مثال: لفل 5 وما فوق 8%
+
+  return levelDiscount;
+}
+
+// ❸ دالة مساعدة لتطبيق خصم المستخدم على سعر واحد (تستعمل في /buy و غيره)
 function applyUserDiscount(rawPrice, user) {
   const price = Number(rawPrice || 0);
   if (!Number.isFinite(price) || price <= 0) return 0;
 
-  const discount = Number(user?.discount_percent || 0);
-  if (!discount || discount <= 0) return Number(price.toFixed(2));
+  const discount = getUserEffectiveDiscount(user);
+  if (!discount || discount <= 0) {
+    return Number(price.toFixed(2));
+  }
 
   const discounted = price - (price * (discount / 100));
   return Number(discounted.toFixed(2));
 }
 
+// ❹ تطبيق الخصم على List من الـ products (تُستخدم في صفحات المنتجات)
+function applyUserDiscountToProducts(products, user) {
+  const disc = getUserEffectiveDiscount(user);
 
+  // ما في خصم فعلي → رجّع المنتجات متل ما هي
+  if (!disc || disc <= 0) return products;
+
+  return products.map(p => {
+    const base = Number(
+      p.price ??
+      p.unit_price ??
+      p.custom_price ??
+      0
+    );
+
+    if (!Number.isFinite(base) || base <= 0) return p;
+
+    const final = Number((base * (100 - disc) / 100).toFixed(2));
+
+    // بنخزن شوي معلومات إضافية احتياطاً
+    p.original_price = base;        // السعر الأصلي
+    p.effective_discount = disc;    // الخصم المستخدم
+    p.price = final;                // 🔥 السعر بعد الخصم (هو اللي الواجهة عم تعرضه)
+
+    return p;
+  });
+}
 
 
 
@@ -219,6 +268,8 @@ function withTimeout(promise, ms = 4000) {
 
 
 
+
+
 // Middlewares
 const checkAuth = (req, res, next) => {
     if (req.session.user) next();
@@ -309,17 +360,6 @@ function getUserEffectiveDiscount(user) {
   return 0;
 }
 
-
-function applyUserDiscount(rawPrice, user) {
-  const price = Number(rawPrice || 0);
-  if (!Number.isFinite(price) || price <= 0) return 0;
-
-  const discount = getUserEffectiveDiscount(user);
-  if (!discount || discount <= 0) return Number(price.toFixed(2));
-
-  const discounted = price * (100 - discount) / 100;
-  return Number(discounted.toFixed(2));
-}
 
 
 
