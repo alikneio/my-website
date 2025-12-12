@@ -27,17 +27,18 @@
     font-size: 0.75rem;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
+    white-space: nowrap;
   }
   .ak-pill-level {
     background: #facc15;
     color: #1f2937;
-    font-weight: 600;
+    font-weight: 700;
   }
   .ak-pill-discount {
     background: #22c55e;
     color: #022c22;
-    font-weight: 600;
+    font-weight: 800;
   }
   .ak-menu-link {
     border-radius: 10px;
@@ -60,6 +61,15 @@
   .ak-divider {
     border-top: 1px solid rgba(148, 163, 184, 0.4);
     margin: 12px 0;
+  }
+  .ak-mini-tag {
+    font-size: .7rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(2,44,34,.25);
+    background: rgba(255,255,255,.35);
+    color: #052e16;
   }
 </style>
 
@@ -95,9 +105,17 @@
     <% if (user) { %>
       <%
         const userBalance    = Number(user.balance || 0);
-        const userLevel      = user.level || 1;
+        const userLevel      = Number(user.level || 1);
         const userDiscount   = Number(user.discount_percent || 0);
         const userTotalSpent = Number(user.total_spent || 0);
+
+        // ✅ Auto discount by level (حسب النظام الجديد)
+        const levelDiscountMap = { 1: 0, 2: 3, 3: 5, 4: 7, 5: 11 };
+        const autoDiscount = (levelDiscountMap[userLevel] ?? 0);
+
+        // ✅ Effective discount: manual wins, otherwise auto
+        const effectiveDiscount = (userDiscount > 0) ? userDiscount : autoDiscount;
+        const discountMode = (userDiscount > 0) ? 'Manual' : 'Auto';
       %>
 
       <!-- User card -->
@@ -123,9 +141,11 @@
             <i class="bi bi-arrow-up-circle"></i>
             Level <%= userLevel %>
           </span>
+
           <span class="ak-pill ak-pill-discount">
             <i class="bi bi-percent"></i>
-            <%= userDiscount.toFixed(0) %>% Discount
+            <%= Number(effectiveDiscount).toFixed(0) %>% Discount
+            <span class="ak-mini-tag"><%= discountMode %></span>
           </span>
         </div>
 
@@ -217,7 +237,6 @@
     const badge = document.getElementById("notifBadge-" + uid);
     const icon  = document.getElementById("notifIcon-" + uid);
 
-    // لو العناصر مش موجودة ما منعمل شي (حتى ما يصير errors)
     if (!badge || !icon) return;
 
     let timer = null;
@@ -227,7 +246,6 @@
         const res = await fetch('/notifications/count', { headers: { 'Accept': 'application/json' } });
 
         if (!res.ok) {
-          // 401/403/500... لا تكسر الصفحة
           badge.style.display = 'none';
           icon.classList.remove('text-warning');
           return;
@@ -252,13 +270,11 @@
       }
     }
 
-    // أول تحميل
     document.addEventListener("DOMContentLoaded", () => {
       fetchNotificationsCount();
       timer = setInterval(fetchNotificationsCount, 30000);
     });
 
-    // تنظيف (اختياري)
     window.addEventListener("beforeunload", () => {
       if (timer) clearInterval(timer);
     });
