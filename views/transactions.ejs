@@ -1,64 +1,257 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Transaction History</title>
+  <meta charset="UTF-8" />
+  <title>Transactions - AK Cell</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
-<link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    th, td {
-      vertical-align: middle;
+    body { background: #f6f7fb; }
+    .page-title { font-weight: 800; letter-spacing: .2px; }
+    .card-soft {
+      border: 0;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.08);
     }
-    @media (max-width: 576px) {
-      h3 {
-        font-size: 1.2rem;
-      }
+    .stat-pill {
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: .85rem;
+      background: #f1f5f9;
+      border: 1px solid rgba(148,163,184,.35);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
+    .table thead th { white-space: nowrap; }
+    .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .badge-soft {
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-weight: 700;
+      font-size: .78rem;
+      border: 1px solid transparent;
+    }
+    .badge-debit { background: rgba(239,68,68,.12); color: #b91c1c; border-color: rgba(239,68,68,.25); }
+    .badge-credit { background: rgba(34,197,94,.12); color: #166534; border-color: rgba(34,197,94,.25); }
+    .badge-refund { background: rgba(14,165,233,.12); color: #075985; border-color: rgba(14,165,233,.25); }
+    .badge-other { background: rgba(148,163,184,.18); color: #0f172a; border-color: rgba(148,163,184,.35); }
+
+    .search-input { border-radius: 12px; }
+    .filter-select { border-radius: 12px; }
+    .btn-round { border-radius: 12px; }
   </style>
 </head>
 
 <body class="bg-light">
   <%- include('partials/header') %>
 
-  <div class="container-fluid px-3 px-md-5 mt-4">
-    <h3 class="mb-3"><i class="bi bi-list-ol text-primary"></i> Transaction History</h3>
+  <div class="container py-4 py-md-5">
 
-    <% if (transactions.length === 0) { %>
-      <div class="alert alert-info">No transactions yet.</div>
-    <% } else { %>
-      <div class="table-responsive">
-        <table class="table table-bordered table-striped">
-          <thead class="table-light">
-            <tr>
-              <th class="text-nowrap">Type</th>
-              <th class="text-nowrap">Amount</th>
-              <th class="text-nowrap">Reason</th>
-              <th class="text-nowrap">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% transactions.forEach(tx => { %>
-              <tr>
-                <td>
-                  <span class="badge <%= tx.type === 'debit' ? 'bg-danger' : 'bg-success' %>">
-                    <%= tx.type === 'debit' ? 'Deduction' : 'Refund' %>
-                  </span>
-                </td>
-                <td>$<%= tx.amount %></td>
-                <td><%= tx.reason %></td>
-                <td><%= new Date(tx.date).toLocaleString('en-US') %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
+    <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-3">
+      <div>
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-cash-coin fs-3 text-primary"></i>
+          <h2 class="page-title mb-0">Transactions</h2>
+        </div>
+        <div class="text-muted small mt-1">
+          Track your balance movements (debits, credits, refunds).
+        </div>
       </div>
-    <% } %>
 
-    <a href="/" class="btn btn-secondary mt-3">Back to Home</a>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="stat-pill">
+          <i class="bi bi-wallet2 text-success"></i>
+          Balance:
+          <strong class="mono">$<%= Number(user?.balance || 0).toFixed(2) %></strong>
+        </span>
+
+        <span class="stat-pill">
+          <i class="bi bi-graph-up-arrow text-dark"></i>
+          Total Spent:
+          <strong class="mono">$<%= Number(user?.total_spent || 0).toFixed(2) %></strong>
+        </span>
+
+        <span class="stat-pill">
+          <i class="bi bi-stars text-warning"></i>
+          Level:
+          <strong class="mono"><%= user?.level || 1 %></strong>
+        </span>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card card-soft mb-3">
+      <div class="card-body">
+        <form method="GET" action="/transactions" class="row g-2 align-items-end">
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-semibold mb-1">Search</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input
+                type="text"
+                name="q"
+                value="<%= filters?.q || '' %>"
+                class="form-control search-input"
+                placeholder="Search by reason, product, refund..."
+                maxlength="60"
+              />
+            </div>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-semibold mb-1">Type</label>
+            <select name="type" class="form-select filter-select">
+              <option value="" <%= (!filters?.type ? 'selected' : '') %>>All</option>
+              <option value="debit"  <%= (filters?.type === 'debit'  ? 'selected' : '') %>>Debit</option>
+              <option value="credit" <%= (filters?.type === 'credit' ? 'selected' : '') %>>Credit</option>
+              <option value="refund" <%= (filters?.type === 'refund' ? 'selected' : '') %>>Refund</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-2">
+            <label class="form-label fw-semibold mb-1">Per page</label>
+            <select name="limit" class="form-select filter-select">
+              <% [10,20,50,100].forEach(n => { %>
+                <option value="<%= n %>" <%= (Number(pagination?.limit || 20) === n ? 'selected' : '') %>><%= n %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-2 d-grid">
+            <button type="submit" class="btn btn-primary btn-round">
+              <i class="bi bi-funnel me-1"></i> Apply
+            </button>
+          </div>
+
+          <div class="col-12 d-flex justify-content-between align-items-center mt-2">
+            <div class="text-muted small">
+              Showing <strong><%= pagination?.showingFrom || 0 %></strong>–<strong><%= pagination?.showingTo || 0 %></strong>
+              of <strong><%= pagination?.total || 0 %></strong>
+            </div>
+            <a class="btn btn-outline-secondary btn-sm btn-round" href="/transactions">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card card-soft">
+      <div class="card-body">
+
+        <% if (!transactions || transactions.length === 0) { %>
+          <div class="alert alert-info mb-0 d-flex align-items-center gap-2">
+            <i class="bi bi-info-circle"></i>
+            <div>No transactions found.</div>
+          </div>
+        <% } else { %>
+
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 110px;">Type</th>
+                  <th style="width: 140px;">Amount</th>
+                  <th>Reason</th>
+                  <th style="width: 220px;">Date</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <% transactions.forEach(tx => { 
+                  const t = String(tx.type || '').toLowerCase();
+                  const amount = Number(tx.amount || 0);
+                  const isRefund = t === 'refund' || (String(tx.reason || '').toLowerCase().includes('refund'));
+                  let badgeClass = 'badge-other';
+                  let label = t || 'other';
+
+                  if (t === 'debit') { badgeClass = 'badge-debit'; label = 'DEBIT'; }
+                  else if (t === 'credit') { badgeClass = 'badge-credit'; label = 'CREDIT'; }
+                  else if (isRefund) { badgeClass = 'badge-refund'; label = 'REFUND'; }
+
+                  const sign = (t === 'debit') ? '-' : '+';
+                  const dateVal = tx.created_at || tx.date || tx.createdAt || null;
+                %>
+
+                  <tr>
+                    <td>
+                      <span class="badge-soft <%= badgeClass %>">
+                        <i class="bi <%= (t==='debit'?'bi-arrow-down-circle': (isRefund?'bi-arrow-repeat':'bi-arrow-up-circle')) %> me-1"></i>
+                        <%= label %>
+                      </span>
+                    </td>
+
+                    <td class="mono fw-bold <%= (t === 'debit') ? 'text-danger' : 'text-success' %>">
+                      <%= sign %>$<%= amount.toFixed(2) %>
+                    </td>
+
+                    <td>
+                      <div class="fw-semibold"><%= tx.reason || '-' %></div>
+                      <% if (tx.id) { %>
+                        <div class="text-muted small">TX# <span class="mono"><%= tx.id %></span></div>
+                      <% } %>
+                    </td>
+
+                    <td class="text-muted">
+                      <% if (dateVal) { %>
+                        <span class="mono"><%= new Date(dateVal).toLocaleString('en-US', { hour12: false }) %></span>
+                      <% } else { %>
+                        -
+                      <% } %>
+                    </td>
+                  </tr>
+
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3">
+            <div class="text-muted small">
+              Page <strong><%= pagination.page %></strong> of <strong><%= pagination.totalPages %></strong>
+            </div>
+
+            <nav aria-label="Transactions pagination">
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item <%= pagination.page <= 1 ? 'disabled' : '' %>">
+                  <a class="page-link" href="<%= pagination.links.prev %>">Prev</a>
+                </li>
+
+                <% pagination.pageNumbers.forEach(p => { %>
+                  <li class="page-item <%= (p === pagination.page ? 'active' : '') %> <%= (p === '...' ? 'disabled' : '') %>">
+                    <% if (p === '...') { %>
+                      <span class="page-link">…</span>
+                    <% } else { %>
+                      <a class="page-link" href="<%= pagination.links.page(p) %>"><%= p %></a>
+                    <% } %>
+                  </li>
+                <% }) %>
+
+                <li class="page-item <%= pagination.page >= pagination.totalPages ? 'disabled' : '' %>">
+                  <a class="page-link" href="<%= pagination.links.next %>">Next</a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+
+        <% } %>
+
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <a href="/" class="btn btn-outline-secondary btn-round">
+        <i class="bi bi-arrow-left me-1"></i> Back to Home
+      </a>
+    </div>
+
   </div>
 
   <%- include('partials/footer') %>

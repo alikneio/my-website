@@ -387,6 +387,130 @@ app.get('/', (req, res) => {
   }
 });
 
+app.get('/transactions', checkAuth, async (req, res) => {
+  const userId = req.session.user?.id;
+  if (!userId) return res.redirect('/login?error=session');
+
+  // inputs
+  const q = (req.query.q || '').toString().trim().slice(0, 60);
+  const type = (req.query.type || '').toString().trim().toLowerCase();
+  const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10) || 20, 10), 100);
+  const offset = (page - 1) * limit;
+
+  // build WHERE
+  const where = [`user_id = ?`];
+  const params = [userId];
+
+  if (type && ['debit', 'credit', 'refund'].includes(type)) {
+    // لو جدولك ما عنده refund كـ type، رح يضل يشتغل لأن refund غالبًا موجود بالـ reason.
+    // لكن إذا بتحب refund يعتمد على reason بدل type:
+    if (type === 'refund') {
+      where.push(`(LOWER(type) = 'refund' OR LOWER(reason) LIKE '%refund%')`);
+    } else {
+      where.push(`LOWER(type) = ?`);
+      params.push(type);
+    }
+  }
+
+  if (q) {
+    where.push(`(LOWER(reason) LIKE ? )`);
+    params.push(`%${q.toLowerCase()}%`);
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  // date column compatibility: created_at OR date
+  // COALESCE(created_at, date) يعطيك تاريخ واحد حتى لو عمودك اسمه date
+  const dateExpr = `COALESCE(created_at, date)`;
+
+  try {
+    // count
+    const [countRows] = await promisePool.query(
+      `SELECT COUNT(*) AS c FROM transactions ${whereSql}`,
+      params
+    );
+    const total = Number(countRows?.[0]?.c || 0);
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, totalPages);
+    const safeOffset = (safePage - 1) * limit;
+
+    // rows
+    const [rows] = await promisePool.query(
+      `
+      SELECT
+        id,
+        type,
+        amount,
+        reason,
+        ${dateExpr} AS created_at
+      FROM transactions
+      ${whereSql}
+      ORDER BY ${dateExpr} DESC
+      LIMIT ? OFFSET ?
+      `,
+      [...params, limit, safeOffset]
+    );
+
+    // pagination helpers
+    const buildUrl = (p) => {
+      const usp = new URLSearchParams();
+      if (q) usp.set('q', q);
+      if (type) usp.set('type', type);
+      if (limit) usp.set('limit', String(limit));
+      usp.set('page', String(p));
+      return `/transactions?${usp.toString()}`;
+    };
+
+    // page numbers (compact)
+    const pageNumbers = [];
+    const add = (v) => pageNumbers.push(v);
+
+    const maxBtns = 7;
+    if (totalPages <= maxBtns) {
+      for (let i = 1; i <= totalPages; i++) add(i);
+    } else {
+      add(1);
+      const left = Math.max(2, safePage - 1);
+      const right = Math.min(totalPages - 1, safePage + 1);
+
+      if (left > 2) add('...');
+      for (let i = left; i <= right; i++) add(i);
+      if (right < totalPages - 1) add('...');
+      add(totalPages);
+    }
+
+    const showingFrom = total === 0 ? 0 : safeOffset + 1;
+    const showingTo = Math.min(safeOffset + limit, total);
+
+    return res.render('transactions', {
+      user: req.session.user || null,
+      transactions: rows || [],
+      filters: { q, type },
+      pagination: {
+        page: safePage,
+        limit,
+        total,
+        totalPages,
+        showingFrom,
+        showingTo,
+        pageNumbers,
+        links: {
+          prev: buildUrl(Math.max(1, safePage - 1)),
+          next: buildUrl(Math.min(totalPages, safePage + 1)),
+          page: (p) => buildUrl(p),
+        }
+      }
+    });
+
+  } catch (err) {
+    console.error('❌ GET /transactions error:', err.message || err);
+    return res.status(500).send('Server error');
+  }
+});
+
+
 
 app.get('/test', (req, res) => {
   res.send("Test is working ✅");
