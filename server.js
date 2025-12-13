@@ -857,190 +857,209 @@ app.get('/processing', checkAuth, (req, res) => {
 
 // --- صفحات المنتجات (ديناميكية) ---
 app.get('/netflixH-section', (req, res) => {
-    const user = req.session.user || null;
+  const user = req.session.user || null;
 
-    const sql = "SELECT * FROM products WHERE sub_category = 'Netflix High Quality'";
-    db.query(sql, [], (err, products) => {
-        if (err) throw err;
+  const sql = `
+    SELECT *
+    FROM products
+    WHERE sub_category = 'Netflix High Quality'
+    ORDER BY sort_order ASC, id ASC
+  `;
 
-        const finalProducts = applyUserDiscountToProducts(products, user);
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error('❌ Netflix HQ fetch error:', err.message || err);
+      return res.status(500).send('Server error');
+    }
 
-        res.render('netflixH-section', {
-            user: user,
-            products: finalProducts
-        });
+    // ⛔ ما نغير منطق الخصم
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('netflixH-section', {
+      user,
+      products: finalProducts
     });
+  });
 });
 
 
 app.get('/windows-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE sub_category = 'Windows key'";
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Windows key'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (windows-section):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('windows-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('windows-section', { user, products: finalProducts });
   });
 });
 
 app.get('/office-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE sub_category = 'Microsoft office keys'";
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Microsoft office keys'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (office-section):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('office-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('office-section', { user, products: finalProducts });
   });
 });
 
 app.get('/cyberghost', (req, res) => {
-  const sql = "SELECT * FROM products WHERE sub_category = 'Cyber Ghost'";
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Cyber Ghost'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (cyberghost):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('cyberghost', {
-      user,
-      products: finalProducts
-    });
+    res.render('cyberghost', { user, products: finalProducts });
   });
 });
 
 app.get('/spotifyN-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE sub_category = 'Spotify Normal Quality'";
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Spotify Normal Quality'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (spotifyN-section):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('spotifyN-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('spotifyN-section', { user, products: finalProducts });
   });
 });
 
 app.get('/spotifyH-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE sub_category = 'Spotify High Quality'";
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Spotify High Quality'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (spotifyH-section):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('spotifyH-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('spotifyH-section', { user, products: finalProducts });
   });
 });
 
 app.get('/netflixL-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE sub_category = 'Netflix Normal Quality'";
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Netflix Normal Quality'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (netflixL-section):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    // ✅ تصحيح اسم الـ view
-    res.render('netflixL-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('netflixL-section', { user, products: finalProducts });
   });
 });
 
 app.get('/iptv-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE sub_category = 'IPTV'";
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'IPTV'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (iptv-section):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('iptv-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('iptv-section', { user, products: finalProducts });
   });
 });
 
 app.get('/touch-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Communication' AND sub_category = 'Touch'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Communication' AND sub_category = 'Touch'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (touch-section):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('touch-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('touch-section', { user, products: finalProducts });
   });
 });
 
 app.get('/alfa-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Communication' AND sub_category = 'Alfa'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Communication' AND sub_category = 'Alfa'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (alfa-section):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('alfa-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('alfa-section', { user, products: finalProducts });
   });
 });
 
 app.get('/u-share', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Communication' AND sub_category = 'Alfa U-share'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Communication' AND sub_category = 'Alfa U-share'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("Database error:", err);
+      console.error("❌ Database error (u-share):", err.message || err);
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('u-share', {
-      user,
-      products: finalProducts
-    });
+    res.render('u-share', { user, products: finalProducts });
   });
 });
 
