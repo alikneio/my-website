@@ -3725,25 +3725,89 @@ app.get('/admin', checkAdmin, (req, res) => {
 
 
 app.get('/admin/products', checkAdmin, (req, res) => {
-    const sql = `SELECT * FROM products ORDER BY main_category, sub_category`;
-    db.query(sql, [], (err, products) => {
-        if (err) throw err;
-        res.render('admin-products', { user: req.session.user, products: products });
-    });
+  const sql = `
+    SELECT *
+    FROM products
+    ORDER BY main_category, sub_category, sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Error fetching products:", err.message);
+      return res.status(500).send("Server error");
+    }
+    res.render('admin-products', { user: req.session.user, products });
+  });
 });
+
+app.post('/admin/products/reorder', checkAdmin, async (req, res) => {
+  const { productId, direction } = req.body; // 'up' | 'down'
+
+  if (!productId || !['up', 'down'].includes(direction)) {
+    return res.status(400).json({ success: false, message: 'Invalid request' });
+  }
+
+  const conn = await promisePool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [[p]] = await conn.query(
+      `SELECT id, main_category, sub_category, sort_order
+       FROM products WHERE id = ? LIMIT 1`,
+      [productId]
+    );
+
+    if (!p) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    const op = direction === 'up' ? '<' : '>';
+    const ord = direction === 'up' ? 'DESC' : 'ASC';
+
+    const [[neighbor]] = await conn.query(
+      `SELECT id, sort_order
+       FROM products
+       WHERE main_category = ? AND sub_category = ?
+         AND sort_order ${op} ?
+       ORDER BY sort_order ${ord}
+       LIMIT 1`,
+      [p.main_category, p.sub_category, p.sort_order]
+    );
+
+    if (!neighbor) {
+      await conn.rollback();
+      return res.json({ success: true }); // ما في جار فوق/تحت
+    }
+
+    await conn.query(`UPDATE products SET sort_order = ? WHERE id = ?`, [neighbor.sort_order, p.id]);
+    await conn.query(`UPDATE products SET sort_order = ? WHERE id = ?`, [p.sort_order, neighbor.id]);
+
+    await conn.commit();
+    return res.json({ success: true });
+  } catch (err) {
+    try { await conn.rollback(); } catch (_) {}
+    console.error('❌ reorder error:', err.message || err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    conn.release();
+  }
+});
+
+
 
 
 app.post('/admin/products/update/:id', checkAdmin, (req, res) => {
     const productId = req.params.id;
     // ✅ استقبال القيم من الفورم
-    const { name, price, main_category, sub_category, image } = req.body;
+    const { name, price, main_category, sub_category, image, sort_order } = req.body;
     const is_out_of_stock = req.body.is_out_of_stock ? 1 : 0; // ✅ Checkbox
 
     const sql = `
-        UPDATE products 
-        SET name = ?, price = ?, main_category = ?, sub_category = ?, image = ?, is_out_of_stock = ?
-        WHERE id = ?
-    `;
+  UPDATE products
+  SET name = ?, price = ?, main_category = ?, sub_category = ?, image = ?, is_out_of_stock = ?, sort_order = ?
+  WHERE id = ?
+`;
+
 
     // ✅ تمرير القيم بالترتيب الصحيح
     db.query(sql, [name, price, main_category, sub_category, image, is_out_of_stock, productId], (err, result) => {

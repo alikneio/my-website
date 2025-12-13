@@ -1,95 +1,245 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Products</title>
-    <link rel="stylesheet" href="/css/bootstrap.css">
-    <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+  <meta charset="UTF-8">
+  <title>Manage Products - AK Cell</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+
+  <style>
+    body { background:#f6f7fb; }
+    .page-title { font-weight: 900; letter-spacing:.2px; }
+    .card-soft {
+      border:0; border-radius:16px;
+      box-shadow:0 10px 30px rgba(15,23,42,.08);
+    }
+    .group-header {
+      background:#111827;
+      color:#fff;
+      font-weight:800;
+      font-size:.9rem;
+      letter-spacing:.3px;
+    }
+    .sub-header {
+      background:#e5e7eb;
+      font-weight:700;
+      font-size:.85rem;
+      color:#111827;
+    }
+    .table td, .table th { vertical-align: middle; }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .btn-round { border-radius:12px; }
+    .order-btn {
+      width:32px;height:32px;
+      padding:0;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+    img.prod-img {
+      width:42px;height:42px;
+      object-fit:cover;
+      border-radius:10px;
+      border:1px solid #e5e7eb;
+    }
+  </style>
 </head>
-<body class="bg-light">
 
+<body>
 <div class="d-flex">
-    <%- include('partials/admin-sidebar') %>
+  <%- include('partials/admin-sidebar') %>
 
-    <div class="container-fluid p-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Manage Products</h1>
-            <div>
-                <a href="/admin" class="btn btn-secondary">Back to Dashboard</a>
-                <a href="/admin/products/new" class="btn btn-success"><i class="bi bi-plus-circle"></i> Add New Product</a>
-            </div>
+  <div class="container-fluid p-4 p-lg-5">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-box-seam fs-2 text-primary"></i>
+          <h1 class="page-title mb-0">Manage Products</h1>
         </div>
-        
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>ID</th>
-                                <th>Image</th>
-                                <th>Name</th>
-                                <th>Category</th>
-                                <th>Price</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% if (products && products.length > 0) { %>
-                                <% products.forEach(product => { %>
-                                    <tr>
-                                        <td><%= product.id %></td>
-                                        <td><img src="<%= product.image %>" alt="<%= product.name %>" width="50" class="rounded"></td>
-                                        <td><%= product.name %></td>
-                                        <td><%= product.main_category %> / <%= product.sub_category %></td>
-                                        <td>$<%= parseFloat(product.price).toFixed(2) %></td>
-                                        <td>
-                                            <a href="/admin/products/edit/<%= product.id %>" class="btn btn-warning btn-sm">Edit</a>
-                                            <button class="btn btn-danger btn-sm delete-btn" data-id="<%= product.id %>">Delete</button>
-                                        </td>
-                                    </tr>
-                                <% }) %>
-                            <% } else { %>
-                                <tr>
-                                    <td colspan="6" class="text-center p-4">No products found.</td>
-                                </tr>
-                            <% } %>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="text-muted small mt-1">
+          Sort products inside each category & sub-category.
         </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <a href="/admin" class="btn btn-outline-secondary btn-round">
+          <i class="bi bi-arrow-left"></i> Dashboard
+        </a>
+        <a href="/admin/products/new" class="btn btn-success btn-round">
+          <i class="bi bi-plus-circle"></i> Add Product
+        </a>
+      </div>
     </div>
+
+    <div class="card card-soft">
+      <div class="card-body p-0">
+
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th style="width:80px;">Order</th>
+                <th style="width:70px;">Img</th>
+                <th>Name</th>
+                <th style="width:220px;">Category</th>
+                <th style="width:120px;">Price</th>
+                <th style="width:160px;">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+            <%
+              let lastMain = null;
+              let lastSub  = null;
+            %>
+
+            <% if (products && products.length > 0) { %>
+              <% products.forEach(p => { %>
+
+                <% if (p.main_category !== lastMain) { %>
+                  <tr class="group-header">
+                    <td colspan="6">
+                      <i class="bi bi-folder-fill me-2"></i>
+                      <%= p.main_category %>
+                    </td>
+                  </tr>
+                  <% lastMain = p.main_category; lastSub = null; %>
+                <% } %>
+
+                <% if (p.sub_category !== lastSub) { %>
+                  <tr class="sub-header">
+                    <td colspan="6">
+                      <i class="bi bi-tag-fill me-2"></i>
+                      <%= p.sub_category %>
+                    </td>
+                  </tr>
+                  <% lastSub = p.sub_category; %>
+                <% } %>
+
+                <tr data-id="<%= p.id %>">
+                  <td class="text-center">
+                    <div class="d-flex justify-content-center gap-1">
+                      <button class="btn btn-outline-secondary btn-sm order-btn move-btn"
+                              data-id="<%= p.id %>" data-dir="up" title="Move up">
+                        <i class="bi bi-chevron-up"></i>
+                      </button>
+                      <button class="btn btn-outline-secondary btn-sm order-btn move-btn"
+                              data-id="<%= p.id %>" data-dir="down" title="Move down">
+                        <i class="bi bi-chevron-down"></i>
+                      </button>
+                    </div>
+                  </td>
+
+                  <td>
+                    <% if (p.image) { %>
+                      <img src="<%= p.image %>" class="prod-img">
+                    <% } else { %>
+                      <div class="text-muted small">N/A</div>
+                    <% } %>
+                  </td>
+
+                  <td>
+                    <div class="fw-semibold"><%= p.name %></div>
+                    <div class="small text-muted mono">ID: <%= p.id %></div>
+                  </td>
+
+                  <td class="small">
+                    <%= p.main_category %> / <%= p.sub_category %>
+                  </td>
+
+                  <td class="mono fw-bold text-success">
+                    $<%= Number(p.price || 0).toFixed(2) %>
+                  </td>
+
+                  <td>
+                    <div class="d-flex gap-1">
+                      <a href="/admin/products/edit/<%= p.id %>"
+                         class="btn btn-warning btn-sm btn-round">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+
+                      <button class="btn btn-danger btn-sm btn-round delete-btn"
+                              data-id="<%= p.id %>">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+              <% }) %>
+            <% } else { %>
+              <tr>
+                <td colspan="6" class="text-center p-5 text-muted">
+                  <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                  No products found.
+                </td>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const deleteButtons = document.querySelectorAll('.delete-btn');
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
-                const productId = e.target.dataset.id;
-                if (confirm(`Are you sure you want to delete this product?`)) {
-                    fetch(`/admin/products/delete/${productId}`, {
-                        method: 'POST',
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            location.reload();
-                        } else {
-                            alert(`Error: ${data.message}`);
-                        }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        alert('An error occurred.');
-                    });
-                }
-            });
+  // Reorder
+  document.querySelectorAll('.move-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const productId = btn.dataset.id;
+      const direction = btn.dataset.dir;
+
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/admin/products/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId, direction })
         });
+
+        const data = await res.json();
+        if (data.success) {
+          location.reload();
+        } else {
+          alert(data.message || 'Failed to reorder');
+        }
+      } catch (e) {
+        alert('Server error');
+      } finally {
+        btn.disabled = false;
+      }
     });
+  });
+
+  // Delete
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this product?')) return;
+      const id = btn.dataset.id;
+
+      try {
+        const res = await fetch(`/admin/products/delete/${id}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) location.reload();
+        else alert(data.message || 'Delete failed');
+      } catch {
+        alert('Server error');
+      }
+    });
+  });
 </script>
 
 </body>
