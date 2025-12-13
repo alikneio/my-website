@@ -4722,21 +4722,11 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
 
 
 app.get('/netflix-section', (req, res) => {
-    const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Netflix'";
-    db.query(sql, [], (err, products) => {
-        if (err) {
-            console.error("Database error:", err);
-            return res.status(500).send("Server error");
-        }
-        res.render('netflix-section', { 
-            user: req.session.user || null,
-            products: products  // تأكد من تمرير المنتجات
-        });
-    });
-});
-
-app.get('/shahid-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Shahid'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Netflix'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4745,15 +4735,37 @@ app.get('/shahid-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('shahid-section', {
+    res.render('netflix-section', {
       user,
       products: finalProducts
     });
+  });
+});
+
+app.get('/shahid-section', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Shahid'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('shahid-section', { user, products: finalProducts });
   });
 });
 
 app.get('/osn-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'osn'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'osn'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4762,15 +4774,16 @@ app.get('/osn-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('osn-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('osn-section', { user, products: finalProducts });
   });
 });
 
 app.get('/primevideo', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'prime video'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'prime video'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4779,15 +4792,16 @@ app.get('/primevideo', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('primevideo', {
-      user,
-      products: finalProducts
-    });
+    res.render('primevideo', { user, products: finalProducts });
   });
 });
 
 app.get('/Adobe_Creativity_Cloud', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Adobe Creativity Cloud'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Adobe Creativity Cloud'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4796,15 +4810,16 @@ app.get('/Adobe_Creativity_Cloud', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('Adobe_Creativity_Cloud', {
-      user,
-      products: finalProducts
-    });
+    res.render('Adobe_Creativity_Cloud', { user, products: finalProducts });
   });
 });
 
 app.get('/disney-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Disney'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Disney'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4813,15 +4828,16 @@ app.get('/disney-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('disney-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('disney-section', { user, products: finalProducts });
   });
 });
 
 app.get('/disneyhigh-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Disney High'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Disney High'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4830,15 +4846,16 @@ app.get('/disneyhigh-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('disneyhigh-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('disneyhigh-section', { user, products: finalProducts });
   });
 });
 
 app.get('/youtube-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Youtube premuim'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Youtube premuim'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4847,15 +4864,16 @@ app.get('/youtube-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('youtube-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('youtube-section', { user, products: finalProducts });
   });
 });
 
 app.get('/gemini', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Gemini Pro'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Gemini Pro'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4864,15 +4882,16 @@ app.get('/gemini', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('gemini', {
-      user,
-      products: finalProducts
-    });
+    res.render('gemini', { user, products: finalProducts });
   });
 });
 
 app.get('/starzplay', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Starzplay'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Starzplay'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4881,15 +4900,16 @@ app.get('/starzplay', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('starzplay', {
-      user,
-      products: finalProducts
-    });
+    res.render('starzplay', { user, products: finalProducts });
   });
 });
 
 app.get('/grammarly', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Grammarly'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Grammarly'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4898,15 +4918,16 @@ app.get('/grammarly', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('grammarly', {
-      user,
-      products: finalProducts
-    });
+    res.render('grammarly', { user, products: finalProducts });
   });
 });
 
 app.get('/perplexity', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Perplexity AI'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Perplexity AI'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4915,15 +4936,16 @@ app.get('/perplexity', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('perplexity', {
-      user,
-      products: finalProducts
-    });
+    res.render('perplexity', { user, products: finalProducts });
   });
 });
 
 app.get('/crunchyroll-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Crunchy Roll'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Crunchy Roll'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4932,15 +4954,16 @@ app.get('/crunchyroll-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('crunchyroll-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('crunchyroll-section', { user, products: finalProducts });
   });
 });
 
 app.get('/capcut-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'CapCut'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'CapCut'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4949,15 +4972,16 @@ app.get('/capcut-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('capcut-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('capcut-section', { user, products: finalProducts });
   });
 });
 
 app.get('/canva-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Canva'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Canva'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4966,15 +4990,16 @@ app.get('/canva-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('canva-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('canva-section', { user, products: finalProducts });
   });
 });
 
 app.get('/appletv', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Apple Tv+'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Apple Tv+'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -4983,15 +5008,16 @@ app.get('/appletv', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('appletv', {
-      user,
-      products: finalProducts
-    });
+    res.render('appletv', { user, products: finalProducts });
   });
 });
 
 app.get('/autodesk', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'AUTODESK'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'AUTODESK'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -5000,15 +5026,16 @@ app.get('/autodesk', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('autodesk', {
-      user,
-      products: finalProducts
-    });
+    res.render('autodesk', { user, products: finalProducts });
   });
 });
 
 app.get('/tod', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'TOD'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'TOD'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -5017,15 +5044,16 @@ app.get('/tod', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('tod', {
-      user,
-      products: finalProducts
-    });
+    res.render('tod', { user, products: finalProducts });
   });
 });
 
 app.get('/chatgpt-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Chatgpt'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Chatgpt'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -5034,15 +5062,16 @@ app.get('/chatgpt-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('chatgpt-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('chatgpt-section', { user, products: finalProducts });
   });
 });
 
 app.get('/anghami-section', (req, res) => {
-  const sql = "SELECT * FROM products WHERE main_category = 'Accounts' AND sub_category = 'Anghami'";
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Anghami'
+    ORDER BY sort_order ASC, id ASC
+  `;
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
@@ -5051,10 +5080,7 @@ app.get('/anghami-section', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('anghami-section', {
-      user,
-      products: finalProducts
-    });
+    res.render('anghami-section', { user, products: finalProducts });
   });
 });
 
