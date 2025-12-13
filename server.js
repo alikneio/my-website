@@ -3836,17 +3836,6 @@ app.post('/admin/products/update/:id', checkAdmin, (req, res) => {
 
 
 
-    // ✅ تمرير القيم بالترتيب الصحيح
-    db.query(sql, [name, price, main_category, sub_category, image, is_out_of_stock, productId], (err, result) => {
-        if (err) {
-            console.error("❌ Error updating product:", err.message);
-            return res.status(500).send("Error updating product.");
-        }
-
-        res.redirect('/admin/products');
-    });
-
-
 app.get('/admin/new-orders-count', async (req, res) => {
   const sql = "SELECT COUNT(*) AS count FROM orders WHERE is_new = 1";
   db.query(sql, (err, results) => {
