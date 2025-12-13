@@ -3740,7 +3740,7 @@ app.get('/admin/products', checkAdmin, (req, res) => {
 });
 
 app.post('/admin/products/reorder', checkAdmin, async (req, res) => {
-  const { productId, direction } = req.body; // 'up' | 'down'
+  const { productId, direction } = req.body; // up | down
 
   if (!productId || !['up', 'down'].includes(direction)) {
     return res.status(400).json({ success: false, message: 'Invalid request' });
@@ -3752,7 +3752,9 @@ app.post('/admin/products/reorder', checkAdmin, async (req, res) => {
 
     const [[p]] = await conn.query(
       `SELECT id, main_category, sub_category, sort_order
-       FROM products WHERE id = ? LIMIT 1`,
+       FROM products
+       WHERE id = ?
+       LIMIT 1`,
       [productId]
     );
 
@@ -3761,22 +3763,25 @@ app.post('/admin/products/reorder', checkAdmin, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    const op = direction === 'up' ? '<' : '>';
+    const cmp = direction === 'up' ? '<' : '>';
     const ord = direction === 'up' ? 'DESC' : 'ASC';
 
     const [[neighbor]] = await conn.query(
       `SELECT id, sort_order
        FROM products
        WHERE main_category = ? AND sub_category = ?
-         AND sort_order ${op} ?
-       ORDER BY sort_order ${ord}
+         AND (
+           sort_order ${cmp} ?
+           OR (sort_order = ? AND id ${cmp} ?)
+         )
+       ORDER BY sort_order ${ord}, id ${ord}
        LIMIT 1`,
-      [p.main_category, p.sub_category, p.sort_order]
+      [p.main_category, p.sub_category, p.sort_order, p.sort_order, p.id]
     );
 
     if (!neighbor) {
       await conn.rollback();
-      return res.json({ success: true }); // ما في جار فوق/تحت
+      return res.json({ success: true, message: 'Already at edge' });
     }
 
     await conn.query(`UPDATE products SET sort_order = ? WHERE id = ?`, [neighbor.sort_order, p.id]);
@@ -3797,16 +3802,44 @@ app.post('/admin/products/reorder', checkAdmin, async (req, res) => {
 
 
 app.post('/admin/products/update/:id', checkAdmin, (req, res) => {
-    const productId = req.params.id;
-    // ✅ استقبال القيم من الفورم
-    const { name, price, main_category, sub_category, image, sort_order } = req.body;
-    const is_out_of_stock = req.body.is_out_of_stock ? 1 : 0; // ✅ Checkbox
+  const productId = req.params.id;
 
-    const sql = `
-  UPDATE products
-  SET name = ?, price = ?, main_category = ?, sub_category = ?, image = ?, is_out_of_stock = ?, sort_order = ?
-  WHERE id = ?
-`;
+  const { name, price, main_category, sub_category, image, sort_order } = req.body;
+  const is_out_of_stock = req.body.is_out_of_stock ? 1 : 0;
+
+  const sql = `
+    UPDATE products
+    SET name = ?,
+        price = ?,
+        main_category = ?,
+        sub_category = ?,
+        image = ?,
+        is_out_of_stock = ?,
+        sort_order = ?
+    WHERE id = ?
+  `;
+
+  db.query(
+    sql,
+    [
+      name,
+      price,
+      main_category,
+      sub_category,
+      image,
+      is_out_of_stock,
+      Number(sort_order || 0),
+      productId
+    ],
+    (err) => {
+      if (err) {
+        console.error("❌ Error updating product:", err.message);
+        return res.status(500).send("Error updating product.");
+      }
+      res.redirect('/admin/products');
+    }
+  );
+});
 
 
     // ✅ تمرير القيم بالترتيب الصحيح
