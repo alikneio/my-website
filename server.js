@@ -4005,17 +4005,68 @@ app.get('/admin/products/new', checkAdmin, (req, res) => {
 });
 
 app.post('/admin/products', checkAdmin, (req, res) => {
-    const { name, price, image, main_category, sub_category } = req.body;
+  try {
+    // نصوص
+    const name = String(req.body.name || '').trim();
+    const image = String(req.body.image || '').trim();
+    const main_category = String(req.body.main_category || '').trim();
+    const sub_category = String(req.body.sub_category || '').trim();
+    const sub_category_image = String(req.body.sub_category_image || '').trim();
+    const player_id_label = String(req.body.player_id_label || '').trim();
+    const notes = String(req.body.notes || '').trim();
+    const description = String(req.body.description || '').trim();
+
+    // أرقام
+    const price = Number(req.body.price || 0);
+    const sort_order = Number(req.body.sort_order || 0);
+
+    // 체크بوكس
     const requires_player_id = req.body.requires_player_id ? 1 : 0;
-    const sql = `INSERT INTO products (name, price, image, main_category, sub_category, requires_player_id) VALUES (?, ?, ?, ?, ?, ?)`;
-    const params = [name, price, image, main_category, sub_category, requires_player_id];
-    db.query(sql, params, function(err) {
-        if (err) {
-            console.error("DATABASE INSERT ERROR:", err.message);
-            return res.send("An error occurred while adding the product.");
-        }
-        res.redirect('/admin/products');
+    const is_out_of_stock = req.body.is_out_of_stock ? 1 : 0;
+
+    // Validations بسيطة
+    if (!name || !Number.isFinite(price) || price <= 0 || !main_category || !sub_category) {
+      return res.status(400).send("Invalid product data (name/price/category required).");
+    }
+
+    const sql = `
+      INSERT INTO products
+        (name, price, image, main_category, sub_category,
+         sub_category_image, player_id_label, notes, description,
+         requires_player_id, is_out_of_stock, sort_order)
+      VALUES
+        (?, ?, ?, ?, ?,
+         ?, ?, ?, ?,
+         ?, ?, ?)
+    `;
+
+    const params = [
+      name,
+      price,
+      image,
+      main_category,
+      sub_category,
+      sub_category_image,
+      player_id_label,
+      notes,
+      description,
+      requires_player_id,
+      is_out_of_stock,
+      sort_order
+    ];
+
+    db.query(sql, params, (err) => {
+      if (err) {
+        console.error("❌ DATABASE INSERT ERROR:", err.message || err);
+        return res.status(500).send("An error occurred while adding the product.");
+      }
+      return res.redirect('/admin/products');
     });
+
+  } catch (e) {
+    console.error("❌ Add product route crashed:", e.message || e);
+    return res.status(500).send("Server error");
+  }
 });
 
 app.post('/admin/update-balance', checkAdmin, (req, res) => {
