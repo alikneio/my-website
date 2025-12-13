@@ -3804,8 +3804,12 @@ app.post('/admin/products/reorder', checkAdmin, async (req, res) => {
 app.post('/admin/products/update/:id', checkAdmin, (req, res) => {
   const productId = req.params.id;
 
-  const { name, price, main_category, sub_category, image, sort_order } = req.body;
+  const { name, price, main_category, sub_category, image } = req.body;
+
   const is_out_of_stock = req.body.is_out_of_stock ? 1 : 0;
+
+  // ✅ مهم: sort_order رقم
+  const sort_order = Number(req.body.sort_order || 0);
 
   const sql = `
     UPDATE products
@@ -3819,27 +3823,20 @@ app.post('/admin/products/update/:id', checkAdmin, (req, res) => {
     WHERE id = ?
   `;
 
+  // ✅ لازم 8 قيم بنفس ترتيب الـ ?
   db.query(
     sql,
-    [
-      name,
-      price,
-      main_category,
-      sub_category,
-      image,
-      is_out_of_stock,
-      Number(sort_order || 0),
-      productId
-    ],
+    [name, price, main_category, sub_category, image, is_out_of_stock, sort_order, productId],
     (err) => {
       if (err) {
-        console.error("❌ Error updating product:", err.message);
+        console.error("❌ Error updating product:", err.message || err);
         return res.status(500).send("Error updating product.");
       }
       res.redirect('/admin/products');
     }
   );
 });
+
 
 
     // ✅ تمرير القيم بالترتيب الصحيح
