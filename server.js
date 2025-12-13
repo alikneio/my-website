@@ -3851,7 +3851,6 @@ app.post('/admin/products/update/:id', checkAdmin, (req, res) => {
 
         res.redirect('/admin/products');
     });
-});
 
 
 app.get('/admin/new-orders-count', async (req, res) => {
