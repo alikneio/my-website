@@ -4005,69 +4005,71 @@ app.get('/admin/products/new', checkAdmin, (req, res) => {
 });
 
 app.post('/admin/products', checkAdmin, (req, res) => {
-  try {
-    // نصوص
-    const name = String(req.body.name || '').trim();
-    const image = String(req.body.image || '').trim();
-    const main_category = String(req.body.main_category || '').trim();
-    const sub_category = String(req.body.sub_category || '').trim();
-    const sub_category_image = String(req.body.sub_category_image || '').trim();
-    const player_id_label = String(req.body.player_id_label || '').trim();
-    const notes = String(req.body.notes || '').trim();
-    const description = String(req.body.description || '').trim();
+  const {
+    name,
+    price,
+    image,
+    main_category,
+    sub_category,
+    sub_category_image,
+    player_id_label,
+    notes
+  } = req.body;
 
-    // أرقام
-    const price = Number(req.body.price || 0);
-    const sort_order = Number(req.body.sort_order || 0);
+  const requires_player_id = req.body.requires_player_id ? 1 : 0;
+  const is_out_of_stock = req.body.is_out_of_stock ? 1 : 0;
 
-    // 체크بوكس
-    const requires_player_id = req.body.requires_player_id ? 1 : 0;
-    const is_out_of_stock = req.body.is_out_of_stock ? 1 : 0;
+  const sort_order = Number(req.body.sort_order || 0);
+  const active = req.body.active ? 1 : 1; // افتراضي شغّال
 
-    // Validations بسيطة
-    if (!name || !Number.isFinite(price) || price <= 0 || !main_category || !sub_category) {
-      return res.status(400).send("Invalid product data (name/price/category required).");
-    }
+  // validation بسيط
+  if (!name || !price || !main_category || !sub_category) {
+    return res.status(400).send("Missing required fields");
+  }
 
-    const sql = `
-      INSERT INTO products
-        (name, price, image, main_category, sub_category,
-         sub_category_image, player_id_label, notes, description,
-         requires_player_id, is_out_of_stock, sort_order)
-      VALUES
-        (?, ?, ?, ?, ?,
-         ?, ?, ?, ?,
-         ?, ?, ?)
-    `;
-
-    const params = [
+  const sql = `
+    INSERT INTO products
+    (
       name,
       price,
       image,
       main_category,
       sub_category,
       sub_category_image,
+      requires_player_id,
       player_id_label,
       notes,
-      description,
-      requires_player_id,
       is_out_of_stock,
+      active,
       sort_order
-    ];
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
 
-    db.query(sql, params, (err) => {
-      if (err) {
-        console.error("❌ DATABASE INSERT ERROR:", err.message || err);
-        return res.status(500).send("An error occurred while adding the product.");
-      }
-      return res.redirect('/admin/products');
-    });
+  const params = [
+    name.trim(),
+    Number(price),
+    image || null,
+    main_category.trim(),
+    sub_category.trim(),
+    sub_category_image || null,
+    requires_player_id,
+    player_id_label || null,
+    notes || null,
+    is_out_of_stock,
+    active,
+    sort_order
+  ];
 
-  } catch (e) {
-    console.error("❌ Add product route crashed:", e.message || e);
-    return res.status(500).send("Server error");
-  }
+  db.query(sql, params, (err) => {
+    if (err) {
+      console.error("❌ DATABASE INSERT ERROR:", err.message);
+      return res.status(500).send("Error adding product");
+    }
+    res.redirect('/admin/products');
+  });
 });
+
 
 app.post('/admin/update-balance', checkAdmin, (req, res) => {
     const { userId, amount, operation } = req.body;
