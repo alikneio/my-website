@@ -4636,10 +4636,10 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
     return res.status(401).json({ success: false, message: "Session expired. Please log in." });
   }
 
-  // ✅ Idempotency key (body أو session)
   const idempotency_key = (req.body.idempotency_key || req.session.idemKey || '')
     .toString()
-    .slice(0, 64);
+    .slice(0, 64)
+    .trim();
 
   const { productId, player_id } = req.body;
   if (!productId) return res.status(400).json({ success: false, message: "Missing product ID." });
@@ -4649,12 +4649,46 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
     });
 
-  // ✅ helper: refund إذا صار طلب بالمزوّد وبعدين فشل الخصم
+  async function getIdemPayload() {
+    if (!idempotency_key) return null;
+    const rows = await query(
+      `SELECT response_json FROM idempotency_keys WHERE user_id = ? AND idem_key = ? LIMIT 1`,
+      [userId, idempotency_key]
+    );
+    const raw = rows?.[0]?.response_json;
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (_) { return null; }
+  }
+
+  async function upsertIdemLock() {
+    if (!idempotency_key) return { locked: false };
+    try {
+      await query(
+        `INSERT INTO idempotency_keys (user_id, idem_key, response_json) VALUES (?, ?, NULL)`,
+        [userId, idempotency_key]
+      );
+      return { locked: true };
+    } catch (e) {
+      // duplicate: يا فيه payload جاهز، يا in-progress
+      const existing = await getIdemPayload();
+      if (existing) return { locked: false, payload: existing };
+      return { locked: false, inProgress: true };
+    }
+  }
+
+  async function saveIdemPayload(payload) {
+    if (!idempotency_key) return;
+    await query(
+      `UPDATE idempotency_keys
+          SET response_json = ?
+        WHERE user_id = ? AND idem_key = ?`,
+      [JSON.stringify(payload), userId, idempotency_key]
+    );
+  }
+
   async function refundProviderOrder(providerOrderId) {
     if (!providerOrderId) return;
     try {
-      // إذا عندك endpoint للإلغاء/الاسترجاع، عدّل المسار هنا حسب مزودك
-      // بعض المزوّدين ما بيدعموا cancel، وقتها نخليه silent
       await dailycardAPI.post('/api-keys/orders/cancel/', { id: providerOrderId });
     } catch (e) {
       console.warn("⚠️ Provider refund/cancel failed (ignored):", e?.message || e);
@@ -4662,20 +4696,21 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
   }
 
   try {
-    // ✅ 0) Idempotency gate
-    if (idempotency_key) {
-      try {
-        await query(
-          `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
-          [userId, idempotency_key]
-        );
-      } catch (e) {
-        // طلب مكرر → لا تكرر الخصم ولا الطلب
-        return res.json({ success: true, redirectUrl: "/processing" });
-      }
+    // ✅ 0) لو فيه payload محفوظة لنفس المفتاح رجّعها فوراً
+    const existingPayload = await getIdemPayload();
+    if (existingPayload) return res.json(existingPayload);
+
+    // ✅ 1) Idempotency lock
+    const lock = await upsertIdemLock();
+    if (lock?.payload) return res.json(lock.payload);
+    if (lock?.inProgress) {
+      return res.status(409).json({
+        success: false,
+        message: "Request already in progress. Please wait a moment and refresh."
+      });
     }
 
-    // ✅ 0.5) Fresh user from DB (حتى الـ level/discount يكونوا آخر تحديث)
+    // ✅ 0.5) Fresh user
     let sessionUser = null;
     try {
       const [[freshUser]] = await promisePool.query(
@@ -4688,7 +4723,7 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       sessionUser = req.session.user || null;
     }
 
-    // ✅ 1) Fetch product (fixed only)
+    // ✅ 1) Fetch product
     const [product] = await query(
       `SELECT * FROM selected_api_products
        WHERE product_id = ?
@@ -4697,45 +4732,59 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
        LIMIT 1`,
       [productId]
     );
-    if (!product) return res.status(404).json({ success: false, message: "Product not found." });
-
-    if (Number(product.is_out_of_stock) === 1) {
-      return res.status(400).json({ success: false, message: "Product is out of stock." });
+    if (!product) {
+      const payload = { success: false, message: "Product not found." };
+      await saveIdemPayload(payload);
+      return res.status(404).json(payload);
     }
 
-    // ✅ 2) Base price (rounded to cents)
+    if (Number(product.is_out_of_stock) === 1) {
+      const payload = { success: false, message: "Product is out of stock." };
+      await saveIdemPayload(payload);
+      return res.status(400).json(payload);
+    }
+
+    // ✅ 2) Base price
     const rawPrice = Number(product.custom_price || product.unit_price || 0) || 0;
     const basePrice = Math.round(rawPrice * 100) / 100;
     if (!Number.isFinite(basePrice) || basePrice <= 0) {
-      return res.status(400).json({ success: false, message: "Pricing error." });
+      const payload = { success: false, message: "Pricing error." };
+      await saveIdemPayload(payload);
+      return res.status(400).json(payload);
     }
 
-    // ✅ 3) Effective discount (VIP overrides level)
+    // ✅ 3) Discount
     const effectiveDiscountPercent =
       typeof getUserEffectiveDiscount === "function"
         ? Number(getUserEffectiveDiscount(sessionUser) || 0)
         : Number(sessionUser?.discount_percent || 0) || 0;
 
-    // ✅ 4) Final price after discount (use helper to avoid drift)
-    const finalPrice = applyUserDiscount(basePrice, sessionUser); // returns 2 decimals number
+    // ✅ 4) Final price
+    const finalPrice = applyUserDiscount(basePrice, sessionUser);
     if (!Number.isFinite(finalPrice) || finalPrice <= 0) {
-      return res.status(400).json({ success: false, message: "Pricing error after discount." });
+      const payload = { success: false, message: "Pricing error after discount." };
+      await saveIdemPayload(payload);
+      return res.status(400).json(payload);
     }
 
-    // ✅ 5) Player ID requirements
+    // ✅ 5) Player requirements
     const requiresPlayerId = Number(product.player_check) === 1;
     if (requiresPlayerId && (!player_id || player_id.trim() === "")) {
-      return res.status(400).json({ success: false, message: "Missing player ID." });
+      const payload = { success: false, message: "Missing player ID." };
+      await saveIdemPayload(payload);
+      return res.status(400).json(payload);
     }
 
     if (Number(product.requires_verification) === 1) {
       const verifyRes = await verifyPlayerId(productId, player_id);
       if (!verifyRes.success) {
-        return res.status(400).json({ success: false, message: verifyRes.message || "Player verification failed." });
+        const payload = { success: false, message: verifyRes.message || "Player verification failed." };
+        await saveIdemPayload(payload);
+        return res.status(400).json(payload);
       }
     }
 
-    // ✅ 6) Create provider order FIRST (مثل ما أنت حاب)
+    // ✅ 6) Create provider order FIRST
     const orderBody = {
       product: parseInt(productId, 10),
       ...(player_id ? { account_id: player_id } : {})
@@ -4746,22 +4795,24 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       const { data: result } = await dailycardAPI.post("/api-keys/orders/create/", orderBody);
       providerOrderId = result?.id || result?.data?.id || result?.order_id || null;
     } catch (e) {
-      return res.status(502).json({ success: false, message: "Provider error. Please try again." });
+      const payload = { success: false, message: "Provider error. Please try again." };
+      await saveIdemPayload(payload);
+      return res.status(502).json(payload);
     }
 
     if (!providerOrderId) {
-      return res.status(500).json({ success: false, message: "Order failed at provider." });
+      const payload = { success: false, message: "Order failed at provider." };
+      await saveIdemPayload(payload);
+      return res.status(500).json(payload);
     }
 
-    // ✅ 7) DB Transaction: debit + total_spent + order + notification + transaction log
+    // ✅ 7) DB Transaction
     const conn = await promisePool.getConnection();
     let insertId = null;
 
     try {
       await conn.beginTransaction();
 
-      // ✅ خصم ذري + زيادة total_spent بعملية واحدة
-      // إذا بدك total_spent قبل الخصم، حط basePrice بدل finalPrice
       const spentValue = finalPrice;
 
       const [updRes] = await conn.query(
@@ -4773,20 +4824,20 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       );
 
       if (!updRes?.affectedRows) {
-        // ما في رصيد كافي → لازم نرجع/نلغي طلب المزود (قدر الإمكان)
         await conn.rollback();
         await refundProviderOrder(providerOrderId);
-        return res.status(400).json({ success: false, message: "Insufficient balance." });
+
+        const payload = { success: false, message: "Insufficient balance." };
+        await saveIdemPayload(payload);
+        return res.status(400).json(payload);
       }
 
-      // ✅ سجل معاملة الخصم
       await conn.query(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'debit', ?, ?)`,
         [userId, finalPrice, `Purchase: ${product.custom_name || product.name || `API Product ${productId}`}`]
       );
 
-      // ✅ Insert order
       const orderDetails = requiresPlayerId ? `User ID: ${player_id}` : '';
       const [orderRes] = await conn.query(
         `INSERT INTO orders
@@ -4800,7 +4851,6 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
 
       insertId = orderRes.insertId;
 
-      // ✅ Notification
       await conn.query(
         `INSERT INTO notifications (user_id, message, created_at, is_read)
          VALUES (?, ?, NOW(), 0)`,
@@ -4808,32 +4858,29 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       );
 
       await conn.commit();
+
     } catch (e) {
       try { await conn.rollback(); } catch (_) {}
-
-      // لو فشل الـ DB بعد ما عملنا order عند المزود → حاول نرجع/نلغي
       await refundProviderOrder(providerOrderId);
 
       console.error("❌ buy-fixed tx error:", e);
+
+      // لا نخزن 500 عادة، بس إذا بدك، ممكن نخزنها
       return res.status(500).json({ success: false, message: "Transaction failed." });
     } finally {
       conn.release();
     }
 
-    // ✅ 8) Recalc level بعد الـ commit
-    try {
-      await recalcUserLevel(userId);
-    } catch (lvlErr) {
+    // ✅ Post-commit
+    try { await recalcUserLevel(userId); } catch (lvlErr) {
       console.error("⚠️ recalcUserLevel error (buy-fixed):", lvlErr.message || lvlErr);
     }
 
-    // ✅ 9) Refresh session from DB (حتى اللفل/الرصيد يتحدثوا فوراً بالواجهة)
     try {
       const [[freshUserAfter]] = await promisePool.query("SELECT * FROM users WHERE id = ? LIMIT 1", [userId]);
       if (freshUserAfter) req.session.user = freshUserAfter;
     } catch (_) {}
 
-    // ✅ 10) Telegram (بعد الـ commit)
     try {
       const [urows] = await promisePool.query("SELECT username, telegram_chat_id FROM users WHERE id = ?", [userId]);
       const urow = urows[0];
@@ -4858,7 +4905,10 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
     }
 
     req.session.pendingOrderId = insertId;
-    return res.json({ success: true, redirectUrl: "/processing" });
+
+    const okPayload = { success: true, redirectUrl: "/processing" };
+    await saveIdemPayload(okPayload);
+    return res.json(okPayload);
 
   } catch (err) {
     const rawErr = err?.response?.data || err.message || err;
