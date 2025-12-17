@@ -4,9 +4,17 @@
   <meta charset="UTF-8" />
   <title>Checkout - <%= product.name %></title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+
+  <style>
+    .product-img {
+      max-height: 120px;
+      object-fit: contain;
+    }
+  </style>
 </head>
 <body>
 
@@ -17,7 +25,12 @@
       <div class="card p-4 shadow-sm">
 
         <!-- صورة المنتج -->
-        <img src="<%= product.image %>" alt="<%= product.name %>" class="img-fluid mb-3" style="max-height: 120px; object-fit: contain;">
+        <img
+          src="<%= product.image %>"
+          alt="<%= product.name %>"
+          class="img-fluid mb-3 product-img"
+          loading="lazy"
+        >
 
         <!-- اسم المنتج والسعر -->
         <h4 class="fw-bold mb-1"><%= product.name %></h4>
@@ -31,10 +44,14 @@
         <% } %>
 
         <!-- ✅ نموذج الشراء -->
-        <form id="sql-buy-form" method="POST" enctype="multipart/form-data">
+        <form
+          id="sql-buy-form"
+          method="POST"
+          action="/buy"
+          enctype="multipart/form-data"
+          novalidate
+        >
           <input type="hidden" name="productId" value="<%= product.id %>">
-
-          <!-- مفتاح عدم التكرار -->
           <input type="hidden" name="idempotency_key" value="<%= idemKey %>">
 
           <% if (product.requires_player_id == 1) { %>
@@ -42,6 +59,7 @@
               <label for="playerId" class="form-label">
                 <%= product.player_id_label || 'Player ID' %>
               </label>
+
               <input
                 type="text"
                 class="form-control"
@@ -49,7 +67,13 @@
                 name="playerId"
                 placeholder="Enter <%= product.player_id_label || 'Player ID' %>"
                 required
+                autocomplete="off"
+                inputmode="text"
               >
+
+              <div class="invalid-feedback">
+                Please enter <%= product.player_id_label || 'Player ID' %>.
+              </div>
             </div>
           <% } %>
 
@@ -57,6 +81,10 @@
             <span class="btn-text">Buy Now</span>
             <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
           </button>
+
+          <p class="text-muted small mt-3 mb-0">
+            By clicking “Buy Now”, your order will be processed securely.
+          </p>
         </form>
 
       </div>
@@ -70,17 +98,18 @@
   <!-- Bootstrap -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- سكريبت الشراء -->
   <script>
     const form = document.getElementById('sql-buy-form');
     const buyBtn = document.getElementById('buyBtn');
     const btnText = buyBtn.querySelector('.btn-text');
     const btnSpinner = buyBtn.querySelector('.spinner-border');
+
     let submitting = false;
 
     function setLoading(state) {
       submitting = state;
       buyBtn.disabled = state;
+
       if (state) {
         btnSpinner.classList.remove('d-none');
         btnText.textContent = 'Processing...';
@@ -90,48 +119,71 @@
       }
     }
 
+    function showError(message) {
+      Swal.fire({
+        icon: 'error',
+        title: 'خطأ',
+        text: message || 'حدث خطأ أثناء تنفيذ العملية.'
+      });
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (submitting) return;           // حارس إضافي
+      if (submitting) return;
+
+      // ✅ Bootstrap validation (خصوصًا playerId)
+      if (!form.checkValidity()) {
+        form.classList.add('was-validated');
+        return;
+      }
+
       setLoading(true);
 
       try {
         const formData = new FormData(form);
-        const res = await fetch('/buy', { method: 'POST', body: formData });
 
-        // بعض السيرفرات قد ترجع Redirect مباشرة (نادر مع fetch+JSON، بس للاحتياط)
-        if (res.redirected) {
-          window.location.href = res.url;
+        const res = await fetch(form.action || '/buy', {
+          method: 'POST',
+          body: formData,
+          headers: { 'Accept': 'application/json' },
+          // ✅ يمنع المتصفح يتبع redirect تلقائيًا (حتى ما يودّي المستخدم /processing بالغلط)
+          redirect: 'manual'
+        });
+
+        // إذا السيرفر رجّع 3xx Redirect بدل JSON
+        if (res.status >= 300 && res.status < 400) {
+          setLoading(false);
+          showError('السيرفر رجّع Redirect بدل JSON. لازم /buy يرجّع JSON فقط.');
+          return;
+        }
+
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+
+        if (!contentType.includes('application/json')) {
+          const text = await res.text().catch(() => '');
+          console.error('Non-JSON response:', text);
+          setLoading(false);
+          showError('رد غير متوقع من السيرفر (ليس JSON). تأكد من روت /buy.');
           return;
         }
 
         const data = await res.json();
 
-        if (!data.success) {
+        // إذا HTTP error أو success=false
+        if (!res.ok || !data?.success) {
           setLoading(false);
-          Swal.fire({
-            icon: 'error',
-            title: 'خطأ',
-            text: data.message || 'حدث خطأ أثناء تنفيذ العملية.'
-          });
+          showError(data?.message || 'تعذّر إتمام العملية. تأكد من الرصيد أو البيانات.');
           return;
         }
 
-        // دعم redirectUrl من السيرفر
-        if (data.redirectUrl) {
-          window.location.href = data.redirectUrl;
-        } else {
-          window.location.href = '/processing';
-        }
+        // نجاح: نوجّه حسب ما يرجعه السيرفر
+        const nextUrl = data.redirectUrl || '/processing';
+        window.location.href = nextUrl;
 
       } catch (err) {
         console.error(err);
         setLoading(false);
-        Swal.fire({
-          icon: 'error',
-          title: 'فشل العملية',
-          text: 'تعذر تنفيذ الطلب، تأكد من الاتصال بالإنترنت.'
-        });
+        showError('تعذر تنفيذ الطلب، تأكد من الاتصال بالإنترنت.');
       }
     });
   </script>

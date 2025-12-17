@@ -3503,26 +3503,61 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     return res.status(401).json({ success: false, message: 'Session expired. Please log in.' });
   }
 
-  const idemKey = (bodyIdemKey || req.session.idemKey || '').toString().slice(0, 64);
+  const idemKey = (bodyIdemKey || req.session.idemKey || '').toString().slice(0, 64).trim();
+
+  // Helper to store & return idempotent response
+  async function storeIdempotencyResponse(conn, userId, key, payload) {
+    if (!key) return;
+    const json = JSON.stringify(payload);
+
+    // upsert response_json
+    await conn.query(
+      `INSERT INTO idempotency_keys (user_id, idem_key, response_json)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE response_json = VALUES(response_json)`,
+      [userId, key, json]
+    );
+  }
+
+  // Helper: if existing response for idemKey exists, return it
+  async function returnExistingIdempotentResponse(userId, key) {
+    if (!key) return false;
+
+    try {
+      const [[row]] = await promisePool.query(
+        `SELECT response_json
+           FROM idempotency_keys
+          WHERE user_id = ? AND idem_key = ?
+          LIMIT 1`,
+        [userId, key]
+      );
+
+      if (row?.response_json) {
+        try {
+          const payload = JSON.parse(row.response_json);
+          // إذا payload فيه success=false قد يكون لازم status مختلف، بس نخليه 200 لسهولة الفرونت
+          return res.json(payload);
+        } catch (_) {
+          // response_json خربان -> تجاهله وكمل تنفيذ طبيعي
+        }
+      }
+    } catch (_) {
+      // تجاهل
+    }
+
+    return false;
+  }
 
   try {
-    // 0) Idempotency gate
-    if (idemKey) {
-      try {
-        await q(
-          `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
-          [sessionUser.id, idemKey]
-        );
-      } catch (e) {
-        return res.json({ success: true, redirectUrl: '/processing' });
-      }
-    }
+    // ✅ 0) إذا نفس الطلب تكرر ومعه response مخزنة -> رجّعها فورًا
+    const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
+    if (alreadyReturned) return;
 
     if (!productId) {
       return res.status(400).json({ success: false, message: 'Invalid product ID' });
     }
 
-    // ✅ 0.5) Fresh user from DB (حتى level/discount يكونوا آخر تحديث)
+    // ✅ 0.5) Fresh user from DB
     let freshUser = null;
     try {
       const [[u]] = await promisePool.query(
@@ -3535,7 +3570,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       freshUser = sessionUser;
     }
 
-    // 1) Fetch product (SQL)
+    // 1) Fetch product
     const [product] = await q(
       'SELECT * FROM products WHERE id = ? AND active = 1 LIMIT 1',
       [productId]
@@ -3550,12 +3585,11 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       return res.status(400).json({ success: false, message: 'Pricing error' });
     }
 
-    // 3) Effective discount + final price (موحّد)
+    // 3) Discount + final price
     const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
       ? Number(getUserEffectiveDiscount(freshUser) || 0)
       : Number(freshUser.discount_percent || 0) || 0;
 
-    // ✅ استخدم helper لتوحيد المنطق
     const purchasePrice = applyUserDiscount(basePrice, freshUser);
 
     if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
@@ -3568,15 +3602,55 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     const notifMsg = `✅ تم استلام طلبك (${product.name}) بنجاح. سيتم معالجته قريبًا.`;
 
     const conn = await promisePool.getConnection();
+
     try {
       await conn.beginTransaction();
 
-      // ✅ total_spent: اختار منطقك
-      // A) بعد الخصم: purchasePrice
-      // B) قبل الخصم: basePrice
-      const spentValue = purchasePrice; // غيّرها لـ basePrice إذا بدك
+      // ✅ 5) Idempotency gate INSIDE transaction:
+      // نحجز المفتاح أولاً "بشكل ذري" ولكن بدون ما نعتبره نجاح
+      // إذا موجود مسبقًا: يا إمّا العملية صارت وانحفظ response_json (رح نرجعها فوق غالبًا)
+      // أو في طلب سابق "معلّق" -> نقرأ response_json هون، إذا موجود نرجعه، إذا مش موجود نمنع التكرار برسالة لطيفة.
+      if (idemKey) {
+        try {
+          await conn.query(
+            `INSERT INTO idempotency_keys (user_id, idem_key, response_json)
+             VALUES (?, ?, NULL)`,
+            [freshUser.id, idemKey]
+          );
+        } catch (e) {
+          // duplicate -> شوف إذا في response_json
+          const [[row]] = await conn.query(
+            `SELECT response_json
+               FROM idempotency_keys
+              WHERE user_id = ? AND idem_key = ?
+              LIMIT 1`,
+            [freshUser.id, idemKey]
+          );
 
-      // ✅ خصم ذري + زيادة total_spent بعملية واحدة
+          if (row?.response_json) {
+            // نرجّع نفس الاستجابة السابقة
+            try {
+              const payload = JSON.parse(row.response_json);
+              await conn.commit(); // ما عملنا تغييرات، بس نختم الترانزاكشن
+              return res.json(payload);
+            } catch (_) {
+              // response_json خربان، كمّل بشكل محافظ
+            }
+          }
+
+          // إذا ما في response_json يعني في طلب سابق حجز المفتاح وما خلّص
+          await conn.rollback();
+          return res.status(409).json({
+            success: false,
+            message: 'Request already in progress. Please wait a moment and refresh.'
+          });
+        }
+      }
+
+      // ✅ total_spent: اختار منطقك
+      const spentValue = purchasePrice; // أو basePrice
+
+      // ✅ خصم ذري
       const [updRes] = await conn.query(
         `UPDATE users
             SET balance = balance - ?,
@@ -3586,8 +3660,14 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       );
 
       if (!updRes?.affectedRows) {
+        const failPayload = { success: false, message: 'Insufficient balance' };
+
+        // ✅ خزّن نتيجة الفشل على idemKey
+        await storeIdempotencyResponse(conn, freshUser.id, idemKey, failPayload);
+
         await conn.rollback();
-        return res.status(400).json({ success: false, message: 'Insufficient balance' });
+        // بإمكانك ترجع 400 أو 200. أنا خليتها 400 لأن هذا “فشل منطقي”.
+        return res.status(400).json(failPayload);
       }
 
       // ✅ Insert order
@@ -3598,23 +3678,27 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       );
       const orderId = orderResult.insertId;
 
-      // ✅ Internal notification
+      // ✅ Notification
       await conn.query(
         `INSERT INTO notifications (user_id, message, created_at, is_read)
          VALUES (?, ?, NOW(), 0)`,
         [freshUser.id, notifMsg]
       );
 
+      // ✅ خزّن نجاح العملية (مهم قبل commit أو بعده؟)
+      // الأفضل قبل commit ضمن نفس الترانزاكشن لضمان الذرّية
+      const successPayload = { success: true, redirectUrl: '/processing' };
+      await storeIdempotencyResponse(conn, freshUser.id, idemKey, successPayload);
+
       await conn.commit();
 
-      // ✅ Recalc level after commit
+      // ✅ After commit side-effects
       try {
         await recalcUserLevel(freshUser.id);
       } catch (lvlErr) {
         console.error('⚠️ recalcUserLevel error (buy):', lvlErr.message || lvlErr);
       }
 
-      // ✅ Refresh session after purchase
       try {
         const [[freshAfter]] = await promisePool.query(
           'SELECT * FROM users WHERE id = ? LIMIT 1',
@@ -3627,7 +3711,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
       req.session.pendingOrderId = orderId;
 
-      // ✅ Telegram after commit
+      // ✅ Telegram (non-blocking logically)
       try {
         const [rows] = await promisePool.query(
           'SELECT telegram_chat_id, username FROM users WHERE id = ?',
@@ -3653,7 +3737,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
           });
         }
 
-        // Admin
         const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
         const adminMsg = `
 🆕 <b>طلب جديد!</b>
@@ -3680,6 +3763,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     } catch (e) {
       try { await conn.rollback(); } catch (_) {}
       console.error('Transaction failed:', e);
+
+      // (اختياري) خزّن فشل عام على idemKey حتى ما يصير تكرار بنفس المفتاح يعلق
+      // بس شخصيًا أفضل ما نخزّن 500 لأن ممكن المستخدم يعيد المحاولة.
       return res.status(500).json({ success: false, message: 'Transaction failed' });
     } finally {
       conn.release();
