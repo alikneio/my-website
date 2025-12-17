@@ -10,92 +10,280 @@
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 
   <style>
+    /* خلفية ناعمة */
+    body {
+      background: radial-gradient(1200px 600px at 20% 10%, rgba(25,135,84,.10), transparent 60%),
+                  radial-gradient(1000px 500px at 90% 20%, rgba(13,110,253,.08), transparent 55%),
+                  #f6f7fb;
+    }
+
+    .checkout-wrap { min-height: 72vh; }
+
+    .checkout-card{
+      border: 0;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 35px rgba(0,0,0,.08);
+    }
+
+    .checkout-head{
+      background: linear-gradient(135deg, rgba(25,135,84,.12), rgba(13,110,253,.06));
+      border-bottom: 1px solid rgba(0,0,0,.06);
+      padding: 16px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+    }
+
+    .checkout-title{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      margin:0;
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+
+    .secure-badge{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(25,135,84,.12);
+      color: #146c43;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
     .product-img {
       max-height: 120px;
       object-fit: contain;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
+      padding: 10px;
     }
+
+    .price-chip{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(25,135,84,.10);
+      color: #146c43;
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    .summary-row{
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .summary-label{
+      font-size: 12px;
+      color: rgba(0,0,0,.55);
+      margin-bottom: 4px;
+    }
+
+    .summary-name{
+      font-weight: 800;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    .form-control{
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .btn-buy{
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 800;
+      box-shadow: 0 10px 18px rgba(25,135,84,.18);
+      transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    }
+    .btn-buy:hover{
+      transform: translateY(-1px);
+      box-shadow: 0 14px 22px rgba(25,135,84,.22);
+      filter: brightness(1.02);
+    }
+    .btn-buy:disabled{
+      transform: none;
+      box-shadow: none;
+      opacity: .85;
+    }
+
+    /* نبضة خفيفة وقت المعالجة */
+    .is-loading{
+      position: relative;
+    }
+    .is-loading::after{
+      content:'';
+      position:absolute;
+      inset: -2px;
+      border-radius: 16px;
+      border: 2px solid rgba(25,135,84,.18);
+      animation: pulse 1.2s infinite ease-in-out;
+      pointer-events:none;
+    }
+    @keyframes pulse{
+      0%{ opacity:.2; transform: scale(.99); }
+      50%{ opacity:.7; transform: scale(1.01); }
+      100%{ opacity:.2; transform: scale(.99); }
+    }
+
+    .trust-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .trust-pill{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(0,0,0,.04);
+      color: rgba(0,0,0,.70);
+    }
+
+    .muted-note{
+      color: rgba(0,0,0,.55);
+    }
+
+    /* اختياري: لو بدك RTL تلقائي عندما يكون النص عربي */
+    /* html[lang="ar"] body { direction: rtl; } */
   </style>
 </head>
 <body>
 
   <%- include('partials/header') %>
 
-  <div class="container my-5">
+  <div class="container my-5 checkout-wrap">
     <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5 mx-auto">
-      <div class="card p-4 shadow-sm">
 
-        <!-- صورة المنتج -->
-        <img
-          src="<%= product.image %>"
-          alt="<%= product.name %>"
-          class="img-fluid mb-3 product-img"
-          loading="lazy"
-        >
+      <div class="card checkout-card">
 
-        <!-- اسم المنتج والسعر -->
-        <h4 class="fw-bold mb-1"><%= product.name %></h4>
-        <p class="fs-5 text-success mb-3">$<%= Number(product.price).toFixed(2) %></p>
+        <!-- رأس الكارد -->
+        <div class="checkout-head">
+          <h5 class="checkout-title">
+            <i class="bi bi-bag-check-fill"></i>
+            Checkout
+          </h5>
 
-        <!-- ملاحظات المنتج إن وجدت -->
-        <% if (product.notes) { %>
-          <div class="alert alert-warning small mb-4">
-            <strong>📝 Note:</strong> <%= product.notes %>
+          <span class="secure-badge">
+            <i class="bi bi-shield-lock-fill"></i>
+            Secure Checkout
+          </span>
+        </div>
+
+        <div class="card-body p-4">
+
+          <!-- المنتج -->
+          <div class="text-center mb-3">
+            <img
+              src="<%= product.image %>"
+              alt="<%= product.name %>"
+              class="img-fluid product-img"
+              loading="lazy"
+            >
           </div>
-        <% } %>
 
-        <!-- ✅ نموذج الشراء -->
-        <form
-          id="sql-buy-form"
-          method="POST"
-          action="/buy"
-          enctype="multipart/form-data"
-          novalidate
-        >
-          <input type="hidden" name="productId" value="<%= product.id %>">
-          <input type="hidden" name="idempotency_key" value="<%= idemKey %>">
+          <div class="summary-row mb-3 d-flex align-items-center justify-content-between gap-3">
+            <div>
+              <div class="summary-label">Product</div>
+              <p class="summary-name mb-0"><%= product.name %></p>
+            </div>
 
-          <% if (product.requires_player_id == 1) { %>
-            <div class="mb-3">
-              <label for="playerId" class="form-label">
-                <%= product.player_id_label || 'Player ID' %>
-              </label>
-
-              <input
-                type="text"
-                class="form-control"
-                id="playerId"
-                name="playerId"
-                placeholder="Enter <%= product.player_id_label || 'Player ID' %>"
-                required
-                autocomplete="off"
-                inputmode="text"
-              >
-
-              <div class="invalid-feedback">
-                Please enter <%= product.player_id_label || 'Player ID' %>.
+            <div class="text-end">
+              <div class="summary-label">Total</div>
+              <div class="price-chip">
+                <i class="bi bi-cash-coin"></i>
+                $<%= Number(product.price).toFixed(2) %>
               </div>
+            </div>
+          </div>
+
+          <% if (product.notes) { %>
+            <div class="alert alert-warning small mb-4" style="border-radius:14px;">
+              <strong>📝 Note:</strong> <%= product.notes %>
             </div>
           <% } %>
 
-          <button id="buyBtn" type="submit" class="btn btn-success w-100">
-            <span class="btn-text">Buy Now</span>
-            <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
-          </button>
+          <!-- ✅ نموذج الشراء -->
+          <form
+            id="sql-buy-form"
+            method="POST"
+            action="/buy"
+            enctype="multipart/form-data"
+            novalidate
+          >
+            <input type="hidden" name="productId" value="<%= product.id %>">
+            <input type="hidden" name="idempotency_key" value="<%= idemKey %>">
 
-          <p class="text-muted small mt-3 mb-0">
-            By clicking “Buy Now”, your order will be processed securely.
-          </p>
-        </form>
+            <% if (product.requires_player_id == 1) { %>
+              <div class="mb-3">
+                <label for="playerId" class="form-label fw-bold">
+                  <i class="bi bi-person-vcard me-1"></i>
+                  <%= product.player_id_label || 'Player ID' %>
+                </label>
 
+                <input
+                  type="text"
+                  class="form-control"
+                  id="playerId"
+                  name="playerId"
+                  placeholder="Enter <%= product.player_id_label || 'Player ID' %>"
+                  required
+                  autocomplete="off"
+                  inputmode="text"
+                >
+
+                <div class="invalid-feedback">
+                  Please enter <%= product.player_id_label || 'Player ID' %>.
+                </div>
+              </div>
+            <% } %>
+
+            <button id="buyBtn" type="submit" class="btn btn-success w-100 btn-buy">
+              <span class="btn-text">
+                <i class="bi bi-lightning-charge-fill me-1"></i>
+                Buy Now
+              </span>
+              <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+            </button>
+
+            <div class="trust-row">
+              <span class="trust-pill"><i class="bi bi-shield-check"></i> SSL Secured</span>
+              <span class="trust-pill"><i class="bi bi-clock-history"></i> Fast Processing</span>
+              <span class="trust-pill"><i class="bi bi-headset"></i> Support Available</span>
+            </div>
+
+            <p class="muted-note small mt-3 mb-0">
+              By clicking “Buy Now”, your order will be processed securely.
+            </p>
+          </form>
+
+        </div>
       </div>
+
     </div>
   </div>
 
   <%- include('partials/footer') %>
 
-  <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <!-- Bootstrap -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
@@ -112,10 +300,12 @@
 
       if (state) {
         btnSpinner.classList.remove('d-none');
-        btnText.textContent = 'Processing...';
+        buyBtn.classList.add('is-loading');
+        btnText.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Processing...';
       } else {
         btnSpinner.classList.add('d-none');
-        btnText.textContent = 'Buy Now';
+        buyBtn.classList.remove('is-loading');
+        btnText.innerHTML = '<i class="bi bi-lightning-charge-fill me-1"></i> Buy Now';
       }
     }
 
@@ -131,7 +321,6 @@
       e.preventDefault();
       if (submitting) return;
 
-      // ✅ Bootstrap validation (خصوصًا playerId)
       if (!form.checkValidity()) {
         form.classList.add('was-validated');
         return;
@@ -146,11 +335,9 @@
           method: 'POST',
           body: formData,
           headers: { 'Accept': 'application/json' },
-          // ✅ يمنع المتصفح يتبع redirect تلقائيًا (حتى ما يودّي المستخدم /processing بالغلط)
           redirect: 'manual'
         });
 
-        // إذا السيرفر رجّع 3xx Redirect بدل JSON
         if (res.status >= 300 && res.status < 400) {
           setLoading(false);
           showError('السيرفر رجّع Redirect بدل JSON. لازم /buy يرجّع JSON فقط.');
@@ -169,16 +356,13 @@
 
         const data = await res.json();
 
-        // إذا HTTP error أو success=false
         if (!res.ok || !data?.success) {
           setLoading(false);
           showError(data?.message || 'تعذّر إتمام العملية. تأكد من الرصيد أو البيانات.');
           return;
         }
 
-        // نجاح: نوجّه حسب ما يرجعه السيرفر
-        const nextUrl = data.redirectUrl || '/processing';
-        window.location.href = nextUrl;
+        window.location.href = data.redirectUrl || '/processing';
 
       } catch (err) {
         console.error(err);
