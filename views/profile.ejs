@@ -85,6 +85,10 @@
       <div class="col-lg-10">
 
         <%
+          // ✅ SAFE FALLBACKS (ما عاد query is not defined)
+          const q = (typeof query !== 'undefined' && query) ? query : {};
+          const tgParam = (q && q.tg) ? String(q.tg) : '';
+
           const level = Number(user?.level || 1);
           const discount = Number(user?.discount_percent || 0);
           const totalSpent = Number(user?.total_spent || 0);
@@ -116,9 +120,11 @@
             remainingAmount = Math.max(0, nextTier.min - totalSpent);
           }
 
-          // Telegram
-          const tgLinked = (typeof telegramLinked !== 'undefined') ? telegramLinked : !!user?.telegram_chat_id;
-          const tgParam = (query && query.tg) ? String(query.tg) : '';
+          // Telegram linked (fallback)
+          const tgLinked =
+            (typeof telegramLinked !== 'undefined')
+              ? !!telegramLinked
+              : !!user?.telegram_chat_id;
         %>
 
         <!-- Loyalty Card -->
@@ -126,9 +132,7 @@
           <div class="row g-0 align-items-center">
             <div class="col-md-7 p-4">
               <div class="d-flex align-items-center mb-2">
-                <span class="loyalty-badge text-uppercase me-2">
-                  Loyalty Level
-                </span>
+                <span class="loyalty-badge text-uppercase me-2">Loyalty Level</span>
                 <span class="tier-pill <%= currentTier.className %>">
                   <i class="bi bi-stars me-1"></i>
                   <%= currentTier.label %> (Level <%= currentTier.level %>)
@@ -166,9 +170,7 @@
                     Remaining: <strong>$<%= remainingAmount.toFixed(2) %></strong>
                   </small>
                 <% } else { %>
-                  <small>
-                    You reached the highest tier 🎉
-                  </small>
+                  <small>You reached the highest tier 🎉</small>
                 <% } %>
               </div>
 
@@ -229,19 +231,9 @@
                   <% tiers.forEach(t => { %>
                     <tr class="<%= t.level === currentTier.level ? 'table-primary' : '' %>">
                       <td>#<%= t.level %></td>
-                      <td>
-                        <span class="tier-pill <%= t.className %>">
-                          <%= t.label %>
-                        </span>
-                      </td>
+                      <td><span class="tier-pill <%= t.className %>"><%= t.label %></span></td>
                       <td>$<%= t.min.toFixed(2) %></td>
-                      <td>
-                        <% if (t.max === null) { %>
-                          Unlimited
-                        <% } else { %>
-                          $<%= t.max.toFixed(2) %>
-                        <% } %>
-                      </td>
+                      <td><%= t.max === null ? 'Unlimited' : ('$' + t.max.toFixed(2)) %></td>
                       <td><%= t.discount %>%</td>
                     </tr>
                   <% }) %>
@@ -283,13 +275,14 @@
               </div>
             </div>
 
-            <!-- ✅ Telegram Link Card (CODE) -->
+            <!-- ✅ Telegram Link Card -->
             <div class="card profile-card mb-4">
               <div class="card-header bg-white border-0 d-flex align-items-center justify-content-between">
                 <h5 class="mb-0">
                   <i class="bi bi-telegram me-2 text-primary"></i>
                   Telegram Notifications
                 </h5>
+
                 <% if (tgLinked) { %>
                   <span class="tg-status-badge text-success">
                     <i class="bi bi-check-circle me-1"></i>Linked
@@ -302,35 +295,18 @@
               </div>
 
               <div class="card-body">
+
                 <% if (tgParam) { %>
                   <% if (tgParam === 'linked') { %>
-                    <div class="alert alert-success">
-                      ✅ Telegram linked successfully! You will receive order updates.
-                    </div>
-                  <% } else if (tgParam === 'invalid_code') { %>
-                    <div class="alert alert-danger">
-                      ❌ Invalid code format. Please enter a 6-digit code.
-                    </div>
-                  <% } else if (tgParam === 'code_not_found') { %>
-                    <div class="alert alert-warning">
-                      ❌ Code not found. Please go back to the bot and send /start again.
-                    </div>
-                  <% } else if (tgParam === 'expired') { %>
-                    <div class="alert alert-warning">
-                      ❌ Code expired. Please send /start again to generate a new code.
-                    </div>
-                  <% } else if (tgParam === 'link_failed') { %>
-                    <div class="alert alert-danger">
-                      ❌ Linking failed. Please try again.
-                    </div>
+                    <div class="alert alert-success mb-3">✅ Telegram linked successfully! You will receive order updates.</div>
+                  <% } else if (tgParam === 'invalid') { %>
+                    <div class="alert alert-danger mb-3">❌ Invalid code format. Please enter a 6-digit code.</div>
+                  <% } else if (tgParam === 'not_found') { %>
+                    <div class="alert alert-warning mb-3">❌ Code not found or expired. Please send /start again.</div>
+                  <% } else if (tgParam === 'error') { %>
+                    <div class="alert alert-danger mb-3">❌ Something went wrong. Please try again.</div>
                   <% } else if (tgParam === 'unlinked') { %>
-                    <div class="alert alert-info">
-                      ℹ️ Telegram has been unlinked successfully.
-                    </div>
-                  <% } else if (tgParam === 'unlink_failed') { %>
-                    <div class="alert alert-danger">
-                      ❌ Failed to unlink Telegram. Please try again.
-                    </div>
+                    <div class="alert alert-info mb-3">ℹ️ Telegram has been unlinked successfully.</div>
                   <% } %>
                 <% } %>
 
@@ -341,7 +317,7 @@
                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Status changes</span>
                   </p>
 
-                  <form action="/profile/unlink-telegram" method="POST" class="d-flex gap-2">
+                  <form action="/profile/unlink-telegram" method="POST" class="d-flex gap-2 flex-wrap">
                     <button type="submit" class="btn btn-outline-danger">
                       <i class="bi bi-x-circle me-1"></i>Unlink Telegram
                     </button>
@@ -374,9 +350,7 @@
                             autocomplete="one-time-code"
                             required
                           />
-                          <small class="text-muted d-block mt-1">
-                            The code expires in 10 minutes.
-                          </small>
+                          <small class="text-muted d-block mt-1">The code expires in 10 minutes.</small>
                         </div>
                         <div class="col-sm-6">
                           <button type="submit" class="btn btn-primary w-100">
@@ -401,6 +375,7 @@
                     </div>
                   </div>
                 <% } %>
+
               </div>
             </div>
 
@@ -417,9 +392,7 @@
                         <label class="form-label">New Username</label>
                         <input type="text" class="form-control" name="newUsername" required>
                       </div>
-                      <button type="submit" class="btn btn-primary w-100">
-                        Update Username
-                      </button>
+                      <button type="submit" class="btn btn-primary w-100">Update Username</button>
                     </form>
                   </div>
                 </div>
@@ -435,9 +408,7 @@
                         <label class="form-label">New Email</label>
                         <input type="email" class="form-control" name="newEmail" required>
                       </div>
-                      <button type="submit" class="btn btn-primary w-100">
-                        Update Email
-                      </button>
+                      <button type="submit" class="btn btn-primary w-100">Update Email</button>
                     </form>
                   </div>
                 </div>
@@ -457,9 +428,7 @@
                         <label class="form-label">New Password</label>
                         <input type="password" class="form-control" name="newPassword" required>
                       </div>
-                      <button type="submit" class="btn btn-primary w-100">
-                        Update Password
-                      </button>
+                      <button type="submit" class="btn btn-primary w-100">Update Password</button>
                     </form>
                   </div>
                 </div>
@@ -469,9 +438,7 @@
               <div class="col-md-6 mb-4">
                 <div class="card h-100 border-danger">
                   <div class="card-body">
-                    <h5 class="text-danger">
-                      <i class="bi bi-exclamation-triangle me-2"></i>Danger Zone
-                    </h5>
+                    <h5 class="text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Danger Zone</h5>
                     <button class="btn btn-outline-danger w-100 mt-3"
                             data-bs-toggle="modal"
                             data-bs-target="#deleteAccountModal">

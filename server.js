@@ -20,7 +20,6 @@ const PORT = process.env.PORT || 3000;
 // بعدها استورد أي شيء بيحتاج PORT أو ENV
 const { dailycardAPI, verifyPlayerId } = require('./services/dailycard');
 const { v4: uuidv4 } = require('uuid');
-const TelegramBot = require('node-telegram-bot-api');
 // 🔽 عدّل هول:
 const { getSmmServices, createSmmOrder, getSmmOrderStatus } = require('./services/smmgen');
 
