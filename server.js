@@ -29,7 +29,6 @@ const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
 const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
 const uploadNone = multer();
-require('./telegram/saveChatId');
 const crypto = require('crypto');
 
 
@@ -471,6 +470,40 @@ app.get('/test', (req, res) => {
   res.send("Test is working ✅");
 });
 
+
+
+app.post('/telegram/link', (req, res) => {
+  const userId = req.session?.user?.id;
+  const code = String(req.body?.code || '').trim();
+
+  if (!userId) return res.status(401).send("❌ Please login first.");
+  if (!/^\d{6}$/.test(code)) return res.status(400).send("❌ Invalid code.");
+
+  db.query(
+    "SELECT chat_id, expires_at FROM telegram_link_codes WHERE code=? LIMIT 1",
+    [code],
+    (err, rows) => {
+      if (err) return res.status(500).send("❌ Database error.");
+      if (!rows || rows.length === 0) return res.status(400).send("❌ Code not found.");
+
+      const { chat_id, expires_at } = rows[0];
+      if (Date.now() > new Date(expires_at).getTime()) {
+        return res.status(400).send("❌ Code expired. Go back to the bot and /start again.");
+      }
+
+      db.query(
+        "UPDATE users SET telegram_chat_id=? WHERE id=?",
+        [chat_id, userId],
+        (err2) => {
+          if (err2) return res.status(500).send("❌ Failed to link Telegram.");
+
+          db.query("DELETE FROM telegram_link_codes WHERE code=?", [code], () => {});
+          return res.send("✅ Telegram linked successfully!");
+        }
+      );
+    }
+  );
+});
 
 app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
   const { amount } = req.body;
@@ -3456,9 +3489,95 @@ app.post('/login', async (req, res) => {
 
 
 app.get('/profile', checkAuth, (req, res) => {
-    // نحن نستخدم بيانات المستخدم المخزنة في الـ session
-    res.render('profile', { user: req.session.user });
+  const userId = req.session.user.id;
+
+  db.query(
+    "SELECT telegram_chat_id FROM users WHERE id=? LIMIT 1",
+    [userId],
+    (err, rows) => {
+      if (err) {
+        console.error("❌ profile telegram fetch:", err.message);
+        return res.render('profile', { user: req.session.user, telegramLinked: false });
+      }
+
+      const telegramLinked = !!rows?.[0]?.telegram_chat_id;
+
+      // إذا بتحب، حدّث session كمان
+      req.session.user.telegram_chat_id = rows?.[0]?.telegram_chat_id || null;
+
+      res.render('profile', {
+        user: req.session.user,
+        telegramLinked
+      });
+    }
+  );
 });
+
+app.post('/profile/link-telegram', checkAuth, (req, res) => {
+  const userId = req.session.user.id;
+  const code = String(req.body.code || '').trim();
+
+  if (!/^\d{6}$/.test(code)) {
+    return res.redirect('/profile?tg=invalid_code');
+  }
+
+  db.query(
+    "SELECT chat_id, expires_at FROM telegram_link_codes WHERE code=? LIMIT 1",
+    [code],
+    (err, rows) => {
+      if (err) {
+        console.error("❌ tg code lookup:", err.message);
+        return res.redirect('/profile?tg=db_error');
+      }
+
+      if (!rows || rows.length === 0) {
+        return res.redirect('/profile?tg=code_not_found');
+      }
+
+      const { chat_id, expires_at } = rows[0];
+      if (Date.now() > new Date(expires_at).getTime()) {
+        return res.redirect('/profile?tg=expired');
+      }
+
+      db.query(
+        "UPDATE users SET telegram_chat_id=? WHERE id=?",
+        [chat_id, userId],
+        (err2) => {
+          if (err2) {
+            console.error("❌ tg link update:", err2.message);
+            return res.redirect('/profile?tg=link_failed');
+          }
+
+          // احذف الكود بعد الاستعمال
+          db.query("DELETE FROM telegram_link_codes WHERE code=?", [code], () => {});
+          req.session.user.telegram_chat_id = chat_id;
+
+          return res.redirect('/profile?tg=linked');
+        }
+      );
+    }
+  );
+});
+
+
+app.post('/profile/unlink-telegram', checkAuth, (req, res) => {
+  const userId = req.session.user.id;
+
+  db.query(
+    "UPDATE users SET telegram_chat_id=NULL WHERE id=?",
+    [userId],
+    (err) => {
+      if (err) {
+        console.error("❌ tg unlink:", err.message);
+        return res.redirect('/profile?tg=unlink_failed');
+      }
+
+      req.session.user.telegram_chat_id = null;
+      res.redirect('/profile?tg=unlinked');
+    }
+  );
+});
+
 
 // مسار لتحديث اسم المستخدم
 app.post('/profile/update-username', checkAuth, (req, res) => {

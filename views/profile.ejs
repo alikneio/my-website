@@ -1,387 +1,521 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <%- include('partials/head') %>
-    <title>Profile Settings - AK Cell</title>
-    <style>
-        .profile-card {
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-            border: none;
-        }
-        .form-control:focus {
-            border-color: #0d6efd;
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-        }
-        .loyalty-card {
-            border-radius: 16px;
-            background: radial-gradient(circle at top left, #0d6efd, #111827);
-            color: #fff;
-            box-shadow: 0 10px 30px rgba(15,23,42,0.5);
-            overflow: hidden;
-        }
-        .loyalty-badge {
-            border-radius: 999px;
-            padding: 4px 12px;
-            font-size: 0.8rem;
-            background: rgba(15,23,42,0.75);
-            border: 1px solid rgba(248,250,252,0.15);
-        }
-        .loyalty-stat {
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-        .loyalty-stat strong {
-            font-size: 1rem;
-        }
-        .progress {
-            height: 10px;
-            border-radius: 999px;
-            overflow: hidden;
-            background: rgba(15,23,42,0.6);
-        }
-        .progress-bar {
-            background: linear-gradient(90deg, #22c55e, #a3e635);
-        }
-        .tier-pill {
-            border-radius: 999px;
-            padding: 3px 10px;
-            font-size: 0.75rem;
-        }
-        .tier-pill.bronze { background: #78350f; color: #fef3c7; }
-        .tier-pill.silver { background: #9ca3af; color: #111827; }
-        .tier-pill.gold { background: #facc15; color: #111827; }
-        .tier-pill.platinum { background: #4b5563; color: #e5e7eb; }
-        .tier-pill.diamond { background: #0ea5e9; color: #f9fafb; }
-        .tier-table td, .tier-table th {
-            font-size: 0.85rem;
-            vertical-align: middle;
-        }
-        .tier-table th {
-            background: #f3f4f6;
-        }
-    </style>
+  <%- include('partials/head') %>
+  <title>Profile Settings - AK Cell</title>
+  <style>
+    .profile-card {
+      border-radius: 15px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+      border: none;
+    }
+    .form-control:focus {
+      border-color: #0d6efd;
+      box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    .loyalty-card {
+      border-radius: 16px;
+      background: radial-gradient(circle at top left, #0d6efd, #111827);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.5);
+      overflow: hidden;
+    }
+    .loyalty-badge {
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      background: rgba(15,23,42,0.75);
+      border: 1px solid rgba(248,250,252,0.15);
+    }
+    .loyalty-stat {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    .loyalty-stat strong {
+      font-size: 1rem;
+    }
+    .progress {
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(15,23,42,0.6);
+    }
+    .progress-bar {
+      background: linear-gradient(90deg, #22c55e, #a3e635);
+    }
+    .tier-pill {
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 0.75rem;
+    }
+    .tier-pill.bronze { background: #78350f; color: #fef3c7; }
+    .tier-pill.silver { background: #9ca3af; color: #111827; }
+    .tier-pill.gold { background: #facc15; color: #111827; }
+    .tier-pill.platinum { background: #4b5563; color: #e5e7eb; }
+    .tier-pill.diamond { background: #0ea5e9; color: #f9fafb; }
+    .tier-table td, .tier-table th {
+      font-size: 0.85rem;
+      vertical-align: middle;
+    }
+    .tier-table th {
+      background: #f3f4f6;
+    }
+
+    /* Telegram card extras */
+    .tg-code-input {
+      letter-spacing: 0.25em;
+      font-weight: 700;
+      text-align: center;
+    }
+    .tg-steps li { margin-bottom: 6px; }
+    .tg-status-badge {
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: #f8fafc;
+    }
+  </style>
 </head>
 <body>
-    <%- include('partials/header') %>
-    
-    <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-10">
+  <%- include('partials/header') %>
 
-                <% 
-                  const level = Number(user?.level || 1);
-                  const discount = Number(user?.discount_percent || 0); // الخصم اليدوي/الفعلي المعروض
-                  const totalSpent = Number(user?.total_spent || 0);
-                  const createdAt = user?.createdAt || user?.created_at;
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-10">
 
-                  // ✅ Ranges متصلة (بدون gaps)
-                  // Bronze:   0   - <100
-                  // Silver:   100 - <500
-                  // Gold:     500 - <1000
-                  // Platinum: 1000- <5000
-                  // Diamond:  5000- ∞
-                  const tiers = [
-                    { level: 1, label: 'Bronze',   min: 0,    max: 100,   discount: 0, className: 'bronze' },
-                    { level: 2, label: 'Silver',   min: 100,  max: 500,   discount: 3, className: 'silver' },
-                    { level: 3, label: 'Gold',     min: 500,  max: 1500,  discount: 5, className: 'gold' },
-                    { level: 4, label: 'Platinum', min: 1500, max: 5000,  discount: 7, className: 'platinum' },
-                    { level: 5, label: 'Diamond',  min: 5000, max: null,  discount: 11, className: 'diamond' },
-                  ];
+        <%
+          const level = Number(user?.level || 1);
+          const discount = Number(user?.discount_percent || 0);
+          const totalSpent = Number(user?.total_spent || 0);
+          const createdAt = user?.createdAt || user?.created_at;
 
-                  // ✅ الأفضل للعرض: نحدد الـ Tier حسب total_spent (لأنه "الحقيقة")
-                  // وإذا totalSpent مش موجود لأي سبب، بنرجع للـ level.
-                  const bySpentTier =
-                    tiers.find(t => totalSpent >= t.min && (t.max === null || totalSpent < t.max));
+          const tiers = [
+            { level: 1, label: 'Bronze',   min: 0,    max: 100,   discount: 0, className: 'bronze' },
+            { level: 2, label: 'Silver',   min: 100,  max: 500,   discount: 3, className: 'silver' },
+            { level: 3, label: 'Gold',     min: 500,  max: 1500,  discount: 5, className: 'gold' },
+            { level: 4, label: 'Platinum', min: 1500, max: 5000,  discount: 7, className: 'platinum' },
+            { level: 5, label: 'Diamond',  min: 5000, max: null,  discount: 11, className: 'diamond' },
+          ];
 
-                  const byLevelTier =
-                    tiers.find(t => t.level === level) || tiers[0];
+          const bySpentTier =
+            tiers.find(t => totalSpent >= t.min && (t.max === null || totalSpent < t.max));
 
-                  const currentTier = bySpentTier || byLevelTier;
+          const byLevelTier =
+            tiers.find(t => t.level === level) || tiers[0];
 
-                  const nextTier = tiers.find(t => t.level === currentTier.level + 1) || null;
+          const currentTier = bySpentTier || byLevelTier;
+          const nextTier = tiers.find(t => t.level === currentTier.level + 1) || null;
 
-                  let progress = 100;
-                  let remainingAmount = 0;
+          let progress = 100;
+          let remainingAmount = 0;
 
-                  if (nextTier) {
-                    const range = nextTier.min - currentTier.min;
-                    progress = Math.min(100, Math.max(0, ((totalSpent - currentTier.min) / range) * 100));
-                    remainingAmount = Math.max(0, nextTier.min - totalSpent);
-                  }
-                %>
+          if (nextTier) {
+            const range = nextTier.min - currentTier.min;
+            progress = Math.min(100, Math.max(0, ((totalSpent - currentTier.min) / range) * 100));
+            remainingAmount = Math.max(0, nextTier.min - totalSpent);
+          }
 
-                <!-- بطاقة مستوى التاجر / الخصم -->
-                <div class="loyalty-card mb-4">
-                  <div class="row g-0 align-items-center">
-                    <div class="col-md-7 p-4">
-                      <div class="d-flex align-items-center mb-2">
-                        <span class="loyalty-badge text-uppercase me-2">
-                          Loyalty Level
+          // Telegram
+          const tgLinked = (typeof telegramLinked !== 'undefined') ? telegramLinked : !!user?.telegram_chat_id;
+          const tgParam = (query && query.tg) ? String(query.tg) : '';
+        %>
+
+        <!-- Loyalty Card -->
+        <div class="loyalty-card mb-4">
+          <div class="row g-0 align-items-center">
+            <div class="col-md-7 p-4">
+              <div class="d-flex align-items-center mb-2">
+                <span class="loyalty-badge text-uppercase me-2">
+                  Loyalty Level
+                </span>
+                <span class="tier-pill <%= currentTier.className %>">
+                  <i class="bi bi-stars me-1"></i>
+                  <%= currentTier.label %> (Level <%= currentTier.level %>)
+                </span>
+              </div>
+
+              <h3 class="mb-1">
+                <span class="fw-semibold">Hello, </span><%= user.username %> 👋
+              </h3>
+              <p class="mb-3 loyalty-stat">
+                You are enjoying a <strong><%= discount.toFixed(0) %>% discount</strong> on your orders.
+              </p>
+
+              <div class="row mb-3">
+                <div class="col-6">
+                  <div class="loyalty-stat">
+                    Total Spent<br>
+                    <strong>$<%= totalSpent.toFixed(2) %></strong>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="loyalty-stat">
+                    Current Balance<br>
+                    <strong>$<%= Number(user.balance || 0).toFixed(2) %></strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-2 d-flex justify-content-between align-items-center">
+                <% if (nextTier) { %>
+                  <small>
+                    Progress to <strong><%= nextTier.label %> (Level <%= nextTier.level %>)</strong>
+                  </small>
+                  <small>
+                    Remaining: <strong>$<%= remainingAmount.toFixed(2) %></strong>
+                  </small>
+                <% } else { %>
+                  <small>
+                    You reached the highest tier 🎉
+                  </small>
+                <% } %>
+              </div>
+
+              <div class="progress mb-1">
+                <div class="progress-bar" role="progressbar"
+                     style="width: <%= progress %>%"
+                     aria-valuenow="<%= progress %>" aria-valuemin="0" aria-valuemax="100"></div>
+              </div>
+
+              <% if (nextTier) { %>
+                <small class="text-light opacity-75">
+                  Spend more to unlock better discounts and perks.
+                </small>
+              <% } else { %>
+                <small class="text-light opacity-75">
+                  You are a top-tier member. Thank you for being awesome! 💙
+                </small>
+              <% } %>
+            </div>
+
+            <div class="col-md-5 p-4 text-md-end text-center">
+              <div class="mb-2">
+                <i class="bi bi-gem" style="font-size: 3rem;"></i>
+              </div>
+              <p class="mb-1 loyalty-stat">
+                Member since<br>
+                <strong><%= createdAt ? new Date(createdAt).toLocaleDateString() : '' %></strong>
+              </p>
+              <p class="mb-0 loyalty-stat">
+                Current Discount<br>
+                <strong><%= discount.toFixed(0) %>%</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Levels & Discounts -->
+        <div class="card profile-card mb-4">
+          <div class="card-header bg-white border-0">
+            <h5 class="mb-0">
+              <i class="bi bi-trophy me-2 text-warning"></i>
+              Levels & Discounts
+            </h5>
+          </div>
+          <div class="card-body pt-0">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle tier-table mb-0">
+                <thead>
+                  <tr>
+                    <th>Level</th>
+                    <th>Tier</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Discount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% tiers.forEach(t => { %>
+                    <tr class="<%= t.level === currentTier.level ? 'table-primary' : '' %>">
+                      <td>#<%= t.level %></td>
+                      <td>
+                        <span class="tier-pill <%= t.className %>">
+                          <%= t.label %>
                         </span>
-                        <span class="tier-pill <%= currentTier.className %>">
-                          <i class="bi bi-stars me-1"></i>
-                          <%= currentTier.label %> (Level <%= currentTier.level %>)
-                        </span>
-                      </div>
-
-                      <h3 class="mb-1">
-                        <span class="fw-semibold">Hello, </span><%= user.username %> 👋
-                      </h3>
-                      <p class="mb-3 loyalty-stat">
-                        You are enjoying a <strong><%= discount.toFixed(0) %>% discount</strong> on your orders.
-                      </p>
-
-                      <div class="row mb-3">
-                        <div class="col-6">
-                          <div class="loyalty-stat">
-                            Total Spent<br>
-                            <strong>$<%= totalSpent.toFixed(2) %></strong>
-                          </div>
-                        </div>
-                        <div class="col-6">
-                          <div class="loyalty-stat">
-                            Current Balance<br>
-                            <strong>$<%= Number(user.balance || 0).toFixed(2) %></strong>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="mb-2 d-flex justify-content-between align-items-center">
-                        <% if (nextTier) { %>
-                          <small>
-                            Progress to <strong><%= nextTier.label %> (Level <%= nextTier.level %>)</strong>
-                          </small>
-                          <small>
-                            Remaining: <strong>$<%= remainingAmount.toFixed(2) %></strong>
-                          </small>
+                      </td>
+                      <td>$<%= t.min.toFixed(2) %></td>
+                      <td>
+                        <% if (t.max === null) { %>
+                          Unlimited
                         <% } else { %>
-                          <small>
-                            You reached the highest tier 🎉
-                          </small>
+                          $<%= t.max.toFixed(2) %>
                         <% } %>
-                      </div>
-
-                      <div class="progress mb-1">
-                        <div class="progress-bar" role="progressbar"
-                             style="width: <%= progress %>%"
-                             aria-valuenow="<%= progress %>" aria-valuemin="0" aria-valuemax="100"></div>
-                      </div>
-
-                      <% if (nextTier) { %>
-                        <small class="text-light opacity-75">
-                          Spend more to unlock better discounts and perks.
-                        </small>
-                      <% } else { %>
-                        <small class="text-light opacity-75">
-                          You are a top-tier member. Thank you for being awesome! 💙
-                        </small>
-                      <% } %>
-                    </div>
-
-                    <div class="col-md-5 p-4 text-md-end text-center">
-                      <div class="mb-2">
-                        <i class="bi bi-gem" style="font-size: 3rem;"></i>
-                      </div>
-                      <p class="mb-1 loyalty-stat">
-                        Member since<br>
-                        <strong><%= createdAt ? new Date(createdAt).toLocaleDateString() : '' %></strong>
-                      </p>
-                      <p class="mb-0 loyalty-stat">
-                        Current Discount<br>
-                        <strong><%= discount.toFixed(0) %>%</strong>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- جدول المستويات والخصومات -->
-                <div class="card profile-card mb-4">
-                  <div class="card-header bg-white border-0">
-                    <h5 class="mb-0">
-                      <i class="bi bi-trophy me-2 text-warning"></i>
-                      Levels & Discounts
-                    </h5>
-                  </div>
-                  <div class="card-body pt-0">
-                    <div class="table-responsive">
-                      <table class="table table-sm align-middle tier-table mb-0">
-                        <thead>
-                          <tr>
-                            <th>Level</th>
-                            <th>Tier</th>
-                            <th>From</th>
-                            <th>To</th>
-                            <th>Discount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <% tiers.forEach(t => { %>
-                            <tr class="<%= t.level === currentTier.level ? 'table-primary' : '' %>">
-                              <td>#<%= t.level %></td>
-                              <td>
-                                <span class="tier-pill <%= t.className %>">
-                                  <%= t.label %>
-                                </span>
-                              </td>
-                              <td>$<%= t.min.toFixed(2) %></td>
-                              <td>
-                                <% if (t.max === null) { %>
-                                  Unlimited
-                                <% } else { %>
-                                  $<%= t.max.toFixed(2) %>
-                                <% } %>
-                              </td>
-                              <td><%= t.discount %>%</td>
-                            </tr>
-                          <% }) %>
-                        </tbody>
-                      </table>
-                    </div>
-                    <small class="text-muted d-block mt-2">
-                      * Levels are calculated based on your total spent across all completed orders.
-                    </small>
-                  </div>
-                </div>
-
-                <!-- إعدادات الحساب الأساسية -->
-                <div class="card profile-card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <h3 class="mb-0"><i class="bi bi-person-gear me-2"></i>Profile Settings</h3>
-                    </div>
-                    <div class="card-body p-4">
-                        
-                        <!-- قسم معلومات الحساب -->
-                        <div class="mb-5">
-                            <h4 class="border-bottom pb-2">
-                              <i class="bi bi-info-circle me-2"></i>Account Information
-                            </h4>
-                            <div class="row mt-3">
-                                <div class="col-md-6 mb-3">
-                                    <p><strong>Username:</strong> <%= user.username %></p>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <p><strong>Email:</strong> <%= user.email %></p>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <p><strong>Balance:</strong> $<%= Number(user.balance || 0).toFixed(2) %></p>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <p><strong>Member Since:</strong> <%= createdAt ? new Date(createdAt).toLocaleDateString() : '' %></p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- تعديل المعلومات -->
-                        <div class="row">
-                            <!-- تغيير اسم المستخدم -->
-                            <div class="col-md-6 mb-4">
-                                <div class="card h-100">
-                                    <div class="card-body">
-                                        <h5><i class="bi bi-person-badge me-2"></i>Change Username</h5>
-                                        <form action="/profile/update-username" method="POST">
-                                            <div class="mb-3">
-                                                <label class="form-label">New Username</label>
-                                                <input type="text" class="form-control" name="newUsername" required>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary w-100">
-                                                Update Username
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- تغيير الإيميل -->
-                            <div class="col-md-6 mb-4">
-                                <div class="card h-100">
-                                    <div class="card-body">
-                                        <h5><i class="bi bi-envelope me-2"></i>Change Email</h5>
-                                        <form action="/profile/update-email" method="POST">
-                                            <div class="mb-3">
-                                                <label class="form-label">New Email</label>
-                                                <input type="email" class="form-control" name="newEmail" required>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary w-100">
-                                                Update Email
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- تغيير كلمة السر -->
-                            <div class="col-md-6 mb-4">
-                                <div class="card h-100">
-                                    <div class="card-body">
-                                        <h5><i class="bi bi-shield-lock me-2"></i>Change Password</h5>
-                                        <form action="/profile/update-password" method="POST">
-                                            <div class="mb-3">
-                                                <label class="form-label">Current Password</label>
-                                                <input type="password" class="form-control" name="currentPassword" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">New Password</label>
-                                                <input type="password" class="form-control" name="newPassword" required>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary w-100">
-                                                Update Password
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- حذف الحساب -->
-                            <div class="col-md-6 mb-4">
-                                <div class="card h-100 border-danger">
-                                    <div class="card-body">
-                                        <h5 class="text-danger">
-                                          <i class="bi bi-exclamation-triangle me-2"></i>Danger Zone
-                                        </h5>
-                                        <button class="btn btn-outline-danger w-100 mt-3"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#deleteAccountModal">
-                                            Delete Account
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+                      </td>
+                      <td><%= t.discount %>%</td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
             </div>
+            <small class="text-muted d-block mt-2">
+              * Levels are calculated based on your total spent across all completed orders.
+            </small>
+          </div>
         </div>
-    </div>
 
-    <!-- Modal حذف الحساب -->
-    <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">Confirm Account Deletion</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <!-- Profile Settings -->
+        <div class="card profile-card mb-4">
+          <div class="card-header bg-primary text-white">
+            <h3 class="mb-0"><i class="bi bi-person-gear me-2"></i>Profile Settings</h3>
+          </div>
+
+          <div class="card-body p-4">
+
+            <!-- Account Information -->
+            <div class="mb-5">
+              <h4 class="border-bottom pb-2">
+                <i class="bi bi-info-circle me-2"></i>Account Information
+              </h4>
+              <div class="row mt-3">
+                <div class="col-md-6 mb-3">
+                  <p><strong>Username:</strong> <%= user.username %></p>
                 </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to delete your account? This action cannot be undone!</p>
-                    <form action="/profile/delete-account" method="POST" id="deleteForm">
-                        <div class="mb-3">
-                            <label class="form-label">Enter your password to confirm</label>
-                            <input type="password" class="form-control" name="password" required>
+                <div class="col-md-6 mb-3">
+                  <p><strong>Email:</strong> <%= user.email %></p>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <p><strong>Balance:</strong> $<%= Number(user.balance || 0).toFixed(2) %></p>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <p><strong>Member Since:</strong> <%= createdAt ? new Date(createdAt).toLocaleDateString() : '' %></p>
+                </div>
+              </div>
+            </div>
+
+            <!-- ✅ Telegram Link Card (CODE) -->
+            <div class="card profile-card mb-4">
+              <div class="card-header bg-white border-0 d-flex align-items-center justify-content-between">
+                <h5 class="mb-0">
+                  <i class="bi bi-telegram me-2 text-primary"></i>
+                  Telegram Notifications
+                </h5>
+                <% if (tgLinked) { %>
+                  <span class="tg-status-badge text-success">
+                    <i class="bi bi-check-circle me-1"></i>Linked
+                  </span>
+                <% } else { %>
+                  <span class="tg-status-badge text-muted">
+                    <i class="bi bi-link-45deg me-1"></i>Not linked
+                  </span>
+                <% } %>
+              </div>
+
+              <div class="card-body">
+                <% if (tgParam) { %>
+                  <% if (tgParam === 'linked') { %>
+                    <div class="alert alert-success">
+                      ✅ Telegram linked successfully! You will receive order updates.
+                    </div>
+                  <% } else if (tgParam === 'invalid_code') { %>
+                    <div class="alert alert-danger">
+                      ❌ Invalid code format. Please enter a 6-digit code.
+                    </div>
+                  <% } else if (tgParam === 'code_not_found') { %>
+                    <div class="alert alert-warning">
+                      ❌ Code not found. Please go back to the bot and send /start again.
+                    </div>
+                  <% } else if (tgParam === 'expired') { %>
+                    <div class="alert alert-warning">
+                      ❌ Code expired. Please send /start again to generate a new code.
+                    </div>
+                  <% } else if (tgParam === 'link_failed') { %>
+                    <div class="alert alert-danger">
+                      ❌ Linking failed. Please try again.
+                    </div>
+                  <% } else if (tgParam === 'unlinked') { %>
+                    <div class="alert alert-info">
+                      ℹ️ Telegram has been unlinked successfully.
+                    </div>
+                  <% } else if (tgParam === 'unlink_failed') { %>
+                    <div class="alert alert-danger">
+                      ❌ Failed to unlink Telegram. Please try again.
+                    </div>
+                  <% } %>
+                <% } %>
+
+                <% if (tgLinked) { %>
+                  <p class="mb-3">
+                    Your account is linked to Telegram. You will receive:
+                    <span class="badge bg-success-subtle text-success border border-success-subtle">Order updates</span>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Status changes</span>
+                  </p>
+
+                  <form action="/profile/unlink-telegram" method="POST" class="d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-danger">
+                      <i class="bi bi-x-circle me-1"></i>Unlink Telegram
+                    </button>
+                    <a class="btn btn-outline-primary" href="https://t.me/" target="_blank" rel="noopener">
+                      <i class="bi bi-telegram me-1"></i>Open Telegram
+                    </a>
+                  </form>
+
+                <% } else { %>
+                  <div class="row g-4 align-items-center">
+                    <div class="col-lg-7">
+                      <div class="alert alert-info mb-3">
+                        <strong>Link your Telegram in 10 seconds:</strong>
+                        <ol class="tg-steps mt-2 mb-0">
+                          <li>Open our Telegram bot</li>
+                          <li>Send <strong>/start</strong> to get a 6-digit code</li>
+                          <li>Enter the code below</li>
+                        </ol>
+                      </div>
+
+                      <form action="/profile/link-telegram" method="POST" class="row g-2 align-items-center">
+                        <div class="col-sm-6">
+                          <input
+                            type="text"
+                            name="code"
+                            class="form-control tg-code-input"
+                            placeholder="● ● ● ● ● ●"
+                            maxlength="6"
+                            inputmode="numeric"
+                            autocomplete="one-time-code"
+                            required
+                          />
+                          <small class="text-muted d-block mt-1">
+                            The code expires in 10 minutes.
+                          </small>
                         </div>
+                        <div class="col-sm-6">
+                          <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-link-45deg me-1"></i>Link Telegram
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    <div class="col-lg-5">
+                      <div class="p-3 rounded-4 bg-light border">
+                        <div class="d-flex align-items-center mb-2">
+                          <i class="bi bi-shield-check text-success me-2"></i>
+                          <strong>Why this is better?</strong>
+                        </div>
+                        <ul class="mb-0 small text-muted">
+                          <li>No links needed</li>
+                          <li>More secure than chatId links</li>
+                          <li>Works on mobile & desktop</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                <% } %>
+              </div>
+            </div>
+
+            <!-- Edit Info -->
+            <div class="row">
+
+              <!-- Change Username -->
+              <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h5><i class="bi bi-person-badge me-2"></i>Change Username</h5>
+                    <form action="/profile/update-username" method="POST">
+                      <div class="mb-3">
+                        <label class="form-label">New Username</label>
+                        <input type="text" class="form-control" name="newUsername" required>
+                      </div>
+                      <button type="submit" class="btn btn-primary w-100">
+                        Update Username
+                      </button>
                     </form>
+                  </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" form="deleteForm" class="btn btn-danger">Delete Account</button>
+              </div>
+
+              <!-- Change Email -->
+              <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h5><i class="bi bi-envelope me-2"></i>Change Email</h5>
+                    <form action="/profile/update-email" method="POST">
+                      <div class="mb-3">
+                        <label class="form-label">New Email</label>
+                        <input type="email" class="form-control" name="newEmail" required>
+                      </div>
+                      <button type="submit" class="btn btn-primary w-100">
+                        Update Email
+                      </button>
+                    </form>
+                  </div>
                 </div>
+              </div>
+
+              <!-- Change Password -->
+              <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h5><i class="bi bi-shield-lock me-2"></i>Change Password</h5>
+                    <form action="/profile/update-password" method="POST">
+                      <div class="mb-3">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" class="form-control" name="currentPassword" required>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" name="newPassword" required>
+                      </div>
+                      <button type="submit" class="btn btn-primary w-100">
+                        Update Password
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Delete Account -->
+              <div class="col-md-6 mb-4">
+                <div class="card h-100 border-danger">
+                  <div class="card-body">
+                    <h5 class="text-danger">
+                      <i class="bi bi-exclamation-triangle me-2"></i>Danger Zone
+                    </h5>
+                    <button class="btn btn-outline-danger w-100 mt-3"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteAccountModal">
+                      Delete Account
+                    </button>
+                  </div>
+                </div>
+              </div>
+
             </div>
+          </div>
         </div>
+
+      </div>
     </div>
+  </div>
 
-    <%- include('partials/footer') %>
+  <!-- Delete Account Modal -->
+  <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title">Confirm Account Deletion</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete your account? This action cannot be undone!</p>
+          <form action="/profile/delete-account" method="POST" id="deleteForm">
+            <div class="mb-3">
+              <label class="form-label">Enter your password to confirm</label>
+              <input type="password" class="form-control" name="password" required>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" form="deleteForm" class="btn btn-danger">Delete Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <%- include('partials/footer') %>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
