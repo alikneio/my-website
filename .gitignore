@@ -1,1 +1,14 @@
-.env".env" 
+# Environment files
+.env
+.env.*
+env
+env.*
+
+# Node
+node_modules/
+
+# Secrets
+x-api-key
+x-api-secret
+*.key
+*.pem
