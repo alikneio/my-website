@@ -1,5 +1,4 @@
 const axios = require('axios');
-require('dotenv').config();
 
 console.log("🔑 Loaded API KEY:", process.env.DAILYCARD_API_KEY);
 console.log("🔒 Loaded API SECRET:", process.env.DAILYCARD_API_SECRET);

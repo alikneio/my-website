@@ -1,4 +1,4 @@
-require('dotenv').config();
+
 const TelegramBot = require('node-telegram-bot-api');
 
 console.log("🔥 BOT VERSION: RAILWAY-DB-PROMISE v1");

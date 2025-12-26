@@ -1,5 +1,4 @@
 // telegram/bot.js
-require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const db = require('../database'); // { pool, promisePool, query }
 
