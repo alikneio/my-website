@@ -1,7 +1,6 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-fig();
 const { dailycardAPI } = require('../services/dailycard');
 
 const CACHE_DIR = path.join(__dirname, '../cache');
