@@ -110,7 +110,7 @@
         const userTotalSpent = Number(user.total_spent || 0);
 
         // ✅ Auto discount by level (حسب النظام الجديد)
-        const levelDiscountMap = { 1: 0, 2: 3, 3: 5, 4: 7, 5: 11 };
+        const levelDiscountMap = { 1: 0, 2: 2, 3: 4, 4: 6, 5: 10 };
         const autoDiscount = (levelDiscountMap[userLevel] ?? 0);
 
         // ✅ Effective discount: manual wins, otherwise auto
