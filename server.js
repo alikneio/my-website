@@ -3663,7 +3663,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       if (row?.response_json) {
         try {
           const payload = JSON.parse(row.response_json);
-          // إذا payload فيه success=false قد يكون لازم status مختلف، بس نخليه 200 لسهولة الفرونت
           return res.json(payload);
         } catch (_) {
           // response_json خربان -> تجاهله وكمل تنفيذ طبيعي
@@ -3735,9 +3734,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       await conn.beginTransaction();
 
       // ✅ 5) Idempotency gate INSIDE transaction:
-      // نحجز المفتاح أولاً "بشكل ذري" ولكن بدون ما نعتبره نجاح
-      // إذا موجود مسبقًا: يا إمّا العملية صارت وانحفظ response_json (رح نرجعها فوق غالبًا)
-      // أو في طلب سابق "معلّق" -> نقرأ response_json هون، إذا موجود نرجعه، إذا مش موجود نمنع التكرار برسالة لطيفة.
       if (idemKey) {
         try {
           await conn.query(
@@ -3746,7 +3742,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
             [freshUser.id, idemKey]
           );
         } catch (e) {
-          // duplicate -> شوف إذا في response_json
           const [[row]] = await conn.query(
             `SELECT response_json
                FROM idempotency_keys
@@ -3756,17 +3751,13 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
           );
 
           if (row?.response_json) {
-            // نرجّع نفس الاستجابة السابقة
             try {
               const payload = JSON.parse(row.response_json);
-              await conn.commit(); // ما عملنا تغييرات، بس نختم الترانزاكشن
+              await conn.commit();
               return res.json(payload);
-            } catch (_) {
-              // response_json خربان، كمّل بشكل محافظ
-            }
+            } catch (_) {}
           }
 
-          // إذا ما في response_json يعني في طلب سابق حجز المفتاح وما خلّص
           await conn.rollback();
           return res.status(409).json({
             success: false,
@@ -3775,8 +3766,8 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         }
       }
 
-      // ✅ total_spent: اختار منطقك
-      const spentValue = purchasePrice; // أو basePrice
+      // ✅ total_spent
+      const spentValue = purchasePrice;
 
       // ✅ خصم ذري
       const [updRes] = await conn.query(
@@ -3790,11 +3781,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       if (!updRes?.affectedRows) {
         const failPayload = { success: false, message: 'Insufficient balance' };
 
-        // ✅ خزّن نتيجة الفشل على idemKey
         await storeIdempotencyResponse(conn, freshUser.id, idemKey, failPayload);
 
         await conn.rollback();
-        // بإمكانك ترجع 400 أو 200. أنا خليتها 400 لأن هذا “فشل منطقي”.
         return res.status(400).json(failPayload);
       }
 
@@ -3813,8 +3802,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         [freshUser.id, notifMsg]
       );
 
-      // ✅ خزّن نجاح العملية (مهم قبل commit أو بعده؟)
-      // الأفضل قبل commit ضمن نفس الترانزاكشن لضمان الذرّية
+      // ✅ خزّن نجاح العملية
       const successPayload = { success: true, redirectUrl: '/processing' };
       await storeIdempotencyResponse(conn, freshUser.id, idemKey, successPayload);
 
@@ -3839,7 +3827,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
       req.session.pendingOrderId = orderId;
 
-      // ✅ Telegram (non-blocking logically)
+      // ✅ Telegram (now via Cloudflare Relay, no direct api.telegram.org)
       try {
         const [rows] = await promisePool.query(
           'SELECT telegram_chat_id, username FROM users WHERE id = ?',
@@ -3858,11 +3846,12 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 📌 *الحالة:* جاري المعالجة
           `.trim();
 
-          await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-            chat_id: chatId,
-            text: msg,
-            parse_mode: 'Markdown'
-          });
+          await sendTelegramMessage(
+            chatId,
+            msg,
+            process.env.TELEGRAM_BOT_TOKEN,
+            { parseMode: "Markdown", timeoutMs: 15000 }
+          );
         }
 
         const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
@@ -3877,11 +3866,13 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 🕒 <b>الوقت:</b> ${now.toLocaleString()}
         `.trim();
 
-        await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          chat_id: adminChatId,
-          text: adminMsg,
-          parse_mode: 'HTML'
-        });
+        await sendTelegramMessage(
+          adminChatId,
+          adminMsg,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: "HTML", timeoutMs: 15000 }
+        );
+
       } catch (e) {
         console.warn('⚠️ Telegram notification flow error:', e.message || e);
       }
@@ -3891,9 +3882,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     } catch (e) {
       try { await conn.rollback(); } catch (_) {}
       console.error('Transaction failed:', e);
-
-      // (اختياري) خزّن فشل عام على idemKey حتى ما يصير تكرار بنفس المفتاح يعلق
-      // بس شخصيًا أفضل ما نخزّن 500 لأن ممكن المستخدم يعيد المحاولة.
       return res.status(500).json({ success: false, message: 'Transaction failed' });
     } finally {
       conn.release();
