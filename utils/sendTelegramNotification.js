@@ -58,7 +58,12 @@ async function sendTelegramMessage(chatId, message, botToken, opts = {}) {
     // Relay config (required)
     // -------------------------
     const relayUrl = (process.env.TG_RELAY_URL || "").trim();
-    const relaySecret = (process.env.TG_RELAY_SECRET || "").trim();
+   const relaySecret = (
+  process.env.TG_RELAY_SECRET ||
+  process.env.RELAY_SECRET ||
+  ""
+).trim();
+
 
     if (!relayUrl) {
       console.error("⚠️ sendTelegramMessage: TG_RELAY_URL missing (relay disabled).");
