@@ -1,6 +1,6 @@
 // utils/sendOrderStatusTelegram.js
 const { query } = require('../database');            // Promise-based query
-const sendTelegramMessage = require('./sendTelegramMessage');
+const sendTelegramMessage = require('./sendTelegramNotification');
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;      // من ENV
 const ADMIN_CHAT  = process.env.ADMIN_TELEGRAM_CHAT_ID;  // من ENV
