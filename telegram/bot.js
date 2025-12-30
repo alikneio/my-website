@@ -1,8 +1,8 @@
-// telegram/bot.js
+// telegram/bot.js  ✅ WEBHOOK VERSION (no polling)
 const TelegramBot = require("node-telegram-bot-api");
 const db = require("../database"); // { pool, promisePool, query }
 
-console.log("🤖 Starting Telegram bot... PID:", process.pid);
+console.log("🤖 Starting Telegram bot (webhook)... PID:", process.pid);
 
 // ✅ Prevent double-init inside same Node process (in case of duplicate imports)
 if (global.__TG_BOT__) {
@@ -18,14 +18,8 @@ if (!token) {
   return;
 }
 
-// ✅ Use more stable polling config
-const bot = new TelegramBot(token, {
-  polling: {
-    interval: 1000,
-    params: { timeout: 30 }, // long polling timeout
-  },
-});
-
+// ✅ WEBHOOK MODE (NO POLLING)
+const bot = new TelegramBot(token, { polling: false });
 global.__TG_BOT__ = bot;
 
 // ---------- Helpers ----------
@@ -66,43 +60,6 @@ bot.getMe()
   .then((me) => console.log("✅ Bot connected:", me.username))
   .catch((e) => console.error("❌ getMe failed:", e.message));
 
-// ---------- Polling error handling (FULL + backoff restart) ----------
-let restarting = false;
-let backoffMs = 2000; // starts at 2s, grows to max
-
-bot.on("polling_error", async (err) => {
-  console.error("❌ polling_error FULL:", {
-    name: err.name,
-    message: err.message,
-    code: err.code,
-    statusCode: err.response?.statusCode,
-    body: err.response?.body,
-  });
-
-  // If already restarting, don't stack restarts
-  if (restarting) return;
-  restarting = true;
-
-  // Exponential backoff up to 30s
-  backoffMs = Math.min(backoffMs * 2, 30000);
-
-  try {
-    await bot.stopPolling();
-  } catch (_) {}
-
-  setTimeout(async () => {
-    try {
-      await bot.startPolling();
-      console.log("✅ polling restarted (backoff:", backoffMs, "ms)");
-      backoffMs = 2000; // reset on success
-    } catch (e) {
-      console.error("❌ restart polling failed:", e.message);
-    } finally {
-      restarting = false;
-    }
-  }, backoffMs);
-});
-
 // ---------- Commands ----------
 bot.onText(/\/start(?:@[\w_]+)?/, async (msg) => {
   const chatId = msg.chat.id;
@@ -141,6 +98,6 @@ bot.onText(/\/start(?:@[\w_]+)?/, async (msg) => {
   }
 });
 
-console.log("🤖 Telegram bot started (polling)");
+console.log("🤖 Telegram bot ready (webhook mode)");
 
 module.exports = bot;

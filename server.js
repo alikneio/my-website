@@ -683,6 +683,15 @@ app.get('/add-balance/whish/lbp', (req, res) => {
 
 
 
+app.post("/telegram/webhook", (req, res) => {
+  try {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+  } catch (e) {
+    console.error("❌ webhook error:", e.message);
+    res.sendStatus(500);
+  }
+});
 
 
 
@@ -6780,15 +6789,33 @@ require('./telegram/bot');
 //                  START SERVER
 // =============================================
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`✅ Server running on port ${PORT}`);
 
-syncSMM();
-setInterval(syncSMM, 12 * 60 * 60 * 1000);
+  // شغلك الحالي (ما نلمسه)
+  syncSMM();
+  setInterval(syncSMM, 12 * 60 * 60 * 1000);
 
-   console.log("🔑 API KEY:", process.env.DAILYCARD_API_KEY ? "Loaded" : "Missing");
-console.log("🔐 API SECRET:", process.env.DAILYCARD_API_SECRET ? "Loaded" : "Missing");
+  console.log("🔑 API KEY:", process.env.DAILYCARD_API_KEY ? "Loaded" : "Missing");
+  console.log("🔐 API SECRET:", process.env.DAILYCARD_API_SECRET ? "Loaded" : "Missing");
+  console.log("✅ Test route registered at /test");
 
-console.log("✅ Test route registered at /test");
+  // =========================
+  // ✅ Telegram Webhook setup
+  // =========================
+  const publicUrl = process.env.PUBLIC_URL;
+  if (!publicUrl) {
+    console.log("⚠️ PUBLIC_URL missing -> Telegram webhook NOT set");
+    return;
+  }
+
+  const webhookUrl = `${publicUrl}/telegram/webhook`;
+
+  try {
+    await bot.deleteWebHook(); // تنظيف أي webhook قديم
+    await bot.setWebHook(webhookUrl);
+    console.log("✅ Telegram webhook set:", webhookUrl);
+  } catch (e) {
+    console.error("❌ setWebHook failed:", e.message);
+  }
 });
-
