@@ -27,6 +27,9 @@ const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
 const uploadNone = multer();
 const crypto = require('crypto');
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first");
+
 
 
 
