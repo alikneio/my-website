@@ -6783,7 +6783,8 @@ app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
 });
 
 
-require('./telegram/bot');
+const bot = require('./telegram/bot');
+
 
 // =============================================
 //                  START SERVER
