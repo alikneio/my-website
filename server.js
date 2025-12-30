@@ -509,7 +509,7 @@ app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
   const { amount } = req.body;
   const userId = req.session.user.id;
   const currency = 'USD';
-  const proofImage = req.file.filename;
+  const proofImage = req.file?.filename;
 
   // إشعار داخلي في قاعدة البيانات
   const insertNotificationSql = `
@@ -530,45 +530,45 @@ app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
       VALUES (?, ?, ?, ?, 'pending', NOW())
     `;
 
-    db.query(insertBalanceSql, [userId, amount, currency, proofImage], (balanceErr) => {
+    db.query(insertBalanceSql, [userId, amount, currency, proofImage], async (balanceErr) => {
       if (balanceErr) {
         console.error('Error saving USD balance request:', balanceErr);
         return res.status(500).send('Internal server error.');
       }
 
-      // إرسال إشعار عبر تلغرام للأدمن
-      const botToken = process.env.TELEGRAM_BOT_TOKEN;
-      const adminChatId = '2096387191';
-      const username = req.session.user.username;
+      // إرسال إشعار عبر تلغرام للأدمن (via RELAY)
+      try {
+        const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+        const username = req.session.user?.username || userId;
 
-      let msg = `📥 *New Balance Top-up Request*\n\n` +
-                `👤 User: ${username}\n` +
-                `💰 Amount: ${amount} ${currency}`;
+        let msg =
+          `📥 *New Balance Top-up Request*\n\n` +
+          `👤 User: ${username}\n` +
+          `💰 Amount: ${amount} ${currency}`;
 
-      if (proofImage) {
-        const imageUrl = `https://akcell.store/uploads/whish/${proofImage}`;
- 
-        msg += `\n🖼 [Proof Image](${imageUrl})`;
+        if (proofImage) {
+          const imageUrl = `https://akcell.store/uploads/whish/${proofImage}`;
+          msg += `\n🖼 [Proof Image](${imageUrl})`;
+        }
+
+        // ✅ Relay sender (no direct api.telegram.org)
+        await sendTelegramMessage(
+          adminChatId,
+          msg,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: 'Markdown', timeoutMs: 15000 }
+        );
+      } catch (err) {
+        console.error('Error sending Telegram message (via relay):', err?.message || err);
+        // لا توقف العملية لو فشل التلغرام
       }
 
-      fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: adminChatId,
-          text: msg,
-          parse_mode: "Markdown"
-        })
-      }).catch(err => {
-        console.error('Error sending Telegram message:', err);
-        // لا توقف العملية لو فشل التلغرام
-      });
-
       // بعد كل شيء تمام، رجع المستخدم لصفحة الشكر
-      res.redirect('/thank-you');
+      return res.redirect('/thank-you');
     });
   });
 });
+
 
 app.get('/thank-you', (req, res) => {
   res.render('thank-you'); // إذا اسم الملف thank-you.ejs
@@ -605,7 +605,7 @@ app.post('/add-balance/whish/lbp', upload.single('proofImage'), (req, res) => {
   const { amount } = req.body;
   const userId = req.session.user.id;
   const currency = 'LBP';
-  const proofImage = req.file.filename;
+  const proofImage = req.file?.filename; // ✅ ما يكسر إذا ما في ملف
 
   // إشعار داخلي
   const insertNotificationSql = `
@@ -626,41 +626,40 @@ app.post('/add-balance/whish/lbp', upload.single('proofImage'), (req, res) => {
       VALUES (?, ?, ?, ?, 'pending', NOW())
     `;
 
-    db.query(insertBalanceSql, [userId, amount, currency, proofImage], (balanceErr) => {
+    db.query(insertBalanceSql, [userId, amount, currency, proofImage], async (balanceErr) => {
       if (balanceErr) {
         console.error('Error saving LBP balance request:', balanceErr);
         return res.status(500).send('Internal server error.');
       }
 
-      // إشعار تلغرام للأدمن
-      const botToken = process.env.TELEGRAM_BOT_TOKEN;;
-      const adminChatId = '2096387191';
-      const username = req.session.user.username;
+      // إشعار تلغرام للأدمن (via RELAY)
+      try {
+        const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+        const username = req.session.user?.username || userId;
 
-      let msg = `📥 *New Balance Top-up Request*\n\n` +
-                `👤 User: ${username}\n` +
-                `💰 Amount: ${amount} ${currency}`;
+        let msg =
+          `📥 *New Balance Top-up Request*\n\n` +
+          `👤 User: ${username}\n` +
+          `💰 Amount: ${amount} ${currency}`;
 
-      if (proofImage) {
-       const imageUrl = `https://akcell.store/uploads/whish/${proofImage}`;
+        if (proofImage) {
+          const imageUrl = `https://akcell.store/uploads/whish/${proofImage}`;
+          msg += `\n🖼 [Proof Image](${imageUrl})`;
+        }
 
-        msg += `\n🖼 [Proof Image](${imageUrl})`;
+        await sendTelegramMessage(
+          adminChatId,
+          msg,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: 'Markdown', timeoutMs: 15000 }
+        );
+      } catch (err) {
+        console.error('Error sending Telegram message (LBP via relay):', err?.message || err);
+        // لا نوقف العملية
       }
 
-      fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: adminChatId,
-          text: msg,
-          parse_mode: "Markdown"
-        })
-      }).catch(err => {
-        console.error('Error sending Telegram message:', err);
-      });
-
       // تحويل المستخدم لصفحة الشكر
-      res.redirect('/thank-you');
+      return res.redirect('/thank-you');
     });
   });
 });
@@ -1724,32 +1723,29 @@ app.post('/buy-social', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
 
-  // ممكن اسم الحقل يجي service_id أو serviceId حسب الفورم
   const {
     service_id,
     serviceId,
     link,
     quantity,
-    idempotency_key: bodyIdemKey, // 🆕 نقرأ الـ idempotency key من الفورم (لو موجود)
+    idempotency_key: bodyIdemKey,
   } = req.body;
 
   const serviceIdNum = parseInt(service_id || serviceId, 10);
   const qty = parseInt(quantity, 10);
 
-  // Helper بسيط للـ DB (نفس القديم)
   const q = (sql, params = []) =>
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
-  // 🆕 نفس منطق /buy: مفتاح منع التكرار
   const idemKey = (bodyIdemKey || req.session.idemKey || '')
     .toString()
     .slice(0, 64);
 
-  let total = 0;              // المبلغ اللي رح يُخصم
-  let serviceName = '';       // اسم الخدمة لرسائل الترانزكشن
-  let providerOrderId = '';   // رقم الطلب عند SMMGen
+  let total = 0;
+  let serviceName = '';
+  let providerOrderId = '';
 
   try {
     console.log('🟦 /buy-social START', { userId, serviceIdNum, link, qty, idemKey });
@@ -1761,13 +1757,8 @@ app.post('/buy-social', checkAuth, async (req, res) => {
           `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
           [userId, idemKey]
         );
-        // إذا نجح الإدخال → أول طلب، كمّل عادي
       } catch (e) {
-        // مفتاح مكرر → اعتبره طلب مكرر (Refresh أو كبسة مرتين)
-        console.log('⏩ duplicate /buy-social detected, skipping', {
-          userId,
-          idemKey,
-        });
+        console.log('⏩ duplicate /buy-social detected, skipping', { userId, idemKey });
         return res.redirect('/processing');
       }
     }
@@ -1780,9 +1771,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 
     if (!Number.isFinite(qty) || qty <= 0) {
       console.log('❌ invalid_quantity');
-      return res.redirect(
-        `/social-checkout/${serviceIdNum}?error=invalid_quantity`
-      );
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=invalid_quantity`);
     }
 
     // 2) جلب الخدمة من smm_services (فقط المفعّلة)
@@ -1793,9 +1782,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 
     if (!service) {
       console.log('❌ service_not_found');
-      return res.redirect(
-        `/social-checkout/${serviceIdNum}?error=service_not_found`
-      );
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=service_not_found`);
     }
 
     serviceName = service.name;
@@ -1813,22 +1800,21 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 
     // 4) السعر (rate لكل rate_per)
     const rate = Number(service.rate || 0);
-    const ratePer = Number(service.rate_per || 1000) || 1000; // الوحدة (مثل 1000 أو 100000)
+    const ratePer = Number(service.rate_per || 1000) || 1000;
 
     if (!Number.isFinite(rate) || rate <= 0) {
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
 
-    // totalCents = round(qty * rate * 100 / ratePer)
     const totalCents = Math.round((qty * rate * 100) / ratePer);
 
     if (!Number.isFinite(totalCents) || totalCents <= 0) {
       console.log('❌ pricing_too_low', { totalCents });
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
-    total = totalCents / 100; // رقم بكسور 2 digits
+    total = totalCents / 100;
 
-    // 5) خصم من رصيد المستخدم (ذَرّي)  **نفس القديم**
+    // 5) خصم من رصيد المستخدم (ذَرّي)
     const upd = await q(
       `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
       [total, userId, total]
@@ -1850,7 +1836,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     // 7) إنشاء الطلب عند مزوّد SMMGen
     try {
       providerOrderId = await createSmmOrder({
-        service: service.provider_service_id, // ID عند المزود
+        service: service.provider_service_id,
         link,
         quantity: qty,
       });
@@ -1858,11 +1844,8 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     } catch (apiErr) {
       console.error('❌ SMMGEN API error:', apiErr.message || apiErr);
 
-      // نرجّع المبلغ للمستخدم + نسجّل Refund
-      await q(
-        `UPDATE users SET balance = balance + ? WHERE id = ?`,
-        [total, userId]
-      );
+      // Refund
+      await q(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
       await q(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'credit', ?, ?)`,
@@ -1878,22 +1861,16 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 
     if (!providerOrderId) {
       console.log('❌ no_provider_id');
-      // أمان إضافي
-      await q(
-        `UPDATE users SET balance = balance + ? WHERE id = ?`,
-        [total, userId]
-      );
+      await q(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
       await q(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'credit', ?, ?)`,
         [userId, total, `Refund (no provider id): ${serviceName}`]
       );
-      return res.redirect(
-        `/social-checkout/${serviceIdNum}?error=no_provider_id`
-      );
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=no_provider_id`);
     }
 
-    // 8) حفظ الطلب في جدول orders (نفس القديم)
+    // 8) حفظ الطلب في جدول orders
     const orderDetails = `Link: ${link} | Quantity: ${qty}`;
 
     const insertOrderSql = `
@@ -1915,7 +1892,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     const orderId = insertRes.insertId || null;
     console.log('✅ order_inserted', { orderId });
 
-    // 9) حفظ الطلب في جدول smm_orders (نفس القديم)
+    // 9) حفظ الطلب في جدول smm_orders
     await q(
       `
       INSERT INTO smm_orders
@@ -1927,21 +1904,17 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 
     console.log('✅ smm_orders_inserted');
 
-    // 10) إشعار داخلي (نفس القديم)
+    // 10) إشعار داخلي
     await q(
       `INSERT INTO notifications (user_id, message, created_at, is_read)
        VALUES (?, ?, NOW(), 0)`,
-      [
-        userId,
-        `✅ تم استلام طلب خدمتك (${serviceName}) بنجاح. سيتم تنفيذها قريبًا.`,
-      ]
+      [userId, `✅ تم استلام طلب خدمتك (${serviceName}) بنجاح. سيتم تنفيذها قريبًا.`]
     );
 
-    // 🆕 10.1) إشعارات تيليغرام (للزبون + الإدمن)
+    // 🆕 10.1) إشعارات تيليغرام (للزبون + الإدمن) عبر RELAY
     try {
       const now = new Date();
 
-      // معلومات اليوزر + telegram_chat_id
       const userRows = await q(
         'SELECT username, telegram_chat_id FROM users WHERE id = ? LIMIT 1',
         [userId]
@@ -1949,7 +1922,7 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       const userRow = userRows[0] || {};
       const chatId = userRow.telegram_chat_id;
 
-      // إشعار للزبون لو مفعّل تيليغرام
+      // إشعار للزبون
       if (chatId) {
         const userMsg = `
 📥 *تم استلام طلب خدمتك بنجاح*
@@ -1961,26 +1934,22 @@ app.post('/buy-social', checkAuth, async (req, res) => {
         `.trim();
 
         try {
-          await axios.post(
-            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-            {
-              chat_id: chatId,
-              text: userMsg,
-              parse_mode: 'Markdown',
-            }
+          await sendTelegramMessage(
+            chatId,
+            userMsg,
+            process.env.TELEGRAM_BOT_TOKEN,
+            { parseMode: 'Markdown', timeoutMs: 15000 }
           );
         } catch (e) {
-          console.warn('⚠️ Failed to send Telegram to user (social):', e.message);
+          console.warn('⚠️ Failed to send Telegram to user (social via relay):', e.message || e);
         }
       } else {
-        console.log(
-          "ℹ️ No telegram_chat_id for this user (social order) أو ما كبس Start على البوت."
-        );
+        console.log("ℹ️ No telegram_chat_id for this user (social order) أو ما كبس Start على البوت.");
       }
 
       // إشعار للإدمن
       try {
-        const adminChatId = '2096387191'; // غيّرها لو بدك
+        const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
         const adminMsg = `
 🆕 <b>طلب سوشيال ميديا جديد!</b>
 
@@ -1993,48 +1962,38 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 🕒 <b>الوقت:</b> ${now.toLocaleString()}
         `.trim();
 
-        await axios.post(
-          `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-          {
-            chat_id: adminChatId,
-            text: adminMsg,
-            parse_mode: 'HTML',
-          }
+        await sendTelegramMessage(
+          adminChatId,
+          adminMsg,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: 'HTML', timeoutMs: 15000 }
         );
-        console.log('📢 Admin notified via Telegram (social)');
+
+        console.log('📢 Admin notified via Telegram (social via relay)');
       } catch (e) {
-        console.warn(
-          '⚠️ Failed to notify admin via Telegram (social):',
-          e.message
-        );
+        console.warn('⚠️ Failed to notify admin via Telegram (social via relay):', e.message || e);
       }
     } catch (e) {
-      console.warn('⚠️ Telegram notification flow error (social):', e.message);
+      console.warn('⚠️ Telegram notification flow error (social):', e.message || e);
     }
 
-    // 11) حفظ رقم الطلب للصفحة /processing (نفس القديم)
+    // 11) حفظ رقم الطلب للصفحة /processing
     req.session.pendingOrderId = orderId;
     console.log('✅ /buy-social DONE, redirect /processing');
 
     return res.redirect('/processing');
+
   } catch (err) {
     console.error('❌ /buy-social error:', err?.message || err);
 
-    // محاولة Refund لو صار Error بعد الخصم وما تم الـ Refund فوق (نفس القديم)
+    // Refund لو صار Error بعد الخصم
     try {
       if (total > 0) {
-        await q(
-          `UPDATE users SET balance = balance + ? WHERE id = ?`,
-          [total, userId]
-        );
+        await q(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
         await q(
           `INSERT INTO transactions (user_id, type, amount, reason)
            VALUES (?, 'credit', ?, ?)`,
-          [
-            userId,
-            total,
-            `Refund (server error): ${serviceName || 'Social Service'}`,
-          ]
+          [userId, total, `Refund (server error): ${serviceName || 'Social Service'}`]
         );
         console.log('✅ refund done after server error');
       }
@@ -2184,47 +2143,58 @@ app.post('/admin/balance-requests/update/:id', async (req, res) => {
 
   try {
     // تحديث الطلب
-    await promisePool.query(`
+    await promisePool.query(
+      `
       UPDATE balance_requests
       SET status = ?, admin_note = ?
       WHERE id = ?
-    `, [status, admin_note || null, requestId]);
+    `,
+      [status, admin_note || null, requestId]
+    );
 
     // جلب معلومات الطلب كاملة
-    const [rows] = await promisePool.query(`
+    const [reqRows] = await promisePool.query(
+      `
       SELECT br.amount, br.currency, br.user_id, u.telegram_chat_id
       FROM balance_requests br
       JOIN users u ON br.user_id = u.id
       WHERE br.id = ?
-    `, [requestId]);
+    `,
+      [requestId]
+    );
 
-    if (reqRows.length === 0) return res.redirect('/admin/balance-requests');
+    if (!reqRows || reqRows.length === 0) {
+      return res.redirect('/admin/balance-requests');
+    }
 
     const { amount, currency, telegram_chat_id: chatId } = reqRows[0];
     if (!chatId) return res.redirect('/admin/balance-requests');
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;;
-    
-    const msg = status === 'approved'
-      ? `✅ *تمت الموافقة على طلب تعبئة الرصيد الخاص بك*\n\n💰 القيمة: ${amount} ${currency}\n📌 الحالة: تم القبول.`
-      : `❌ *تم رفض طلب تعبئة الرصيد الخاص بك*\n\n💰 القيمة: ${amount} ${currency}\n📌 السبب: ${admin_note || 'لم يتم تحديد السبب.'}`;
+    const msg =
+      status === 'approved'
+        ? `✅ *تمت الموافقة على طلب تعبئة الرصيد الخاص بك*\n\n💰 القيمة: ${amount} ${currency}\n📌 الحالة: تم القبول.`
+        : `❌ *تم رفض طلب تعبئة الرصيد الخاص بك*\n\n💰 القيمة: ${amount} ${currency}\n📌 السبب: ${admin_note || 'لم يتم تحديد السبب.'}`;
 
-    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: msg,
-        parse_mode: "Markdown"
-      })
-    });
+    // ✅ Telegram via RELAY (بدون api.telegram.org)
+    try {
+      await sendTelegramMessage(
+        chatId,
+        msg,
+        process.env.TELEGRAM_BOT_TOKEN,
+        { parseMode: 'Markdown', timeoutMs: 15000 }
+      );
+    } catch (e) {
+      console.warn('⚠️ Failed to send Telegram (balance request update via relay):', e.message || e);
+      // لا نوقف العملية
+    }
 
-    res.redirect('/admin/balance-requests');
+    return res.redirect('/admin/balance-requests');
   } catch (err) {
     console.error('❌ Error updating request or sending Telegram:', err);
-    res.status(500).send('Error updating request');
+    return res.status(500).send('Error updating request');
   }
 });
+
 
 app.get('/admin/dev/sync-smm', checkAdmin, async (req, res) => {
   try {
@@ -3183,11 +3153,9 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
-  // ✅ محاولة إلغاء/Refund عند المزود إذا فشل الخصم بعد إنشاء الطلب
   async function refundProviderOrder(providerOrderId) {
     if (!providerOrderId) return;
     try {
-      // عدّل endpoint حسب مزودك إن كان مختلف
       await dailycardAPI.post('/api-keys/orders/cancel/', { id: providerOrderId });
     } catch (e) {
       console.warn('⚠️ Provider cancel/refund failed (ignored):', e?.message || e);
@@ -3207,7 +3175,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       }
     }
 
-    // ✅ 0.5) Fresh user from DB (حتى اللفل/الخصم يكونوا آخر تحديث)
+    // ✅ 0.5) Fresh user from DB
     let sessionUser = null;
     try {
       const [[freshUser]] = await promisePool.query(
@@ -3215,7 +3183,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
         [userId]
       );
       sessionUser = freshUser || req.session.user || null;
-      if (freshUser) req.session.user = freshUser; // حدّث السيشن فوراً
+      if (freshUser) req.session.user = freshUser;
     } catch (_) {
       sessionUser = req.session.user || null;
     }
@@ -3237,7 +3205,6 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     const qty = parseInt(quantity, 10);
 
     const unitQty = Math.max(1, parseInt(product.unit_quantity ?? 1, 10));
-    // ✅ مهم: السعر الخام للـ variable غالباً unit_price (ولو عندك custom_price استعمله)
     const rawUnitPrice = Number(product.custom_price || product.unit_price || 0) || 0;
 
     const min = Number.isFinite(parseInt(product.min_quantity, 10)) ? parseInt(product.min_quantity, 10) : 1;
@@ -3265,25 +3232,25 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       }
     }
 
-    // 4) Base pricing (rounded to cents)
+    // 4) Base pricing
     const baseTotalCents = Math.round((qty * rawUnitPrice * 100) / unitQty);
     if (!Number.isFinite(baseTotalCents) || baseTotalCents <= 0) {
       return res.redirect(`/api-checkout/${productId}?error=pricing`);
     }
     const baseTotal = baseTotalCents / 100;
 
-    // 5) Effective discount (VIP overrides level)
+    // 5) Effective discount
     const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
       ? Number(getUserEffectiveDiscount(sessionUser) || 0)
       : Number(sessionUser?.discount_percent || 0) || 0;
 
-    // ✅ 6) Discounted total (استخدم helper لتوحيد المنطق والـ rounding)
+    // ✅ 6) Discounted total
     const discountedTotal = applyUserDiscount(baseTotal, sessionUser);
     if (!Number.isFinite(discountedTotal) || discountedTotal <= 0) {
       return res.redirect(`/api-checkout/${productId}?error=pricing`);
     }
 
-    // 7) Call provider FIRST (مثل ما عندك)
+    // 7) Call provider FIRST
     const orderBody = {
       product: parseInt(productId, 10),
       quantity: qty,
@@ -3302,14 +3269,13 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       return res.redirect(`/api-checkout/${productId}?error=order_failed`);
     }
 
-    // 8) Transaction: debit + total_spent + insert order + insert transaction + notification
+    // 8) Transaction
     const conn = await promisePool.getConnection();
     let insertId = null;
 
     try {
       await conn.beginTransaction();
 
-      // إذا بدك total_spent قبل الخصم حط baseTotal بدل discountedTotal
       const spentValue = discountedTotal;
 
       const [updRes] = await conn.query(
@@ -3322,10 +3288,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
 
       if (!updRes?.affectedRows) {
         await conn.rollback();
-
-        // ✅ مهم: مزود صار عنده order — حاول نلغيه
         await refundProviderOrder(providerOrderId);
-
         return res.redirect(`/api-checkout/${productId}?error=balance`);
       }
 
@@ -3360,17 +3323,14 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       await conn.commit();
     } catch (e) {
       try { await conn.rollback(); } catch (_) {}
-
-      // ✅ لو فشل DB بعد إنشاء order عند المزود
       await refundProviderOrder(providerOrderId);
-
       console.error('❌ buy-quantity tx error:', e);
       return res.redirect(`/api-checkout/${productId}?error=server`);
     } finally {
       conn.release();
     }
 
-    // 9) Recalc level after commit (لا تمسح خصم VIP اليدوي)
+    // 9) Recalc level after commit
     try {
       await recalcUserLevel(userId);
     } catch (lvlErr) {
@@ -3383,24 +3343,49 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       if (freshUserAfter) req.session.user = freshUserAfter;
     } catch (_) {}
 
-    // 11) Telegram (after commit)
+    // 11) Telegram (after commit)  ✅ RELAY-safe + parseMode مضبوط
     try {
-      const [urows] = await promisePool.query('SELECT username, telegram_chat_id FROM users WHERE id = ?', [userId]);
+      const [urows] = await promisePool.query(
+        'SELECT username, telegram_chat_id FROM users WHERE id = ?',
+        [userId]
+      );
       const urow = urows[0];
 
+      const productName = product.custom_name || `API Product ${productId}`;
+
       if (urow?.telegram_chat_id) {
+        const userHtmlMsg =
+          `📥 <b>تم استلام طلبك بنجاح</b>\n\n` +
+          `🛍️ <b>المنتج:</b> ${productName}\n` +
+          `🔢 <b>الكمية:</b> ${qty}\n` +
+          `💰 <b>السعر بعد الخصم:</b> ${Number(discountedTotal).toFixed(2)}$\n` +
+          `📉 <b>الخصم الفعلي:</b> ${Number(effectiveDiscountPercent).toFixed(0)}%\n` +
+          `📌 <b>الحالة:</b> جاري المعالجة`;
+
         await sendTelegramMessage(
           urow.telegram_chat_id,
-          `📥 <b>تم استلام طلبك بنجاح</b>\n\n🛍️ <b>المنتج:</b> ${product.custom_name || `API Product ${productId}`}\n🔢 <b>الكمية:</b> ${qty}\n💰 <b>السعر بعد الخصم:</b> ${Number(discountedTotal).toFixed(2)}$\n📉 <b>الخصم الفعلي:</b> ${Number(effectiveDiscountPercent).toFixed(0)}%\n📌 <b>الحالة:</b> جاري المعالجة`,
-          process.env.TELEGRAM_BOT_TOKEN
+          userHtmlMsg,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: 'HTML', timeoutMs: 15000 }
         );
       }
 
-      if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
+      const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+      if (adminChatId) {
+        const adminHtmlMsg =
+          `🆕 <b>طلب جديد (API Quantity)!</b>\n` +
+          `👤 <b>الزبون:</b> ${urow?.username || userId}\n` +
+          `🎁 <b>المنتج:</b> ${productName}\n` +
+          `📦 <b>الكمية:</b> ${qty}\n` +
+          `💰 <b>السعر بعد الخصم:</b> ${Number(discountedTotal).toFixed(2)}$\n` +
+          `📉 <b>الخصم الفعلي:</b> ${Number(effectiveDiscountPercent).toFixed(0)}%\n` +
+          `🕓 <b>الوقت:</b> ${new Date().toLocaleString('en-US', { hour12: false })}`;
+
         await sendTelegramMessage(
-          process.env.ADMIN_TELEGRAM_CHAT_ID,
-          `🆕 طلب جديد (API Quantity)!\n👤 الزبون: ${urow?.username}\n🎁 المنتج: ${product.custom_name || `API Product ${productId}`}\n📦 الكمية: ${qty}\n💰 السعر بعد الخصم: ${Number(discountedTotal).toFixed(2)}$\n📉 الخصم الفعلي: ${Number(effectiveDiscountPercent).toFixed(0)}%\n🕓 الوقت: ${new Date().toLocaleString('en-US', { hour12: false })}`,
-          process.env.TELEGRAM_BOT_TOKEN
+          adminChatId,
+          adminHtmlMsg,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: 'HTML', timeoutMs: 15000 }
         );
       }
     } catch (e) {
