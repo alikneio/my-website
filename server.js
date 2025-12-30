@@ -6802,21 +6802,14 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log("✅ Test route registered at /test");
 
   // =========================
-  // ✅ Telegram Webhook setup
+  // ✅ Telegram Webhook setup (DISABLED on Railway)
   // =========================
   const publicUrl = process.env.PUBLIC_URL;
   if (!publicUrl) {
-    console.log("⚠️ PUBLIC_URL missing -> Telegram webhook NOT set");
-    return;
-  }
-
-  const webhookUrl = `${publicUrl}/telegram/webhook`;
-
-  try {
-    await bot.deleteWebHook(); // تنظيف أي webhook قديم
-    await bot.setWebHook(webhookUrl);
-    console.log("✅ Telegram webhook set:", webhookUrl);
-  } catch (e) {
-    console.error("❌ setWebHook failed:", e.message);
+    console.log("⚠️ PUBLIC_URL missing -> Telegram webhook setup skipped");
+  } else {
+    const webhookUrl = `${publicUrl}/telegram/webhook`;
+    console.log("ℹ️ Webhook URL should be:", webhookUrl);
+    console.log("ℹ️ Webhook setup skipped on Railway due to Telegram outbound timeouts.");
   }
 });

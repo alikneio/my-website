@@ -1,10 +1,12 @@
-// telegram/bot.js  ✅ WEBHOOK VERSION (no polling)
+// telegram/bot.js ✅ WEBHOOK VERSION + RELAY SENDER
 const TelegramBot = require("node-telegram-bot-api");
-const db = require("../database"); // { pool, promisePool, query }
+const db = require("../database");
+
+// 🔁 هذا الملف صار يرسل رسائل عبر Cloudflare Relay (utils/sendTelegramNotification.js)
+const sendTelegramMessage = require("../utils/sendTelegramNotification");
 
 console.log("🤖 Starting Telegram bot (webhook)... PID:", process.pid);
 
-// ✅ Prevent double-init inside same Node process (in case of duplicate imports)
 if (global.__TG_BOT__) {
   console.log("ℹ️ Telegram bot already initialized, reusing instance.");
   module.exports = global.__TG_BOT__;
@@ -18,11 +20,10 @@ if (!token) {
   return;
 }
 
-// ✅ WEBHOOK MODE (NO POLLING)
+// ✅ Webhook mode
 const bot = new TelegramBot(token, { polling: false });
 global.__TG_BOT__ = bot;
 
-// ---------- Helpers ----------
 function genCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -40,27 +41,20 @@ function withTimeout(promise, ms, label = "operation") {
   ]);
 }
 
-// ✅ Prevent sendMessage errors from crashing / spamming logs
-async function safeSend(chatId, text, extra) {
+// ✅ Send via Relay (so Railway doesn't need to reach Telegram)
+async function safeSend(chatId, text) {
   try {
-    return await bot.sendMessage(chatId, text, extra);
-  } catch (e) {
-    console.error("❌ sendMessage failed:", {
-      message: e.message,
-      code: e.code,
-      statusCode: e.response?.statusCode,
-      body: e.response?.body,
+    return await sendTelegramMessage(chatId, text, token, {
+      timeoutMs: 15000,
+      parseMode: "Markdown",
+      disablePreview: true,
     });
+  } catch (e) {
+    console.error("❌ safeSend (relay) failed:", e.code || e.message);
     return null;
   }
 }
 
-// ---------- Connection check ----------
-bot.getMe()
-  .then((me) => console.log("✅ Bot connected:", me.username))
-  .catch((e) => console.error("❌ getMe failed:", e.message));
-
-// ---------- Commands ----------
 bot.onText(/\/start(?:@[\w_]+)?/, async (msg) => {
   const chatId = msg.chat.id;
   const firstName = msg.from?.first_name || "User";
