@@ -682,7 +682,8 @@ app.get('/add-balance/whish/lbp', (req, res) => {
 
 
 
-app.post("/telegram/webhook", (req, res) => {
+app.post("/telegram/webhook", express.json(), (req, res) => {
+  console.log("📩 TG update received:", req.body?.message?.text || req.body?.callback_query?.data);
   try {
     bot.processUpdate(req.body);
     res.sendStatus(200);
