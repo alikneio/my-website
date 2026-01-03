@@ -4508,53 +4508,71 @@ app.post('/admin/products/delete/:id', checkAdmin, (req, res) => {
 // مسار لعرض صفحة التحكم بمنتجات الـ API
 app.get('/admin/api-products', checkAdmin, async (req, res) => {
   try {
-    const query = (sql, params) => new Promise((resolve, reject) => {
-      db.query(sql, params, (err, rows) => err ? reject(err) : resolve(rows));
-    });
+    const query = (sql, params = []) =>
+      new Promise((resolve, reject) => {
+        db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
+      });
 
-    const page  = parseInt(req.query.page) || 1;
+    // Params
     const limit = 20;
-    const offset = (page - 1) * limit;
 
-    // 🔎 جديد: خذ نص البحث (لو موجود)
+    // 🔎 Search
     const qRaw = (req.query.q || '').trim();
     const q = qRaw.toLowerCase();
 
+    // Page (initial)
+    let page = parseInt(req.query.page, 10) || 1;
+    if (page < 1) page = 1;
+
+    // 1) Get API products
     const apiProducts = await getCachedAPIProducts();
 
-    const customSql = "SELECT * FROM selected_api_products";
+    // 2) Get only needed columns from custom table (lighter than SELECT *)
+    const customSql = `
+      SELECT product_id, active, custom_price, custom_image
+      FROM selected_api_products
+    `;
     const customProducts = await query(customSql);
-    const customProductMap = new Map(customProducts.map(p => [parseInt(p.product_id), p]));
 
+    const customProductMap = new Map(
+      customProducts.map(p => [parseInt(p.product_id, 10), p])
+    );
+
+    // 3) Merge API + custom
     const displayProducts = apiProducts.map(apiProduct => {
-      const customData = customProductMap.get(apiProduct.id) || {};
+      const customData = customProductMap.get(Number(apiProduct.id)) || {};
       return {
         ...apiProduct,
         is_selected: !!customData.active,
-        custom_price: customData.custom_price,
-        custom_image: customData.custom_image
+        custom_price: customData.custom_price ?? null,
+        custom_image: customData.custom_image ?? null
       };
     });
 
-    // 🔎 جديد: فلترة على الكل قبل التقطيع
+    // 4) Filter before pagination
     const filtered = q
-      ? displayProducts.filter(p =>
-          (p.name || '').toLowerCase().includes(q) ||
-          String(p.id).includes(q)
-        )
+      ? displayProducts.filter(p => {
+          const name = (p.name || '').toLowerCase();
+          return name.includes(q) || String(p.id).includes(q);
+        })
       : displayProducts;
 
-    // التقطيع بعد الفلترة
+    // 5) Compute pages after filtering + clamp page
     const totalProducts = filtered.length;
     const totalPages = Math.max(1, Math.ceil(totalProducts / limit));
+
+    if (page > totalPages) page = totalPages;
+
+    const offset = (page - 1) * limit;
     const paginatedProducts = filtered.slice(offset, offset + limit);
 
+    // 6) Render
     res.render('admin-api-products', {
       user: req.session.user,
       products: paginatedProducts,
       currentPage: page,
       totalPages,
-      q: qRaw,              // 🔎 جديد: مرّر نص البحث للواجهة
+      q: qRaw
     });
 
   } catch (error) {
@@ -4563,12 +4581,10 @@ app.get('/admin/api-products', checkAdmin, async (req, res) => {
   }
 });
 
-
 // مسار لإضافة أو إزالة منتج من الـ API
 app.post('/admin/api-products/toggle', checkAdmin, (req, res) => {
   const { productId, isActive } = req.body;
 
-  // تأكيد البوليان
   const on = (isActive === true || isActive === 'true' || isActive === 1 || isActive === '1');
 
   if (on) {
@@ -4578,14 +4594,19 @@ app.post('/admin/api-products/toggle', checkAdmin, (req, res) => {
       ON DUPLICATE KEY UPDATE active = TRUE
     `;
     db.query(sql, [productId], (err) => {
-      if (err) return res.json({ success: false });
+      if (err) {
+        console.error("❌ Toggle activate error:", err);
+        return res.json({ success: false, error: err.code || 'DB_ERROR' });
+      }
       res.json({ success: true, status: 'activated' });
     });
   } else {
-    // ❌ لا تحذف! ✅ عطّل فقط
     const sql = `UPDATE selected_api_products SET active = FALSE WHERE product_id = ?`;
     db.query(sql, [productId], (err) => {
-      if (err) return res.json({ success: false });
+      if (err) {
+        console.error("❌ Toggle deactivate error:", err);
+        return res.json({ success: false, error: err.code || 'DB_ERROR' });
+      }
       res.json({ success: true, status: 'deactivated' });
     });
   }
@@ -4644,6 +4665,7 @@ app.get('/admin/api-products/edit/:id', checkAdmin, async (req, res) => {
 
 
 // ✅ EDIT API PRODUCT (FULL REPLACEMENT)
+// ✅ EDIT API PRODUCT (SAFE VERSION - prevents NULL unit_price)
 app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
   const productId = req.params.id;
 
@@ -4666,24 +4688,53 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
   const requires_verification = (req.body.requires_verification === '1' || req.body.requires_verification === 'on') ? 1 : 0;
   const is_out_of_stock       = (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
 
-  // Values
-  const priceToSave    = custom_price ? parseFloat(custom_price) : null;
-  const imageToSave    = custom_image || null;
-  const nameToSave     = custom_name || null;
-  const labelToSave    = unit_label || 'units';
- const categoryToSave = category ? slugify(category) : null;
+  // Helpers
+  const toFloat = (v) => {
+    if (v === undefined || v === null) return null;
+    const s = String(v).trim();
+    if (!s) return null;
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : null;
+  };
 
+  const toInt = (v) => {
+    if (v === undefined || v === null) return null;
+    const s = String(v).trim();
+    if (!s) return null;
+    const n = parseInt(s, 10);
+    return Number.isFinite(n) ? n : null;
+  };
 
-  const unitPriceToSave    = variableQtyFlag ? (parseFloat(unit_price) || null)    : null;
-  const unitQuantityToSave = variableQtyFlag ? (parseFloat(unit_quantity) || null) : null;
-  const minQtyToSave       = variableQtyFlag ? (parseInt(min_quantity) || null)    : null;
-  const maxQtyToSave       = variableQtyFlag ? (parseInt(max_quantity) || null)    : null;
+  // Base values
+  const priceToSave = toFloat(custom_price); // DECIMAL(10,2) nullable
+  const imageToSave = (custom_image && String(custom_image).trim() !== '') ? String(custom_image).trim() : null;
+  const nameToSave  = (custom_name && String(custom_name).trim() !== '') ? String(custom_name).trim() : null;
+
+  const categoryToSave = category ? slugify(category) : null;
+  const labelToSave    = (unit_label && String(unit_label).trim() !== '') ? String(unit_label).trim() : 'units';
+
+  // Quantity-related values
+  const unitPriceInput = toFloat(unit_price);      // DECIMAL(10,4) not null in DB
+  const unitQtyInput   = toFloat(unit_quantity);   // nullable
+  const minQtyInput    = toInt(min_quantity);
+  const maxQtyInput    = toInt(max_quantity);
+
+  // ✅ Critical: never send NULL for unit_price
+  const unitPriceToSave = (variableQtyFlag === 1)
+    ? (unitPriceInput ?? priceToSave ?? 0)
+    : (priceToSave ?? 0);
+
+  // Optional fields: use sane defaults
+  const unitQuantityToSave = (variableQtyFlag === 1) ? (unitQtyInput ?? 1) : 1;
+  const minQtyToSave       = (variableQtyFlag === 1) ? (minQtyInput ?? 1) : 1;
+  const maxQtyToSave       = (variableQtyFlag === 1) ? (maxQtyInput ?? 9999) : 9999;
 
   const sql = `
     INSERT INTO selected_api_products (
       product_id, custom_price, custom_image, custom_name, category, active,
-      variable_quantity, unit_price, unit_quantity, min_quantity, max_quantity,
-      player_check, unit_label, requires_verification, is_out_of_stock
+      is_out_of_stock, variable_quantity,
+      unit_price, unit_quantity, min_quantity, max_quantity,
+      player_check, unit_label, requires_verification
     )
     VALUES (?, ?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
@@ -4692,6 +4743,7 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
       custom_name           = VALUES(custom_name),
       category              = VALUES(category),
       active                = TRUE,
+      is_out_of_stock       = VALUES(is_out_of_stock),
       variable_quantity     = VALUES(variable_quantity),
       unit_price            = VALUES(unit_price),
       unit_quantity         = VALUES(unit_quantity),
@@ -4699,8 +4751,7 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
       max_quantity          = VALUES(max_quantity),
       player_check          = VALUES(player_check),
       unit_label            = VALUES(unit_label),
-      requires_verification = VALUES(requires_verification),
-      is_out_of_stock       = VALUES(is_out_of_stock)
+      requires_verification = VALUES(requires_verification)
   `;
 
   const params = [
@@ -4709,6 +4760,7 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
     imageToSave,
     nameToSave,
     categoryToSave,
+    is_out_of_stock,
     variableQtyFlag,
     unitPriceToSave,
     unitQuantityToSave,
@@ -4716,8 +4768,7 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
     maxQtyToSave,
     player_check,
     labelToSave,
-    requires_verification,
-    is_out_of_stock
+    requires_verification
   ];
 
   db.query(sql, params, (err) => {
@@ -4728,7 +4779,6 @@ app.post('/admin/api-products/edit/:id', checkAdmin, (req, res) => {
     res.redirect('/admin/api-products');
   });
 });
-
 
 
 
