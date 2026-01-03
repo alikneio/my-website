@@ -20,13 +20,14 @@
     <!-- Search -->
     <div class="container my-5">
       <div class="search-bar-container">
-        <form id="searchForm" action="#" method="GET" role="search">
+        <form id="searchForm" action="#" method="GET" role="search" aria-label="Search products">
           <input
             type="search"
             id="searchInput"
             class="search-input"
             placeholder="Search for any service..."
-            aria-label="Search products"
+            aria-label="Search products by name or ID"
+            autocomplete="off"
           >
           <button type="submit" class="search-btn" aria-label="Search">
             <i class="bi bi-search"></i>
@@ -35,44 +36,54 @@
       </div>
     </div>
 
+    <!-- Optional message (used when clicking out-of-stock) -->
+    <div id="oosMsg" class="alert alert-danger d-none" role="alert" aria-live="polite"></div>
+
     <!-- Grid -->
-    <div class="row g-3">
+    <div class="row g-3" id="productsGrid">
       <% if (products && products.length > 0) { %>
 
         <% products.forEach(function(p){ 
           const isOut = !!p.is_out_of_stock;
           const isVariable = !!p.variable_quantity;
 
-          const href = user ? `/api-checkout/${p.id}` : '/login';
+          const hrefFinal = user ? `/api-checkout/${p.id}` : '/login';
           const title = p.name || p.custom_name || ('Product ' + p.id);
 
-          const priceNum = (p.price !== null && p.price !== undefined && p.price !== '')
+          const unitLabel = p.unit_label || 'units';
+
+          // Price: show only if NOT variable and is a finite number
+          const priceNumRaw = (p.price !== null && p.price !== undefined && p.price !== '')
             ? Number(p.price)
             : null;
 
-          const hasPrice = (priceNum !== null && Number.isFinite(priceNum));
-          const unitLabel = p.unit_label || 'units';
+          const hasPrice = (!isVariable && priceNumRaw !== null && Number.isFinite(priceNumRaw));
+          const priceNum = hasPrice ? priceNumRaw : null;
 
-          // custom.css already defines .disabled-link
-          const linkClass = `text-decoration-none h-100 ${isOut ? 'disabled-link' : ''}`;
+          const imgSrc = (p.image && String(p.image).trim()) ? p.image : '/images/webp/default-product.webp';
+
+          const linkClass = `text-decoration-none d-block h-100 ${isOut ? 'disabled-link' : ''}`;
         %>
 
-          <div class="col-6 col-sm-4 col-md-3">
+          <div class="col-6 col-sm-4 col-md-3 product-col"
+               data-title="<%= String(title).toLowerCase() %>"
+               data-id="<%= String(p.id) %>">
             <a
-              href="<%= isOut ? '#' : href %>"
+              href="<%= isOut ? 'javascript:void(0)' : hrefFinal %>"
               class="<%= linkClass %>"
               <%= isOut ? 'aria-disabled="true" tabindex="-1"' : '' %>
               title="<%= title %>"
+              data-out="<%= isOut ? '1' : '0' %>"
+              data-name="<%= title %>"
             >
               <div class="product-card border-0 shadow-sm rounded-4 overflow-hidden text-center bg-white h-100 animate-zoom">
 
                 <!-- Image -->
-                <!-- ✅ مهم: class oos هون هو اللي بيخلي overlay يبين حسب custom.css -->
                 <div class="product-image-wrapper mb-2 position-relative <%= isOut ? 'oos' : '' %>">
                   <div class="out-of-stock-overlay">OUT OF STOCK</div>
 
                   <img
-                    src="<%= p.image %>"
+                    src="<%= imgSrc %>"
                     alt="<%= title %>"
                     class="product-image rounded-3"
                     loading="lazy"
@@ -96,7 +107,7 @@
                 </div>
 
                 <!-- Price / Variable label -->
-                <% if (!isVariable && hasPrice) { %>
+                <% if (priceNum !== null) { %>
                   <p class="text-primary fw-bold mb-0">$<%= priceNum.toFixed(2) %></p>
                 <% } else { %>
                   <p class="text-muted fw-semibold mb-0">
@@ -127,22 +138,48 @@
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       const searchInput = document.getElementById("searchInput");
-      if (!searchInput) return;
+      const searchForm  = document.getElementById("searchForm");
+      const grid        = document.getElementById("productsGrid");
+      const oosMsg       = document.getElementById("oosMsg");
 
-      const searchForm = document.getElementById("searchForm");
       if (searchForm) searchForm.addEventListener("submit", e => e.preventDefault());
 
-      searchInput.addEventListener("input", function () {
-        const q = (this.value || "").toLowerCase().trim();
-        const cols = document.querySelectorAll(".row.g-3 > div[class*='col-']");
+      // ✅ Handle clicking Out of Stock items (show message instead of doing nothing)
+      if (grid) {
+        grid.addEventListener("click", function(e) {
+          const a = e.target.closest("a");
+          if (!a) return;
 
-        cols.forEach(col => {
-          const title = col.querySelector("h6")?.textContent?.toLowerCase() || "";
-          const idTxt = col.querySelector("small")?.textContent?.toLowerCase() || "";
-          const match = !q || title.includes(q) || idTxt.includes(q);
-          col.style.display = match ? "" : "none";
+          const isOut = a.dataset.out === "1";
+          if (!isOut) return; // normal links work
+
+          e.preventDefault();
+
+          const name = a.dataset.name || "This product";
+          if (oosMsg) {
+            oosMsg.textContent = `${name} is currently out of stock.`;
+            oosMsg.classList.remove("d-none");
+            // auto-hide after 3s
+            clearTimeout(window.__oosTimer);
+            window.__oosTimer = setTimeout(() => oosMsg.classList.add("d-none"), 3000);
+          }
         });
-      });
+      }
+
+      // ✅ Faster search (name + ID) using data attributes
+      if (searchInput) {
+        searchInput.addEventListener("input", function () {
+          const q = (this.value || "").toLowerCase().trim();
+          const cols = document.querySelectorAll(".product-col");
+
+          cols.forEach(col => {
+            const title = col.dataset.title || "";
+            const id = col.dataset.id || "";
+            const match = !q || title.includes(q) || id.includes(q);
+            col.style.display = match ? "" : "none";
+          });
+        });
+      }
     });
   </script>
 </body>
