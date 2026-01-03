@@ -9,22 +9,6 @@
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-
-  <style>
-    /* ضمان: الـ overlay ما يبين إلا لما نضيف class oos */
-    .out-of-stock-overlay { display: none; }
-    .product-image-wrapper.oos .out-of-stock-overlay {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    /* تعطيل الرابط بصريًا */
-    .disabled-link {
-      pointer-events: none;
-      opacity: 0.65;
-    }
-  </style>
 </head>
 <body>
 
@@ -56,6 +40,9 @@
       <% if (products && products.length > 0) { %>
 
         <% products.forEach(function(p){ 
+          const isOut = !!p.is_out_of_stock;
+          const isVariable = !!p.variable_quantity;
+
           const href = user ? `/api-checkout/${p.id}` : '/login';
           const title = p.name || p.custom_name || ('Product ' + p.id);
 
@@ -64,10 +51,9 @@
             : null;
 
           const hasPrice = (priceNum !== null && Number.isFinite(priceNum));
-          const isVariable = !!p.variable_quantity; // boolean/1/0 كله ok
-          const isOut = !!p.is_out_of_stock;
-
           const unitLabel = p.unit_label || 'units';
+
+          // custom.css already defines .disabled-link
           const linkClass = `text-decoration-none h-100 ${isOut ? 'disabled-link' : ''}`;
         %>
 
@@ -81,6 +67,7 @@
               <div class="product-card border-0 shadow-sm rounded-4 overflow-hidden text-center bg-white h-100 animate-zoom">
 
                 <!-- Image -->
+                <!-- ✅ مهم: class oos هون هو اللي بيخلي overlay يبين حسب custom.css -->
                 <div class="product-image-wrapper mb-2 position-relative <%= isOut ? 'oos' : '' %>">
                   <div class="out-of-stock-overlay">OUT OF STOCK</div>
 
@@ -117,7 +104,6 @@
                   </p>
                 <% } %>
 
-                <!-- Optional: show ID small -->
                 <small class="text-muted d-block mt-1">ID: <%= p.id %></small>
 
               </div>
@@ -137,6 +123,7 @@
   <%- include('partials/footer') %>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       const searchInput = document.getElementById("searchInput");
