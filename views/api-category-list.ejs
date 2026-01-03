@@ -5,11 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= category.label %> products - AK Cell</title>
 
-  <!-- نفس ملفات نتفلكس تمامًا -->
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ضمان: الـ overlay ما يبين إلا لما نضيف class oos */
+    .out-of-stock-overlay { display: none; }
+    .product-image-wrapper.oos .out-of-stock-overlay {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* تعطيل الرابط بصريًا */
+    .disabled-link {
+      pointer-events: none;
+      opacity: 0.65;
+    }
+  </style>
 </head>
 <body>
 
@@ -18,53 +33,99 @@
   <div class="container my-5">
     <h1 class="text-center mb-4"><%= category.label %> Products</h1>
 
-    <!-- Search (نفس ماركب نتفلكس) -->
+    <!-- Search -->
     <div class="container my-5">
       <div class="search-bar-container">
         <form id="searchForm" action="#" method="GET" role="search">
-          <input type="search" id="searchInput" class="search-input" placeholder="Search for any service...">
-          <button type="submit" class="search-btn">
+          <input
+            type="search"
+            id="searchInput"
+            class="search-input"
+            placeholder="Search for any service..."
+            aria-label="Search products"
+          >
+          <button type="submit" class="search-btn" aria-label="Search">
             <i class="bi bi-search"></i>
           </button>
         </form>
       </div>
     </div>
 
-    <!-- Grid (نفس كروت نتفلكس) -->
+    <!-- Grid -->
     <div class="row g-3">
       <% if (products && products.length > 0) { %>
+
         <% products.forEach(function(p){ 
-             const href = user ? `/api-checkout/${p.id}` : '/login';
-             const title = p.name || p.custom_name || ('Product ' + p.id);
-             const price = (p.price !== null && p.price !== undefined) ? Number(p.price) : null;
+          const href = user ? `/api-checkout/${p.id}` : '/login';
+          const title = p.name || p.custom_name || ('Product ' + p.id);
+
+          const priceNum = (p.price !== null && p.price !== undefined && p.price !== '')
+            ? Number(p.price)
+            : null;
+
+          const hasPrice = (priceNum !== null && Number.isFinite(priceNum));
+          const isVariable = !!p.variable_quantity; // boolean/1/0 كله ok
+          const isOut = !!p.is_out_of_stock;
+
+          const unitLabel = p.unit_label || 'units';
+          const linkClass = `text-decoration-none h-100 ${isOut ? 'disabled-link' : ''}`;
         %>
+
           <div class="col-6 col-sm-4 col-md-3">
-            <a href="<%= href %>" class="text-decoration-none h-100 <%= p.is_out_of_stock ? 'disabled-link' : '' %>">
+            <a
+              href="<%= isOut ? '#' : href %>"
+              class="<%= linkClass %>"
+              <%= isOut ? 'aria-disabled="true" tabindex="-1"' : '' %>
+              title="<%= title %>"
+            >
               <div class="product-card border-0 shadow-sm rounded-4 overflow-hidden text-center bg-white h-100 animate-zoom">
 
-                <!-- الصورة (تمامًا مثل نتفلكس: wrapper مربع + img-fluid) -->
-                <div class="product-image-wrapper mb-2 position-relative">
-                  <% if (p.is_out_of_stock) { %>
-                    <div class="out-of-stock-overlay">OUT OF STOCK</div>
-                  <% } %>
-                  <img src="<%= p.image %>" alt="<%= p.name %>" class="product-image rounded-3">
+                <!-- Image -->
+                <div class="product-image-wrapper mb-2 position-relative <%= isOut ? 'oos' : '' %>">
+                  <div class="out-of-stock-overlay">OUT OF STOCK</div>
 
-
+                  <img
+                    src="<%= p.image %>"
+                    alt="<%= title %>"
+                    class="product-image rounded-3"
+                    loading="lazy"
+                  >
                 </div>
 
-                <!-- الاسم -->
+                <!-- Name -->
                 <h6 class="fw-semibold text-dark mb-1"><%= title %></h6>
 
-                <!-- السعر / Variable (نفس النمط) -->
-                <% if (price !== null) { %>
-                  <p class="text-primary fw-bold mb-0">$<%= price.toFixed(2) %></p>
+                <!-- Badges -->
+                <div class="mb-1">
+                  <% if (isVariable) { %>
+                    <span class="badge bg-warning text-dark">Variable</span>
+                  <% } else { %>
+                    <span class="badge bg-success">Fixed</span>
+                  <% } %>
+
+                  <% if (isOut) { %>
+                    <span class="badge bg-danger ms-1">Out of stock</span>
+                  <% } %>
+                </div>
+
+                <!-- Price / Variable label -->
+                <% if (!isVariable && hasPrice) { %>
+                  <p class="text-primary fw-bold mb-0">$<%= priceNum.toFixed(2) %></p>
                 <% } else { %>
-                  <p class="text-muted fw-semibold mb-0"><%= p.unit_label ? `Variable (${p.unit_label})` : 'Variable quantity' %></p>
+                  <p class="text-muted fw-semibold mb-0">
+                    <%= `Variable (${unitLabel})` %>
+                  </p>
                 <% } %>
+
+                <!-- Optional: show ID small -->
+                <small class="text-muted d-block mt-1">ID: <%= p.id %></small>
+
               </div>
             </a>
           </div>
+
         <% }) %>
+
       <% } else { %>
         <div class="col-12 text-center">
           <p class="text-muted fs-5">No products available in this category.</p>
@@ -75,7 +136,6 @@
 
   <%- include('partials/footer') %>
 
-  <!-- نفس سكربت البحث الموجود بصفحة نتفلكس -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
@@ -86,12 +146,14 @@
       if (searchForm) searchForm.addEventListener("submit", e => e.preventDefault());
 
       searchInput.addEventListener("input", function () {
-        const q = this.value.toLowerCase();
-        const cards = document.querySelectorAll(".product-card");
-        cards.forEach(card => {
-          const title = card.querySelector("h6")?.textContent?.toLowerCase() || "";
-          const wrapper = card.closest("div[class^='col']");
-          if (wrapper) wrapper.style.display = title.includes(q) ? "" : "none";
+        const q = (this.value || "").toLowerCase().trim();
+        const cols = document.querySelectorAll(".row.g-3 > div[class*='col-']");
+
+        cols.forEach(col => {
+          const title = col.querySelector("h6")?.textContent?.toLowerCase() || "";
+          const idTxt = col.querySelector("small")?.textContent?.toLowerCase() || "";
+          const match = !q || title.includes(q) || idTxt.includes(q);
+          col.style.display = match ? "" : "none";
         });
       });
     });
