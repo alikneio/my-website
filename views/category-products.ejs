@@ -11,16 +11,11 @@
       transform: scale(0.95) translateY(20px);
       transition: opacity 0.5s ease, transform 0.5s ease;
     }
-
     .product-card.visible {
       opacity: 1;
       transform: scale(1) translateY(0);
     }
-
-    .fade-in {
-      animation: fadeIn 0.4s ease-in-out;
-    }
-
+    .fade-in { animation: fadeIn 0.4s ease-in-out; }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -35,24 +30,35 @@
   <div class="row">
     <% products.forEach(product => { %>
       <div class="col-md-4 mb-3">
-        <div class="card product-card" 
-             data-id="<%= product.product_id %>" 
+        <div class="card product-card"
+             data-id="<%= product.id %>"
              data-source="<%= product.source || 'api' %>">
-          <img src="<%= product.custom_image || '/images/webp/default-product.webp' %>" class="card-img-top" style="height: 150px; object-fit: cover;">
+
+          <img src="<%= product.image || '/images/webp/default-product.webp' %>"
+               class="card-img-top"
+               style="height: 150px; object-fit: cover;">
+
           <div class="card-body text-center">
-            <h5><%= product.custom_name %></h5>
-            <% if (product.variable_quantity === 1) { %>
+            <h5><%= product.name %></h5>
+
+            <% if (product.variable_quantity) { %>
               <span class="badge bg-warning text-dark">Quantity</span>
             <% } else { %>
               <span class="badge bg-success">Fixed</span>
             <% } %>
+
+            <% if (product.is_out_of_stock) { %>
+              <div class="mt-2">
+                <span class="badge bg-danger">OUT OF STOCK</span>
+              </div>
+            <% } %>
           </div>
+
         </div>
       </div>
     <% }) %>
   </div>
 
-  <!-- Checkout Container -->
   <div id="checkoutSection" class="mt-5"></div>
 </div>
 
@@ -60,32 +66,24 @@
   document.addEventListener('DOMContentLoaded', function () {
     const cards = document.querySelectorAll('.product-card');
 
-    // Show animation
     cards.forEach(card => card.classList.remove('visible'));
     setTimeout(() => {
       cards.forEach((card, i) => {
-        setTimeout(() => {
-          card.classList.add('visible');
-        }, i * 150);
+        setTimeout(() => card.classList.add('visible'), i * 150);
       });
     }, 300);
 
-    // Load checkout on click
     cards.forEach(card => {
       card.addEventListener('click', function () {
         const productId = this.dataset.id;
         const source = this.dataset.source || 'api';
 
-        if (source === 'sql') {
-          loadSqlCheckout(productId);
-        } else {
-          loadApiCheckout(productId);
-        }
+        if (source === 'sql') loadSqlCheckout(productId);
+        else loadApiCheckout(productId);
       });
     });
   });
 
-  // API Checkout loader
   async function loadApiCheckout(productId) {
     const container = document.getElementById('checkoutSection');
     container.innerHTML = "<div class='text-center py-4'>⏳ Loading API checkout...</div>";
@@ -99,7 +97,6 @@
     }
   }
 
-  // SQL Checkout loader
   async function loadSqlCheckout(productId) {
     const container = document.getElementById('checkoutSection');
     container.innerHTML = "<div class='text-center py-4'>⏳ Loading checkout...</div>";

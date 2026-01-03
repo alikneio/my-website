@@ -6691,7 +6691,6 @@ app.get('/apps/:slug', async (req, res) => {
   const { slug } = req.params;
   const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
 
-  // helpers: normalize tinyint / numeric values
   const asBool = (v) => Number(v) === 1;
   const asNum  = (v, fallback = 0) => {
     const n = Number(v);
@@ -6708,12 +6707,11 @@ app.get('/apps/:slug', async (req, res) => {
     );
     if (!category) return res.status(404).send('Category not found');
 
-    // خفف الأعمدة بدل SELECT *
+    // ✅ خفّف الأعمدة + تأكد من القيم
     const selected = await q(
       `SELECT
          product_id, custom_price, custom_image, custom_name, category, active,
-         is_out_of_stock, variable_quantity, unit_price, unit_quantity,
-         min_quantity, max_quantity, player_check, requires_verification, unit_label
+         is_out_of_stock, variable_quantity, unit_label, player_check
        FROM selected_api_products
        WHERE active = 1 AND category = ?`,
       [slug]
@@ -6731,31 +6729,24 @@ app.get('/apps/:slug', async (req, res) => {
 
         const isQty = asBool(c.variable_quantity);
 
-        // سعر المنتج:
-        // - إذا quantity-based: خلي price = null (مثل ما أنت عامل)
-        // - إذا مش quantity-based: خذ custom_price إذا موجود (حتى لو 0) وإلا p.price
-        const basePrice = (c.custom_price ?? p.price); // مهم: ?? مش ||
-        const price = isQty ? null : asNum(basePrice, 0);
+        // ✅ price: fixed -> custom_price (حتى لو 0) وإلا API price
+        const price = isQty ? null : asNum((c.custom_price ?? p.price), 0);
+
+        // ✅ flags normalized
+        const outOfStock = asBool(c.is_out_of_stock);
+
+        // ✅ DEBUG (احذفها بعد ما تتأكد)
+        console.log('DEBUG OOS', { id: p.id, db: c.is_out_of_stock, outOfStock });
 
         return {
           id: Number(p.id),
           name: c.custom_name ?? p.name,
           image: c.custom_image ?? p.image ?? '/images/default-product.png',
-
           price,
           variable_quantity: isQty,
-
-          // flags normalized
+          unit_label: c.unit_label ?? 'units',
           requires_player_id: asBool(c.player_check ?? p.player_check) ? 1 : 0,
-          requires_verification: asBool(c.requires_verification ?? p.requires_verification) ? 1 : 0,
-          is_out_of_stock: asBool(c.is_out_of_stock),
-
-          // (اختياري) إذا بدك تستخدمهم بالواجهة
-          unit_price: asNum(c.unit_price, 0),
-          unit_quantity: asNum(c.unit_quantity, 1),
-          min_quantity: asNum(c.min_quantity, 1),
-          max_quantity: asNum(c.max_quantity, 9999),
-          unit_label: c.unit_label ?? 'units'
+          is_out_of_stock: outOfStock
         };
       });
 
@@ -6770,6 +6761,7 @@ app.get('/apps/:slug', async (req, res) => {
     res.status(500).send('Failed to load category products');
   }
 });
+
 
 // Flush API cache
 app.get('/admin/dev/flush-api-cache', checkAdmin, async (req, res) => {
