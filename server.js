@@ -6691,37 +6691,71 @@ app.get('/apps/:slug', async (req, res) => {
   const { slug } = req.params;
   const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
 
+  // helpers: normalize tinyint / numeric values
+  const asBool = (v) => Number(v) === 1;
+  const asNum  = (v, fallback = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+
   try {
     const [category] = await q(
       `SELECT id, label, slug, image AS image_url
        FROM api_categories
        WHERE slug = ? AND active = 1 AND section = 'apps'
-       LIMIT 1`, [slug]
+       LIMIT 1`,
+      [slug]
     );
     if (!category) return res.status(404).send('Category not found');
 
+    // خفف الأعمدة بدل SELECT *
     const selected = await q(
-      `SELECT * FROM selected_api_products WHERE active = 1 AND category = ?`,
+      `SELECT
+         product_id, custom_price, custom_image, custom_name, category, active,
+         is_out_of_stock, variable_quantity, unit_price, unit_quantity,
+         min_quantity, max_quantity, player_check, requires_verification, unit_label
+       FROM selected_api_products
+       WHERE active = 1 AND category = ?`,
       [slug]
     );
+
     const map = new Map(selected.map(p => [Number(p.product_id), p]));
 
     const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
     const apiProducts = await getCachedAPIProducts();
 
     const products = apiProducts
-      .filter(p => map.has(p.id))
+      .filter(p => map.has(Number(p.id)))
       .map(p => {
-        const c = map.get(p.id);
-        const isQty = c.variable_quantity === 1;
+        const c = map.get(Number(p.id));
+
+        const isQty = asBool(c.variable_quantity);
+
+        // سعر المنتج:
+        // - إذا quantity-based: خلي price = null (مثل ما أنت عامل)
+        // - إذا مش quantity-based: خذ custom_price إذا موجود (حتى لو 0) وإلا p.price
+        const basePrice = (c.custom_price ?? p.price); // مهم: ?? مش ||
+        const price = isQty ? null : asNum(basePrice, 0);
+
         return {
-          id: p.id,
-          name: c.custom_name || p.name,
-          image: c.custom_image || p.image || '/images/default-product.png',
-          price: isQty ? null : Number(c.custom_price || p.price),
+          id: Number(p.id),
+          name: c.custom_name ?? p.name,
+          image: c.custom_image ?? p.image ?? '/images/default-product.png',
+
+          price,
           variable_quantity: isQty,
-          requires_player_id: (c.player_check ?? p.player_check) ? 1 : 0,
-          is_out_of_stock: c.is_out_of_stock === 1
+
+          // flags normalized
+          requires_player_id: asBool(c.player_check ?? p.player_check) ? 1 : 0,
+          requires_verification: asBool(c.requires_verification ?? p.requires_verification) ? 1 : 0,
+          is_out_of_stock: asBool(c.is_out_of_stock),
+
+          // (اختياري) إذا بدك تستخدمهم بالواجهة
+          unit_price: asNum(c.unit_price, 0),
+          unit_quantity: asNum(c.unit_quantity, 1),
+          min_quantity: asNum(c.min_quantity, 1),
+          max_quantity: asNum(c.max_quantity, 9999),
+          unit_label: c.unit_label ?? 'units'
         };
       });
 
@@ -6730,6 +6764,7 @@ app.get('/apps/:slug', async (req, res) => {
       category: { ...category, image_url: category.image_url || '/images/default-category.png' },
       products
     });
+
   } catch (err) {
     console.error('Load /apps/:slug error:', err);
     res.status(500).send('Failed to load category products');
