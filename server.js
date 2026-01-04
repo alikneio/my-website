@@ -4759,6 +4759,10 @@ app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
   }
 });
 
+app.get('/admin/api-products/sync-ping', checkAdmin, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  return res.json({ ok: true, time: new Date().toISOString() });
+});
 
 // مسار لعرض صفحة تعديل منتج API معين
 // GET: Edit API Product (with dynamic categories list)
