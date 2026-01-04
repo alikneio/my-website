@@ -3129,22 +3129,32 @@ app.get('/search/json', async (req, res) => {
 app.get('/api/out-of-stock', async (req, res) => {
   try {
     const sql = `
-      SELECT CAST(p.id AS CHAR) AS id
-      FROM products p
-      WHERE p.is_out_of_stock = 1
+      /* 1) API products */
+      SELECT CAST(product_id AS CHAR) AS id
+      FROM selected_api_products
+      WHERE is_out_of_stock = 1
 
       UNION
 
-      SELECT CAST(sap.product_id AS CHAR) AS id
-      FROM selected_api_products sap
-      WHERE sap.active = 1
-        AND sap.is_out_of_stock = 1
+      /* 2) Normal products (exclude anything that exists as API product) */
+      SELECT CAST(p.id AS CHAR) AS id
+      FROM products p
+      LEFT JOIN selected_api_products sap
+        ON sap.product_id = p.id
+      WHERE sap.product_id IS NULL
+        AND p.is_out_of_stock = 1
     `;
 
-    const [rows] = await db.promise().query(sql);
-    res.json(rows.map(r => String(r.id)));
-  } catch (err) {
-    console.error('❌ OOS API error:', err);
+    db.query(sql, [], (err, rows) => {
+      if (err) {
+        console.error('❌ OOS API error:', err);
+        return res.json([]);
+      }
+      res.json(rows.map(r => String(r.id)));
+    });
+
+  } catch (e) {
+    console.error('❌ OOS API fatal error:', e);
     res.json([]);
   }
 });
