@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Balance - AK Cell</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Cairo', sans-serif; background:#0d1117; color:#c9d1d9; }
+    .ak-wrap { max-width: 1100px; margin: 30px auto; padding: 0 12px; }
+    .ak-hero {
+      background: radial-gradient(circle at top left, #111827, #020617);
+      border: 1px solid rgba(148,163,184,.35);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 0 22px rgba(0,0,0,.35);
+    }
+    .ak-card {
+      background:#161b22;
+      border:1px solid #30363d;
+      border-radius:16px;
+      padding:16px;
+      height: 100%;
+    }
+    .ak-muted { color:#9ca3af; }
+    .ak-badge { font-weight: 800; }
+    .table thead th { white-space: nowrap; }
+    .proof-img { width: 70px; border-radius: 10px; border:1px solid rgba(148,163,184,.35); }
+    .ak-pill {
+      border-radius: 999px; padding: 4px 10px; font-size:.8rem; font-weight:800;
+      display:inline-flex; align-items:center; gap:7px;
+    }
+    .ak-pill-pending  { background:#fbbf24; color:#111827; }
+    .ak-pill-approved { background:#22c55e; color:#052e16; }
+    .ak-pill-rejected { background:#ef4444; color:#fff; }
+  </style>
+</head>
+
+<body>
+  <%- include('partials/header') %>
+
+  <main class="ak-wrap">
+
+    <div class="ak-hero mb-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+          <h3 class="mb-1"><i class="bi bi-wallet2 me-2"></i>My Balance</h3>
+          <div class="ak-muted">تابع رصيدك وحالة طلبات التعبئة</div>
+        </div>
+
+        <div class="d-flex gap-2">
+          <a href="/add-balance/whish" class="btn btn-outline-light">
+            <i class="bi bi-credit-card-2-front me-1"></i> Add Balance
+          </a>
+          <a href="/" class="btn btn-outline-secondary">
+            <i class="bi bi-house me-1"></i> Home
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-4">
+        <div class="ak-card">
+          <div class="ak-muted small mb-1">Current Balance</div>
+          <div class="display-6 fw-bold text-success">$<%= Number(user?.balance || 0).toFixed(2) %></div>
+          <div class="ak-muted small mt-2">
+            Username: <span class="text-light fw-bold"><%= user?.username %></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-4">
+        <div class="ak-card">
+          <div class="ak-muted small mb-2">Level & Discount</div>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="badge bg-light text-dark ak-badge">
+              <i class="bi bi-arrow-up-circle me-1"></i> Level <%= Number(user?.level || 1) %>
+            </span>
+
+            <% 
+              const levelDiscountMap = { 1:0, 2:2, 3:4, 4:6, 5:10 };
+              const autoDisc = (levelDiscountMap[Number(user?.level||1)] ?? 0);
+              const manualDisc = Number(user?.discount_percent || 0);
+              const effectiveDisc = manualDisc > 0 ? manualDisc : autoDisc;
+              const discMode = manualDisc > 0 ? 'Manual' : 'Auto';
+            %>
+
+            <span class="badge bg-success text-dark ak-badge">
+              <i class="bi bi-percent me-1"></i> <%= Number(effectiveDisc).toFixed(0) %>% (<%= discMode %>)
+            </span>
+          </div>
+
+          <div class="ak-muted small mt-3">
+            Total spent: <span class="text-light fw-bold">$<%= Number(user?.total_spent || 0).toFixed(2) %></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-4">
+        <div class="ak-card">
+          <div class="ak-muted small mb-2">Top-up Stats</div>
+
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <span class="ak-pill ak-pill-pending">
+              <i class="bi bi-hourglass-split"></i>
+              Pending: <%= Number(stats?.byStatus?.pending || 0) %>
+            </span>
+
+            <span class="ak-pill ak-pill-approved">
+              <i class="bi bi-check2-circle"></i>
+              Approved: <%= Number(stats?.byStatus?.approved || 0) %>
+            </span>
+
+            <span class="ak-pill ak-pill-rejected">
+              <i class="bi bi-x-circle"></i>
+              Rejected: <%= Number(stats?.byStatus?.rejected || 0) %>
+            </span>
+          </div>
+
+          <div class="ak-muted small">
+            Total requests: <span class="text-light fw-bold"><%= Number(stats?.total || 0) %></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ak-card">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>My Top-up Requests</h5>
+        <div class="ak-muted small">
+          آخر 200 طلب
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped align-middle mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>#</th>
+              <th>Amount</th>
+              <th>Currency</th>
+              <th>Status</th>
+              <th>Note</th>
+              <th>Proof</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!requests || requests.length === 0) { %>
+              <tr>
+                <td colspan="7" class="text-center py-4 ak-muted">
+                  ما عندك طلبات تعبئة بعد. جرّب <a href="/add-balance/whish" class="link-light fw-bold">Add Balance</a>.
+                </td>
+              </tr>
+            <% } else { %>
+              <% requests.forEach((r, idx) => { %>
+                <tr>
+                  <td><%= idx + 1 %></td>
+                  <td class="fw-bold"><%= r.amount %></td>
+                  <td><%= r.currency %></td>
+                  <td>
+                    <% if (r.status === 'approved') { %>
+                      <span class="badge bg-success">Approved</span>
+                    <% } else if (r.status === 'rejected') { %>
+                      <span class="badge bg-danger">Rejected</span>
+                    <% } else { %>
+                      <span class="badge bg-warning text-dark">Pending</span>
+                    <% } %>
+                  </td>
+                  <td style="max-width:260px;">
+                    <span class="small"><%= (r.admin_note && r.admin_note.trim()) ? r.admin_note : '-' %></span>
+                  </td>
+                  <td>
+                    <% if (r.proof_image) { %>
+                      <a href="/uploads/whish/<%= r.proof_image %>" target="_blank">
+                        <img class="proof-img" src="/uploads/whish/<%= r.proof_image %>" alt="Proof"
+                             onerror="this.style.display='none';" />
+                      </a>
+                    <% } else { %>
+                      <span class="ak-muted">N/A</span>
+                    <% } %>
+                  </td>
+                  <td><%= new Date(r.created_at).toLocaleString() %></td>
+                </tr>
+              <% }) %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <%- include('partials/footer') %>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/main.js"></script>
+</body>
+</html>

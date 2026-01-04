@@ -302,6 +302,50 @@ app.use((req, res, next) => {
     }
 });
 
+app.use(async (req, res, next) => {
+  // user متوفر لكل الصفحات
+  res.locals.user = req.session.user || null;
+
+  // defaults (حتى ما يطلع undefined بالـ EJS)
+  res.locals.pendingBalanceRequestsCount = 0;      // للأدمن (كل الموقع)
+  res.locals.pendingBalanceCount = 0;              // للمستخدم (طلباته هو)
+  res.locals.unreadCount = 0;                      // إذا بدك (notifications)
+
+  try {
+    // إذا المستخدم مسجّل دخول
+    if (req.session.user?.id) {
+      const userId = req.session.user.id;
+
+      // ✅ unread notifications للمستخدم + pending balance requests للمستخدم
+      // (إذا ما بدك notifications شيل أول SELECT)
+      const [[rowUser]] = await promisePool.query(
+        `
+        SELECT
+          (SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = FALSE) AS unreadCount,
+          (SELECT COUNT(*) FROM balance_requests WHERE user_id = ? AND status = 'pending') AS pendingBalanceCount
+        `,
+        [userId, userId]
+      );
+
+      res.locals.unreadCount = Number(rowUser?.unreadCount || 0);
+      res.locals.pendingBalanceCount = Number(rowUser?.pendingBalanceCount || 0);
+    }
+
+    // ✅ عداد الأدمن (كل الطلبات pending)
+    if (req.session.user?.role === 'admin') {
+      const [[rowAdmin]] = await promisePool.query(
+        `SELECT COUNT(*) AS cnt FROM balance_requests WHERE status = 'pending'`
+      );
+      res.locals.pendingBalanceRequestsCount = Number(rowAdmin?.cnt || 0);
+    }
+  } catch (err) {
+    console.error("❌ locals middleware error:", err);
+  }
+
+  next();
+});
+
+
 
 const { isMaintenance, MAINT_START, MAINT_END, MAINT_TZ } = require('./utils/maintenance');
 
@@ -462,6 +506,84 @@ app.get('/transactions', checkAuth, async (req, res) => {
   } catch (err) {
     console.error('❌ GET /transactions error:', err);
     return res.status(500).send(`<pre>${String(err?.message || err)}</pre>`);
+  }
+});
+
+// ✅ My Balance page
+app.get('/my-balance', checkAuth, async (req, res) => {
+  const userId = req.session.user?.id;
+  if (!userId) return res.redirect('/login?error=session');
+
+  try {
+    // ✅ آخر بيانات المستخدم (رصيد/level/discount/total_spent)
+    const [[userRow]] = await promisePool.query(
+      `SELECT id, username, balance, level, discount_percent, total_spent
+       FROM users
+       WHERE id = ?
+       LIMIT 1`,
+      [userId]
+    );
+
+    // ✅ طلبات التعبئة للمستخدم
+    const [requests] = await promisePool.query(
+      `SELECT id, amount, currency, proof_image, status, admin_note, created_at
+       FROM balance_requests
+       WHERE user_id = ?
+       ORDER BY id DESC
+       LIMIT 200`,
+      [userId]
+    );
+
+    // ✅ Stats صغيرة للواجهة
+    const stats = requests.reduce((acc, r) => {
+      const amt = Number(r.amount || 0);
+      acc.total++;
+      acc.byStatus[r.status] = (acc.byStatus[r.status] || 0) + 1;
+      if (r.status === 'approved') acc.approvedSum += amt;
+      if (r.status === 'pending') acc.pendingSum += amt;
+      return acc;
+    }, { total: 0, approvedSum: 0, pendingSum: 0, byStatus: {} });
+
+    return res.render('my-balance', {
+      user: userRow || req.session.user,
+      requests,
+      stats
+    });
+
+  } catch (err) {
+    console.error('❌ GET /my-balance error:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
+app.get('/admin/balance-requests', checkAdmin, async (req, res) => {
+  const status = (req.query.status || '').trim(); // pending / approved / rejected
+
+  try {
+    const params = [];
+    let where = '';
+
+    if (['pending', 'approved', 'rejected'].includes(status)) {
+      where = 'WHERE br.status = ?';
+      params.push(status);
+    }
+
+    const [requests] = await promisePool.query(
+      `
+      SELECT br.*, u.username
+      FROM balance_requests br
+      JOIN users u ON u.id = br.user_id
+      ${where}
+      ORDER BY br.id DESC
+      LIMIT 500
+      `,
+      params
+    );
+
+    res.render('admin-balance-requests', { requests, statusFilter: status });
+  } catch (err) {
+    console.error("GET /admin/balance-requests:", err);
+    res.status(500).send("Server error");
   }
 });
 
@@ -2139,61 +2261,68 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
 
 const fetch = require('node-fetch');
 
-app.post('/admin/balance-requests/update/:id', async (req, res) => {
-  const requestId = req.params.id;
-  const { status, admin_note } = req.body;
+app.post('/admin/balance-requests/update/:id', checkAdmin, async (req, res) => {
+  const requestId = Number(req.params.id);
+  const newStatus = String(req.body.status || 'pending');
+  const adminNote = String(req.body.admin_note || '').trim();
 
+  if (!['pending', 'approved', 'rejected'].includes(newStatus)) {
+    return res.redirect('/admin/balance-requests?error=bad_status');
+  }
+
+  const conn = await promisePool.getConnection();
   try {
-    // تحديث الطلب
-    await promisePool.query(
-      `
-      UPDATE balance_requests
-      SET status = ?, admin_note = ?
-      WHERE id = ?
-    `,
-      [status, admin_note || null, requestId]
-    );
+    await conn.beginTransaction();
 
-    // جلب معلومات الطلب كاملة
-    const [reqRows] = await promisePool.query(
-      `
-      SELECT br.amount, br.currency, br.user_id, u.telegram_chat_id
-      FROM balance_requests br
-      JOIN users u ON br.user_id = u.id
-      WHERE br.id = ?
-    `,
+    // 1) هات الطلب
+    const [[reqRow]] = await conn.query(
+      `SELECT id, user_id, amount, status FROM balance_requests WHERE id=? FOR UPDATE`,
       [requestId]
     );
-
-    if (!reqRows || reqRows.length === 0) {
-      return res.redirect('/admin/balance-requests');
+    if (!reqRow) {
+      await conn.rollback();
+      return res.redirect('/admin/balance-requests?error=not_found');
     }
 
-    const { amount, currency, telegram_chat_id: chatId } = reqRows[0];
-    if (!chatId) return res.redirect('/admin/balance-requests');
+    const oldStatus = reqRow.status;
 
-    const msg =
-      status === 'approved'
-        ? `✅ *تمت الموافقة على طلب تعبئة الرصيد الخاص بك*\n\n💰 القيمة: ${amount} ${currency}\n📌 الحالة: تم القبول.`
-        : `❌ *تم رفض طلب تعبئة الرصيد الخاص بك*\n\n💰 القيمة: ${amount} ${currency}\n📌 السبب: ${admin_note || 'لم يتم تحديد السبب.'}`;
-
-    // ✅ Telegram via RELAY (بدون api.telegram.org)
-    try {
-      await sendTelegramMessage(
-        chatId,
-        msg,
-        process.env.TELEGRAM_BOT_TOKEN,
-        { parseMode: 'Markdown', timeoutMs: 15000 }
-      );
-    } catch (e) {
-      console.warn('⚠️ Failed to send Telegram (balance request update via relay):', e.message || e);
-      // لا نوقف العملية
+    // 2) إذا عم نحاول نوافق وهو أصلاً approved => لا تعمل شي
+    if (oldStatus === 'approved' && newStatus === 'approved') {
+      await conn.rollback();
+      return res.redirect('/admin/balance-requests?info=already_approved');
     }
 
-    return res.redirect('/admin/balance-requests');
+    // 3) تحديث حالة الطلب
+    await conn.query(
+      `UPDATE balance_requests
+       SET status=?, admin_note=?, admin_id=?, decided_at=NOW()
+       WHERE id=?`,
+      [newStatus, adminNote, req.session.user.id, requestId]
+    );
+
+    // 4) إذا صار approved من حالة غير approved => زيد رصيد المستخدم
+    if (newStatus === 'approved' && oldStatus !== 'approved') {
+      const amount = Number(reqRow.amount || 0);
+      if (amount > 0) {
+        await conn.query(
+          `UPDATE users SET balance = balance + ? WHERE id=?`,
+          [amount, reqRow.user_id]
+        );
+
+        // (اختياري) سجل transaction إذا عندك جدول transactions
+        // await conn.query(`INSERT INTO transactions (...) VALUES (...)`, [...]);
+      }
+    }
+
+    await conn.commit();
+    return res.redirect('/admin/balance-requests?success=1');
+
   } catch (err) {
-    console.error('❌ Error updating request or sending Telegram:', err);
-    return res.status(500).send('Error updating request');
+    await conn.rollback();
+    console.error("POST /admin/balance-requests/update/:id:", err);
+    return res.redirect('/admin/balance-requests?error=server');
+  } finally {
+    conn.release();
   }
 });
 

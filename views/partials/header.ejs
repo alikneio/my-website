@@ -165,6 +165,16 @@
         </li>
 
         <li class="nav-item">
+  <a class="ak-menu-link" href="/my-balance">
+    <i class="bi bi-wallet2"></i> My Balance
+    <% if ((pendingBalanceCount || 0) > 0) { %>
+      <span class="badge bg-warning text-dark ms-auto"><%= pendingBalanceCount %></span>
+    <% } %>
+  </a>
+</li>
+
+
+        <li class="nav-item">
           <a href="/add-balance/whish" class="ak-menu-link">
             <i class="bi bi-credit-card-2-front"></i> Add Balance
           </a>

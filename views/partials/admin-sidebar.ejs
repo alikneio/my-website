@@ -11,6 +11,22 @@
                 Dashboard
             </a>
         </li>
+
+        <li>
+  <a href="/admin/balance-requests" class="nav-link text-white d-flex align-items-center justify-content-between">
+    <span>
+      <i class="bi bi-wallet2 me-2"></i>
+      Balance Requests
+    </span>
+
+    <% if ((pendingBalanceRequestsCount || 0) > 0) { %>
+      <span class="badge bg-warning text-dark rounded-pill">
+        <%= pendingBalanceRequestsCount > 99 ? '99+' : pendingBalanceRequestsCount %>
+      </span>
+    <% } %>
+  </a>
+</li>
+
         <li>
             <a href="/admin/orders" class="nav-link text-white">
                 <i class="bi bi-table me-2"></i>

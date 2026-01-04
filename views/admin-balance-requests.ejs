@@ -11,14 +11,21 @@
 <body>
 
 <div class="d-flex">
-  <!-- Sidebar -->
   <%- include('partials/admin-sidebar') %>
 
-  <!-- Main content -->
   <div class="flex-grow-1 p-4">
-    <h2 class="mb-4">Balance Top-up Requests (Whish)</h2>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h2 class="mb-0">Balance Top-up Requests (Whish)</h2>
 
-    <table class="table table-bordered table-striped">
+      <div class="btn-group">
+        <a class="btn btn-outline-light <%= !statusFilter ? 'active' : '' %>" href="/admin/balance-requests">All</a>
+        <a class="btn btn-outline-warning <%= statusFilter==='pending' ? 'active' : '' %>" href="/admin/balance-requests?status=pending">Pending</a>
+        <a class="btn btn-outline-success <%= statusFilter==='approved' ? 'active' : '' %>" href="/admin/balance-requests?status=approved">Approved</a>
+        <a class="btn btn-outline-danger <%= statusFilter==='rejected' ? 'active' : '' %>" href="/admin/balance-requests?status=rejected">Rejected</a>
+      </div>
+    </div>
+
+    <table class="table table-bordered table-striped align-middle">
       <thead class="table-dark">
         <tr>
           <th>User</th>
@@ -27,11 +34,15 @@
           <th>Image</th>
           <th>Status</th>
           <th>Date</th>
-          <th>Update Status</th>
+          <th>Update</th>
         </tr>
       </thead>
       <tbody>
-        <% requests.forEach(req => { %>
+        <% if (!requests || requests.length === 0) { %>
+          <tr><td colspan="7" class="text-center py-4">No requests</td></tr>
+        <% } %>
+
+        <% (requests || []).forEach(req => { %>
           <tr>
             <td><%= req.username %></td>
             <td><%= req.amount %></td>
@@ -39,27 +50,37 @@
             <td>
               <% if (req.proof_image) { %>
                 <a href="/uploads/whish/<%= req.proof_image %>" target="_blank">
-                  <img src="/uploads/whish/<%= req.proof_image %>" width="80" alt="Proof" onerror="this.style.display='none';" />
+                  <img src="/uploads/whish/<%= req.proof_image %>" width="80" style="border-radius:10px;"
+                       alt="Proof" onerror="this.style.display='none';" />
                 </a>
               <% } else { %>
                 N/A
               <% } %>
             </td>
-            <td><%= req.status %></td>
-            <td><%= new Date(req.created_at).toLocaleString() %></td>
             <td>
+              <% if (req.status === 'approved') { %>
+                <span class="badge bg-success">Approved</span>
+              <% } else if (req.status === 'rejected') { %>
+                <span class="badge bg-danger">Rejected</span>
+              <% } else { %>
+                <span class="badge bg-warning text-dark">Pending</span>
+              <% } %>
+            </td>
+            <td><%= new Date(req.created_at).toLocaleString() %></td>
+            <td style="min-width:210px;">
               <form method="POST" action="/admin/balance-requests/update/<%= req.id %>">
                 <select name="status" class="form-select form-select-sm mb-2" onchange="toggleNoteInput(this, '<%= req.id %>')">
-                  <option value="pending" <%= req.status === 'pending' ? 'selected' : '' %>>Pending</option>
-                  <option value="approved" <%= req.status === 'approved' ? 'selected' : '' %>>Approved</option>
-                  <option value="rejected" <%= req.status === 'rejected' ? 'selected' : '' %>>Rejected</option>
+                  <option value="pending"  <%= req.status==='pending' ? 'selected' : '' %>>Pending</option>
+                  <option value="approved" <%= req.status==='approved' ? 'selected' : '' %>>Approved</option>
+                  <option value="rejected" <%= req.status==='rejected' ? 'selected' : '' %>>Rejected</option>
                 </select>
 
-                <div id="note-<%= req.id %>" style="display: none;">
-                  <textarea name="admin_note" class="form-control form-control-sm mb-2" placeholder="Rejection reason (optional)"><%= req.admin_note || '' %></textarea>
+                <div id="note-<%= req.id %>" style="display:none;">
+                  <textarea name="admin_note" class="form-control form-control-sm mb-2"
+                            placeholder="Rejection reason (optional)"><%= req.admin_note || '' %></textarea>
                 </div>
 
-                <button type="submit" class="btn btn-sm btn-danger">Update</button>
+                <button type="submit" class="btn btn-sm btn-primary w-100">Update</button>
               </form>
             </td>
           </tr>
@@ -69,15 +90,11 @@
   </div>
 </div>
 
-<!-- Scripts -->
 <script>
   function toggleNoteInput(selectEl, id) {
     const noteDiv = document.getElementById(`note-${id}`);
-    if (selectEl.value === 'rejected') {
-      noteDiv.style.display = 'block';
-    } else {
-      noteDiv.style.display = 'none';
-    }
+    if (selectEl.value === 'rejected') noteDiv.style.display = 'block';
+    else noteDiv.style.display = 'none';
   }
 
   window.addEventListener("DOMContentLoaded", () => {
@@ -93,6 +110,5 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/main.js"></script>
-
 </body>
 </html>
