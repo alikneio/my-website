@@ -4613,6 +4613,39 @@ app.post('/admin/api-products/toggle', checkAdmin, (req, res) => {
 });
 
 
+app.post('/admin/api-products/sync', checkAdmin, async (req, res) => {
+  try {
+    // نفس أسلوبك: require من utils
+    const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
+
+    // ✅ نحاول نمرر forceRefresh=true إذا الدالة بتدعمه
+    // إذا ما بتدعمه ما رح يضر (بس رح يتجاهله)
+    let list;
+    try {
+      list = await getCachedAPIProducts({ forceRefresh: true });
+    } catch (e) {
+      // fallback: جرّب بدون بارامز
+      list = await getCachedAPIProducts();
+    }
+
+    if (!Array.isArray(list)) {
+      return res.json({ success: false, message: 'Invalid provider response.' });
+    }
+
+    return res.json({
+      success: true,
+      message: `Sync done. Products loaded: ${list.length}`,
+      total: list.length
+    });
+
+  } catch (error) {
+    console.error("❌ Sync Error:", error.stack || error.message);
+    return res.status(500).json({ success: false, message: 'Server error during sync.' });
+  }
+});
+
+
+
 // مسار لعرض صفحة تعديل منتج API معين
 // GET: Edit API Product (with dynamic categories list)
 app.get('/admin/api-products/edit/:id', checkAdmin, async (req, res) => {
