@@ -4612,6 +4612,118 @@ app.post('/admin/api-products/toggle', checkAdmin, (req, res) => {
   }
 });
 
+app.post('/admin/api-products/sync', checkAdmin, async (req, res) => {
+  // Always return JSON for this endpoint
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  // Basic request trace
+  const rid = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const startedAt = Date.now();
+
+  try {
+    // ✅ prevent double-click / concurrent sync
+    if (__apiProductsSyncLock) {
+      return res.status(429).json({
+        success: false,
+        message: 'Sync already running. Please wait a moment.',
+        rid
+      });
+    }
+    __apiProductsSyncLock = true;
+
+    // ✅ Load function safely
+    let getCachedAPIProducts;
+    try {
+      ({ getCachedAPIProducts } = require('./utils/getCachedAPIProducts'));
+    } catch (e) {
+      console.error(`❌ [${rid}] require getCachedAPIProducts failed:`, e);
+      return res.status(500).json({
+        success: false,
+        message: 'Server misconfiguration: getCachedAPIProducts not found.',
+        rid
+      });
+    }
+
+    // ✅ decide force refresh
+    // from query ?force=1 OR header x-force-refresh: 1
+    const forceQ = String(req.query.force || '').toLowerCase();
+    const forceH = String(req.headers['x-force-refresh'] || '').toLowerCase();
+    const forceRefresh = (forceQ === '1' || forceQ === 'true' || forceH === '1' || forceH === 'true');
+
+    // ✅ Timeout wrapper (so request doesn't hang forever)
+    const TIMEOUT_MS = 20000; // 20s (عدّلها حسب provider)
+    const withTimeout = (p, ms) =>
+      Promise.race([
+        p,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`Sync timeout after ${ms}ms`)), ms))
+      ]);
+
+    // ✅ Attempt: prefer force refresh if supported, fallback if not
+    let list;
+    let usedForce = false;
+
+    try {
+      if (forceRefresh) {
+        usedForce = true;
+        list = await withTimeout(getCachedAPIProducts({ forceRefresh: true, forceRefresh: true, force: true }), TIMEOUT_MS);
+      } else {
+        list = await withTimeout(getCachedAPIProducts(), TIMEOUT_MS);
+      }
+    } catch (e1) {
+      // fallback if function doesn't accept args or provider hiccup
+      try {
+        list = await withTimeout(getCachedAPIProducts(), TIMEOUT_MS);
+      } catch (e2) {
+        console.error(`❌ [${rid}] getCachedAPIProducts failed:`, e2);
+        return res.status(502).json({
+          success: false,
+          message: 'Provider fetch failed.',
+          detail: e2.message,
+          rid
+        });
+      }
+    }
+
+    // ✅ Validate output strongly
+    if (!Array.isArray(list)) {
+      console.error(`❌ [${rid}] Invalid provider response type:`, typeof list);
+      return res.status(500).json({
+        success: false,
+        message: 'Invalid provider response (expected array).',
+        type: typeof list,
+        rid
+      });
+    }
+
+    // ✅ Basic shape sampling (helps debug weird single-product issues)
+    const sample = list[0] || null;
+
+    const tookMs = Date.now() - startedAt;
+
+    return res.status(200).json({
+      success: true,
+      message: `Sync done. Products loaded: ${list.length}`,
+      total: list.length,
+      usedForce,
+      tookMs,
+      rid,
+      sampleKeys: sample ? Object.keys(sample).slice(0, 25) : []
+    });
+
+  } catch (err) {
+    console.error(`❌ [${rid}] Sync route unexpected error:`, err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during sync.',
+      detail: err.message,
+      rid
+    });
+  } finally {
+    __apiProductsSyncLock = false;
+  }
+});
+
 
 app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
   // ✅ منع كاش المتصفح لهاي الصفحة (Dev only)
