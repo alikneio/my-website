@@ -4613,37 +4613,44 @@ app.post('/admin/api-products/toggle', checkAdmin, (req, res) => {
 });
 
 
-app.post('/admin/api-products/sync', checkAdmin, async (req, res) => {
+app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
   try {
-    // نفس أسلوبك: require من utils
     const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
+    const list = await getCachedAPIProducts();
 
-    // ✅ نحاول نمرر forceRefresh=true إذا الدالة بتدعمه
-    // إذا ما بتدعمه ما رح يضر (بس رح يتجاهله)
-    let list;
-    try {
-      list = await getCachedAPIProducts({ forceRefresh: true });
-    } catch (e) {
-      // fallback: جرّب بدون بارامز
-      list = await getCachedAPIProducts();
-    }
+    const id = Number(req.params.id);
+    const p = list.find(x => Number(x.id) === id);
 
-    if (!Array.isArray(list)) {
-      return res.json({ success: false, message: 'Invalid provider response.' });
-    }
+    if (!p) return res.json({ found: false, product: null });
 
-    return res.json({
-      success: true,
-      message: `Sync done. Products loaded: ${list.length}`,
-      total: list.length
-    });
+    // قيم مهمّة للتشخيص (عدّل حسب حقول provider عندك)
+    const debug = {
+      id: p.id,
+      name: p.name,
+      is_out_of_stock: p.is_out_of_stock,
+      is_out_of_stock_type: typeof p.is_out_of_stock,
 
-  } catch (error) {
-    console.error("❌ Sync Error:", error.stack || error.message);
-    return res.status(500).json({ success: false, message: 'Server error during sync.' });
+      active: p.active,
+      active_type: typeof p.active,
+
+      status: p.status,
+      status_type: typeof p.status,
+
+      stock: p.stock,
+      stock_type: typeof p.stock,
+
+      max_quantity: p.max_quantity,
+      max_quantity_type: typeof p.max_quantity,
+
+      variable_quantity: p.variable_quantity,
+      variable_quantity_type: typeof p.variable_quantity,
+    };
+
+    res.json({ found: true, debug, product: p });
+  } catch (e) {
+    res.status(500).json({ found: false, error: e.message });
   }
 });
-
 
 
 // مسار لعرض صفحة تعديل منتج API معين
