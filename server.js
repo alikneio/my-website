@@ -6799,6 +6799,32 @@ app.get('/db-test', (req, res) => {
   });
 });
 
+app.post('/admin/api-products/reset', checkAdmin, async (req, res) => {
+  try {
+    const id = Number(req.body.productId);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid productId' });
+    }
+
+    // عدّل الأعمدة حسب جدولك الفعلي (احذف اللي مش موجود عندك)
+    await q(`
+      UPDATE selected_api_products
+      SET active = 0,
+          custom_price = NULL,
+          custom_image = NULL,
+          custom_name = NULL,
+          category = NULL
+      WHERE product_id = ?
+    `, [id]);
+
+    return res.json({ success: true, message: `Local settings reset for product ${id}` });
+  } catch (e) {
+    console.error('❌ reset api product error:', e);
+    return res.status(500).json({ success: false, message: e.message || 'Reset failed' });
+  }
+});
+
+
 
 // =================== API CATEGORIES (Admin) ===================
 function slugify(str = '') {

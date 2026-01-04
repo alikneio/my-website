@@ -25,9 +25,7 @@
       border: 1px solid rgba(0,0,0,.1);
       background: rgba(255,255,255,.6);
     }
-    .row-disabled {
-      opacity: .65;
-    }
+    .row-disabled { opacity: .65; }
     .truncate {
       max-width: 420px;
       overflow: hidden;
@@ -36,9 +34,10 @@
       display: inline-block;
       vertical-align: bottom;
     }
-    @media (max-width: 768px) {
-      .truncate { max-width: 220px; }
-    }
+    @media (max-width: 768px) { .truncate { max-width: 220px; } }
+
+    /* small helper for action buttons */
+    .btn-icon { display: inline-flex; align-items: center; gap: .35rem; }
   </style>
 </head>
 
@@ -112,7 +111,6 @@
                 : null;
               const hasCustom = (customRaw !== null && Number.isFinite(customRaw));
 
-              // for client-side filtering
               const searchKey = (String(id) + ' ' + String(name)).toLowerCase();
             %>
 
@@ -158,9 +156,20 @@
                 </td>
 
                 <td class="cell-compact">
-                  <a href="/admin/api-products/edit/<%= id %>" class="btn btn-warning btn-sm">
-                    <i class="bi bi-pencil-square me-1"></i>Edit
-                  </a>
+                  <div class="d-flex flex-wrap gap-2">
+                    <a href="/admin/api-products/edit/<%= id %>" class="btn btn-warning btn-sm btn-icon">
+                      <i class="bi bi-pencil-square"></i> Edit
+                    </a>
+
+                    <!-- ✅ Reset Local Button -->
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger btn-sm btn-icon reset-btn"
+                      data-id="<%= id %>"
+                      data-name="<%= name.replace(/"/g, '&quot;') %>">
+                      <i class="bi bi-trash3"></i> Reset
+                    </button>
+                  </div>
                 </td>
               </tr>
 
@@ -222,13 +231,12 @@
     return { res, text, data, isHtml };
   }
 
-  // ---------- Toggle selected products (robust) ----------
+  // ---------- Toggle selected products ----------
   document.querySelectorAll('.product-toggle').forEach(toggle => {
     toggle.addEventListener('change', async (e) => {
       const el = e.target;
       const productId = el.dataset.id;
       const isActive = el.checked;
-
       el.disabled = true;
 
       try {
@@ -249,7 +257,6 @@
           return;
         }
 
-        // optional: dim row when not active
         const row = el.closest('tr');
         if (row) {
           if (el.checked) row.classList.remove('row-disabled');
@@ -265,8 +272,27 @@
     });
   });
 
-  // ---------- Sync from provider (robust + debuggable) ----------
+  // ---------- Sync from provider ----------
   const syncBtn = document.getElementById('syncBtn');
+
+  async function runSync(force = false) {
+    const { res, data, text: rawText, isHtml } = await safeFetchJson('/admin/api-products/sync' + (force ? '?force=1' : ''), {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    if (!res.ok) {
+      const reason = data?.message || (isHtml ? 'HTML/redirect response' : rawText.slice(0, 160));
+      throw new Error(`Sync failed (HTTP ${res.status}): ${reason}`);
+    }
+    if (!data) throw new Error(`Sync failed: server did not return JSON.`);
+    if (!data.success) throw new Error(data.message || 'Sync failed.');
+
+    return data;
+  }
 
   if (syncBtn) {
     syncBtn.addEventListener('click', async () => {
@@ -278,35 +304,11 @@
       if (icon) icon.className = 'spinner-border spinner-border-sm me-2';
 
       try {
-        const { res, data, text: rawText, isHtml } = await safeFetchJson('/admin/api-products/sync', {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          }
-        });
-
-        if (!res.ok) {
-          const reason = data?.message || (isHtml ? 'HTML/redirect response' : rawText.slice(0, 160));
-          showAlert('danger', `Sync failed (HTTP ${res.status}): ${reason}`);
-          return;
-        }
-
-        if (!data) {
-          showAlert('danger', `Sync failed: server did not return JSON. (${isHtml ? 'HTML response' : 'Unknown response'})`);
-          return;
-        }
-
-        if (!data.success) {
-          showAlert('danger', data.message || 'Sync failed.');
-          return;
-        }
-
+        const data = await runSync(false);
         showAlert('success', data.message || 'Sync completed.');
         setTimeout(() => window.location.reload(), 700);
-
       } catch (err) {
-        showAlert('danger', 'Network error during sync (fetch failed).');
+        showAlert('danger', err.message || 'Network error during sync.');
       } finally {
         syncBtn.disabled = false;
         if (icon) icon.className = 'bi bi-arrow-repeat me-1';
@@ -315,18 +317,51 @@
     });
   }
 
-  // ---------- Optional: client-side quick filter without reload ----------
-  // If you want it: add an input with id="quickFilter" and this will filter rows instantly.
-  const quick = document.getElementById('quickFilter');
-  if (quick) {
-    quick.addEventListener('input', () => {
-      const q = (quick.value || '').toLowerCase().trim();
-      document.querySelectorAll('tbody tr[data-search]').forEach(tr => {
-        const key = tr.getAttribute('data-search') || '';
-        tr.style.display = (!q || key.includes(q)) ? '' : 'none';
-      });
+  // ---------- Reset Local + Sync(force) ----------
+  document.querySelectorAll('.reset-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const productId = btn.dataset.id;
+      const name = btn.dataset.name || `ID ${productId}`;
+
+      const ok = confirm(`Reset local settings for:\n${name}\n\nThis will disable it and remove custom overrides (price/image/name/category).`);
+      if (!ok) return;
+
+      btn.disabled = true;
+      const oldHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Resetting...';
+
+      try {
+        // 1) reset local
+        const { res, data, text, isHtml } = await safeFetchJson('/admin/api-products/reset', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({ productId })
+        });
+
+        if (!res.ok || !data || data.success !== true) {
+          const reason = data?.message || data?.error || (isHtml ? 'HTML/redirect response' : (text || '').slice(0, 160)) || 'Reset failed';
+          throw new Error(`Reset failed (HTTP ${res.status}): ${reason}`);
+        }
+
+        showAlert('success', data.message || `Local settings reset for ID ${productId}. Syncing...`);
+
+        // 2) force sync so cached provider list refreshes
+        const syncData = await runSync(true);
+        showAlert('success', (syncData.message || 'Sync done') + ' — reloading...');
+        setTimeout(() => window.location.reload(), 700);
+
+      } catch (err) {
+        showAlert('danger', err.message || 'Reset failed.');
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+        return;
+      }
     });
-  }
+  });
 </script>
 </body>
 </html>
