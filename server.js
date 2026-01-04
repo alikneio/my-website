@@ -3126,40 +3126,27 @@ app.get('/search/json', async (req, res) => {
   }
 });
 
-// ✅ يرجّع IDs المنتجات المقفولة من جدول products
-app.get('/api/out-of-stock', (req, res) => {
-  const sql = `
-    SELECT CAST(id AS CHAR) AS id
-    FROM products
-    WHERE is_out_of_stock = 1
+app.get('/api/out-of-stock', async (req, res) => {
+  try {
+    const sql = `
+      SELECT CAST(p.id AS CHAR) AS id
+      FROM products p
+      WHERE p.is_out_of_stock = 1
 
-    UNION
+      UNION
 
-    SELECT CAST(product_id AS CHAR) AS id
-    FROM selected_api_products
-    WHERE is_out_of_stock = 1
-  `;
+      SELECT CAST(sap.product_id AS CHAR) AS id
+      FROM selected_api_products sap
+      WHERE sap.active = 1
+        AND sap.is_out_of_stock = 1
+    `;
 
-  db.query(sql, [], (err, rows) => {
-    if (err) {
-      console.error('❌ /api/out-of-stock DB error:', err);
-      res.set('Cache-Control', 'no-store');
-      return res.status(200).json([]); // نخليها 200 حتى ما تكسر الواجهة
-    }
-
-    // تنظيف + منع تكرار + تجاهل القيم الفاضية
-    const ids = new Set();
-    for (const r of rows || []) {
-      const id = String(r.id ?? '').trim();
-      if (!id) continue;
-      // اختياري: تجاهل أي شي مش رقم
-      if (!/^\d+$/.test(id)) continue;
-      ids.add(id);
-    }
-
-    res.set('Cache-Control', 'no-store');
-    res.json([...ids]);
-  });
+    const [rows] = await db.promise().query(sql);
+    res.json(rows.map(r => String(r.id)));
+  } catch (err) {
+    console.error('❌ OOS API error:', err);
+    res.json([]);
+  }
 });
 
 
