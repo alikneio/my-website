@@ -3,20 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <title><%= category.label %> - AK Cell</title>
+
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+
   <style>
+    .card-wrap { position: relative; }
+
+    /* Disable only the link, keep wrapper clickable if you ever want to show a message */
+    .disabled-link { pointer-events: none; }
+
+    /* Optional visual hint */
+    .card-wrap.is-out { opacity: .75; }
+
     .oos {
-      position:absolute; inset:0; background:rgba(220, 53, 69, .5);
-      display:flex; align-items:center; justify-content:center;
-      color:#fff; font-weight:700; letter-spacing:.5px;
+      position: absolute;
+      inset: 0;
+      background: rgba(220, 53, 69, .55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: .5px;
       border-radius: 1rem;
+      z-index: 2;
+      text-transform: uppercase;
     }
-    .card-wrap { position:relative; }
-    .card-wrap.disabled { pointer-events:none; opacity:.7; }
   </style>
 </head>
+
 <body>
   <%- include('partials/header') %>
 
@@ -29,34 +46,74 @@
     </div>
 
     <div class="row g-4">
-      <% if (products.length === 0) { %>
+      <% if (!products || products.length === 0) { %>
         <div class="col-12 text-center text-muted">No products in this category.</div>
       <% } %>
 
-      <% products.forEach(p => { %>
+      <% (products || []).forEach(p => { 
+          const isOut = Number(p.is_out_of_stock) === 1;
+          const isVar = Number(p.variable_quantity) === 1;
+
+          const hrefFinal = isOut ? 'javascript:void(0)' : ('/api-checkout/' + p.id);
+
+          const title = p.name || p.custom_name || ('Product ' + p.id);
+
+          const imgSrc = (p.image && String(p.image).trim())
+            ? p.image
+            : '/images/webp/default-product.webp';
+
+          // Safe price formatting (avoid NaN)
+          const rawPrice = (p.price !== null && p.price !== undefined && p.price !== '')
+            ? Number(p.price)
+            : null;
+
+          const hasPrice = (!isVar && rawPrice !== null && Number.isFinite(rawPrice));
+          const priceTxt = hasPrice ? rawPrice.toFixed(2) : null;
+      %>
+
         <div class="col-6 col-md-4 col-lg-3">
-          <div class="card-wrap <%= p.is_out_of_stock ? 'disabled' : '' %>">
-            <a href="<%= p.is_out_of_stock ? '#' : ('/api-checkout/' + p.id) %>" class="text-decoration-none">
+          <div class="card-wrap <%= isOut ? 'is-out' : '' %>">
+
+            <a
+              href="<%= hrefFinal %>"
+              class="text-decoration-none <%= isOut ? 'disabled-link' : '' %>"
+              <%= isOut ? 'aria-disabled="true" tabindex="-1"' : '' %>
+              title="<%= title %>"
+            >
               <div class="card shadow-sm h-100 text-center border-0 rounded-4 overflow-hidden">
                 <div class="p-3">
-                  <img src="<%= p.image %>" class="img-fluid rounded-3"
-                       alt="<%= p.name %>" onerror="this.src='/images/webp/default-product.webp'">
+                  <img
+                    src="<%= imgSrc %>"
+                    class="img-fluid rounded-3"
+                    alt="<%= title %>"
+                    loading="lazy"
+                    onerror="this.src='/images/webp/default-product.webp'"
+                  >
                 </div>
+
                 <div class="card-body">
-                  <h6 class="mb-1 text-dark fw-semibold"><%= p.name %></h6>
-                  <% if (p.variable_quantity) { %>
+                  <h6 class="mb-1 text-dark fw-semibold"><%= title %></h6>
+
+                  <% if (isVar) { %>
                     <div class="text-primary fw-bold">Variable</div>
+                  <% } else if (priceTxt !== null) { %>
+                    <div class="text-primary fw-bold">$<%= priceTxt %></div>
                   <% } else { %>
-                    <div class="text-primary fw-bold">$<%= Number(p.price).toFixed(2) %></div>
+                    <div class="text-muted fw-semibold">Price unavailable</div>
                   <% } %>
+
+                  <small class="text-muted d-block mt-1">ID: <%= p.id %></small>
                 </div>
               </div>
             </a>
-            <% if (p.is_out_of_stock) { %>
+
+            <% if (isOut) { %>
               <div class="oos">OUT OF STOCK</div>
             <% } %>
+
           </div>
         </div>
+
       <% }) %>
     </div>
   </div>
