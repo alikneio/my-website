@@ -4614,19 +4614,65 @@ app.post('/admin/api-products/toggle', checkAdmin, (req, res) => {
 
 
 app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
+  // ✅ منع كاش المتصفح لهاي الصفحة (Dev only)
+  res.setHeader('Cache-Control', 'no-store');
+
   try {
     const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
-    const list = await getCachedAPIProducts();
+
+    // ✅ دعم force refresh للتجربة (إذا الدالة ما بتدعمه رح تتجاهله غالبًا)
+    const force = String(req.query.force || '').toLowerCase();
+    const forceRefresh = (force === '1' || force === 'true' || force === 'yes');
+
+    let list;
+    try {
+      list = await getCachedAPIProducts({ forceRefresh: true });
+      // إذا forceRefresh=false وما بدك تجبره، استخدم الشرط التالي بدل السطر فوق:
+      // list = await getCachedAPIProducts(forceRefresh ? { forceRefresh: true } : undefined);
+    } catch (e) {
+      // fallback إذا الدالة ما بتقبل args
+      list = await getCachedAPIProducts();
+    }
+
+    if (!Array.isArray(list)) {
+      return res.status(500).json({
+        found: false,
+        error: 'getCachedAPIProducts did not return an array',
+        type: typeof list
+      });
+    }
 
     const id = Number(req.params.id);
-    const p = list.find(x => Number(x.id) === id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ found: false, error: 'Invalid product id' });
+    }
 
+    const p = list.find(x => Number(x?.id) === id);
     if (!p) return res.json({ found: false, product: null });
 
-    // قيم مهمّة للتشخيص (عدّل حسب حقول provider عندك)
+    // ✅ Helpers
+    const asStr = (v) => String(v ?? '').trim();
+    const toNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const normBool = (v) => {
+      const s = String(v ?? '').toLowerCase().trim();
+      // only treat these as TRUE
+      if (s === '1' || s === 'true' || s === 'yes' || s === 'y' || s === 'on') return true;
+      if (s === '0' || s === 'false' || s === 'no' || s === 'n' || s === 'off' || s === '') return false;
+      // fallback: numbers
+      const n = Number(s);
+      if (Number.isFinite(n)) return n === 1;
+      // otherwise: unknown -> false (safer)
+      return false;
+    };
+
+    // ✅ Important fields (raw + type)
     const debug = {
       id: p.id,
       name: p.name,
+
       is_out_of_stock: p.is_out_of_stock,
       is_out_of_stock_type: typeof p.is_out_of_stock,
 
@@ -4644,11 +4690,72 @@ app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
 
       variable_quantity: p.variable_quantity,
       variable_quantity_type: typeof p.variable_quantity,
+
+      price: p.price,
+      price_type: typeof p.price
     };
 
-    res.json({ found: true, debug, product: p });
+    // ✅ Normalized values to catch "0" truthy problems
+    const normalized = {
+      is_out_of_stock_bool: normBool(p.is_out_of_stock),
+      active_bool: normBool(p.active),
+      variable_quantity_bool: normBool(p.variable_quantity),
+
+      stock_num: toNum(p.stock),
+      max_quantity_num: toNum(p.max_quantity),
+      price_num: toNum(p.price),
+
+      status_str: asStr(p.status).toLowerCase()
+    };
+
+    // ✅ Hypotheses: why it might be considered OOS (you can adjust rules)
+    const matches = {
+      by_is_out_of_stock_flag: normalized.is_out_of_stock_bool === true,
+
+      // common patterns
+      by_status_contains_oos:
+        normalized.status_str.includes('out') && normalized.status_str.includes('stock'),
+
+      by_stock_zero:
+        normalized.stock_num !== null && normalized.stock_num <= 0,
+
+      by_max_quantity_zero:
+        normalized.max_quantity_num !== null && normalized.max_quantity_num <= 0
+    };
+
+    // ✅ A safe, trimmed product view (avoid accidental leaking of secrets)
+    // add/remove fields حسب اللي بتحتاجه
+    const safeProduct = {
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      product_type: p.product_type,
+      variable_quantity: p.variable_quantity,
+      unit_label: p.unit_label,
+      image: p.image,
+
+      is_out_of_stock: p.is_out_of_stock,
+      active: p.active,
+      status: p.status,
+      stock: p.stock,
+      max_quantity: p.max_quantity
+    };
+
+    // ✅ Optionally allow returning the full product only if explicitly requested
+    const includeFull = String(req.query.full || '').toLowerCase();
+    const full = (includeFull === '1' || includeFull === 'true' || includeFull === 'yes');
+
+    return res.json({
+      found: true,
+      debug,
+      normalized,
+      matches,
+      product: full ? p : safeProduct
+    });
+
   } catch (e) {
-    res.status(500).json({ found: false, error: e.message });
+    console.error('❌ /admin/dev/find-product error:', e);
+    return res.status(500).json({ found: false, error: e.message || 'Server error' });
   }
 });
 
