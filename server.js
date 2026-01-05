@@ -5719,7 +5719,7 @@ app.get('/crunchyroll-section', (req, res) => {
 app.get('/Claude', (req, res) => {
   const sql = `
     SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'Crunchy Roll'
+    WHERE main_category = 'Accounts' AND sub_category = 'Claude'
     ORDER BY sort_order ASC, id ASC
   `;
   db.query(sql, [], (err, products) => {
