@@ -5716,6 +5716,25 @@ app.get('/crunchyroll-section', (req, res) => {
   });
 });
 
+app.get('/Claude', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Crunchy Roll'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('Claude', { user, products: finalProducts });
+  });
+});
+
+
 app.get('/capcut-section', (req, res) => {
   const sql = `
     SELECT * FROM products
