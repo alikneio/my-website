@@ -5515,6 +5515,53 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
 });
 
 
+app.post('/admin/levels/reset', checkAdmin, async (req, res) => {
+  const conn = await promisePool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    // ✅ منع كبستين بنفس اليوم (اختياري بس مفيد)
+    const [[last]] = await conn.query(
+      `SELECT created_at FROM level_resets ORDER BY id DESC LIMIT 1`
+    );
+
+    if (last?.created_at) {
+      const lastTime = new Date(last.created_at).getTime();
+      const hours = (Date.now() - lastTime) / (1000 * 60 * 60);
+
+      // غير الرقم إذا بدك (مثلاً 48 ساعة)
+      if (hours < 24) {
+        await conn.rollback();
+        return res.status(409).send('Reset already performed recently.');
+      }
+    }
+
+    // ✅ سجل مين عمل reset
+    await conn.query(
+      `INSERT INTO level_resets (admin_user_id) VALUES (?)`,
+      [req.session.user?.id || null]
+    );
+
+    // ✅ Reset لكل المستخدمين (بدون ما نلمس balance)
+    await conn.query(`
+      UPDATE users
+      SET total_spent = 0,
+          level = 0,
+          discount_percent = 0
+    `);
+
+    await conn.commit();
+    return res.redirect('/admin/settings?reset=ok');
+
+  } catch (e) {
+    try { await conn.rollback(); } catch (_) {}
+    console.error('❌ Reset levels error:', e);
+    return res.status(500).send('Reset failed');
+  } finally {
+    conn.release();
+  }
+});
 
 
 
