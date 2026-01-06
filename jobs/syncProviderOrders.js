@@ -2,17 +2,17 @@
 const { getOrderStatusFromDailycard } = require('../services/dailycard');
 const sendTelegramMessage = require('../utils/sendTelegramNotification');
 
+// ✅ إذا موجود عندك recalcUserLevel كـ require، ضيفه
+// إذا هو global عندك، شيل هالسطر وخلي الاستدعاء مثل ما هو
+let recalcUserLevel = null;
+try {
+  recalcUserLevel = require('../utils/recalcUserLevel');
+} catch (_) {
+  // ignore if not present as a module
+}
+
 /**
  * Auto-sync provider orders (DailyCard) into local `orders` table.
- * - Reads api-sourced orders with provider='dailycard' and status Waiting/Processing/Pending
- * - Fetches provider status
- * - If completed => set Accepted (+ admin_reply EN) + Telegram message
- * - If rejected/canceled/failed => refund (once) + set Rejected (+ admin_reply EN) + Telegram message
- *
- * Usage in server.js:
- *   const makeSyncJob = require('./jobs/syncProviderOrders');
- *   const syncJob = makeSyncJob(null, promisePool); // مرّر promisePool من database.js
- *   setInterval(() => syncJob().catch(()=>{}), 2 * 60 * 1000);
  */
 module.exports = function makeSyncJob(_db, promisePool) {
   const APPROVE_MSG_EN = '✅ Your order has been approved and completed successfully.';
@@ -76,61 +76,100 @@ module.exports = function makeSyncJob(_db, promisePool) {
     const providerOrderId = row.provider_order_id;
     if (!providerOrderId) return;
 
-    // 1) اسحب حالة الطلب من DailyCard
+    // 1) fetch provider status
     let providerStatus = null;
     try {
       const { ok, status } = await getOrderStatusFromDailycard(providerOrderId);
-      if (!ok) return; // خليها للمحاولة القادمة
+      if (!ok) return;
       providerStatus = status || '';
     } catch (e) {
       console.error(`❌ DailyCard status fetch error for provider_order_id=${providerOrderId}:`, e.message);
       return;
     }
 
-    // 2) إذا بعدها Pending/Processing/Waiting اتركها
+    // 2) ignore pending-ish statuses
     if (!looksAccepted(providerStatus) && !looksRejected(providerStatus)) {
       return;
     }
 
-    // 3) حمّل معلومات الطلب
-    const [ordRows] = await promisePool.query(
-      `SELECT userId, price, productName, order_details, status
-         FROM orders
-        WHERE id = ?
-        LIMIT 1`,
-      [orderId]
-    );
-    const orderRow = ordRows?.[0];
-    if (!orderRow) return;
+    // 3) Transaction per order to be safe/idempotent
+    const conn = await promisePool.getConnection();
+    let userId = null;
+    let price = 0;
 
-    // ----- حالة Accepted -----
-    if (looksAccepted(providerStatus)) {
-      // حدّث فقط إذا ما كانت Accepted سابقًا
-      const [upd] = await promisePool.query(
-        `UPDATE orders
-            SET status = 'Accepted',
-                admin_reply = ?
-          WHERE id = ? AND status <> 'Accepted'`,
-        [APPROVE_MSG_EN, orderId]
+    try {
+      await conn.beginTransaction();
+
+      // 🔒 lock the order row
+      const [[orderRow]] = await conn.query(
+        `SELECT id, userId, price, status, productName
+           FROM orders
+          WHERE id = ?
+          LIMIT 1
+          FOR UPDATE`,
+        [orderId]
       );
-      if (upd.affectedRows > 0) {
-        await sendOrderUpdateTelegram(orderId, 'Accepted');
-        console.log(`✅ Order #${orderId} set to Accepted (provider status: ${providerStatus})`);
+      if (!orderRow) {
+        await conn.rollback();
+        return;
       }
-      return;
-    }
 
-    // ----- حالة Rejected / Canceled / Failed -----
-    if (looksRejected(providerStatus)) {
-      const userId = orderRow.userId;
-      const price  = parseFloat(orderRow.price || 0) || 0;
+      userId = orderRow.userId;
+      price = Number(orderRow.price || 0) || 0;
+      const oldStatus = orderRow.status;
 
-      // نفّذها داخل Transaction لتكون Idempotent (نستند على تغيير حالة الطلب)
-      const conn = await promisePool.getConnection();
-      try {
-        await conn.beginTransaction();
+      // ----- Accepted -----
+      if (looksAccepted(providerStatus)) {
+        // إذا أصلًا Accepted، ما نعمل شي
+        if (oldStatus === 'Accepted') {
+          await conn.rollback();
+          return;
+        }
 
-        // غيّر الحالة فقط لو ما زالت بانتظار/معالجة/معلّقة
+        // حدّث الطلب إلى Accepted
+        const [upd] = await conn.query(
+          `UPDATE orders
+              SET status = 'Accepted',
+                  admin_reply = ?
+            WHERE id = ? AND status <> 'Accepted'`,
+          [APPROVE_MSG_EN, orderId]
+        );
+
+        if (upd.affectedRows > 0) {
+          // ✅ زِد total_spent مرة واحدة فقط عند أول قبول
+          await conn.query(
+            `UPDATE users SET total_spent = total_spent + ? WHERE id = ?`,
+            [price, userId]
+          );
+        }
+
+        await conn.commit();
+
+        // after commit
+        if (upd.affectedRows > 0) {
+          try {
+            if (typeof recalcUserLevel === 'function') {
+              await recalcUserLevel(userId);
+            }
+          } catch (lvlErr) {
+            console.error('⚠️ recalcUserLevel error (sync accept):', lvlErr.message || lvlErr);
+          }
+
+          await sendOrderUpdateTelegram(orderId, 'Accepted');
+          console.log(`✅ Order #${orderId} set to Accepted (provider status: ${providerStatus})`);
+        }
+        return;
+      }
+
+      // ----- Rejected/Canceled/Failed -----
+      if (looksRejected(providerStatus)) {
+        // إذا أصلًا Rejected، ما نعمل شي
+        if (oldStatus === 'Rejected') {
+          await conn.rollback();
+          return;
+        }
+
+        // غيّر الحالة فقط لو كانت بعدا بالحالات اللي عم نراقبها
         const [updOrder] = await conn.query(
           `UPDATE orders
               SET status = 'Rejected',
@@ -141,8 +180,11 @@ module.exports = function makeSyncJob(_db, promisePool) {
         );
 
         if (updOrder.affectedRows > 0) {
-          // Refund مرّة واحدة فقط (مش رح يتكرر لأن الحالة تغيّرت)
-          await conn.query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [price, userId]);
+          // Refund مرة واحدة فقط (بسبب تغيير الحالة)
+          await conn.query(
+            `UPDATE users SET balance = balance + ? WHERE id = ?`,
+            [price, userId]
+          );
           await conn.query(
             `INSERT INTO transactions (user_id, type, amount, reason)
              VALUES (?, 'credit', ?, ?)`,
@@ -156,20 +198,21 @@ module.exports = function makeSyncJob(_db, promisePool) {
           await sendOrderUpdateTelegram(orderId, 'Rejected');
           console.log(`♻️ Order #${orderId} set to Rejected and refunded (provider status: ${providerStatus})`);
         }
-      } catch (e) {
-        try { await conn.rollback(); } catch (_) {}
-        console.error(`❌ refund/rollback error for order #${orderId}:`, e.message);
-      } finally {
-        conn.release();
+        return;
       }
-      return;
+
+      // fallback
+      await conn.rollback();
+    } catch (e) {
+      try { await conn.rollback(); } catch (_) {}
+      console.error(`❌ sync tx error for order #${orderId}:`, e.message || e);
+    } finally {
+      conn.release();
     }
   }
 
-  // الدالة العامة اللي بيستدعيها السيرفر كل فترة
   return async function runOnce() {
     try {
-      // السحب من الحالات الثلاث: Waiting/Processing/Pending
       const [rows] = await promisePool.query(
         `SELECT id, provider_order_id
            FROM orders
@@ -191,8 +234,6 @@ module.exports = function makeSyncJob(_db, promisePool) {
         }
       }
     } catch (e) {
-      // لو طلع الخطأ السابق “not a promise” فالمشكلة من تمرير pool خاطئ:
-      // تأكد إنك مرّرت promisePool من database.js (mysql2/promise أو pool.promise())
       console.error('❌ syncProviderOrders runOnce error:', e.message || e);
     }
   };
