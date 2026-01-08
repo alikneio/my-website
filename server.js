@@ -4476,18 +4476,22 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
     sub_category,
     sub_category_image,
     player_id_label,
-    notes
+    notes,
+    description
   } = req.body;
 
   // قيم من الشيك بوكسات
-  const requires_player_id = (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on') ? 1 : 0;
-  const is_out_of_stock   = (req.body.is_out_of_stock   === '1' || req.body.is_out_of_stock   === 'on') ? 1 : 0;
+  const requires_player_id =
+    (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on') ? 1 : 0;
+
+  const is_out_of_stock =
+    (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
 
   const sql = `
     UPDATE products
-    SET name = ?, price = ?, image = ?, main_category = ?, sub_category = ?, 
-        sub_category_image = ?, requires_player_id = ?, player_id_label = ?, notes = ?,
-        is_out_of_stock = ?
+    SET name = ?, price = ?, image = ?, main_category = ?, sub_category = ?,
+        sub_category_image = ?, requires_player_id = ?, player_id_label = ?,
+        notes = ?, description = ?, is_out_of_stock = ?
     WHERE id = ?
   `;
 
@@ -4500,7 +4504,8 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
     sub_category_image,
     requires_player_id,
     player_id_label,
-    notes || null,
+    notes?.trim() ? notes.trim() : null,
+    description?.trim() ? description.trim() : null,
     is_out_of_stock,
     productId
   ];
