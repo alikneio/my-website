@@ -4338,19 +4338,40 @@ app.post('/admin/products', checkAdmin, (req, res) => {
     sub_category,
     sub_category_image,
     player_id_label,
-    notes
+    notes,
+    description
   } = req.body;
 
-  const requires_player_id = req.body.requires_player_id ? 1 : 0;
-  const is_out_of_stock = req.body.is_out_of_stock ? 1 : 0;
+  // checkboxes
+  const requires_player_id =
+    (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on') ? 1 : 0;
 
+  const is_out_of_stock =
+    (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
+
+  const active = (req.body.active === '0') ? 0 : 1; // افتراضي شغّال
   const sort_order = Number(req.body.sort_order || 0);
-  const active = req.body.active ? 1 : 1; // افتراضي شغّال
 
   // validation بسيط
   if (!name || !price || !main_category || !sub_category) {
     return res.status(400).send("Missing required fields");
   }
+
+  // تنظيف القيم (منع تخزين سترينغ فاضي)
+  const cleanName = name.trim();
+  const cleanMainCat = main_category.trim();
+  const cleanSubCat = sub_category.trim();
+
+  const cleanPrice = Number(price);
+  if (isNaN(cleanPrice) || cleanPrice < 0) {
+    return res.status(400).send("Invalid price");
+  }
+
+  const cleanImage = image?.trim() ? image.trim() : null;
+  const cleanSubImage = sub_category_image?.trim() ? sub_category_image.trim() : null;
+  const cleanPlayerLabel = player_id_label?.trim() ? player_id_label.trim() : null;
+  const cleanNotes = notes?.trim() ? notes.trim() : null;
+  const cleanDescription = description?.trim() ? description.trim() : null;
 
   const sql = `
     INSERT INTO products
@@ -4364,34 +4385,41 @@ app.post('/admin/products', checkAdmin, (req, res) => {
       requires_player_id,
       player_id_label,
       notes,
+      description,
       is_out_of_stock,
       active,
       sort_order
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const params = [
-    name.trim(),
-    Number(price),
-    image || null,
-    main_category.trim(),
-    sub_category.trim(),
-    sub_category_image || null,
+    cleanName,
+    cleanPrice,
+    cleanImage,
+    cleanMainCat,
+    cleanSubCat,
+    cleanSubImage,
     requires_player_id,
-    player_id_label || null,
-    notes || null,
+    cleanPlayerLabel,
+    cleanNotes,
+    cleanDescription,
     is_out_of_stock,
     active,
     sort_order
   ];
 
-  db.query(sql, params, (err) => {
+  db.query(sql, params, (err, result) => {
     if (err) {
-      console.error("❌ DATABASE INSERT ERROR:", err.message);
+      console.error("❌ DATABASE INSERT ERROR:", err);
       return res.status(500).send("Error adding product");
     }
-    res.redirect('/admin/products');
+
+    // خيار 1: رجوع على اللستة
+    return res.redirect('/admin/products');
+
+    // خيار 2 (اختياري): تفتح edit مباشرة
+    // return res.redirect(`/admin/products/edit/${result.insertId}`);
   });
 });
 
