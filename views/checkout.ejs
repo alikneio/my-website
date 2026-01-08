@@ -41,7 +41,7 @@
       align-items:center;
       gap: 10px;
       margin:0;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: .2px;
     }
 
@@ -54,7 +54,7 @@
       background: rgba(25,135,84,.12);
       color: #146c43;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
       white-space: nowrap;
     }
 
@@ -75,7 +75,7 @@
       border-radius: 999px;
       background: rgba(25,135,84,.10);
       color: #146c43;
-      font-weight: 800;
+      font-weight: 900;
       font-size: 15px;
     }
 
@@ -93,7 +93,7 @@
     }
 
     .summary-name{
-      font-weight: 800;
+      font-weight: 900;
       margin: 0;
       line-height: 1.2;
     }
@@ -106,7 +106,7 @@
     .btn-buy{
       border-radius: 14px;
       padding: 12px 14px;
-      font-weight: 800;
+      font-weight: 900;
       box-shadow: 0 10px 18px rgba(25,135,84,.18);
       transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
     }
@@ -153,7 +153,7 @@
       border-radius: 999px;
       padding: 8px 10px;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
       background: rgba(0,0,0,.04);
       color: rgba(0,0,0,.70);
     }
@@ -162,12 +162,111 @@
       color: rgba(0,0,0,.55);
     }
 
-    /* اختياري: لو بدك RTL تلقائي عندما يكون النص عربي */
-    /* html[lang="ar"] body { direction: rtl; } */
+    /* ========= BEST UI for Notes/Description ========= */
+    .info-card{
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 16px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+
+    .info-card .info-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(13,110,253,.09), rgba(25,135,84,.09));
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+
+    .info-title{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      margin: 0;
+      font-weight: 900;
+      letter-spacing: .2px;
+    }
+
+    .info-chip{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(13,110,253,.10);
+      color: rgba(13,110,253,1);
+      font-weight: 900;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .info-body{
+      padding: 12px 14px;
+    }
+
+    .desc-text{
+      color: rgba(0,0,0,.72);
+      line-height: 1.65;
+      margin: 0;
+      font-size: 14px;
+      white-space: pre-wrap; /* لو عندك أسطر بالنص */
+    }
+
+    /* Read more */
+    .clamp-3{
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .readmore-btn{
+      border: 0;
+      background: transparent;
+      padding: 0;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    /* Accordion polish */
+    .accordion-button{
+      border-radius: 14px !important;
+      padding: 12px 14px;
+      font-weight: 900;
+    }
+    .accordion-item{
+      border: 0;
+      background: transparent;
+    }
+    .accordion-button:not(.collapsed){
+      background: rgba(25,135,84,.08);
+      color: #146c43;
+      box-shadow: none;
+    }
+    .accordion-body{
+      padding: 12px 14px;
+      background: rgba(255,255,255,.85);
+      border: 1px solid rgba(0,0,0,.06);
+      border-top: 0;
+      border-radius: 0 0 16px 16px;
+    }
+
+    /* RTL helpers (اختياري) */
+    .rtl { direction: rtl; text-align: right; }
+    .ltr { direction: ltr; text-align: left; }
+
+    /* tiny divider */
+    .soft-divider{
+      height: 1px;
+      background: rgba(0,0,0,.06);
+      margin: 10px 0;
+    }
   </style>
 </head>
-<body>
 
+<body>
   <%- include('partials/header') %>
 
   <div class="container my-5 checkout-wrap">
@@ -215,9 +314,94 @@
             </div>
           </div>
 
-          <% if (product.notes) { %>
-            <div class="alert alert-warning small mb-4" style="border-radius:14px;">
-              <strong>📝 Note:</strong> <%= product.notes %>
+          <!-- ✅ BEST UI Notes/Description -->
+          <%
+            const hasDesc = !!(product.description && String(product.description).trim());
+            const hasNotes = !!(product.notes && String(product.notes).trim());
+            const detailsLang =
+              /[\u0600-\u06FF]/.test((product.description || '') + ' ' + (product.notes || '')) ? 'rtl' : 'ltr';
+          %>
+
+          <% if (hasDesc || hasNotes) { %>
+            <div class="info-card mb-4 <%= detailsLang %>">
+              <div class="info-head">
+                <h6 class="info-title">
+                  <i class="bi bi-card-text"></i>
+                  Details
+                </h6>
+
+                <span class="info-chip">
+                  <i class="bi bi-info-circle-fill"></i>
+                  Read Before Buying
+                </span>
+              </div>
+
+              <div class="info-body">
+                <div class="accordion" id="prodInfoAcc">
+
+                  <% if (hasDesc) { %>
+                    <div class="accordion-item mb-2">
+                      <h2 class="accordion-header" id="headingDesc">
+                        <button class="accordion-button" type="button"
+                          data-bs-toggle="collapse"
+                          data-bs-target="#collapseDesc"
+                          aria-expanded="true"
+                          aria-controls="collapseDesc">
+                          <i class="bi bi-journal-text me-2"></i>
+                          Product Description
+                        </button>
+                      </h2>
+
+                      <div id="collapseDesc" class="accordion-collapse collapse show"
+                        aria-labelledby="headingDesc"
+                        data-bs-parent="#prodInfoAcc">
+                        <div class="accordion-body">
+                          <p id="descText" class="desc-text clamp-3"><%= product.description %></p>
+                          <button id="descToggle" type="button" class="readmore-btn mt-2 text-primary">
+                            Read more <i class="bi bi-chevron-down"></i>
+                          </button>
+
+                          <% if (hasNotes) { %>
+                            <div class="soft-divider"></div>
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                              <span class="badge text-bg-warning" style="border-radius:999px;">
+                                <i class="bi bi-pencil-square me-1"></i> Notes
+                              </span>
+                              <span class="small text-muted">Extra info</span>
+                            </div>
+                            <p class="desc-text mb-0"><%= product.notes %></p>
+                          <% } %>
+
+                        </div>
+                      </div>
+                    </div>
+                  <% } %>
+
+                  <% if (!hasDesc && hasNotes) { %>
+                    <div class="accordion-item">
+                      <h2 class="accordion-header" id="headingNotes">
+                        <button class="accordion-button" type="button"
+                          data-bs-toggle="collapse"
+                          data-bs-target="#collapseNotes"
+                          aria-expanded="true"
+                          aria-controls="collapseNotes">
+                          <i class="bi bi-pencil-square me-2"></i>
+                          Notes
+                        </button>
+                      </h2>
+
+                      <div id="collapseNotes" class="accordion-collapse collapse show"
+                        aria-labelledby="headingNotes"
+                        data-bs-parent="#prodInfoAcc">
+                        <div class="accordion-body">
+                          <p class="desc-text mb-0"><%= product.notes %></p>
+                        </div>
+                      </div>
+                    </div>
+                  <% } %>
+
+                </div>
+              </div>
             </div>
           <% } %>
 
@@ -316,6 +500,30 @@
         text: message || 'حدث خطأ أثناء تنفيذ العملية.'
       });
     }
+
+    // ✅ Read more for description
+    (function () {
+      const descText = document.getElementById('descText');
+      const descToggle = document.getElementById('descToggle');
+      if (!descText || !descToggle) return;
+
+      // إذا النص قصير ما في داعي للزر
+      const isOverflowing = descText.scrollHeight > descText.clientHeight + 4;
+      if (!isOverflowing) {
+        descToggle.classList.add('d-none');
+        descText.classList.remove('clamp-3');
+        return;
+      }
+
+      let expanded = false;
+      descToggle.addEventListener('click', () => {
+        expanded = !expanded;
+        descText.classList.toggle('clamp-3', !expanded);
+        descToggle.innerHTML = expanded
+          ? 'Show less <i class="bi bi-chevron-up"></i>'
+          : 'Read more <i class="bi bi-chevron-down"></i>';
+      });
+    })();
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
