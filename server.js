@@ -148,12 +148,24 @@ function applyUserDiscount(rawPrice, user) {
 
 // ❹ تطبيق الخصم على List من الـ products (تُستخدم في صفحات المنتجات)
 function applyUserDiscountToProducts(products, user) {
-  const disc = getUserEffectiveDiscount(user);
+  const discRaw = getUserEffectiveDiscount(user);
+  const disc = Number(discRaw);
 
-  // ما في خصم فعلي → رجّع المنتجات متل ما هي
-  if (!disc || disc <= 0) return products;
+  // دايمًا رجّع Array جديدة (ما ترجع نفس المرجع)
+  if (!Array.isArray(products)) return [];
+
+  // خصم غير صالح أو 0 → رجّع نسخة بدون تعديل
+  if (!Number.isFinite(disc) || disc <= 0) {
+    return products.map(p => ({ ...p }));
+  }
+
+  // clamp: ما نخلي الخصم أكتر من 100
+  const safeDisc = Math.min(Math.max(disc, 0), 100);
 
   return products.map(p => {
+    // تأكد p object
+    if (!p || typeof p !== 'object') return p;
+
     const base = Number(
       p.price ??
       p.unit_price ??
@@ -161,16 +173,20 @@ function applyUserDiscountToProducts(products, user) {
       0
     );
 
-    if (!Number.isFinite(base) || base <= 0) return p;
+    // إذا السعر مش صالح أو <=0 رجّع المنتج بدون ما تغيّر عليه
+    if (!Number.isFinite(base) || base <= 0) {
+      return { ...p };
+    }
 
-    const final = Number((base * (100 - disc) / 100).toFixed(2));
+    const final = Number(((base * (100 - safeDisc)) / 100).toFixed(2));
 
-    // بنخزن شوي معلومات إضافية احتياطاً
-    p.original_price = base;        // السعر الأصلي
-    p.effective_discount = disc;    // الخصم المستخدم
-    p.price = final;                // 🔥 السعر بعد الخصم (هو اللي الواجهة عم تعرضه)
-
-    return p;
+    // رجّع object جديد مع الحفاظ على باقي الحقول مثل is_out_of_stock
+    return {
+      ...p,
+      original_price: base,
+      effective_discount: safeDisc,
+      price: final
+    };
   });
 }
 
