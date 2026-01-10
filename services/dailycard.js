@@ -19,25 +19,65 @@ const dailycardAPI = axios.create({
 
 
 async function verifyPlayerId(productId, playerId) {
+  const body = {
+    product_id: Number(productId),
+    player_id: String(playerId).trim()
+  };
+
+  console.log("✅ Sending to API:", body);
+
+  // helper: call مرة وحدة
+  const callAPI = async () => {
+    return dailycardAPI.post(
+      '/api-keys/check-player/',
+      body,
+      {
+        timeout: 40000 // ⏱️ زِد المهلة (40 ثانية)
+      }
+    );
+  };
+
   try {
-    const body = {
-      product_id: parseInt(productId),
-      player_id: playerId.toString()
-    };
-
-    console.log("✅ Sending to API:", body); // طباعة محتوى الطلب
-
-    const res = await dailycardAPI.post('/api-keys/check-player/', body);
+    const res = await callAPI();
 
     console.log("🔽 API Raw Response:");
-    console.dir(res.data, { depth: null }); // طباعة الرد كاملاً
+    console.dir(res.data, { depth: null });
 
     return res.data;
+
   } catch (error) {
-    console.error('❌ Error verifying player ID:', error.response?.data || error.message);
-    return { success: false, message: "Failed to verify player ID" };
+    const isTimeout =
+      error.code === 'ECONNABORTED' ||
+      /timeout/i.test(error.message || '');
+
+    console.error(
+      '❌ Verify Player API Error:',
+      isTimeout ? 'TIMEOUT' : (error.response?.data || error.message)
+    );
+
+    // 🔁 Retry مرة وحدة فقط إذا Timeout
+    if (isTimeout) {
+      try {
+        console.warn('🔁 Retrying verifyPlayerId once...');
+        const retryRes = await callAPI();
+        return retryRes.data;
+      } catch (retryError) {
+        console.error(
+          '❌ Retry failed:',
+          retryError.code === 'ECONNABORTED'
+            ? 'TIMEOUT'
+            : (retryError.response?.data || retryError.message)
+        );
+
+        throw retryError; // ⬅️ خليه يطلع للراوت
+      }
+    }
+
+    // ⬅️ أي خطأ غير timeout خلّيه يطلع للراوت
+    throw error;
   }
 }
+
 
 // =================== getOrderStatusFromDailycard (improved) ===================
 async function getOrderStatusFromDailycard(providerOrderId) {
