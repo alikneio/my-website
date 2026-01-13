@@ -58,12 +58,6 @@
 
     .oos-badge i{ font-size: 14px; }
 
-    /* Disabled link look */
-    .btn-disabled-link{
-      pointer-events: none;
-      opacity: .65;
-    }
-
     /* Small improvements */
     .card-title{
       font-weight: 800;
@@ -85,8 +79,17 @@
         <% products.forEach(product => { %>
 
           <%
-            // ✅ شرط قوي: يغطي لو الاسم مختلف أو جاي سترينغ
-            const oos = Number(product.is_out_of_stock ?? product.out_of_stock ?? product.isOutOfStock ?? 0) === 1;
+            // ✅ OOS fix: يدعم 0/1 + "0"/"1" + true/false + أي رقم >0
+            const rawOOS = (
+              product.is_out_of_stock ??
+              product.out_of_stock ??
+              product.isOutOfStock ??
+              product.outOfStock ??
+              0
+            );
+
+            const oos = (Number(rawOOS) > 0) || String(rawOOS).toLowerCase() === 'true';
+
             const requiresPid = Number(product.requires_player_id ?? 0) === 1;
           %>
 
@@ -119,7 +122,6 @@
                 <% if (user) { %>
 
                   <% if (oos) { %>
-                    <!-- ✅ بدل disabled على <a> -->
                     <button type="button" class="btn btn-outline-danger mt-2" disabled>
                       <i class="bi bi-x-circle me-1"></i> Out of Stock
                     </button>
