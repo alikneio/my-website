@@ -3271,31 +3271,37 @@ app.get('/search/json', async (req, res) => {
   }
 });
 
-app.get('/api/out-of-stock', (req, res) => {
-  const sql = `
-    SELECT DISTINCT CAST(id AS CHAR) AS id
-    FROM (
-      /* API products */
-      SELECT product_id AS id
+app.get('/api/out-of-stock', async (req, res) => {
+  try {
+    const sql = `
+      /* 1) API products */
+      SELECT CAST(product_id AS CHAR) AS id
       FROM selected_api_products
       WHERE is_out_of_stock = 1
 
-      UNION ALL
+      UNION
 
-      /* SQL products */
-      SELECT id
-      FROM products
-      WHERE is_out_of_stock = 1
-    ) t
-  `;
+      /* 2) Normal products (exclude anything that exists as API product) */
+      SELECT CAST(p.id AS CHAR) AS id
+      FROM products p
+      LEFT JOIN selected_api_products sap
+        ON sap.product_id = p.id
+      WHERE sap.product_id IS NULL
+        AND p.is_out_of_stock = 1
+    `;
 
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error('❌ OOS API error:', err);
-      return res.json([]);
-    }
-    res.json(rows.map(r => String(r.id)));
-  });
+    db.query(sql, [], (err, rows) => {
+      if (err) {
+        console.error('❌ OOS API error:', err);
+        return res.json([]);
+      }
+      res.json(rows.map(r => String(r.id)));
+    });
+
+  } catch (e) {
+    console.error('❌ OOS API fatal error:', e);
+    res.json([]);
+  }
 });
 
 
