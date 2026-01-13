@@ -10,6 +10,7 @@
       opacity: 0;
       transform: scale(0.95) translateY(20px);
       transition: opacity 0.5s ease, transform 0.5s ease;
+      position: relative;
     }
     .product-card.visible {
       opacity: 1;
@@ -20,6 +21,12 @@
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    /* تعطيل الكارد إذا Out of Stock */
+    .product-card.is-oos {
+      cursor: not-allowed;
+      opacity: .65;
+    }
   </style>
 </head>
 <body>
@@ -29,10 +36,15 @@
 
   <div class="row">
     <% products.forEach(product => { %>
+      <%
+        const isOOS = Number(product.is_out_of_stock) > 0;
+      %>
+
       <div class="col-md-4 mb-3">
-        <div class="card product-card"
+        <div class="card product-card <%= isOOS ? 'is-oos' : '' %>"
              data-id="<%= product.id %>"
-             data-source="<%= product.source || 'api' %>">
+             data-source="<%= product.source || 'api' %>"
+             data-oos="<%= isOOS ? 1 : 0 %>">
 
           <img src="<%= product.image || '/images/webp/default-product.webp' %>"
                class="card-img-top"
@@ -47,7 +59,7 @@
               <span class="badge bg-success">Fixed</span>
             <% } %>
 
-            <% if (product.is_out_of_stock) { %>
+            <% if (isOOS) { %>
               <div class="mt-2">
                 <span class="badge bg-danger">OUT OF STOCK</span>
               </div>
@@ -75,6 +87,8 @@
 
     cards.forEach(card => {
       card.addEventListener('click', function () {
+        if (this.dataset.oos === "1") return; // ⛔ Out of stock
+
         const productId = this.dataset.id;
         const source = this.dataset.source || 'api';
 
