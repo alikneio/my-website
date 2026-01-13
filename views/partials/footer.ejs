@@ -54,46 +54,69 @@
 <!-- ===== OOS overlay script (runs on all pages that include this footer) ===== -->
 <script>
 (function () {
+  function extractIdFromHref(href) {
+    if (!href) return null;
+
+    // /checkout/91  or /api-checkout/91
+    let m = href.match(/\/(?:api-)?checkout\/(\d+)(?:\b|\/|\?|#)/);
+    if (m) return m[1];
+
+    // /checkout?id=91  or /api-checkout?id=91  or ?product_id=91
+    try {
+      const url = new URL(href, window.location.origin);
+      const q =
+        url.searchParams.get('id') ||
+        url.searchParams.get('product_id') ||
+        url.searchParams.get('productId');
+      if (q && /^\d+$/.test(q)) return q;
+    } catch (e) {}
+
+    return null;
+  }
+
   async function applyOutOfStockOverlay() {
     try {
       const resp = await fetch('/api/out-of-stock', { credentials: 'same-origin' });
       const ids = await resp.json();
       if (!Array.isArray(ids) || ids.length === 0) return;
+
       const idSet = new Set(ids.map(String));
 
-      const anchors = document.querySelectorAll('a[href*="/checkout/"], a[href*="/api-checkout/"]');
+      // خليها تلتقط أي <a> ممكن يودّي لمنتج/Checkout
+      const anchors = document.querySelectorAll('a[href]');
       anchors.forEach(function (a) {
-        const m = (a.getAttribute('href')||'').match(/\/(?:api-)?checkout\/(\d+)/);
-        if (!m) return;
-        const id = m[1];
-        if (!idSet.has(id)) return;
+        const href = a.getAttribute('href') || '';
+        const id = extractIdFromHref(href);
+        if (!id || !idSet.has(String(id))) return;
 
         a.classList.add('disabled-link');
         a.setAttribute('aria-disabled','true');
         a.setAttribute('tabIndex','-1');
 
-        var card = a.querySelector('.product-card, .card') || a.closest('.product-card, .card') || a;
+        const card = a.querySelector('.product-card, .card') || a.closest('.product-card, .card') || a;
         if (card && !card.querySelector('.out-of-stock-overlay')) {
           card.classList.add('position-relative');
-          var ov = document.createElement('div');
+          const ov = document.createElement('div');
           ov.className = 'out-of-stock-overlay';
           ov.textContent = 'OUT OF STOCK';
           card.appendChild(ov);
         }
 
-        var btn = a.querySelector('button[type="submit"]');
+        const btn = a.querySelector('button[type="submit"]');
         if (btn) btn.disabled = true;
       });
 
+      // forms (نفس كودك)
       document.querySelectorAll('form').forEach(function (form) {
-        var el = form.querySelector('input[name="product_id"], input[name="productId"]');
-        var pid = el && el.value;
+        const el = form.querySelector('input[name="product_id"], input[name="productId"]');
+        const pid = el && el.value;
         if (pid && idSet.has(String(pid))) {
-          var btn = form.querySelector('button[type="submit"]');
+          const btn = form.querySelector('button[type="submit"]');
           if (btn) btn.disabled = true;
           form.style.opacity = '.65';
         }
       });
+
     } catch (e) {
       console.warn('OOS overlay error:', e);
     }
