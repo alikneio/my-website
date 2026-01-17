@@ -1100,6 +1100,24 @@ app.get('/office-section', (req, res) => {
   });
 });
 
+app.get('/roblox', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Roblox Cards'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (roblox):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('roblox', { user, products: finalProducts });
+  });
+});
+
 app.get('/cyberghost', (req, res) => {
   const sql = `
     SELECT * FROM products
