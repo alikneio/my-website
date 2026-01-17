@@ -1136,6 +1136,24 @@ app.get('/cyberghost', (req, res) => {
   });
 });
 
+app.get('/telegramstars', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Telegram Stars'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (telegramstars):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('telegramstars', { user, products: finalProducts });
+  });
+});
+
 app.get('/spotifyN-section', (req, res) => {
   const sql = `
     SELECT * FROM products
