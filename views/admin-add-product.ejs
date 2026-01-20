@@ -17,14 +17,14 @@
     <%- include('partials/admin-sidebar') %>
 
     <div class="container-fluid p-4 p-lg-5">
-      <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h1 class="mb-0">Add New Product</h1>
         <a href="/admin/products" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-left"></i> Back
         </a>
       </div>
 
-      <div class="card shadow-sm">
+      <div class="card shadow-sm" style="border-radius: 16px;">
         <div class="card-body">
           <form action="/admin/products" method="POST" autocomplete="off">
             <div class="row g-3">
@@ -34,7 +34,32 @@
                 <input type="text" class="form-control" name="name" required>
               </div>
 
-              <div class="col-12 col-md-4">
+              <!-- ✅ NEW: Delivery Mode -->
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-truck me-1"></i> Delivery Mode
+                </label>
+                <select class="form-select" name="delivery_mode" id="deliveryMode">
+                  <option value="manual" selected>Manual (Admin processes order)</option>
+                  <option value="stock">Stock (Auto delivery)</option>
+                </select>
+
+                <div class="form-text">
+                  Stock = إذا في مخزون بيتسلم تلقائي، وإذا ما في → الطلب بيضل Waiting ويوصل للأدمن.
+                </div>
+
+                <div id="stockHint" class="alert alert-info mt-2 mb-0 d-none" style="border-radius: 14px;">
+                  <div class="d-flex gap-2">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    <div class="small">
+                      بعد إنشاء المنتج، بتقدر تضيف الحسابات من صفحة:
+                      <b>Manage Stock</b>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6">
                 <label class="form-label fw-semibold">Price</label>
                 <input type="number" step="0.01" min="0" class="form-control" name="price" required>
               </div>
@@ -49,6 +74,18 @@
                 <input type="text" class="form-control" name="sub_category" placeholder="e.g., Netflix, Free Fire" required>
               </div>
 
+              <div class="col-12 col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="is_out_of_stock" name="is_out_of_stock" value="1">
+                  <label class="form-check-label" for="is_out_of_stock">
+                    Out of Stock
+                  </label>
+                  <div class="form-text">
+                    (Optional) للـ Manual products. للـ Stock products الأفضل تتحكم بالمخزون من Stock Manager.
+                  </div>
+                </div>
+              </div>
+
               <div class="col-12 col-md-6">
                 <label class="form-label fw-semibold">Product Image Path</label>
                 <input type="text" class="form-control" name="image" placeholder="/images/webp/product.webp">
@@ -60,10 +97,17 @@
                 <input type="text" class="form-control" name="sub_category_image" placeholder="/images/webp/cat_netflix.webp">
               </div>
 
-              <!-- إذا عندك عمود description بالـ DB -->
+              <!-- Description -->
               <div class="col-12">
                 <label class="form-label fw-semibold">Description</label>
-                <textarea class="form-control" name="description" rows="3" placeholder="Short description shown on product card..."></textarea>
+                <textarea class="form-control" name="description" rows="3"
+                  placeholder="Product description shown in checkout details..."></textarea>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label fw-semibold">Product Notes (Optional)</label>
+                <textarea class="form-control" name="notes" rows="3"
+                  placeholder="Enter any notes or instructions for the user..."></textarea>
               </div>
 
               <div class="col-12 col-md-6">
@@ -76,11 +120,6 @@
                   <input type="checkbox" class="form-check-input" id="requires_player_id" name="requires_player_id" value="1">
                   <label class="form-check-label" for="requires_player_id">Requires Player ID?</label>
                 </div>
-              </div>
-
-              <div class="col-12">
-                <label class="form-label fw-semibold">Product Notes (Optional)</label>
-                <textarea class="form-control" name="notes" rows="3" placeholder="Enter any notes or instructions for the user..."></textarea>
               </div>
 
             </div>
@@ -103,5 +142,21 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/main.js"></script>
+
+  <script>
+    // Show hint when Stock is selected
+    const deliveryMode = document.getElementById('deliveryMode');
+    const stockHint = document.getElementById('stockHint');
+
+    function toggleHint(){
+      if(!deliveryMode || !stockHint) return;
+      const v = (deliveryMode.value || '').toLowerCase();
+      if (v === 'stock') stockHint.classList.remove('d-none');
+      else stockHint.classList.add('d-none');
+    }
+
+    toggleHint();
+    deliveryMode?.addEventListener('change', toggleHint);
+  </script>
 </body>
 </html>

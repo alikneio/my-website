@@ -24,11 +24,18 @@
     /* حجم الأزرار (الحالات) على الموبايل أصغر */
     .pill.btn { padding: .5rem 1rem; }
     @media (max-width: 576px) {
-      .pill.btn { 
+      .pill.btn {
         padding: .35rem .9rem;
         font-size: .95rem;
         line-height: 1.1;
       }
+    }
+
+    /* NEW: small helper badges */
+    .badge-soft{
+      border-radius: 999px;
+      padding: .45rem .75rem;
+      font-weight: 700;
     }
   </style>
 </head>
@@ -83,6 +90,13 @@
 
               <button type="button" data-status="Rejected"
                 class="btn pill btn-sm <%= s==='Rejected' ? 'btn-danger' : 'btn-outline-danger' %>">Rejected</button>
+
+              <!-- OPTIONAL: chip إضافي إذا بدك فلترة pending manual كحالة مستقلة
+              <button type="button" data-status="PendingManual"
+                class="btn pill btn-sm <%= s==='PendingManual' ? 'btn-secondary' : 'btn-outline-secondary' %>">
+                Pending manual
+              </button>
+              -->
             </div>
           </div>
         </form>
@@ -103,6 +117,7 @@
         <% orders.forEach(order => { %>
           <a href="/order-details/<%= order.id %>"
              class="list-group-item list-group-item-action shadow-sm mb-3 order-item">
+
             <div class="d-flex w-100 justify-content-between">
               <h5 class="mb-1"><%= order.productName %></h5>
               <small class="text-muted">
@@ -115,24 +130,50 @@
               <span class="fw-bold">$<%= (parseFloat(order.price)||0).toFixed(2) %></span>
             </p>
 
-            <!-- STATUS BADGE (مبني على displayStatus إن وجد) -->
+            <!-- STATUS BADGE -->
             <div class="small">
               Status:
-              <% 
+              <%
                 const st = order.displayStatus || order.status || 'Waiting';
+
+                const hasDelivery = !!(order.has_delivery || order.delivery_has_delivery);
+                const pendingManual = !!(order.pending_manual || order.stock_fallback);
+
+                // إذا عندك fulfillment_mode كمان ممكن تستعمله:
+                // const isStock = String(order.fulfillment_mode || '').toLowerCase() === 'stock';
               %>
-              <% if (st === 'Waiting') { %>
+
+              <% if (pendingManual && (st === 'Waiting' || st === 'In progress')) { %>
+                <span class="badge bg-secondary">Pending manual</span>
+
+              <% } else if (hasDelivery && st === 'Accepted') { %>
+                <span class="badge bg-success">Delivered</span>
+
+              <% } else if (st === 'Waiting') { %>
                 <span class="badge bg-warning text-dark">Waiting</span>
+
               <% } else if (st === 'In progress') { %>
                 <span class="badge bg-info text-dark">In progress</span>
+
               <% } else if (st === 'Accepted') { %>
                 <span class="badge bg-success">Accepted</span>
+
               <% } else if (st === 'Partial') { %>
                 <span class="badge" style="background:#a855f7;">Partial</span>
+
               <% } else if (st === 'Rejected') { %>
                 <span class="badge bg-danger">Rejected</span>
+
               <% } else { %>
                 <span class="badge bg-secondary"><%= st %></span>
+              <% } %>
+
+              <% if (pendingManual && !(st === 'Waiting' || st === 'In progress')) { %>
+                <span class="badge bg-secondary ms-2">Manual</span>
+              <% } %>
+
+              <% if (hasDelivery && st !== 'Accepted') { %>
+                <span class="badge bg-success ms-2">Delivered</span>
               <% } %>
             </div>
 
@@ -141,6 +182,15 @@
                 <i class="bi bi-info-circle me-1"></i><%= order.order_details %>
               </div>
             <% } %>
+
+            <!-- Optional: hint row -->
+            <% if (pendingManual) { %>
+              <div class="mt-2 small text-muted">
+                <i class="bi bi-hourglass-split me-1"></i>
+                This order will be processed manually (out of stock).
+              </div>
+            <% } %>
+
           </a>
         <% }) %>
       </div>

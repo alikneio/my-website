@@ -11,9 +11,9 @@
 
   <style>
     :root{
-      --brand: #1266F1;          /* زر أساسي أزرق مثل الموقع */
-      --bg-soft: #f4f6fa;        /* خلفية فاتحة */
-      --title: #1d3557;          /* لون العنوان */
+      --brand: #1266F1;
+      --bg-soft: #f4f6fa;
+      --title: #1d3557;
       --text: #222;
       --muted: #6c757d;
       --purple: #a855f7;
@@ -67,7 +67,7 @@
       gap:.4rem;
     }
     #order-reply pre{
-      white-space: pre-wrap;     /* يحافظ على سطور الأدمن */
+      white-space: pre-wrap;
       word-break: break-word;
       margin: 0;
     }
@@ -87,6 +87,48 @@
       color:var(--muted);
       font-size:.9rem
     }
+
+    /* ===== NEW: delivery card ===== */
+    .delivery-box{
+      border:1px solid rgba(0,0,0,.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(18,102,241,.04);
+    }
+    .delivery-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom: 8px;
+    }
+    .delivery-title h6{
+      margin:0;
+      font-weight:800;
+      color: var(--title);
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .delivery-preview{
+      background:#f1f3f5;
+      border-radius:10px;
+      padding:.75rem 1rem;
+      margin:0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .btn-mini{
+      border-radius: 10px;
+      display:inline-flex;
+      align-items:center;
+      gap:.4rem;
+    }
+    .hidden-note{
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
     @media (max-width: 768px){
       .section-title{ font-size:1.6rem }
       .order-wrapper{ padding:1.25rem }
@@ -154,6 +196,40 @@
             <div class="kv-label">DETAILS</div>
             <div class="kv-value"><%= order.order_details %></div>
           <% } %>
+
+          <!-- ===== NEW: DELIVERY BLOCK (SQL stock) ===== -->
+          <div class="kv-label mt-3 d-flex align-items-center justify-content-between">
+            <span>DELIVERY</span>
+            <span class="small text-muted" id="deliveryStatusText"></span>
+          </div>
+
+          <div class="delivery-box mb-3">
+            <div class="delivery-title">
+              <h6>
+                <i class="bi bi-key-fill"></i>
+                Delivery Info
+              </h6>
+
+              <div class="d-flex gap-2 flex-wrap">
+                <button id="revealDeliveryBtn" type="button" class="btn btn-outline-primary btn-sm btn-mini d-none">
+                  <i class="bi bi-eye"></i> Reveal
+                </button>
+                <button id="copyDeliveryBtn" type="button" class="btn btn-outline-secondary btn-sm btn-mini d-none">
+                  <i class="bi bi-clipboard"></i> Copy
+                </button>
+              </div>
+            </div>
+
+            <p class="delivery-preview user-select-all mb-2" id="deliveryPreview">
+              <span class="hidden-note">Delivery will appear here once available.</span>
+            </p>
+
+            <div class="alert alert-warning mb-0 d-none" id="pendingManualBox" style="border-radius:12px;">
+              <i class="bi bi-hourglass-split me-1"></i>
+              Out of stock at purchase time — your order is pending and will be processed manually by admin.
+            </div>
+          </div>
+          <!-- ===== END DELIVERY ===== -->
 
           <!-- بلوك خدمات السوشيال (يظهر فقط لو في بيانات SMM) -->
           <% if (order.smm_status) { %>
@@ -234,7 +310,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- سكربت الـ polling + تحديث أرقام الـ SMM -->
+  <!-- سكربت الـ polling + تحديث أرقام الـ SMM + DELIVERY -->
   <script>
     (function () {
       const orderId = <%- JSON.stringify(order.id) %>;
@@ -244,14 +320,23 @@
       const $btn    = document.getElementById('refreshBtn');
       const $spin   = document.getElementById('refreshSpinner');
 
-      // عناصر الـ SMM (ممكن تكون null لو الطلب عادي)
+      // DELIVERY UI
+      const $deliveryPreview = document.getElementById('deliveryPreview');
+      const $revealDeliveryBtn = document.getElementById('revealDeliveryBtn');
+      const $copyDeliveryBtn = document.getElementById('copyDeliveryBtn');
+      const $pendingManualBox = document.getElementById('pendingManualBox');
+      const $deliveryStatusText = document.getElementById('deliveryStatusText');
+
+      let revealedDeliveryText = ''; // full secret after reveal
+
+      // عناصر الـ SMM
       const smmOrdered        = document.getElementById('smm-ordered');
       const smmDelivered      = document.getElementById('smm-delivered');
       const smmRemains        = document.getElementById('smm-remains');
       const smmProviderStatus = document.getElementById('smm-provider-status');
 
       let lastStatus = $status ? $status.textContent.trim() : '';
-      let lastReply  = $replyPre  ? $replyPre.textContent.trim()  : '';
+      let lastReply  = $replyPre ? $replyPre.textContent.trim() : '';
 
       function setLoading(on){
         if(!$btn || !$spin) return;
@@ -261,6 +346,104 @@
         }else{
           $spin.classList.add('d-none');
           $btn.removeAttribute('disabled');
+        }
+      }
+
+      function setDeliveryUI(delivery){
+        // delivery: { has_delivery, preview, pending_manual }
+        const hasDelivery = !!delivery?.has_delivery;
+        const pendingManual = !!delivery?.pending_manual;
+
+        if ($pendingManualBox) {
+          $pendingManualBox.classList.toggle('d-none', !pendingManual);
+        }
+
+        if ($deliveryStatusText) {
+          if (hasDelivery) $deliveryStatusText.textContent = 'Delivered';
+          else if (pendingManual) $deliveryStatusText.textContent = 'Pending manual';
+          else $deliveryStatusText.textContent = 'Pending';
+        }
+
+        if (!hasDelivery) {
+          // لا يوجد تسليم بعد
+          revealedDeliveryText = '';
+          if ($revealDeliveryBtn) $revealDeliveryBtn.classList.add('d-none');
+          if ($copyDeliveryBtn) $copyDeliveryBtn.classList.add('d-none');
+
+          if ($deliveryPreview) {
+            $deliveryPreview.innerHTML = `<span class="hidden-note">Delivery will appear here once available.</span>`;
+          }
+          return;
+        }
+
+        // يوجد تسليم (preview فقط)
+        if ($revealDeliveryBtn) $revealDeliveryBtn.classList.remove('d-none');
+
+        if ($deliveryPreview) {
+          const prev = (delivery?.preview || 'Delivered').toString();
+          $deliveryPreview.textContent = prev;
+        }
+
+        // copy only after reveal (أمن)
+        if ($copyDeliveryBtn) $copyDeliveryBtn.classList.add('d-none');
+      }
+
+      async function revealDelivery(){
+        try{
+          const res = await fetch(`/order-details/${orderId}/delivery.json`, { cache: 'no-store' });
+          if(!res.ok) return;
+          const data = await res.json();
+          if(!data?.ok || !data?.delivery) return;
+
+          revealedDeliveryText = String(data.delivery);
+
+          // show full delivery text
+          if ($deliveryPreview) {
+            $deliveryPreview.textContent = revealedDeliveryText;
+          }
+
+          // enable copy
+          if ($copyDeliveryBtn) $copyDeliveryBtn.classList.remove('d-none');
+
+          // change reveal to "Hide"
+          if ($revealDeliveryBtn) {
+            $revealDeliveryBtn.innerHTML = '<i class="bi bi-eye-slash"></i> Hide';
+            $revealDeliveryBtn.dataset.state = 'revealed';
+          }
+        }catch(e){
+          console.error('revealDelivery error:', e);
+        }
+      }
+
+      function hideDelivery(){
+        revealedDeliveryText = '';
+        if ($copyDeliveryBtn) $copyDeliveryBtn.classList.add('d-none');
+        if ($deliveryPreview) {
+          $deliveryPreview.innerHTML = `<span class="hidden-note">Hidden. Click Reveal to show again.</span>`;
+        }
+        if ($revealDeliveryBtn) {
+          $revealDeliveryBtn.innerHTML = '<i class="bi bi-eye"></i> Reveal';
+          $revealDeliveryBtn.dataset.state = 'hidden';
+        }
+      }
+
+      async function copyTextToClipboard(text){
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.focus(); ta.select();
+            document.execCommand('copy');
+            ta.remove();
+          }
+          return true;
+        } catch (e) {
+          return false;
         }
       }
 
@@ -309,6 +492,16 @@
             if (smmProviderStatus) smmProviderStatus.textContent = data.smm.provider_status || '';
           }
 
+          // تحديث DELIVERY
+          if (data.delivery) {
+            // إذا المستخدم كان عامل reveal وخلال polling صار has_delivery false (نادر) -> نخفي
+            if (!data.delivery.has_delivery && revealedDeliveryText) hideDelivery();
+            setDeliveryUI(data.delivery);
+          } else {
+            // لو السيرفر ما بيرجع delivery (قديم) ما نكسر الصفحة
+            setDeliveryUI({ has_delivery: false, pending_manual: false });
+          }
+
           // آخر وقت تحديث
           if ($last) {
             const now = new Date();
@@ -323,12 +516,26 @@
 
       document.getElementById('refreshBtn')?.addEventListener('click', fetchStatus);
 
+      // reveal/copy handlers
+      $revealDeliveryBtn?.addEventListener('click', async () => {
+        const state = ($revealDeliveryBtn.dataset.state || 'hidden');
+        if (state === 'revealed') hideDelivery();
+        else await revealDelivery();
+      });
+
+      $copyDeliveryBtn?.addEventListener('click', async () => {
+        if (!revealedDeliveryText) return;
+        await copyTextToClipboard(revealedDeliveryText);
+      });
+
+      // init
+      hideDelivery();
       fetchStatus();
       setInterval(fetchStatus, 5000);
     })();
   </script>
 
-  <!-- سكربت Copy كما عندك مع تحسين بسيط -->
+  <!-- سكربت Copy للأدمن reply (نفس تبعك) -->
   <script>
   (function () {
     const copyBtn   = document.getElementById('copy-reply');

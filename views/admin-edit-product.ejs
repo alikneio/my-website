@@ -91,7 +91,7 @@
       background: rgba(0,0,0,.03);
     }
 
-    .input-group .form-control{
+    .input-group .form-control, .input-group .form-select{
       border-radius: 0 12px 12px 0;
     }
 
@@ -147,17 +147,25 @@
       border: 1px solid rgba(0,0,0,.08);
     }
 
+    .btn-stock{
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 900;
+    }
+
     .divider{
       height: 1px;
       background: rgba(0,0,0,.06);
       margin: 14px 0;
     }
 
-    /* Optional RTL (فعّلها إذا بدك الصفحة كلها عربي) */
-    /* html[lang="ar"] body { direction: rtl; text-align: right; }
-       html[lang="ar"] .input-group-text{ border-radius: 0 12px 12px 0; }
-       html[lang="ar"] .input-group .form-control{ border-radius: 12px 0 0 12px; }
-    */
+    .alert-soft{
+      border-radius: 14px;
+      border: 1px solid rgba(0,0,0,.06);
+      background: rgba(13,110,253,.06);
+    }
+
+    .badge-pill{ border-radius: 999px; }
   </style>
 </head>
 
@@ -165,6 +173,15 @@
   <%- include('partials/header') %>
 
   <div class="container my-5 page-wrap">
+
+    <%
+      const deliveryMode = (product.delivery_mode || 'manual').toString().toLowerCase();
+      const isStock = (deliveryMode === 'stock');
+      const stockCount = (product.stock_count !== undefined && product.stock_count !== null)
+        ? Number(product.stock_count)
+        : null;
+      const inStock = (stockCount !== null) ? (stockCount > 0) : null;
+    %>
 
     <!-- Header -->
     <div class="page-head mb-4">
@@ -177,13 +194,41 @@
           <span class="chip"><i class="bi bi-hash"></i> ID: <%= product.id %></span>
           <span class="chip"><i class="bi bi-tag-fill"></i> <%= product.main_category || 'No Main Category' %></span>
           <span class="chip"><i class="bi bi-diagram-3-fill"></i> <%= product.sub_category || 'No Sub Category' %></span>
+
+          <% if (isStock) { %>
+            <span class="chip">
+              <i class="bi bi-lightning-charge-fill text-primary"></i>
+              Stock (Auto)
+            </span>
+          <% } else { %>
+            <span class="chip">
+              <i class="bi bi-person-check-fill"></i>
+              Manual
+            </span>
+          <% } %>
+
+          <% if (isStock) { %>
+            <% if (stockCount === null) { %>
+              <span class="chip"><i class="bi bi-question-circle"></i> Stock: ?</span>
+            <% } else if (inStock) { %>
+              <span class="chip"><i class="bi bi-check2-circle text-success"></i> In stock: <%= stockCount %></span>
+            <% } else { %>
+              <span class="chip"><i class="bi bi-x-circle text-danger"></i> Out of stock</span>
+            <% } %>
+          <% } %>
         </div>
       </div>
 
-      <div class="d-flex gap-2">
+      <div class="d-flex gap-2 flex-wrap">
         <a href="/admin/products" class="btn btn-soft">
           <i class="bi bi-arrow-left"></i> Back
         </a>
+
+        <% if (isStock) { %>
+          <a href="/admin/products/<%= product.id %>/stock" class="btn btn-info btn-stock text-dark">
+            <i class="bi bi-boxes me-1"></i> Manage Stock
+          </a>
+        <% } %>
       </div>
     </div>
 
@@ -203,6 +248,46 @@
 
       <div class="card-body p-4">
         <form action="/admin/products/edit/<%= product.id %>" method="POST" novalidate>
+
+          <!-- ✅ NEW: Delivery Mode -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">
+              <i class="bi bi-truck me-1"></i>
+              Delivery Mode
+            </label>
+
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-gear"></i></span>
+              <select class="form-select" id="deliveryMode" name="delivery_mode">
+                <option value="manual" <%= deliveryMode === 'manual' ? 'selected' : '' %>>Manual (Admin processes order)</option>
+                <option value="stock"  <%= deliveryMode === 'stock'  ? 'selected' : '' %>>Stock (Auto delivery)</option>
+              </select>
+            </div>
+
+            <div class="helper">
+              Manual = مثل النظام الحالي. Stock = تسليم تلقائي إذا في مخزون، وإذا ما في → الطلب بيضل Pending ويوصل للأدمن.
+            </div>
+
+            <div id="stockHint" class="alert alert-soft mt-3 mb-0 d-none">
+              <div class="d-flex gap-2">
+                <i class="bi bi-info-circle-fill text-primary"></i>
+                <div class="flex-grow-1">
+                  <div class="fw-bold">Stock Auto Delivery enabled</div>
+                  <div class="small text-muted">
+                    If stock is empty, orders will stay <b>Waiting</b> and admin will fulfill manually (no rejection).
+                  </div>
+
+                  <div class="mt-2">
+                    <a href="/admin/products/<%= product.id %>/stock" class="btn btn-sm btn-info text-dark btn-round">
+                      <i class="bi bi-boxes me-1"></i> Open Stock Manager
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
 
           <!-- Product Name -->
           <div class="mb-3">
@@ -271,7 +356,7 @@
 
           <div class="divider"></div>
 
-          <!-- ✅ NEW: Product Description -->
+          <!-- ✅ Product Description -->
           <div class="mb-3">
             <label for="description" class="form-label fw-bold">
               <i class="bi bi-journal-text me-1"></i>
@@ -317,6 +402,9 @@
               <i class="bi bi-x-circle me-1"></i>
               Out of Stock
             </label>
+            <div class="helper">
+              (Optional) For manual products. For stock products, prefer using stock manager instead.
+            </div>
           </div>
 
           <!-- Requires Player ID -->
@@ -373,6 +461,20 @@
 
     setCount(desc, descCount);
     setCount(notes, notesCount);
+
+    // Stock hint show/hide
+    const deliveryModeSel = document.getElementById('deliveryMode');
+    const stockHint = document.getElementById('stockHint');
+
+    function toggleStockHint(){
+      if (!deliveryModeSel || !stockHint) return;
+      const v = (deliveryModeSel.value || '').toLowerCase();
+      if (v === 'stock') stockHint.classList.remove('d-none');
+      else stockHint.classList.add('d-none');
+    }
+
+    toggleStockHint();
+    deliveryModeSel?.addEventListener('change', toggleStockHint);
   </script>
 </body>
 </html>

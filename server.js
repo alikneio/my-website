@@ -1392,7 +1392,7 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const error = req.query.error || null;
 
-  const sql = "SELECT * FROM products WHERE id = ? /* AND active = 1 */";
+  const sql = "SELECT * FROM products WHERE id = ?";
 
   db.query(sql, [productId], (err, results) => {
     if (err || !results || results.length === 0) {
@@ -1400,11 +1400,10 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
     }
 
     const user = req.session.user || null;
-
     const product = results[0];
     product.source = 'sql';
 
-    // (اختياري) لو عندك عمود is_out_of_stock بالجدول
+    // (اختياري) legacy out_of_stock column
     if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
       const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
       if (oos) return res.status(403).send('This product is currently out of stock.');
@@ -1418,29 +1417,54 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
     // ملاحظات المنتج
     const notes = (product.notes && String(product.notes).trim() !== '') ? String(product.notes).trim() : null;
 
-    // ✅ طبّق الخصم على سعر المنتج بالـ checkout
-    // نخلي السعر الأصلي محفوظ للعرض لو بدك
+    // خصم السعر بالـ checkout
     const originalPrice = Number(product.price || 0);
     const finalPrice = applyUserDiscount(originalPrice, user);
 
     product.original_price = Number.isFinite(originalPrice) ? Number(originalPrice.toFixed(2)) : 0;
-    product.price = finalPrice; // 🔥 هذا اللي رح ينعرض بالـ checkout
+    product.price = finalPrice;
 
-    // ✅ key للـ idempotency
+    // idempotency key
     const idemKey = uuidv4();
     req.session.idemKey = idemKey;
 
-    return res.render('checkout', {
-      user,
-      product,
-      error: errorMessage,
-      notes,
-      idemKey,
-      effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0) // (اختياري للـ EJS)
+    // ===== Hybrid: stock availability =====
+    const deliveryMode = (product.delivery_mode || 'manual').toString();
+    product.delivery_mode = deliveryMode;
+
+    if (deliveryMode !== 'stock') {
+      return res.render('checkout', {
+        user,
+        product,
+        error: errorMessage,
+        notes,
+        idemKey,
+        effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0)
+      });
+    }
+
+    const stockSql = `
+      SELECT 1
+      FROM product_stock_items
+      WHERE product_id = ? AND status = 'available'
+      LIMIT 1
+    `;
+
+    db.query(stockSql, [productId], (stockErr, stockRows) => {
+      // إذا فشل query، نخليه false بس منضل نسمح بالشراء (رح يصير Pending)
+      product.in_stock = (!stockErr && stockRows && stockRows.length > 0);
+
+      return res.render('checkout', {
+        user,
+        product,
+        error: errorMessage,
+        notes,
+        idemKey,
+        effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0)
+      });
     });
   });
 });
-
 
 
 app.get('/api-checkout/:id', checkAuth, async (req, res) => {
@@ -3846,13 +3870,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         try {
           const payload = JSON.parse(row.response_json);
           return res.json(payload);
-        } catch (_) {
-          // response_json خربان -> تجاهله وكمل تنفيذ طبيعي
-        }
+        } catch (_) {}
       }
-    } catch (_) {
-      // تجاهل
-    }
+    } catch (_) {}
 
     return false;
   }
@@ -3888,6 +3908,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
+    const deliveryMode = (product.delivery_mode || 'manual').toString().toLowerCase().trim();
+    const isStock = deliveryMode === 'stock';
+
     // 2) Base price
     const basePrice = Number(product.price || 0);
     if (!Number.isFinite(basePrice) || basePrice <= 0) {
@@ -3900,15 +3923,13 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       : Number(freshUser.discount_percent || 0) || 0;
 
     const purchasePrice = applyUserDiscount(basePrice, freshUser);
-
     if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
       return res.status(400).json({ success: false, message: 'Pricing error' });
     }
 
     // 4) Order details
     const now = new Date();
-    const orderDetails = playerId && playerId.trim() !== '' ? `Player ID: ${playerId.trim()}` : null;
-    const notifMsg = `✅ تم استلام طلبك (${product.name}) بنجاح. سيتم معالجته قريبًا.`;
+    const pId = (playerId && playerId.trim() !== '') ? playerId.trim() : null;
 
     const conn = await promisePool.getConnection();
 
@@ -3948,7 +3969,36 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         }
       }
 
-      // ✅ خصم ذري (بدون total_spent)
+      // ===== ✅ STOCK (LOCKED) =====
+      let stockItem = null;
+
+      if (isStock) {
+        // عمود المخزن عندنا اسمه delivery_text
+        const [[item]] = await conn.query(
+          `SELECT id, delivery_text
+             FROM product_stock_items
+            WHERE product_id = ? AND status = 'available'
+            ORDER BY id ASC
+            LIMIT 1
+            FOR UPDATE`,
+          [productId]
+        );
+        stockItem = item || null;
+      }
+
+      const shouldAutoDeliver = isStock && !!stockItem;
+
+      // order_details
+      const orderDetailsParts = [];
+      if (pId) orderDetailsParts.push(`Player ID: ${pId}`);
+      if (isStock && !stockItem) {
+        orderDetailsParts.push('Auto-delivery: Out of stock — will be processed manually.');
+      }
+      const orderDetails = orderDetailsParts.length ? orderDetailsParts.join(' | ') : null;
+
+      const initialStatus = shouldAutoDeliver ? 'Accepted' : 'Waiting';
+
+      // ✅ 6) Deduct balance atomically
       const [updRes] = await conn.query(
         `UPDATE users
             SET balance = balance - ?
@@ -3958,37 +4008,53 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
       if (!updRes?.affectedRows) {
         const failPayload = { success: false, message: 'Insufficient balance' };
-
         await storeIdempotencyResponse(conn, freshUser.id, idemKey, failPayload);
-
         await conn.rollback();
         return res.status(400).json(failPayload);
       }
 
-      // ✅ Insert order (Waiting)
+      // ✅ 7) Insert order
+      // (نفس جدولك بدون أعمدة جديدة)
+      const adminReplyAuto = shouldAutoDeliver ? (stockItem.delivery_text || '') : null;
+
       const [orderResult] = await conn.query(
-        `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status)
-         VALUES (?, ?, ?, ?, ?, 'Waiting')`,
-        [freshUser.id, product.name, purchasePrice, now, orderDetails]
+        `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status, admin_reply)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [freshUser.id, product.name, purchasePrice, now, orderDetails, initialStatus, adminReplyAuto]
       );
       const orderId = orderResult.insertId;
 
-      // ✅ Notification
+      // ✅ 8) إذا auto-delivery: علّم item sold + اربط order_id
+      if (shouldAutoDeliver) {
+        await conn.query(
+          `UPDATE product_stock_items
+              SET status='sold', sold_at=NOW(), order_id=?
+            WHERE id=?`,
+          [orderId, stockItem.id]
+        );
+      }
+
+      // ✅ 9) Notification (user)
+      const notifMsg = shouldAutoDeliver
+        ? `✅ تم تسليم طلبك (${product.name}) تلقائياً. ادخل على Order Details لرؤية البيانات.`
+        : `✅ تم استلام طلبك (${product.name}) بنجاح. سيتم معالجته قريبًا.`;
+
       await conn.query(
         `INSERT INTO notifications (user_id, message, created_at, is_read)
          VALUES (?, ?, NOW(), 0)`,
         [freshUser.id, notifMsg]
       );
 
-      // ✅ خزّن نجاح العملية
-      const successPayload = { success: true, redirectUrl: '/processing' };
+      // ✅ 10) idempotency response payload
+      const successPayload = shouldAutoDeliver
+        ? { success: true, redirectUrl: `/order-details/${orderId}` }
+        : { success: true, redirectUrl: '/processing' };
+
       await storeIdempotencyResponse(conn, freshUser.id, idemKey, successPayload);
 
       await conn.commit();
 
       // ✅ After commit side-effects
-      // ملاحظة: ما عاد لازم recalcUserLevel هون لأن total_spent ما تغير
-      // (بتعملها عند قبول الطلب فقط)
       try {
         const [[freshAfter]] = await promisePool.query(
           'SELECT * FROM users WHERE id = ? LIMIT 1',
@@ -4001,7 +4067,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
       req.session.pendingOrderId = orderId;
 
-      // ✅ Telegram (now via Cloudflare Relay, no direct api.telegram.org)
+      // ✅ Telegram (after commit)
       try {
         const [rows] = await promisePool.query(
           'SELECT telegram_chat_id, username FROM users WHERE id = ?',
@@ -4011,13 +4077,15 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         const username = rows[0]?.username || freshUser.username;
 
         if (chatId) {
+          const userStatus = shouldAutoDeliver ? 'تم التسليم تلقائياً' : 'جاري المعالجة (Waiting)';
           const msg = `
-📥 *تم استلام طلبك بنجاح*
+📥 *طلبك تم تسجيله بنجاح*
 
 🛍️ *المنتج:* ${product.name}
 💰 *السعر بعد الخصم:* ${purchasePrice}$
-📉 *نسبة الخصم الفعلي:* ${effectiveDiscountPercent}%
-📌 *الحالة:* جاري المعالجة
+📉 *الخصم الفعلي:* ${effectiveDiscountPercent}%
+📌 *الحالة:* ${userStatus}
+🧾 *رقم الطلب:* ${orderId}
           `.trim();
 
           await sendTelegramMessage(
@@ -4029,6 +4097,10 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         }
 
         const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+        const adminStatus = shouldAutoDeliver
+          ? '✅ Delivered automatically (stock)'
+          : (isStock ? '⏳ Pending manual (no stock)' : '⏳ Pending manual');
+
         const adminMsg = `
 🆕 <b>طلب جديد!</b>
 
@@ -4037,6 +4109,8 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 💰 <b>السعر بعد الخصم:</b> ${purchasePrice}$
 📉 <b>الخصم الفعلي:</b> ${effectiveDiscountPercent}%
 📋 <b>التفاصيل:</b> ${orderDetails || 'لا يوجد'}
+📌 <b>الحالة:</b> ${adminStatus}
+🧾 <b>Order ID:</b> ${orderId}
 🕒 <b>الوقت:</b> ${now.toLocaleString()}
         `.trim();
 
@@ -4051,11 +4125,11 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         console.warn('⚠️ Telegram notification flow error:', e.message || e);
       }
 
-      return res.json({ success: true, redirectUrl: '/processing' });
+      return res.json(successPayload);
 
     } catch (e) {
       try { await conn.rollback(); } catch (_) {}
-      console.error('Transaction failed:', e);
+      console.error('Transaction failed:', e?.message || e);
       return res.status(500).json({ success: false, message: 'Transaction failed' });
     } finally {
       conn.release();
@@ -4066,8 +4140,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
-
 
 app.get('/order/:id', checkAuth, (req, res) => {
   const orderId = parseInt(req.params.id);
@@ -4122,18 +4194,40 @@ app.get('/admin', checkAdmin, (req, res) => {
 
 app.get('/admin/products', checkAdmin, (req, res) => {
   const sql = `
-    SELECT *
-    FROM products
-    ORDER BY main_category, sub_category, sort_order ASC, id ASC
+    SELECT
+      p.*,
+      (
+        SELECT COUNT(*)
+        FROM product_stock_items psi
+        WHERE psi.product_id = p.id
+          AND psi.status = 'available'
+      ) AS stock_count
+    FROM products p
+    ORDER BY p.main_category, p.sub_category, p.sort_order ASC, p.id ASC
   `;
+
   db.query(sql, [], (err, products) => {
     if (err) {
-      console.error("❌ Error fetching products:", err.message);
+      console.error("❌ Error fetching products:", err.message || err);
       return res.status(500).send("Server error");
     }
-    res.render('admin-products', { user: req.session.user, products });
+
+    // ضمان قيم افتراضية حتى لو في منتجات قديمة
+    const normalized = (products || []).map(p => {
+      const delivery_mode = (p.delivery_mode || 'manual').toString().toLowerCase();
+      return {
+        ...p,
+        delivery_mode,
+        stock_count: (p.stock_count !== null && p.stock_count !== undefined)
+          ? Number(p.stock_count)
+          : null
+      };
+    });
+
+    res.render('admin-products', { user: req.session.user, products: normalized });
   });
 });
+
 
 app.post('/admin/products/reorder', checkAdmin, async (req, res) => {
   const { productId, direction } = req.body; // up | down
@@ -4391,10 +4485,11 @@ app.post('/admin/products', checkAdmin, (req, res) => {
     sub_category_image,
     player_id_label,
     notes,
-    description
+    description,
+    delivery_mode
   } = req.body;
 
-  // checkboxes
+  // ✅ checkboxes
   const requires_player_id =
     (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on') ? 1 : 0;
 
@@ -4404,18 +4499,22 @@ app.post('/admin/products', checkAdmin, (req, res) => {
   const active = (req.body.active === '0') ? 0 : 1; // افتراضي شغّال
   const sort_order = Number(req.body.sort_order || 0);
 
-  // validation بسيط
+  // ✅ Delivery mode sanitize
+  const dm = (delivery_mode || 'manual').toString().toLowerCase().trim();
+  const safeDeliveryMode = (dm === 'stock' || dm === 'manual') ? dm : 'manual';
+
+  // ✅ validation بسيط
   if (!name || !price || !main_category || !sub_category) {
     return res.status(400).send("Missing required fields");
   }
 
-  // تنظيف القيم (منع تخزين سترينغ فاضي)
+  // ✅ تنظيف القيم (منع تخزين سترينغ فاضي)
   const cleanName = name.trim();
   const cleanMainCat = main_category.trim();
   const cleanSubCat = sub_category.trim();
 
   const cleanPrice = Number(price);
-  if (isNaN(cleanPrice) || cleanPrice < 0) {
+  if (!Number.isFinite(cleanPrice) || cleanPrice < 0) {
     return res.status(400).send("Invalid price");
   }
 
@@ -4424,6 +4523,11 @@ app.post('/admin/products', checkAdmin, (req, res) => {
   const cleanPlayerLabel = player_id_label?.trim() ? player_id_label.trim() : null;
   const cleanNotes = notes?.trim() ? notes.trim() : null;
   const cleanDescription = description?.trim() ? description.trim() : null;
+
+  // ✅ ملاحظة منطقية:
+  // إذا المنتج Stock، ما في داعي تخليه Out of Stock بالcheckbox
+  // (المخزون هو اللي بيقرر) بس منخليها مثل ما هي لتوافق نظامك الحالي.
+  // إذا بدك نجبرها 0 وقت stock، قلّي وبعملها.
 
   const sql = `
     INSERT INTO products
@@ -4440,9 +4544,10 @@ app.post('/admin/products', checkAdmin, (req, res) => {
       description,
       is_out_of_stock,
       active,
-      sort_order
+      sort_order,
+      delivery_mode
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const params = [
@@ -4458,20 +4563,23 @@ app.post('/admin/products', checkAdmin, (req, res) => {
     cleanDescription,
     is_out_of_stock,
     active,
-    sort_order
+    sort_order,
+    safeDeliveryMode
   ];
 
   db.query(sql, params, (err, result) => {
     if (err) {
-      console.error("❌ DATABASE INSERT ERROR:", err);
+      console.error("❌ DATABASE INSERT ERROR:", err?.message || err);
       return res.status(500).send("Error adding product");
     }
 
-    // خيار 1: رجوع على اللستة
-    return res.redirect('/admin/products');
+    // ✅ إذا المنتج Stock: الأفضل تروح مباشرة على صفحة المخزون لتضيف حسابات
+    if (safeDeliveryMode === 'stock') {
+      return res.redirect(`/admin/products/${result.insertId}/stock`);
+    }
 
-    // خيار 2 (اختياري): تفتح edit مباشرة
-    // return res.redirect(`/admin/products/edit/${result.insertId}`);
+    // ✅ غير هيك رجوع للمنتجات
+    return res.redirect('/admin/products');
   });
 });
 
@@ -4557,47 +4665,190 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
     sub_category_image,
     player_id_label,
     notes,
-    description
+    description,
+    delivery_mode
   } = req.body;
 
-  // قيم من الشيك بوكسات
+  // ✅ Sanitize delivery mode
+  const dm = (delivery_mode || 'manual').toString().toLowerCase().trim();
+  const safeDeliveryMode = (dm === 'stock' || dm === 'manual') ? dm : 'manual';
+
+  // ✅ قيم من الشيك بوكسات
   const requires_player_id =
     (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on') ? 1 : 0;
 
   const is_out_of_stock =
     (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
 
+  // ✅ Price normalize (اختياري بس مفيد)
+  const normalizedPrice = Number(price);
+  const safePrice = Number.isFinite(normalizedPrice) ? normalizedPrice : 0;
+
   const sql = `
     UPDATE products
-    SET name = ?, price = ?, image = ?, main_category = ?, sub_category = ?,
-        sub_category_image = ?, requires_player_id = ?, player_id_label = ?,
-        notes = ?, description = ?, is_out_of_stock = ?
+    SET
+      name = ?,
+      price = ?,
+      image = ?,
+      main_category = ?,
+      sub_category = ?,
+      sub_category_image = ?,
+      requires_player_id = ?,
+      player_id_label = ?,
+      notes = ?,
+      description = ?,
+      is_out_of_stock = ?,
+      delivery_mode = ?
     WHERE id = ?
+    LIMIT 1
   `;
 
   const values = [
-    name,
-    price,
-    image,
-    main_category,
-    sub_category,
-    sub_category_image,
+    (name || '').trim(),
+    safePrice,
+    (image || '').trim() || null,
+    (main_category || '').trim() || null,
+    (sub_category || '').trim() || null,
+    (sub_category_image || '').trim() || null,
     requires_player_id,
-    player_id_label,
+    (player_id_label || '').trim() || null,
     notes?.trim() ? notes.trim() : null,
     description?.trim() ? description.trim() : null,
     is_out_of_stock,
+    safeDeliveryMode,
     productId
   ];
 
   db.query(sql, values, (err) => {
     if (err) {
-      console.error("❌ Error updating product:", err);
+      console.error("❌ Error updating product:", err?.message || err);
       return res.status(500).send("Database error during update.");
     }
+
     res.redirect('/admin/products');
   });
 });
+
+
+// ✅ Stock Manager Page
+app.get('/admin/products/:id/stock', checkAdmin, (req, res) => {
+  const productId = Number(req.params.id);
+
+  const sqlProduct = `
+    SELECT p.*,
+      (
+        SELECT COUNT(*)
+        FROM product_stock_items psi
+        WHERE psi.product_id = p.id AND psi.status = 'available'
+      ) AS stock_count
+    FROM products p
+    WHERE p.id = ?
+    LIMIT 1
+  `;
+
+  db.query(sqlProduct, [productId], (err, rows) => {
+    if (err || !rows || !rows.length) {
+      console.error('❌ Stock page product error:', err?.message || err);
+      return res.status(404).send('Product not found');
+    }
+
+    const product = rows[0];
+    product.delivery_mode = (product.delivery_mode || 'manual').toString().toLowerCase();
+
+    const stockCount = Number(product.stock_count || 0);
+
+    const sqlItems = `
+      SELECT id, delivery_text, status, created_at
+      FROM product_stock_items
+      WHERE product_id = ? AND status = 'available'
+      ORDER BY id DESC
+      LIMIT 200
+    `;
+
+    db.query(sqlItems, [productId], (e2, stockItems) => {
+      if (e2) {
+        console.error('❌ Stock items error:', e2?.message || e2);
+        stockItems = [];
+      }
+
+      res.render('admin-product-stock', {
+        user: req.session.user,
+        product,
+        stockCount,
+        stockItems
+      });
+    });
+  });
+});
+
+
+// ✅ Add stock items (bulk)
+app.post('/admin/products/:id/stock/add', checkAdmin, (req, res) => {
+  const productId = Number(req.params.id);
+  const raw = (req.body.items || '').toString();
+
+  const lines = raw
+    .split(/\r?\n/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (!lines.length) {
+    return res.redirect(`/admin/products/${productId}/stock`);
+  }
+
+  const values = lines.map(t => [productId, t, 'available']);
+
+  const sql = `
+    INSERT INTO product_stock_items (product_id, delivery_text, status)
+    VALUES ?
+  `;
+
+  db.query(sql, [values], (err) => {
+    if (err) {
+      console.error('❌ Add stock error:', err?.message || err);
+    }
+    res.redirect(`/admin/products/${productId}/stock`);
+  });
+});
+
+
+// ✅ Delete one stock item
+app.post('/admin/products/:id/stock/delete/:stockId', checkAdmin, (req, res) => {
+  const productId = Number(req.params.id);
+  const stockId = Number(req.params.stockId);
+
+  const sql = `
+    DELETE FROM product_stock_items
+    WHERE id = ? AND product_id = ? AND status = 'available'
+    LIMIT 1
+  `;
+
+  db.query(sql, [stockId, productId], (err) => {
+    if (err) {
+      console.error('❌ Delete stock item error:', err?.message || err);
+    }
+    res.redirect(`/admin/products/${productId}/stock`);
+  });
+});
+
+
+// ✅ Clear all available stock items (optional but useful)
+app.post('/admin/products/:id/stock/clear', checkAdmin, (req, res) => {
+  const productId = Number(req.params.id);
+
+  const sql = `
+    DELETE FROM product_stock_items
+    WHERE product_id = ? AND status = 'available'
+  `;
+
+  db.query(sql, [productId], (err) => {
+    if (err) {
+      console.error('❌ Clear stock error:', err?.message || err);
+    }
+    res.redirect(`/admin/products/${productId}/stock`);
+  });
+});
+
 
 
 // مسار لعرض كل الطلبات في لوحة تحكم الأدمن
@@ -7062,41 +7313,56 @@ app.get('/order-details/:id', checkAuth, (req, res) => {
   });
 });
 
-// JSON status for polling من صفحة Order Details
+// JSON status for polling من صفحة Order Details (UPDATED: includes delivery summary)
 app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
   const orderId = Number(req.params.id);
-  const userId  = req.session.user.id;
+  const userId  = req.session.user?.id;
+
+  if (!userId || !orderId) {
+    return res.json({ ok: false });
+  }
 
   const sql = `
     SELECT
       o.*,
+
+      -- SMM block fields
       so.status          AS smm_status,
       so.quantity        AS smm_quantity,
       so.delivered_qty   AS smm_delivered_qty,
       so.remains_qty     AS smm_remains_qty,
       so.refund_amount   AS smm_refund_amount,
-      so.provider_status AS smm_provider_status
+      so.provider_status AS smm_provider_status,
+
+      -- Delivery (do not expose full secret here)
+      od.created_at      AS delivery_created_at,
+      od.delivery_text   AS delivery_text
+
     FROM orders o
     LEFT JOIN smm_orders so
       ON so.provider_order_id = o.provider_order_id
+
+    LEFT JOIN order_deliveries od
+      ON od.order_id = o.id
+
     WHERE o.id = ? AND o.userId = ?
     LIMIT 1
   `;
 
   db.query(sql, [orderId, userId], (err, rows) => {
-    if (err || !rows.length) {
+    if (err || !rows || !rows.length) {
       console.error('order-details status.json error:', err?.message || err);
       return res.json({ ok: false });
     }
 
     const row = rows[0];
 
-    // نحسب أرقام الـ SMM بشكل مرتب
+    // ===== SMM block حساب أرقام السوشيال =====
     let smmBlock = null;
     if (row.smm_status) {
-      const orderedQty  = Number(row.smm_quantity || 0);
+      const orderedQty   = Number(row.smm_quantity || 0);
       const hasDelivered = row.smm_delivered_qty !== null && row.smm_delivered_qty !== undefined;
-      const remainsDB   = Number(row.smm_remains_qty || 0);
+      const remainsDB    = Number(row.smm_remains_qty || 0);
 
       let deliveredQty, remainsQty;
 
@@ -7120,15 +7386,81 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
       };
     }
 
-    res.json({
+    // ===== Delivery summary (NO full secret) =====
+    const hasDelivery = !!(row.delivery_text && String(row.delivery_text).trim() !== '');
+
+    // preview: أول 3 + آخر 3 (أو "Delivered")
+    let preview = null;
+    if (hasDelivery) {
+      const t = String(row.delivery_text).trim();
+      preview = (t.length <= 10) ? 'Delivered' : `${t.slice(0, 3)}***${t.slice(-3)}`;
+    }
+
+    // pending_manual: إذا المنتج stock بس ما كان في مخزون (fallback)
+    // الأفضل إذا عندك أعمدة fulfillment_mode/stock_fallback
+    let pendingManual = false;
+
+    if (Object.prototype.hasOwnProperty.call(row, 'fulfillment_mode') ||
+        Object.prototype.hasOwnProperty.call(row, 'stock_fallback')) {
+      pendingManual = (String(row.fulfillment_mode || '').toLowerCase() === 'stock') && (Number(row.stock_fallback || 0) === 1);
+    } else {
+      // fallback لو ما ضفت الأعمدة: نستدل من order_details
+      const det = String(row.order_details || '').toLowerCase();
+      pendingManual = det.includes('out of stock') || det.includes('auto-delivery unavailable');
+    }
+
+    // رجّع JSON للـ polling
+    return res.json({
       ok: true,
       status: row.status,
       admin_reply: row.admin_reply || '',
-      smm: smmBlock
+      smm: smmBlock,
+      delivery: {
+        has_delivery: hasDelivery,
+        preview,
+        pending_manual: pendingManual
+      }
     });
   });
 });
 
+
+app.get('/order-details/:id/delivery.json', checkAuth, async (req, res) => {
+  const orderId = parseInt(req.params.id, 10);
+  const userId = req.session.user?.id;
+
+  if (!userId) return res.status(401).json({ ok: false });
+  if (!orderId) return res.status(400).json({ ok: false });
+
+  try {
+    const [[order]] = await promisePool.query(
+      `SELECT id
+         FROM orders
+        WHERE id = ? AND userId = ?
+        LIMIT 1`,
+      [orderId, userId]
+    );
+    if (!order) return res.status(404).json({ ok: false });
+
+    const [[del]] = await promisePool.query(
+      `SELECT delivery_text
+         FROM order_deliveries
+        WHERE order_id = ?
+        LIMIT 1`,
+      [orderId]
+    );
+
+    if (!del?.delivery_text) {
+      return res.status(404).json({ ok: false, message: 'No delivery yet' });
+    }
+
+    return res.json({ ok: true, delivery: del.delivery_text });
+
+  } catch (e) {
+    console.error('delivery.json error:', e);
+    return res.status(500).json({ ok: false });
+  }
+});
 
 
 

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Manage Stock - <%= product.name %> | AK Cell</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+
+  <style>
+    body { background:#f6f7fb; }
+    .card-soft{
+      border:0; border-radius:16px;
+      box-shadow:0 10px 30px rgba(15,23,42,.08);
+    }
+    .page-title{ font-weight:900; letter-spacing:.2px; }
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .btn-round{ border-radius:12px; }
+    .badge-pill{ border-radius:999px; }
+    textarea.form-control{ min-height: 180px; }
+    .soft-alert{
+      background: rgba(13,110,253,.06);
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 14px;
+    }
+    .table td, .table th{ vertical-align: middle; }
+    .stock-row{
+      background:#fff;
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="d-flex">
+  <%- include('partials/admin-sidebar') %>
+
+  <div class="container-fluid p-4 p-lg-5">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+      <div>
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-boxes fs-2 text-primary"></i>
+          <h1 class="page-title mb-0">Manage Stock</h1>
+        </div>
+        <div class="text-muted small mt-1">
+          Product: <b><%= product.name %></b> <span class="mono">(ID: <%= product.id %>)</span>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          <% const dm = (product.delivery_mode || 'manual').toString().toLowerCase(); %>
+          <% if (dm === 'stock') { %>
+            <span class="badge bg-primary badge-pill">
+              <i class="bi bi-lightning-charge-fill me-1"></i> Stock (Auto Delivery)
+            </span>
+          <% } else { %>
+            <span class="badge bg-secondary badge-pill">
+              <i class="bi bi-person-check-fill me-1"></i> Manual
+            </span>
+          <% } %>
+
+          <span class="badge bg-success badge-pill">
+            <i class="bi bi-check2-circle me-1"></i>
+            Available: <%= Number(stockCount || 0) %>
+          </span>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="/admin/products" class="btn btn-outline-secondary btn-round">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+
+        <a href="/admin/products/edit/<%= product.id %>" class="btn btn-warning btn-round">
+          <i class="bi bi-pencil"></i> Edit Product
+        </a>
+
+        <form action="/admin/products/<%= product.id %>/stock/clear" method="POST"
+              onsubmit="return confirm('Clear ALL available stock items for this product?');">
+          <button type="submit" class="btn btn-outline-danger btn-round">
+            <i class="bi bi-trash3"></i> Clear Stock
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="alert soft-alert mb-4">
+      <div class="d-flex gap-2">
+        <i class="bi bi-info-circle-fill text-primary"></i>
+        <div>
+          <div class="fw-bold">How it works</div>
+          <div class="small text-muted">
+            If this product is <b>Stock (Auto)</b>, the system will deliver the next available item automatically.
+            If stock is empty, the order will stay <b>Waiting</b> and admin can fulfill manually.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+
+      <!-- Add stock -->
+      <div class="col-12 col-lg-5">
+        <div class="card card-soft">
+          <div class="card-body">
+            <h5 class="mb-1 fw-bold">
+              <i class="bi bi-plus-circle me-1"></i> Add Stock Items
+            </h5>
+            <div class="text-muted small mb-3">
+              Paste accounts/items — <b>one per line</b>.
+            </div>
+
+            <form action="/admin/products/<%= product.id %>/stock/add" method="POST">
+              <textarea class="form-control mono" name="items" placeholder="email:pass&#10;email2:pass2"></textarea>
+              <div class="d-flex justify-content-between align-items-center mt-2">
+                <div class="small text-muted">
+                  Tip: Empty lines are ignored.
+                </div>
+                <button class="btn btn-success btn-round">
+                  <i class="bi bi-save2"></i> Add
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- List stock -->
+      <div class="col-12 col-lg-7">
+        <div class="card card-soft">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <h5 class="mb-0 fw-bold">
+                <i class="bi bi-list-check me-1"></i> Available Stock Items
+              </h5>
+              <span class="text-muted small">
+                Showing latest <%= Math.min((stockItems||[]).length, 200) %> items
+              </span>
+            </div>
+
+            <hr>
+
+            <% if (stockItems && stockItems.length > 0) { %>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-dark">
+                    <tr>
+                      <th style="width:80px;">ID</th>
+                      <th>Item</th>
+                      <th style="width:160px;">Created</th>
+                      <th style="width:90px;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% stockItems.forEach(it => { %>
+                      <tr>
+                        <td class="mono"><%= it.id %></td>
+                        <td class="mono">
+                          <div class="d-flex align-items-center justify-content-between gap-2">
+                            <span class="text-break"><%= it.delivery_text %></span>
+                            <button type="button"
+                                    class="btn btn-outline-secondary btn-sm btn-round"
+                                    onclick="copyText(<%- JSON.stringify(it.delivery_text) %>)"
+                                    title="Copy">
+                              <i class="bi bi-clipboard"></i>
+                            </button>
+                          </div>
+                        </td>
+                        <td class="small text-muted">
+                          <%= it.created_at ? new Date(it.created_at).toLocaleString() : '' %>
+                        </td>
+                        <td>
+                          <form action="/admin/products/<%= product.id %>/stock/delete/<%= it.id %>" method="POST"
+                                onsubmit="return confirm('Delete this stock item?');">
+                            <button class="btn btn-danger btn-sm btn-round">
+                              <i class="bi bi-trash"></i>
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } else { %>
+              <div class="text-center text-muted py-5">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                No stock items yet.
+              </div>
+            <% } %>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  async function copyText(text){
+    try{
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      alert('Copied!');
+    }catch(e){
+      alert('Copy failed');
+    }
+  }
+</script>
+</body>
+</html>
