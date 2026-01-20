@@ -75,21 +75,21 @@
       font-size:.9rem
     }
 
-    /* Delivery card */
-    .delivery-box{
+    /* Admin reply box */
+    .reply-box{
       border:1px solid rgba(0,0,0,.08);
       border-radius: 14px;
       padding: 12px 14px;
       background: rgba(18,102,241,.04);
     }
-    .delivery-title{
+    .reply-title{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:10px;
       margin-bottom: 8px;
     }
-    .delivery-title h6{
+    .reply-title h6{
       margin:0;
       font-weight:800;
       color: var(--title);
@@ -97,7 +97,7 @@
       align-items:center;
       gap:8px;
     }
-    .delivery-preview{
+    .reply-text{
       background:#f1f3f5;
       border-radius:10px;
       padding:.75rem 1rem;
@@ -180,42 +180,28 @@
             <div class="kv-value"><%= order.order_details %></div>
           <% } %>
 
-          <!-- DELIVERY (includes admin_reply) -->
+          <!-- ✅ ADMIN REPLY ONLY -->
           <div class="kv-label mt-3 d-flex align-items-center justify-content-between">
-            <span>DELIVERY</span>
-            <span class="small text-muted" id="deliveryStatusText"></span>
+            <span>ADMIN REPLY</span>
           </div>
 
-          <div class="delivery-box mb-3">
-            <div class="delivery-title">
+          <div class="reply-box mb-3">
+            <div class="reply-title">
               <h6>
-                <i class="bi bi-key-fill"></i>
-                Delivery Info
+                <i class="bi bi-chat-left-text-fill"></i>
+                Admin Reply
               </h6>
 
-              <div class="d-flex gap-2 flex-wrap">
-                <!-- Reveal only for real delivery secret -->
-                <button id="revealDeliveryBtn" type="button" class="btn btn-outline-primary btn-sm btn-mini d-none">
-                  <i class="bi bi-eye"></i> Reveal
-                </button>
-
-                <!-- Copy for both cases (secret after reveal OR admin reply text) -->
-                <button id="copyDeliveryBtn" type="button" class="btn btn-outline-secondary btn-sm btn-mini d-none">
-                  <i class="bi bi-clipboard"></i> Copy
-                </button>
-              </div>
+              <button id="copyReplyBtn" type="button" class="btn btn-outline-secondary btn-sm btn-mini d-none">
+                <i class="bi bi-clipboard"></i> Copy
+              </button>
             </div>
 
-            <p class="delivery-preview user-select-all mb-2" id="deliveryPreview">
-              <span class="hidden-note">Delivery will appear here once available.</span>
-            </p>
-
-            <div class="alert alert-warning mb-0 d-none" id="pendingManualBox" style="border-radius:12px;">
-              <i class="bi bi-hourglass-split me-1"></i>
-              Out of stock at purchase time — your order is pending and will be processed manually by admin.
-            </div>
+            <pre class="reply-text user-select-all mb-0" id="adminReplyBox"><%= (order.admin_reply || '').toString() %></pre>
+            <div class="hidden-note mt-2 d-none" id="noReplyNote">No admin reply yet.</div>
           </div>
 
+          <!-- ✅ SMM (كما هو بدون تخريب) -->
           <% if (order.smm_status) { %>
             <div class="kv-label mt-3">SOCIAL MEDIA PROGRESS</div>
             <div class="kv-value">
@@ -269,17 +255,16 @@
   <script>
     (function () {
       const orderId = <%- JSON.stringify(order.id) %>;
+
       const $status = document.getElementById('order-status');
       const $last   = document.getElementById('lastUpdated');
       const $btn    = document.getElementById('refreshBtn');
       const $spin   = document.getElementById('refreshSpinner');
 
-      // DELIVERY UI
-      const $deliveryPreview = document.getElementById('deliveryPreview');
-      const $revealDeliveryBtn = document.getElementById('revealDeliveryBtn');
-      const $copyDeliveryBtn = document.getElementById('copyDeliveryBtn');
-      const $pendingManualBox = document.getElementById('pendingManualBox');
-      const $deliveryStatusText = document.getElementById('deliveryStatusText');
+      // Admin reply UI
+      const $adminReplyBox = document.getElementById('adminReplyBox');
+      const $copyReplyBtn  = document.getElementById('copyReplyBtn');
+      const $noReplyNote   = document.getElementById('noReplyNote');
 
       // SMM
       const smmOrdered        = document.getElementById('smm-ordered');
@@ -288,10 +273,7 @@
       const smmProviderStatus = document.getElementById('smm-provider-status');
 
       let lastStatus = $status ? $status.textContent.trim() : '';
-
-      // unified text to copy (either revealed secret OR admin reply)
-      let copyText = '';
-      let revealedDeliveryText = '';
+      let lastReply  = ($adminReplyBox?.textContent || '').trim();
 
       function setLoading(on){
         if(!$btn || !$spin) return;
@@ -304,106 +286,14 @@
         }
       }
 
-      function showTextInDeliveryBox(text, opts){
+      function setReplyUI(text){
         const t = (text || '').toString().trim();
-        const isEmpty = !t;
 
-        if ($deliveryPreview) {
-          if (isEmpty) {
-            $deliveryPreview.innerHTML = `<span class="hidden-note">Delivery will appear here once available.</span>`;
-          } else {
-            $deliveryPreview.textContent = t;
-          }
-        }
+        if ($adminReplyBox) $adminReplyBox.textContent = t;
 
-        // copy enabled only if text exists
-        if ($copyDeliveryBtn) {
-          $copyDeliveryBtn.classList.toggle('d-none', isEmpty);
-        }
-
-        // Reveal button only when opts.allowReveal = true
-        if ($revealDeliveryBtn) {
-          $revealDeliveryBtn.classList.toggle('d-none', !opts?.allowReveal);
-          if (opts?.allowReveal) {
-            // default state hidden
-            $revealDeliveryBtn.innerHTML = '<i class="bi bi-eye"></i> Reveal';
-            $revealDeliveryBtn.dataset.state = 'hidden';
-          } else {
-            $revealDeliveryBtn.dataset.state = 'hidden';
-          }
-        }
-      }
-
-      function setDeliveryUI(delivery, adminReply){
-        const hasDelivery = !!delivery?.has_delivery;
-        const pendingManual = !!delivery?.pending_manual;
-        const reply = (adminReply || '').toString().trim();
-
-        $pendingManualBox?.classList.toggle('d-none', !pendingManual);
-
-        if ($deliveryStatusText) {
-          if (hasDelivery) $deliveryStatusText.textContent = 'Delivered';
-          else if (reply) $deliveryStatusText.textContent = 'Delivered (manual)';
-          else if (pendingManual) $deliveryStatusText.textContent = 'Pending manual';
-          else $deliveryStatusText.textContent = 'Pending';
-        }
-
-        // 1) if real delivery exists -> show preview + enable reveal (copy only after reveal)
-        if (hasDelivery) {
-          revealedDeliveryText = '';
-          copyText = ''; // will be set after reveal
-          const prev = (delivery?.preview || 'Delivered').toString();
-          showTextInDeliveryBox(prev, { allowReveal: true });
-          // copy button should be hidden until reveal
-          if ($copyDeliveryBtn) $copyDeliveryBtn.classList.add('d-none');
-          return;
-        }
-
-        // 2) no delivery but admin reply exists -> show it directly and allow copy (no reveal)
-        if (reply) {
-          revealedDeliveryText = '';
-          copyText = reply;
-          showTextInDeliveryBox(reply, { allowReveal: false });
-          return;
-        }
-
-        // 3) nothing yet
-        revealedDeliveryText = '';
-        copyText = '';
-        showTextInDeliveryBox('', { allowReveal: false });
-      }
-
-      async function revealDelivery(){
-        try{
-          const res = await fetch(`/order-details/${orderId}/delivery.json`, { cache: 'no-store' });
-          if(!res.ok) return;
-          const data = await res.json();
-          if(!data?.ok || !data?.delivery) return;
-
-          revealedDeliveryText = String(data.delivery);
-          copyText = revealedDeliveryText;
-
-          if ($deliveryPreview) $deliveryPreview.textContent = revealedDeliveryText;
-          if ($copyDeliveryBtn) $copyDeliveryBtn.classList.remove('d-none');
-
-          if ($revealDeliveryBtn) {
-            $revealDeliveryBtn.innerHTML = '<i class="bi bi-eye-slash"></i> Hide';
-            $revealDeliveryBtn.dataset.state = 'revealed';
-          }
-        }catch(e){
-          console.error('revealDelivery error:', e);
-        }
-      }
-
-      function hideDelivery(){
-        revealedDeliveryText = '';
-        copyText = '';
-        if ($copyDeliveryBtn) $copyDeliveryBtn.classList.add('d-none');
-        if ($deliveryPreview) $deliveryPreview.innerHTML = `<span class="hidden-note">Hidden. Click Reveal to show again.</span>`;
-        if ($revealDeliveryBtn) {
-          $revealDeliveryBtn.innerHTML = '<i class="bi bi-eye"></i> Reveal';
-          $revealDeliveryBtn.dataset.state = 'hidden';
-        }
+        const has = !!t;
+        if ($copyReplyBtn) $copyReplyBtn.classList.toggle('d-none', !has);
+        if ($noReplyNote)  $noReplyNote.classList.toggle('d-none', has);
       }
 
       async function copyTextToClipboard(text){
@@ -434,7 +324,7 @@
           const data = await res.json();
           if (!data.ok) return;
 
-          // status badge
+          // status badge update
           if (data.status && data.status !== lastStatus && $status) {
             lastStatus = data.status;
             $status.textContent = data.status;
@@ -450,7 +340,14 @@
             else $status.classList.add('bg-warning','text-dark');
           }
 
-          // SMM update
+          // ✅ admin reply فقط (حتى لو السيرفر بعت display_reply)
+          const reply = (data.admin_reply || '').toString().trim();
+          if (reply !== lastReply) {
+            lastReply = reply;
+            setReplyUI(reply);
+          }
+
+          // SMM update (لا نلمس حسابات EJS هنا، فقط تحديث أرقام)
           if (data.smm) {
             if (smmOrdered)        smmOrdered.textContent        = data.smm.ordered;
             if (smmDelivered)      smmDelivered.textContent      = data.smm.delivered;
@@ -458,14 +355,12 @@
             if (smmProviderStatus) smmProviderStatus.textContent = data.smm.provider_status || '';
           }
 
-          // ✅ unified delivery view: prefer delivery, else admin_reply, else pending
-          setDeliveryUI(data.delivery || { has_delivery:false, pending_manual:false }, data.admin_reply || '');
-
-          // time
+          // time update
           if ($last) {
             const now = new Date();
             $last.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
           }
+
         } catch (e) {
           console.error('order-details poll error:', e);
         } finally {
@@ -475,19 +370,14 @@
 
       document.getElementById('refreshBtn')?.addEventListener('click', fetchStatus);
 
-      $revealDeliveryBtn?.addEventListener('click', async () => {
-        const state = ($revealDeliveryBtn.dataset.state || 'hidden');
-        if (state === 'revealed') hideDelivery();
-        else await revealDelivery();
-      });
-
-      $copyDeliveryBtn?.addEventListener('click', async () => {
-        const t = (copyText || '').trim();
+      $copyReplyBtn?.addEventListener('click', async () => {
+        const t = ($adminReplyBox?.textContent || '').trim();
         if (!t) return;
         await copyTextToClipboard(t);
       });
 
       // init
+      setReplyUI(($adminReplyBox?.textContent || '').trim());
       fetchStatus();
       setInterval(fetchStatus, 5000);
     })();

@@ -7314,6 +7314,7 @@ app.get('/order-details/:id', checkAuth, (req, res) => {
 });
 
 // JSON status for polling من صفحة Order Details (UPDATED: includes delivery summary)
+// JSON status for polling from Order Details
 app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
   const orderId = Number(req.params.id);
   const userId  = req.session.user?.id;
@@ -7389,7 +7390,7 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     // ===== Delivery summary (NO full secret) =====
     const hasDelivery = !!(row.delivery_text && String(row.delivery_text).trim() !== '');
 
-    let preview = null;
+    let preview = '';
     if (hasDelivery) {
       const t = String(row.delivery_text).trim();
       preview = (t.length <= 10) ? 'Delivered' : `${t.slice(0, 3)}***${t.slice(-3)}`;
@@ -7398,8 +7399,10 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     // pending_manual: stock product but no stock at purchase time
     let pendingManual = false;
 
-    if (Object.prototype.hasOwnProperty.call(row, 'fulfillment_mode') ||
-        Object.prototype.hasOwnProperty.call(row, 'stock_fallback')) {
+    if (
+      Object.prototype.hasOwnProperty.call(row, 'fulfillment_mode') ||
+      Object.prototype.hasOwnProperty.call(row, 'stock_fallback')
+    ) {
       pendingManual =
         (String(row.fulfillment_mode || '').toLowerCase() === 'stock') &&
         (Number(row.stock_fallback || 0) === 1);
@@ -7408,18 +7411,30 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
       pendingManual = det.includes('out of stock') || det.includes('auto-delivery unavailable');
     }
 
-    // ✅ توحيد العرض: إذا في delivery نخفي admin_reply
-    const cleanAdminReply = hasDelivery ? '' : (row.admin_reply || '');
+    // ✅ توحيد العرض:
+    // - إذا في delivery: نخفي admin_reply ونستعمل preview للعرض
+    // - إذا ما في delivery: نعرض admin_reply مثل قبل (للطلبات القديمة)
+    const rawAdminReply = (row.admin_reply || '').toString();
+    const adminReplyForClient = hasDelivery ? '' : rawAdminReply;
+
+    const displayReply = hasDelivery
+      ? (preview || 'Delivered')
+      : (rawAdminReply.trim() ? rawAdminReply : '');
 
     return res.json({
       ok: true,
       status: row.status,
 
-      // ✅ هذا اللي الواجهة لازم تعتمد عليه
-      admin_reply: cleanAdminReply,
-      display_reply: cleanAdminReply, // optional (بس مرتب)
+      // القديم (للناس/الطلبات القديمة)
+      admin_reply: adminReplyForClient,
+
+      // ✅ الجديد: الواجهة تعتمد عليه مباشرة (مكان واحد)
+      display_reply: displayReply,
 
       smm: smmBlock,
+
+      // optional helpers (لو بدك تستعملهم بالواجهة)
+      delivery_preview: preview,
 
       delivery: {
         has_delivery: hasDelivery,
