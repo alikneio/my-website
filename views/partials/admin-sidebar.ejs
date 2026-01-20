@@ -1,93 +1,106 @@
 <div class="d-flex flex-column flex-shrink-0 p-3 text-white bg-dark" style="width: 280px; min-height: 100vh;">
-    <a href="/admin" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
-        <i class="bi bi-speedometer2 me-2"></i>
-        <span class="fs-4">Admin Panel</span>
-    </a>
-    <hr>
-    <ul class="nav nav-pills flex-column mb-auto">
-        <li class="nav-item">
-            <a href="/admin" class="nav-link text-white">
-                <i class="bi bi-grid me-2"></i>
-                Dashboard
-            </a>
-        </li>
-
-        <li>
-  <a href="/admin/balance-requests" class="nav-link text-white d-flex align-items-center justify-content-between">
-    <span>
-      <i class="bi bi-wallet2 me-2"></i>
-      Balance Requests
-    </span>
-
-    <% if ((pendingBalanceRequestsCount || 0) > 0) { %>
-      <span class="badge bg-warning text-dark rounded-pill">
-        <%= pendingBalanceRequestsCount > 99 ? '99+' : pendingBalanceRequestsCount %>
-      </span>
-    <% } %>
+  <a href="/admin" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+    <i class="bi bi-speedometer2 me-2"></i>
+    <span class="fs-4">Admin Panel</span>
   </a>
-</li>
 
-        <li>
-            <a href="/admin/orders" class="nav-link text-white">
-                <i class="bi bi-table me-2"></i>
-                Orders
-            </a>
-        </li>
-        <li>
-    <a href="/admin/api-products" class="nav-link text-white">
+  <hr>
+
+  <ul class="nav nav-pills flex-column mb-auto">
+
+    <li class="nav-item">
+      <a href="/admin" class="nav-link text-white">
+        <i class="bi bi-grid me-2"></i>
+        Dashboard
+      </a>
+    </li>
+
+    <!-- Balance Requests -->
+    <li>
+      <a href="/admin/balance-requests"
+         class="nav-link text-white d-flex align-items-center justify-content-between">
+        <span>
+          <i class="bi bi-wallet2 me-2"></i>
+          Balance Requests
+        </span>
+
+        <% if ((pendingBalanceRequestsCount || 0) > 0) { %>
+          <span class="badge bg-warning text-dark rounded-pill">
+            <%= pendingBalanceRequestsCount > 99 ? '99+' : pendingBalanceRequestsCount %>
+          </span>
+        <% } %>
+      </a>
+    </li>
+
+    <!-- Orders -->
+    <li>
+      <a href="/admin/orders" class="nav-link text-white">
+        <i class="bi bi-table me-2"></i>
+        Orders
+      </a>
+    </li>
+
+    <!-- API Products -->
+    <li>
+      <a href="/admin/api-products" class="nav-link text-white">
         <i class="bi bi-cloud-arrow-down-fill me-2"></i>
         API Products
-    </a>
+      </a>
+    </li>
 
-</li>
-        <li>
-            <a href="/admin/products" class="nav-link text-white">
-                <i class="bi bi-box-seam me-2"></i>
-                Products
-            </a>
-        </li>
-        <li>
-<li>
-  <a href="/admin/users" class="nav-link text-white">
-    <i class="bi bi-people me-2"></i>
-    Users
+    <!-- Products -->
+    <li>
+      <a href="/admin/products" class="nav-link text-white">
+        <i class="bi bi-box-seam me-2"></i>
+        Products
+      </a>
+    </li>
+
+    <!-- ✅ NEW: Stock Management -->
+    <li>
+      <a href="/admin/stock" class="nav-link text-white">
+        <i class="bi bi-archive-fill me-2"></i>
+        Stock Management
+      </a>
+    </li>
+
+    <!-- Users -->
+    <li>
+      <a href="/admin/users" class="nav-link text-white">
+        <i class="bi bi-people me-2"></i>
+        Users
+      </a>
+    </li>
+
+    <!-- API Categories -->
+    <li class="nav-item">
+      <a class="nav-link text-white" href="/admin/api-categories">
+        <i class="bi bi-grid me-2"></i>
+        API Categories
+      </a>
+    </li>
+
+    <!-- SMM -->
+    <li class="nav-item">
+      <a href="/admin/smm-services" class="nav-link text-white">
+        <i class="bi bi-instagram me-2"></i>
+        SMM Services
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/admin/smm-categories" class="nav-link text-white">
+        <i class="bi bi-collection me-2"></i>
+        SMM Categories
+      </a>
+    </li>
+
+  </ul>
+
+  <hr>
+
+  <a href="/" class="btn btn-secondary">
+    <i class="bi bi-arrow-left-square"></i>
+    Back to Main Site
   </a>
-</li>
-<li class="nav-item">
-  <a class="nav-link" href="/admin/api-categories">
-    <i class="bi bi-grid"></i> API Categories
-  </a>
-</li>
-
-<li class="nav-item">
-  <a href="/admin/smm-services" class="nav-link">
-    <i class="bi bi-instagram"></i>
-    <span>SMM Services</span>
-  </a>
-</li>
-
-<li class="nav-item">
-  <a href="/admin/smm-categories"
-     class="nav-link">  
-    <i class="bi bi-collection"></i>
-    <span class="ms-1">SMM Categories</span>
-  </a>
-</li>
-
-
-
-<li>
-  <a href="/admin/balance-requests" class="nav-link text-white">
-    <i class="bi bi-wallet2 me-2"></i>
-    Balance Requests
-  </a>
-</li>
-
-
-
-    </ul>
-    <hr>
-    <a href="/" class="btn btn-secondary">
-        <i class="bi bi-arrow-left-square"></i> Back to Main Site
-    </a>
 </div>
