@@ -88,7 +88,7 @@
       font-size:.9rem
     }
 
-    /* ===== NEW: delivery card ===== */
+    /* ===== delivery card ===== */
     .delivery-box{
       border:1px solid rgba(0,0,0,.08);
       border-radius: 14px;
@@ -129,6 +129,34 @@
       font-size: .9rem;
     }
 
+    /* ✅ ADMIN REPLY box */
+    .reply-wrap{
+      border:1px solid rgba(0,0,0,.06);
+      border-radius:14px;
+      padding:12px 14px;
+      background:#fff;
+    }
+    .reply-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .reply-head h6{
+      margin:0;
+      font-weight:800;
+      color:var(--title);
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .reply-empty{
+      color:var(--muted);
+      font-size:.9rem;
+      margin:0;
+    }
+
     @media (max-width: 768px){
       .section-title{ font-size:1.6rem }
       .order-wrapper{ padding:1.25rem }
@@ -145,7 +173,6 @@
         <h2 class="section-title mb-3 mb-md-0">Order Details</h2>
 
         <div class="d-flex align-items-center actions">
-          <!-- Status badge -->
           <div id="status-badge" class="me-2">
             <% if (order.status === 'Accepted') { %>
               <span class="badge bg-success" id="order-status"><%= order.status %></span>
@@ -160,7 +187,6 @@
             <% } %>
           </div>
 
-          <!-- Refresh button -->
           <button id="refreshBtn" class="btn btn-brand d-inline-flex align-items-center">
             <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" id="refreshSpinner"></span>
             <i class="bi bi-arrow-clockwise me-2" aria-hidden="true"></i>
@@ -175,7 +201,6 @@
       </p>
 
       <div class="row">
-        <!-- العمود الأيسر -->
         <div class="col-12 col-lg-6">
           <div class="kv-label">ORDER ID</div>
           <div class="kv-value"><%= order.id %></div>
@@ -187,7 +212,6 @@
           <div class="kv-value">$<%= parseFloat(order.price).toFixed(2) %></div>
         </div>
 
-        <!-- العمود الأيمن -->
         <div class="col-12 col-lg-6">
           <div class="kv-label">DATE</div>
           <div class="kv-value"><%= new Date(order.purchaseDate).toLocaleString() %></div>
@@ -197,7 +221,7 @@
             <div class="kv-value"><%= order.order_details %></div>
           <% } %>
 
-          <!-- ===== NEW: DELIVERY BLOCK (SQL stock) ===== -->
+          <!-- DELIVERY -->
           <div class="kv-label mt-3 d-flex align-items-center justify-content-between">
             <span>DELIVERY</span>
             <span class="small text-muted" id="deliveryStatusText"></span>
@@ -229,9 +253,8 @@
               Out of stock at purchase time — your order is pending and will be processed manually by admin.
             </div>
           </div>
-          <!-- ===== END DELIVERY ===== -->
 
-          <!-- بلوك خدمات السوشيال (يظهر فقط لو في بيانات SMM) -->
+          <!-- SMM -->
           <% if (order.smm_status) { %>
             <div class="kv-label mt-3">SOCIAL MEDIA PROGRESS</div>
             <div class="kv-value">
@@ -256,45 +279,48 @@
               %>
 
               <ul class="mb-0">
-                <li>
-                  <strong>Ordered quantity:</strong>
-                  <span class="text-dark" id="smm-ordered"><%= orderedQty %></span>
-                </li>
-                <li>
-                  <strong>Delivered quantity:</strong>
-                  <span class="text-dark" id="smm-delivered"><%= deliveredQty %></span>
-                </li>
-                <li>
-                  <strong>Not delivered (remaining):</strong>
-                  <span class="text-dark" id="smm-remains"><%= remainsQty %></span>
-                </li>
+                <li><strong>Ordered quantity:</strong> <span class="text-dark" id="smm-ordered"><%= orderedQty %></span></li>
+                <li><strong>Delivered quantity:</strong> <span class="text-dark" id="smm-delivered"><%= deliveredQty %></span></li>
+                <li><strong>Not delivered (remaining):</strong> <span class="text-dark" id="smm-remains"><%= remainsQty %></span></li>
                 <li>
                   <strong>Provider status:</strong>
-                  <span class="text-dark" id="smm-provider-status">
-                    <%= (order.smm_provider_status || order.smm_status || '').toString() %>
-                  </span>
+                  <span class="text-dark" id="smm-provider-status"><%= (order.smm_provider_status || order.smm_status || '').toString() %></span>
                 </li>
               </ul>
             </div>
           <% } %>
 
-          <div class="d-flex align-items-center justify-content-between mt-3">
-            <div class="order-label m-0">ADMIN REPLY</div>
+          <!-- ✅ ADMIN REPLY (يظهر فقط إذا في نص) -->
+          <%
+            const initialReply = (order.admin_reply || '').toString().trim();
+          %>
 
-            <button
-              id="copy-reply"
-              type="button"
-              class="btn btn-outline-secondary btn-sm copy-btn"
-              data-bs-toggle="tooltip"
-              data-bs-title="Copy to clipboard"
-            >
-              <i class="bi bi-clipboard"></i> Copy
-            </button>
+          <div id="adminReplyWrap" class="mt-3 <%= initialReply ? '' : 'd-none' %>">
+            <div class="reply-wrap">
+              <div class="reply-head">
+                <h6><i class="bi bi-chat-left-text-fill"></i> Admin Reply</h6>
+
+                <button
+                  id="copy-reply"
+                  type="button"
+                  class="btn btn-outline-secondary btn-sm copy-btn"
+                  data-bs-toggle="tooltip"
+                  data-bs-title="Copy to clipboard"
+                >
+                  <i class="bi bi-clipboard"></i> Copy
+                </button>
+              </div>
+
+              <div id="order-reply">
+                <pre class="user-select-all mb-0"><%= order.admin_reply || '' %></pre>
+              </div>
+            </div>
           </div>
 
-          <div class="order-value" id="order-reply">
-            <pre class="user-select-all"><%= order.admin_reply || '' %></pre>
-          </div>
+          <p id="adminReplyEmpty" class="reply-empty mt-3 <%= initialReply ? 'd-none' : '' %>">
+            No admin reply yet.
+          </p>
+
         </div>
       </div>
 
@@ -310,26 +336,28 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- سكربت الـ polling + تحديث أرقام الـ SMM + DELIVERY -->
   <script>
     (function () {
       const orderId = <%- JSON.stringify(order.id) %>;
       const $status = document.getElementById('order-status');
-      const $replyPre  = document.querySelector('#order-reply pre');
-      const $last   = document.getElementById('lastUpdated');
-      const $btn    = document.getElementById('refreshBtn');
-      const $spin   = document.getElementById('refreshSpinner');
+      const $replyPre = document.querySelector('#order-reply pre');
+      const $adminWrap = document.getElementById('adminReplyWrap');
+      const $adminEmpty = document.getElementById('adminReplyEmpty');
 
-      // DELIVERY UI
+      const $last = document.getElementById('lastUpdated');
+      const $btn  = document.getElementById('refreshBtn');
+      const $spin = document.getElementById('refreshSpinner');
+
+      // DELIVERY
       const $deliveryPreview = document.getElementById('deliveryPreview');
       const $revealDeliveryBtn = document.getElementById('revealDeliveryBtn');
       const $copyDeliveryBtn = document.getElementById('copyDeliveryBtn');
       const $pendingManualBox = document.getElementById('pendingManualBox');
       const $deliveryStatusText = document.getElementById('deliveryStatusText');
 
-      let revealedDeliveryText = ''; // full secret after reveal
+      let revealedDeliveryText = '';
 
-      // عناصر الـ SMM
+      // SMM
       const smmOrdered        = document.getElementById('smm-ordered');
       const smmDelivered      = document.getElementById('smm-delivered');
       const smmRemains        = document.getElementById('smm-remains');
@@ -349,14 +377,25 @@
         }
       }
 
+      function setAdminReplyUI(text){
+        const t = (text || '').toString().trim();
+
+        if ($replyPre) $replyPre.textContent = t;
+
+        if (t) {
+          $adminWrap?.classList.remove('d-none');
+          $adminEmpty?.classList.add('d-none');
+        } else {
+          $adminWrap?.classList.add('d-none');
+          $adminEmpty?.classList.remove('d-none');
+        }
+      }
+
       function setDeliveryUI(delivery){
-        // delivery: { has_delivery, preview, pending_manual }
         const hasDelivery = !!delivery?.has_delivery;
         const pendingManual = !!delivery?.pending_manual;
 
-        if ($pendingManualBox) {
-          $pendingManualBox.classList.toggle('d-none', !pendingManual);
-        }
+        $pendingManualBox?.classList.toggle('d-none', !pendingManual);
 
         if ($deliveryStatusText) {
           if (hasDelivery) $deliveryStatusText.textContent = 'Delivered';
@@ -365,27 +404,23 @@
         }
 
         if (!hasDelivery) {
-          // لا يوجد تسليم بعد
           revealedDeliveryText = '';
-          if ($revealDeliveryBtn) $revealDeliveryBtn.classList.add('d-none');
-          if ($copyDeliveryBtn) $copyDeliveryBtn.classList.add('d-none');
-
+          $revealDeliveryBtn?.classList.add('d-none');
+          $copyDeliveryBtn?.classList.add('d-none');
           if ($deliveryPreview) {
             $deliveryPreview.innerHTML = `<span class="hidden-note">Delivery will appear here once available.</span>`;
           }
           return;
         }
 
-        // يوجد تسليم (preview فقط)
-        if ($revealDeliveryBtn) $revealDeliveryBtn.classList.remove('d-none');
+        $revealDeliveryBtn?.classList.remove('d-none');
 
         if ($deliveryPreview) {
           const prev = (delivery?.preview || 'Delivered').toString();
           $deliveryPreview.textContent = prev;
         }
 
-        // copy only after reveal (أمن)
-        if ($copyDeliveryBtn) $copyDeliveryBtn.classList.add('d-none');
+        $copyDeliveryBtn?.classList.add('d-none');
       }
 
       async function revealDelivery(){
@@ -397,15 +432,9 @@
 
           revealedDeliveryText = String(data.delivery);
 
-          // show full delivery text
-          if ($deliveryPreview) {
-            $deliveryPreview.textContent = revealedDeliveryText;
-          }
+          if ($deliveryPreview) $deliveryPreview.textContent = revealedDeliveryText;
+          $copyDeliveryBtn?.classList.remove('d-none');
 
-          // enable copy
-          if ($copyDeliveryBtn) $copyDeliveryBtn.classList.remove('d-none');
-
-          // change reveal to "Hide"
           if ($revealDeliveryBtn) {
             $revealDeliveryBtn.innerHTML = '<i class="bi bi-eye-slash"></i> Hide';
             $revealDeliveryBtn.dataset.state = 'revealed';
@@ -417,7 +446,7 @@
 
       function hideDelivery(){
         revealedDeliveryText = '';
-        if ($copyDeliveryBtn) $copyDeliveryBtn.classList.add('d-none');
+        $copyDeliveryBtn?.classList.add('d-none');
         if ($deliveryPreview) {
           $deliveryPreview.innerHTML = `<span class="hidden-note">Hidden. Click Reveal to show again.</span>`;
         }
@@ -455,7 +484,6 @@
           const data = await res.json();
           if (!data.ok) return;
 
-          // تحديث الـ status badge
           if (data.status && data.status !== lastStatus && $status) {
             lastStatus = data.status;
             $status.textContent = data.status;
@@ -464,27 +492,23 @@
             $status.style.backgroundColor = '';
             $status.style.color = '';
 
-            if (data.status === 'Accepted') {
-              $status.classList.add('bg-success');
-            } else if (data.status === 'Rejected') {
-              $status.classList.add('bg-danger');
-            } else if (data.status === 'Partial') {
-              $status.classList.add('badge-partial');
-            } else if (data.status === 'In progress') {
-              $status.classList.add('bg-info','text-dark');
-            } else {
-              $status.classList.add('bg-warning','text-dark');
-            }
+            if (data.status === 'Accepted') $status.classList.add('bg-success');
+            else if (data.status === 'Rejected') $status.classList.add('bg-danger');
+            else if (data.status === 'Partial') $status.classList.add('badge-partial');
+            else if (data.status === 'In progress') $status.classList.add('bg-info','text-dark');
+            else $status.classList.add('bg-warning','text-dark');
           }
 
-          // تحديث الـ admin reply
+          // ✅ ADMIN REPLY (بعد آخر تعديل بالسيرفر رح يكون فاضي وقت delivery)
           const note = (data.admin_reply || '').trim();
-          if ($replyPre && note !== lastReply) {
+          if (note !== lastReply) {
             lastReply = note;
-            $replyPre.textContent = note;
+            setAdminReplyUI(note);
+          } else {
+            // بس لحتى يضمن الحالة الصحيحة أول مرة
+            setAdminReplyUI(note);
           }
 
-          // تحديث أرقام الـ SMM لو موجودة
           if (data.smm) {
             if (smmOrdered)        smmOrdered.textContent        = data.smm.ordered;
             if (smmDelivered)      smmDelivered.textContent      = data.smm.delivered;
@@ -492,17 +516,13 @@
             if (smmProviderStatus) smmProviderStatus.textContent = data.smm.provider_status || '';
           }
 
-          // تحديث DELIVERY
           if (data.delivery) {
-            // إذا المستخدم كان عامل reveal وخلال polling صار has_delivery false (نادر) -> نخفي
             if (!data.delivery.has_delivery && revealedDeliveryText) hideDelivery();
             setDeliveryUI(data.delivery);
           } else {
-            // لو السيرفر ما بيرجع delivery (قديم) ما نكسر الصفحة
             setDeliveryUI({ has_delivery: false, pending_manual: false });
           }
 
-          // آخر وقت تحديث
           if ($last) {
             const now = new Date();
             $last.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -516,7 +536,6 @@
 
       document.getElementById('refreshBtn')?.addEventListener('click', fetchStatus);
 
-      // reveal/copy handlers
       $revealDeliveryBtn?.addEventListener('click', async () => {
         const state = ($revealDeliveryBtn.dataset.state || 'hidden');
         if (state === 'revealed') hideDelivery();
@@ -535,7 +554,6 @@
     })();
   </script>
 
-  <!-- سكربت Copy للأدمن reply (نفس تبعك) -->
   <script>
   (function () {
     const copyBtn   = document.getElementById('copy-reply');

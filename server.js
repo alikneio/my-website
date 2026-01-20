@@ -7357,7 +7357,7 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
 
     const row = rows[0];
 
-    // ===== SMM block حساب أرقام السوشيال =====
+    // ===== SMM block =====
     let smmBlock = null;
     if (row.smm_status) {
       const orderedQty   = Number(row.smm_quantity || 0);
@@ -7389,32 +7389,38 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     // ===== Delivery summary (NO full secret) =====
     const hasDelivery = !!(row.delivery_text && String(row.delivery_text).trim() !== '');
 
-    // preview: أول 3 + آخر 3 (أو "Delivered")
     let preview = null;
     if (hasDelivery) {
       const t = String(row.delivery_text).trim();
       preview = (t.length <= 10) ? 'Delivered' : `${t.slice(0, 3)}***${t.slice(-3)}`;
     }
 
-    // pending_manual: إذا المنتج stock بس ما كان في مخزون (fallback)
-    // الأفضل إذا عندك أعمدة fulfillment_mode/stock_fallback
+    // pending_manual: stock product but no stock at purchase time
     let pendingManual = false;
 
     if (Object.prototype.hasOwnProperty.call(row, 'fulfillment_mode') ||
         Object.prototype.hasOwnProperty.call(row, 'stock_fallback')) {
-      pendingManual = (String(row.fulfillment_mode || '').toLowerCase() === 'stock') && (Number(row.stock_fallback || 0) === 1);
+      pendingManual =
+        (String(row.fulfillment_mode || '').toLowerCase() === 'stock') &&
+        (Number(row.stock_fallback || 0) === 1);
     } else {
-      // fallback لو ما ضفت الأعمدة: نستدل من order_details
       const det = String(row.order_details || '').toLowerCase();
       pendingManual = det.includes('out of stock') || det.includes('auto-delivery unavailable');
     }
 
-    // رجّع JSON للـ polling
+    // ✅ توحيد العرض: إذا في delivery نخفي admin_reply
+    const cleanAdminReply = hasDelivery ? '' : (row.admin_reply || '');
+
     return res.json({
       ok: true,
       status: row.status,
-      admin_reply: row.admin_reply || '',
+
+      // ✅ هذا اللي الواجهة لازم تعتمد عليه
+      admin_reply: cleanAdminReply,
+      display_reply: cleanAdminReply, // optional (بس مرتب)
+
       smm: smmBlock,
+
       delivery: {
         has_delivery: hasDelivery,
         preview,
