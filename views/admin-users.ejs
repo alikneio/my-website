@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Manage Users - Admin Panel</title>
 
   <link rel="stylesheet" href="/css/bootstrap.css">
@@ -329,7 +330,13 @@
             </a>
 
             <!-- ✅ زر الـ Reset -->
-            <button type="button" class="btn btn-danger-soft" data-bs-toggle="modal" data-bs-target="#resetLevelsModal">
+            <button
+              id="openResetLevels"
+              type="button"
+              class="btn btn-danger-soft"
+              data-bs-toggle="modal"
+              data-bs-target="#resetLevelsModal"
+            >
               <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Levels
             </button>
           </div>
@@ -542,7 +549,13 @@
               <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
 
               <form id="resetLevelsForm" method="POST" action="/admin/levels/reset" class="m-0">
-                <button id="resetLevelsBtn" type="submit" class="btn btn-danger" disabled>
+                <button
+                  id="resetLevelsBtn"
+                  type="submit"
+                  class="btn btn-danger"
+                  form="resetLevelsForm"
+                  disabled
+                >
                   <i class="bi bi-arrow-counterclockwise me-1"></i> Confirm Reset
                 </button>
               </form>
@@ -554,11 +567,12 @@
     </div>
   </div>
 
+  <!-- مهم: bootstrap bundle لازم يكون موجود -->
   <script src="/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    // Search + Role filter
     document.addEventListener('DOMContentLoaded', () => {
+      // --- Filters ---
       const searchInput = document.getElementById('userSearch');
       const roleFilter = document.getElementById('roleFilter');
       const rows = Array.from(document.querySelectorAll('#usersTableBody tr'));
@@ -579,7 +593,7 @@
       if (searchInput) searchInput.addEventListener('input', applyFilters);
       if (roleFilter) roleFilter.addEventListener('change', applyFilters);
 
-      // Reset modal confirm
+      // --- Reset confirm enable/disable ---
       const confirmInput = document.getElementById('resetConfirmInput');
       const resetBtn = document.getElementById('resetLevelsBtn');
 
@@ -589,13 +603,31 @@
         });
       }
 
-      // Clear confirm input every time modal opens
+      // --- When modal opens: clear input ---
       const modalEl = document.getElementById('resetLevelsModal');
       if (modalEl) {
         modalEl.addEventListener('show.bs.modal', () => {
           if (confirmInput) confirmInput.value = '';
           if (resetBtn) resetBtn.disabled = true;
         });
+      }
+
+      // ✅ ضمان فتح المودال حتى لو data-bs-toggle ما اشتغل
+      const openBtn = document.getElementById('openResetLevels');
+      if (openBtn && modalEl) {
+        openBtn.addEventListener('click', () => {
+          if (!window.bootstrap || !bootstrap.Modal) {
+            alert('Bootstrap JS not loaded. Check /js/bootstrap.bundle.min.js');
+            return;
+          }
+          bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        });
+      }
+
+      // ✅ Debug: تأكد الفورم عم ينرسل (اختياري)
+      const form = document.getElementById('resetLevelsForm');
+      if (form) {
+        form.addEventListener('submit', () => console.log('✅ Reset form submitted'));
       }
     });
   </script>
