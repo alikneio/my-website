@@ -5857,26 +5857,33 @@ app.post('/admin/levels/reset', checkAdmin, async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // ✅ منع كبستين بنفس اليوم (اختياري بس مفيد)
-    const [[last]] = await conn.query(
-      `SELECT created_at FROM level_resets ORDER BY id DESC LIMIT 1`
-    );
+    // ✅ Lock آخر reset record لتفادي race condition
+    const [[last]] = await conn.query(`
+      SELECT created_at
+      FROM level_resets
+      ORDER BY id DESC
+      LIMIT 1
+      FOR UPDATE
+    `);
 
+    // ✅ منع كبستين خلال 24 ساعة
     if (last?.created_at) {
       const lastTime = new Date(last.created_at).getTime();
       const hours = (Date.now() - lastTime) / (1000 * 60 * 60);
 
-      // غير الرقم إذا بدك (مثلاً 48 ساعة)
       if (hours < 24) {
         await conn.rollback();
-        return res.status(409).send('Reset already performed recently.');
+        // بدل ما تبعت نص 409 (بيبين "مش شغال") رجّعك مع رسالة
+        return res.redirect('/admin/users?reset=too_soon');
       }
     }
 
-    // ✅ سجل مين عمل reset
+    // ✅ سجل مين عمل reset (ولو ما في session ما بيوقع)
+    const adminId = req?.session?.user?.id ?? null;
+
     await conn.query(
       `INSERT INTO level_resets (admin_user_id) VALUES (?)`,
-      [req.session.user?.id || null]
+      [adminId]
     );
 
     // ✅ Reset لكل المستخدمين (بدون ما نلمس balance)
@@ -5888,7 +5895,9 @@ app.post('/admin/levels/reset', checkAdmin, async (req, res) => {
     `);
 
     await conn.commit();
-    return res.redirect('/admin/settings?reset=ok');
+
+    // ✅ Redirect لصفحة موجودة (بدّلها إذا بدك)
+    return res.redirect('/admin/users?reset=ok');
 
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
