@@ -26,19 +26,14 @@
   <%- include('partials/header') %>
 
   <%
-    // ✅ السعر بعد الخصم (المفروض جاي من السيرفر)
-    const unitPriceFinal = Number(product.unit_price || 0);
+    // ✅ NO DISCOUNT: use base/original unit price only
+    const unitPriceBase = Number(
+      product.original_unit_price ||
+      product.unit_price ||
+      0
+    );
 
-    // ✅ السعر الأصلي قبل الخصم (لو السيرفر مرّره)
-    const unitPriceOriginal = Number(product.original_unit_price || 0);
-
-    const disc = Number(product.effective_discount || effectiveDiscount || 0);
-
-    const hasDiscount =
-      disc > 0 &&
-      Number.isFinite(unitPriceFinal) && unitPriceFinal > 0 &&
-      Number.isFinite(unitPriceOriginal) && unitPriceOriginal > 0 &&
-      unitPriceFinal < unitPriceOriginal;
+    const unitQtyLabel = product.unit_quantity || 1;
   %>
 
   <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5 mx-auto px-2">
@@ -66,19 +61,12 @@
 
           <div class="alert alert-light border small text-center">
             <div class="d-flex flex-column align-items-center">
-              <% if (hasDiscount) { %>
-                <div class="text-muted small mb-1">
-                  <span class="text-decoration-line-through">$<%= unitPriceOriginal.toFixed(2) %></span>
-                  <span class="badge bg-success ms-2"><%= disc.toFixed(0) %>% OFF</span>
-                </div>
-              <% } %>
-
               <div>
                 <span class="text-success fw-bold fs-5">
-                  $<%= (Number.isFinite(unitPriceFinal) ? unitPriceFinal : 0).toFixed(2) %>
+                  $<%= (Number.isFinite(unitPriceBase) ? unitPriceBase : 0).toFixed(2) %>
                 </span>
                 <span class="text-secondary"> per </span>
-                <span class="fw-bold"><%= product.unit_quantity || 1 %> <%= product.unit_label || 'units' %></span>
+                <span class="fw-bold"><%= unitQtyLabel %> <%= product.unit_label || 'units' %></span>
               </div>
             </div>
 
@@ -113,12 +101,16 @@
 <% } %>
 
           <%
-            // نفس منطقك، بس هون unit_price صار مخصوم (لأننا عدلنا الراوت)
+            // نفس منطقك، بس هلق السعر المستعمل هو الأساسي (بدون خصم)
             const _userBalance = user && typeof user.balance !== 'undefined' ? Number(user.balance) : 0;
-            const _unitPrice = Number(product.unit_price || 0) || 0;
+            const _unitPrice = Number(
+              product.original_unit_price ||
+              product.unit_price ||
+              0
+            ) || 0;
             const _unitQty   = parseInt(product.unit_quantity || 1, 10) || 1;
             const _minQty    = parseInt(product.min_quantity || _unitQty, 10) || _unitQty;
-            const _minCost   = Number((( _minQty / _unitQty) * _unitPrice).toFixed(2));
+            const _minCost   = Number((((_minQty / _unitQty) * _unitPrice)).toFixed(2));
             const _canVerifyInit = _userBalance >= _minCost;
           %>
 
@@ -194,7 +186,7 @@
 
   <div id="productData"
        data-product-id="<%= product.id %>"
-       data-unit-price="<%= parseFloat(product.unit_price || 0) %>"
+       data-unit-price="<%= Number.isFinite(unitPriceBase) ? unitPriceBase : 0 %>"
        data-unit-qty="<%= parseInt(product.unit_quantity || 1) %>"
        data-user-balance="<%= _userBalance %>"
        data-min-qty="<%= _minQty %>">

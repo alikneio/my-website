@@ -3403,7 +3403,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       }
     }
 
-    // ✅ 0.5) Fresh user from DB
+    // ✅ 0.5) Fresh user from DB (بنخليها مثل ما هي حتى ما نخرب منطقك)
     let sessionUser = null;
     try {
       const [[freshUser]] = await promisePool.query(
@@ -3460,23 +3460,15 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       }
     }
 
-    // 4) Base pricing
+    // 4) Base pricing (NO DISCOUNT)
     const baseTotalCents = Math.round((qty * rawUnitPrice * 100) / unitQty);
     if (!Number.isFinite(baseTotalCents) || baseTotalCents <= 0) {
       return res.redirect(`/api-checkout/${productId}?error=pricing`);
     }
     const baseTotal = baseTotalCents / 100;
 
-    // 5) Effective discount
-    const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
-      ? Number(getUserEffectiveDiscount(sessionUser) || 0)
-      : Number(sessionUser?.discount_percent || 0) || 0;
-
-    // ✅ 6) Discounted total
-    const discountedTotal = applyUserDiscount(baseTotal, sessionUser);
-    if (!Number.isFinite(discountedTotal) || discountedTotal <= 0) {
-      return res.redirect(`/api-checkout/${productId}?error=pricing`);
-    }
+    // ✅ 5) Final total = base total (NO DISCOUNT)
+    const finalTotal = baseTotal;
 
     // 7) Call provider FIRST
     const orderBody = {
@@ -3504,12 +3496,12 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     try {
       await conn.beginTransaction();
 
-      // ✅ خصم ذري (بدون total_spent)
+      // ✅ خصم ذري من الرصيد (NO DISCOUNT)
       const [updRes] = await conn.query(
         `UPDATE users
             SET balance = balance - ?
           WHERE id = ? AND balance >= ?`,
-        [discountedTotal, userId, discountedTotal]
+        [finalTotal, userId, finalTotal]
       );
 
       if (!updRes?.affectedRows) {
@@ -3521,7 +3513,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       await conn.query(
         `INSERT INTO transactions (user_id, type, amount, reason)
          VALUES (?, 'debit', ?, ?)`,
-        [userId, discountedTotal, `Purchase: ${product.custom_name || `API Product ${productId}`}`]
+        [userId, finalTotal, `Purchase: ${product.custom_name || `API Product ${productId}`}`]
       );
 
       const orderDetails = player_id
@@ -3534,8 +3526,8 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
          VALUES
           (?, ?, ?, NOW(), ?, 'Waiting', ?, 'dailycard', 'api'${rawIdemKey ? ', ?' : ''})`,
         rawIdemKey
-          ? [userId, product.custom_name || `API Product ${productId}`, discountedTotal, orderDetails, providerOrderId, rawIdemKey]
-          : [userId, product.custom_name || `API Product ${productId}`, discountedTotal, orderDetails, providerOrderId]
+          ? [userId, product.custom_name || `API Product ${productId}`, finalTotal, orderDetails, providerOrderId, rawIdemKey]
+          : [userId, product.custom_name || `API Product ${productId}`, finalTotal, orderDetails, providerOrderId]
       );
 
       insertId = orderRes.insertId;
@@ -3556,16 +3548,13 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       conn.release();
     }
 
-    // ✅ ما عاد نعمل recalcUserLevel هون لأن total_spent ما تغير
-    // (بيصير فقط عند Accepted من admin أو من syncProviderOrders)
-
     // 10) Refresh session after commit
     try {
       const [[freshUserAfter]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
       if (freshUserAfter) req.session.user = freshUserAfter;
     } catch (_) {}
 
-    // 11) Telegram (after commit)
+    // 11) Telegram (after commit) - NO DISCOUNT
     try {
       const [urows] = await promisePool.query(
         'SELECT username, telegram_chat_id FROM users WHERE id = ?',
@@ -3580,8 +3569,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
           `📥 <b>تم استلام طلبك بنجاح</b>\n\n` +
           `🛍️ <b>المنتج:</b> ${productName}\n` +
           `🔢 <b>الكمية:</b> ${qty}\n` +
-          `💰 <b>السعر بعد الخصم:</b> ${Number(discountedTotal).toFixed(2)}$\n` +
-          `📉 <b>الخصم الفعلي:</b> ${Number(effectiveDiscountPercent).toFixed(0)}%\n` +
+          `💰 <b>السعر:</b> ${Number(finalTotal).toFixed(2)}$\n` +
           `📌 <b>الحالة:</b> جاري المعالجة`;
 
         await sendTelegramMessage(
@@ -3599,8 +3587,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
           `👤 <b>الزبون:</b> ${urow?.username || userId}\n` +
           `🎁 <b>المنتج:</b> ${productName}\n` +
           `📦 <b>الكمية:</b> ${qty}\n` +
-          `💰 <b>السعر بعد الخصم:</b> ${Number(discountedTotal).toFixed(2)}$\n` +
-          `📉 <b>الخصم الفعلي:</b> ${Number(effectiveDiscountPercent).toFixed(0)}%\n` +
+          `💰 <b>السعر:</b> ${Number(finalTotal).toFixed(2)}$\n` +
           `🕓 <b>الوقت:</b> ${new Date().toLocaleString('en-US', { hour12: false })}`;
 
         await sendTelegramMessage(
@@ -5607,7 +5594,6 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       );
       return { locked: true };
     } catch (e) {
-      // duplicate: يا فيه payload جاهز، يا in-progress
       const existing = await getIdemPayload();
       if (existing) return { locked: false, payload: existing };
       return { locked: false, inProgress: true };
@@ -5682,30 +5668,20 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       return res.status(400).json(payload);
     }
 
-    // ✅ 2) Base price
+    // ✅ 2) Base price (NO DISCOUNT)
     const rawPrice = Number(product.custom_price || product.unit_price || 0) || 0;
     const basePrice = Math.round(rawPrice * 100) / 100;
+
     if (!Number.isFinite(basePrice) || basePrice <= 0) {
       const payload = { success: false, message: "Pricing error." };
       await saveIdemPayload(payload);
       return res.status(400).json(payload);
     }
 
-    // ✅ 3) Discount
-    const effectiveDiscountPercent =
-      typeof getUserEffectiveDiscount === "function"
-        ? Number(getUserEffectiveDiscount(sessionUser) || 0)
-        : Number(sessionUser?.discount_percent || 0) || 0;
+    // ✅ 3) Final price = Base price (NO DISCOUNT)
+    const finalPrice = basePrice;
 
-    // ✅ 4) Final price
-    const finalPrice = applyUserDiscount(basePrice, sessionUser);
-    if (!Number.isFinite(finalPrice) || finalPrice <= 0) {
-      const payload = { success: false, message: "Pricing error after discount." };
-      await saveIdemPayload(payload);
-      return res.status(400).json(payload);
-    }
-
-    // ✅ 5) Player requirements
+    // ✅ 4) Player requirements
     const requiresPlayerId = Number(product.player_check) === 1;
     if (requiresPlayerId && (!player_id || player_id.trim() === "")) {
       const payload = { success: false, message: "Missing player ID." };
@@ -5722,7 +5698,7 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       }
     }
 
-    // ✅ 6) Create provider order FIRST
+    // ✅ 5) Create provider order FIRST
     const orderBody = {
       product: parseInt(productId, 10),
       ...(player_id ? { account_id: player_id } : {})
@@ -5744,14 +5720,14 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       return res.status(500).json(payload);
     }
 
-    // ✅ 7) DB Transaction
+    // ✅ 6) DB Transaction
     const conn = await promisePool.getConnection();
     let insertId = null;
 
     try {
       await conn.beginTransaction();
 
-      // ✅ خصم ذري (بدون total_spent)
+      // ✅ خصم ذري من الرصيد (NO DISCOUNT)
       const [updRes] = await conn.query(
         `UPDATE users
             SET balance = balance - ?
@@ -5806,12 +5782,12 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
     }
 
     // ✅ Post-commit
-    // ما عاد نعمل recalcUserLevel هون لأن total_spent ما تغير
     try {
-      const [[freshUserAfter]] = await promisePool.query("SELECT * FROM users WHERE id = ? LIMIT 1", [userId]);
+      const [[freshUserAfter]] = await promisePool.query("SELECT * FROM users WHERE id = ?", [userId]);
       if (freshUserAfter) req.session.user = freshUserAfter;
     } catch (_) {}
 
+    // ✅ Telegram messages (NO DISCOUNT)
     try {
       const [urows] = await promisePool.query("SELECT username, telegram_chat_id FROM users WHERE id = ?", [userId]);
       const urow = urows[0];
@@ -5819,7 +5795,7 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       if (urow?.telegram_chat_id) {
         await sendTelegramMessage(
           urow.telegram_chat_id,
-          `📥 <b>Your order has been received</b>\n\n🛍️ <b>Product:</b> ${product.custom_name || product.name || `API Product ${productId}`}\n💰 <b>Price after discount:</b> ${finalPrice.toFixed(2)}$\n📉 <b>Effective discount:</b> ${Number(effectiveDiscountPercent).toFixed(0)}%\n📌 <b>Status:</b> Processing`,
+          `📥 <b>Your order has been received</b>\n\n🛍️ <b>Product:</b> ${product.custom_name || product.name || `API Product ${productId}`}\n💰 <b>Price:</b> ${finalPrice.toFixed(2)}$\n📌 <b>Status:</b> Processing`,
           process.env.TELEGRAM_BOT_TOKEN,
           { parseMode: 'HTML', timeoutMs: 15000 }
         );
@@ -5828,7 +5804,7 @@ app.post('/buy-fixed-product', checkAuth, async (req, res) => {
       if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
         await sendTelegramMessage(
           process.env.ADMIN_TELEGRAM_CHAT_ID,
-          `🆕 New Fixed Product Order!\n👤 User: ${urow?.username}\n🎁 Product: ${product.custom_name || product.name || `API Product ${productId}`}\n💰 Price after discount: ${finalPrice.toFixed(2)}$\n📉 Effective discount: ${Number(effectiveDiscountPercent).toFixed(0)}%\n🕓 Time: ${new Date().toLocaleString('en-US', { hour12: false })}`,
+          `🆕 New Fixed Product Order!\n👤 User: ${urow?.username}\n🎁 Product: ${product.custom_name || product.name || `API Product ${productId}`}\n💰 Price: ${finalPrice.toFixed(2)}$\n🕓 Time: ${new Date().toLocaleString('en-US', { hour12: false })}`,
           process.env.TELEGRAM_BOT_TOKEN,
           { parseMode: 'HTML', timeoutMs: 15000 }
         );
