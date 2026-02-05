@@ -6309,6 +6309,24 @@ app.get('/grammarly', (req, res) => {
   });
 });
 
+app.get('/hbo', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'HBO Max'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('hbo', { user, products: finalProducts });
+  });
+});
+
 app.get('/perplexity', (req, res) => {
   const sql = `
     SELECT * FROM products
