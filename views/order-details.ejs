@@ -154,19 +154,41 @@
           </div>
 
           <%
-            // ✅ Refill button يظهر فقط لطلبات SMM
+            // ========= Refill gating (FULL) =========
+
+            // 1) SMM فقط
             const isSmmOrder = !!order.smm_status;
 
-            // ✅ لازم provider order id
+            // 2) لازم provider order id
             const hasProviderId = !!order.provider_order_id;
 
-            // ✅ منع NO REFILL
+            // 3) منع NO REFILL من اسم المنتج (baseline)
             const noRefill = String(order.productName || '').toUpperCase().includes('NO REFILL');
 
-            const canShowRefill = isSmmOrder && hasProviderId && !noRefill;
+            // 4) منطق إضافي لتفادي "REFILL 365D" الكاذب:
+            // لا نعرض الزر إلا بعد اكتمال الطلب (completed) أو remains=0
+            const providerStatus = String(order.smm_provider_status || order.smm_status || '').toLowerCase();
+            const remainsNum = Number(order.smm_remains_qty || 0);
+            const deliveredNum = (order.smm_delivered_qty === null || order.smm_delivered_qty === undefined)
+              ? null
+              : Number(order.smm_delivered_qty || 0);
 
-            // ✅ قفل 5 أيام (الـ backend لازم يمرّر refill_next_at)
-            const refillNextAtRaw = order.refill_next_at || null; // ISO string / timestamp / null
+            const isCompletedLike =
+              providerStatus.includes('completed') ||
+              remainsNum === 0;
+
+            // 5) (اختياري) إذا السيرفر حاطط flag إنو refill ممنوع لهذا الطلب
+            const refillDisabled = Number(order.refill_disabled || 0) === 1;
+
+            const canShowRefill =
+              isSmmOrder &&
+              hasProviderId &&
+              !noRefill &&
+              !refillDisabled &&
+              isCompletedLike;
+
+            // قفل 5 أيام (backend يمرر refill_next_at)
+            const refillNextAtRaw = order.refill_next_at || null;
           %>
 
           <% if (canShowRefill) { %>
@@ -235,7 +257,7 @@
             <div class="hidden-note mt-2 d-none" id="noReplyNote">No admin reply yet.</div>
           </div>
 
-          <!-- ✅ SMM (كما هو بدون تخريب) -->
+          <!-- ✅ SMM -->
           <% if (order.smm_status) { %>
             <div class="kv-label mt-3">SOCIAL MEDIA PROGRESS</div>
             <div class="kv-value">
@@ -300,7 +322,7 @@
       const $refillSpin = document.getElementById('refillSpinner');
       const $refillNote = document.getElementById('refillNote');
 
-      // ✅ refill next time from server (must be ISO / timestamp / null)
+      // refill lock time from server
       const refillNextAtRaw = <%- JSON.stringify(order.refill_next_at || null) %>;
 
       // Admin reply UI
@@ -335,13 +357,14 @@
           $refillBtn.setAttribute('disabled','disabled');
         }else{
           $refillSpin.classList.add('d-none');
+          // ملاحظة: ما نرجع نفتح الزر هون إذا عليه lock
+          // applyRefillLock رح يقرر
           $refillBtn.removeAttribute('disabled');
         }
       }
 
       function setReplyUI(text){
         const t = (text || '').toString().trim();
-
         if ($adminReplyBox) $adminReplyBox.textContent = t;
 
         const has = !!t;
@@ -364,7 +387,6 @@
         if(!$refillBtn) return;
 
         if (!nextAt) {
-          // no lock
           $refillBtn.removeAttribute('disabled');
           if ($refillNote) $refillNote.classList.add('d-none');
           return;
@@ -372,7 +394,6 @@
 
         const t = new Date(nextAt).getTime();
         if (!t || Number.isNaN(t)) {
-          // invalid timestamp, ignore lock
           $refillBtn.removeAttribute('disabled');
           if ($refillNote) $refillNote.classList.add('d-none');
           return;
@@ -385,9 +406,9 @@
           return;
         }
 
-        // locked
         $refillBtn.setAttribute('disabled','disabled');
         const remaining = formatRemaining(t - now);
+
         if ($refillNote) {
           $refillNote.textContent = `Refill available in ${remaining}`;
           $refillNote.classList.remove('d-none');
@@ -422,7 +443,6 @@
           const data = await res.json();
           if (!data.ok) return;
 
-          // status badge update
           if (data.status && data.status !== lastStatus && $status) {
             lastStatus = data.status;
             $status.textContent = data.status;
@@ -438,14 +458,12 @@
             else $status.classList.add('bg-warning','text-dark');
           }
 
-          // ✅ admin reply فقط (حتى لو السيرفر بعت display_reply)
           const reply = (data.admin_reply || '').toString().trim();
           if (reply !== lastReply) {
             lastReply = reply;
             setReplyUI(reply);
           }
 
-          // SMM update
           if (data.smm) {
             if (smmOrdered)        smmOrdered.textContent        = data.smm.ordered;
             if (smmDelivered)      smmDelivered.textContent      = data.smm.delivered;
@@ -453,7 +471,6 @@
             if (smmProviderStatus) smmProviderStatus.textContent = data.smm.provider_status || '';
           }
 
-          // time update
           if ($last) {
             const now = new Date();
             $last.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -468,6 +485,9 @@
 
       async function requestRefill(){
         if(!$refillBtn) return;
+        // إذا الزر disabled بسبب lock ما نعمل شي
+        if ($refillBtn.hasAttribute('disabled')) return;
+
         try{
           setRefillLoading(true);
 
@@ -482,19 +502,18 @@
             const msg = data.message || 'Refill failed';
             setReplyUI(`❌ ${msg}`);
             lastReply = (`❌ ${msg}`).trim();
+
+            // إذا السيرفر رجّع refill_next_at (429) طبّق lock مباشرة
+            if (data.refill_next_at) applyRefillLock(data.refill_next_at);
+
             return;
           }
 
           setReplyUI(`✅ Refill requested successfully`);
           lastReply = '✅ Refill requested successfully';
 
-          // ✅ إذا السيرفر رجّع next time → قفل الزر فورًا
-          if (data.refill_next_at) {
-            applyRefillLock(data.refill_next_at);
-          } else {
-            // fallback: lock 5 days from now
-            applyRefillLock(Date.now() + (5 * 24 * 60 * 60 * 1000));
-          }
+          if (data.refill_next_at) applyRefillLock(data.refill_next_at);
+          else applyRefillLock(Date.now() + (5 * 24 * 60 * 60 * 1000));
 
           fetchStatus();
         }catch(e){
@@ -502,11 +521,12 @@
           lastReply = (`❌ Refill error: ${e.message}`).trim();
         }finally{
           setRefillLoading(false);
+          // بعد التحميل رجّع قرار القفل الحقيقي
+          applyRefillLock(refillNextAtRaw);
         }
       }
 
       document.getElementById('refreshBtn')?.addEventListener('click', fetchStatus);
-
       $refillBtn?.addEventListener('click', requestRefill);
 
       $copyReplyBtn?.addEventListener('click', async () => {
@@ -515,7 +535,6 @@
         await copyTextToClipboard(t);
       });
 
-      // init
       setReplyUI(($adminReplyBox?.textContent || '').trim());
       applyRefillLock(refillNextAtRaw);
       fetchStatus();
