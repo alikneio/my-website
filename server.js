@@ -1881,6 +1881,7 @@ app.post('/order-details/:id/refill.json', checkAuth, async (req, res) => {
   if (!orderId) return res.status(400).json({ ok: false, message: 'Bad request' });
 
   const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+  const PENDING_LOCK_MS = 6 * 60 * 60 * 1000; // 6 ساعات (لـ "task not completed")
 
   try {
     // 1) Load order + ensure ownership + detect SMM via join
@@ -1903,35 +1904,26 @@ app.post('/order-details/:id/refill.json', checkAuth, async (req, res) => {
 
     if (!row) return res.status(404).json({ ok: false, message: 'Order not found' });
 
-    // ✅ شرط: refill فقط لطلبات SMM (مش SQL/stock)
+    // ✅ شرط: refill فقط لطلبات SMM
     if (!row.smm_status) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Refill is available for SMM orders only'
-      });
+      return res.status(400).json({ ok: false, message: 'Refill is available for SMM orders only' });
     }
 
     // ✅ لازم provider order id
     if (!row.provider_order_id) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Missing provider order id'
-      });
+      return res.status(400).json({ ok: false, message: 'Missing provider order id' });
     }
 
     // ✅ منع خدمات NO REFILL
     const pname = String(row.productName || '').toUpperCase();
     if (pname.includes('NO REFILL')) {
-      return res.status(400).json({
-        ok: false,
-        message: 'This service does not support refill (NO REFILL)'
-      });
+      return res.status(400).json({ ok: false, message: 'This service does not support refill (NO REFILL)' });
     }
 
-    // 2) Rate limit: once every 5 days
+    // 2) Rate limit: once every 5 days (based on our DB logs)
     const [[last]] = await promisePool.query(
       `
-      SELECT created_at
+      SELECT created_at, status
       FROM smm_refills
       WHERE order_id = ?
       ORDER BY created_at DESC
@@ -1960,17 +1952,91 @@ app.post('/order-details/:id/refill.json', checkAuth, async (req, res) => {
       }
     }
 
-    // 3) Call provider
-    await createSmmRefill(row.provider_order_id);
+    // 3) Call provider (handle provider-specific errors nicely)
+    let providerRefillId = null;
 
-    // 4) Save refill request
-    await promisePool.query(
-      `
-      INSERT INTO smm_refills (order_id, provider_order_id, status)
-      VALUES (?, ?, 'requested')
-      `,
-      [orderId, String(row.provider_order_id)]
-    );
+    try {
+      // createSmmRefill لازم يكون متسامح:
+      // يرجع { refill_id: '...' } أو true أو أي شيء يدل على النجاح
+      const result = await createSmmRefill(row.provider_order_id);
+
+      if (result && typeof result === 'object') {
+        providerRefillId = result.refill_id || result.refill || result.id || null;
+      }
+    } catch (err) {
+      const msg = String(err?.message || err || '').trim();
+      const low = msg.toLowerCase();
+
+      // ✅ مزود: في refill شغال
+      if (low.includes('refill task is not completed')) {
+        const nextAt = new Date(Date.now() + PENDING_LOCK_MS).toISOString();
+
+        // خزّن محاولة (للتتبع)
+        await promisePool.query(
+          `
+          INSERT INTO smm_refills (order_id, provider_order_id, status)
+          VALUES (?, ?, 'pending_provider')
+          `,
+          [orderId, String(row.provider_order_id)]
+        );
+
+        return res.status(409).json({
+          ok: false,
+          message: 'A refill is already in progress for this order. Please try again later.',
+          refill_next_at: nextAt,
+          retry_after_seconds: Math.ceil(PENDING_LOCK_MS / 1000)
+        });
+      }
+
+      // ✅ مزود: الخدمة لا تدعم refill فعليًا
+      if (low.includes('refill is disabled')) {
+        // اختياري: خزن flag لتخبي زر refill نهائياً لاحقاً
+        try {
+          await promisePool.query(`UPDATE orders SET refill_disabled = 1 WHERE id = ?`, [orderId]);
+        } catch (_) {}
+
+        // خزّن محاولة/حالة
+        await promisePool.query(
+          `
+          INSERT INTO smm_refills (order_id, provider_order_id, status)
+          VALUES (?, ?, 'disabled_service')
+          `,
+          [orderId, String(row.provider_order_id)]
+        );
+
+        return res.status(400).json({
+          ok: false,
+          message: 'Refill is disabled for this service.'
+        });
+      }
+
+      // أي خطأ آخر من المزود
+      return res.status(502).json({
+        ok: false,
+        message: msg || 'Provider error'
+      });
+    }
+
+    // 4) Save refill request in our DB
+    // إذا عندك عمود provider_refill_id ضيفه، إذا لا موجود عادي رح يفشل؟ لا—نخليه اختياري
+    try {
+      await promisePool.query(
+        `
+        INSERT INTO smm_refills (order_id, provider_order_id, status, provider_refill_id)
+        VALUES (?, ?, 'requested', ?)
+        `,
+        [orderId, String(row.provider_order_id), providerRefillId ? String(providerRefillId) : null]
+      );
+    } catch (_) {
+      // fallback إذا ما عندك عمود provider_refill_id
+      await promisePool.query(
+        `
+        INSERT INTO smm_refills (order_id, provider_order_id, status)
+        VALUES (?, ?, 'requested')
+        `,
+        [orderId, String(row.provider_order_id)]
+      );
+    }
 
     // (اختياري) append admin_reply
     await promisePool.query(
@@ -1982,13 +2048,14 @@ app.post('/order-details/:id/refill.json', checkAuth, async (req, res) => {
       [orderId]
     );
 
-    // ✅ next allowed time (5 days from now OR based on inserted time)
+    // ✅ next allowed time (5 days from now)
     const nextAllowedMs = Date.now() + FIVE_DAYS_MS;
 
     return res.json({
       ok: true,
       message: 'Refill requested successfully',
-      refill_next_at: new Date(nextAllowedMs).toISOString()
+      refill_next_at: new Date(nextAllowedMs).toISOString(),
+      provider_refill_id: providerRefillId ? String(providerRefillId) : undefined
     });
 
   } catch (e) {
