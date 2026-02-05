@@ -103,8 +103,38 @@ async function createSmmOrder({ service, link, quantity }) {
 }
 
 // -----------------------------
+//  4) إنشاء Refill لطلب موجود
+// -----------------------------
+async function createSmmRefill(orderId) {
+  if (!orderId) throw new Error("orderId is required for refill");
+
+  const data = await callSmmgen({
+    action: "refill",
+    order: String(orderId),
+  });
+
+  console.log("SMMGEN refill response:", data);
+
+  // مثال response: { "refill":"1" }
+  if (data && data.error) {
+    throw new Error(data.error);
+  }
+
+  // بعض المزودين بيرجعوا refill=1 عند النجاح
+  if (data && String(data.refill) === "1") {
+    return true;
+  }
+
+  // إذا رجع شي غير متوقع
+  throw new Error("Unexpected refill response: " + JSON.stringify(data));
+}
+
+
+// -----------------------------
 module.exports = {
   getSmmServices,
   createSmmOrder,
   getSmmOrderStatus,
+  createSmmRefill,
 };
+

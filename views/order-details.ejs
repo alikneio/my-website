@@ -116,6 +116,13 @@
       font-size: .9rem;
     }
 
+    /* Refill info */
+    .refill-note{
+      font-size: .9rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
     @media (max-width: 768px){
       .section-title{ font-size:1.6rem }
       .order-wrapper{ padding:1.25rem }
@@ -145,6 +152,33 @@
               <span class="badge bg-warning text-dark" id="order-status"><%= order.status %></span>
             <% } %>
           </div>
+
+          <%
+            // ✅ Refill button يظهر فقط لطلبات SMM
+            const isSmmOrder = !!order.smm_status;
+
+            // ✅ لازم provider order id
+            const hasProviderId = !!order.provider_order_id;
+
+            // ✅ منع NO REFILL
+            const noRefill = String(order.productName || '').toUpperCase().includes('NO REFILL');
+
+            const canShowRefill = isSmmOrder && hasProviderId && !noRefill;
+
+            // ✅ قفل 5 أيام (الـ backend لازم يمرّر refill_next_at)
+            const refillNextAtRaw = order.refill_next_at || null; // ISO string / timestamp / null
+          %>
+
+          <% if (canShowRefill) { %>
+            <div class="d-flex flex-column align-items-end">
+              <button id="refillBtn" class="btn btn-outline-primary d-inline-flex align-items-center">
+                <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" id="refillSpinner"></span>
+                <i class="bi bi-life-preserver me-2" aria-hidden="true"></i>
+                Refill
+              </button>
+              <div class="refill-note d-none" id="refillNote"></div>
+            </div>
+          <% } %>
 
           <button id="refreshBtn" class="btn btn-brand d-inline-flex align-items-center">
             <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" id="refreshSpinner"></span>
@@ -261,6 +295,14 @@
       const $btn    = document.getElementById('refreshBtn');
       const $spin   = document.getElementById('refreshSpinner');
 
+      // ✅ Refill UI
+      const $refillBtn  = document.getElementById('refillBtn');
+      const $refillSpin = document.getElementById('refillSpinner');
+      const $refillNote = document.getElementById('refillNote');
+
+      // ✅ refill next time from server (must be ISO / timestamp / null)
+      const refillNextAtRaw = <%- JSON.stringify(order.refill_next_at || null) %>;
+
       // Admin reply UI
       const $adminReplyBox = document.getElementById('adminReplyBox');
       const $copyReplyBtn  = document.getElementById('copyReplyBtn');
@@ -286,6 +328,17 @@
         }
       }
 
+      function setRefillLoading(on){
+        if(!$refillBtn || !$refillSpin) return;
+        if(on){
+          $refillSpin.classList.remove('d-none');
+          $refillBtn.setAttribute('disabled','disabled');
+        }else{
+          $refillSpin.classList.add('d-none');
+          $refillBtn.removeAttribute('disabled');
+        }
+      }
+
       function setReplyUI(text){
         const t = (text || '').toString().trim();
 
@@ -294,6 +347,51 @@
         const has = !!t;
         if ($copyReplyBtn) $copyReplyBtn.classList.toggle('d-none', !has);
         if ($noReplyNote)  $noReplyNote.classList.toggle('d-none', has);
+      }
+
+      function formatRemaining(ms){
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const mins = Math.floor((totalSeconds % 3600) / 60);
+
+        if (days > 0) return `${days}d ${hours}h`;
+        if (hours > 0) return `${hours}h ${mins}m`;
+        return `${mins}m`;
+      }
+
+      function applyRefillLock(nextAt){
+        if(!$refillBtn) return;
+
+        if (!nextAt) {
+          // no lock
+          $refillBtn.removeAttribute('disabled');
+          if ($refillNote) $refillNote.classList.add('d-none');
+          return;
+        }
+
+        const t = new Date(nextAt).getTime();
+        if (!t || Number.isNaN(t)) {
+          // invalid timestamp, ignore lock
+          $refillBtn.removeAttribute('disabled');
+          if ($refillNote) $refillNote.classList.add('d-none');
+          return;
+        }
+
+        const now = Date.now();
+        if (now >= t) {
+          $refillBtn.removeAttribute('disabled');
+          if ($refillNote) $refillNote.classList.add('d-none');
+          return;
+        }
+
+        // locked
+        $refillBtn.setAttribute('disabled','disabled');
+        const remaining = formatRemaining(t - now);
+        if ($refillNote) {
+          $refillNote.textContent = `Refill available in ${remaining}`;
+          $refillNote.classList.remove('d-none');
+        }
       }
 
       async function copyTextToClipboard(text){
@@ -347,7 +445,7 @@
             setReplyUI(reply);
           }
 
-          // SMM update (لا نلمس حسابات EJS هنا، فقط تحديث أرقام)
+          // SMM update
           if (data.smm) {
             if (smmOrdered)        smmOrdered.textContent        = data.smm.ordered;
             if (smmDelivered)      smmDelivered.textContent      = data.smm.delivered;
@@ -368,7 +466,48 @@
         }
       }
 
+      async function requestRefill(){
+        if(!$refillBtn) return;
+        try{
+          setRefillLoading(true);
+
+          const res = await fetch(`/order-details/${orderId}/refill.json`, {
+            method: 'POST',
+            cache: 'no-store'
+          });
+
+          const data = await res.json().catch(()=> ({}));
+
+          if(!res.ok || !data.ok){
+            const msg = data.message || 'Refill failed';
+            setReplyUI(`❌ ${msg}`);
+            lastReply = (`❌ ${msg}`).trim();
+            return;
+          }
+
+          setReplyUI(`✅ Refill requested successfully`);
+          lastReply = '✅ Refill requested successfully';
+
+          // ✅ إذا السيرفر رجّع next time → قفل الزر فورًا
+          if (data.refill_next_at) {
+            applyRefillLock(data.refill_next_at);
+          } else {
+            // fallback: lock 5 days from now
+            applyRefillLock(Date.now() + (5 * 24 * 60 * 60 * 1000));
+          }
+
+          fetchStatus();
+        }catch(e){
+          setReplyUI(`❌ Refill error: ${e.message}`);
+          lastReply = (`❌ Refill error: ${e.message}`).trim();
+        }finally{
+          setRefillLoading(false);
+        }
+      }
+
       document.getElementById('refreshBtn')?.addEventListener('click', fetchStatus);
+
+      $refillBtn?.addEventListener('click', requestRefill);
 
       $copyReplyBtn?.addEventListener('click', async () => {
         const t = ($adminReplyBox?.textContent || '').trim();
@@ -378,6 +517,7 @@
 
       // init
       setReplyUI(($adminReplyBox?.textContent || '').trim());
+      applyRefillLock(refillNextAtRaw);
       fetchStatus();
       setInterval(fetchStatus, 5000);
     })();

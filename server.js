@@ -1871,6 +1871,134 @@ app.get('/social-media/:slug', async (req, res) => {
   }
 });
 
+const { createSmmRefill } = require("./services/smmgen"); // تأكد موجودة مع الباقي
+
+app.post('/order-details/:id/refill.json', checkAuth, async (req, res) => {
+  const orderId = parseInt(req.params.id, 10);
+  const userId  = req.session.user?.id;
+
+  if (!userId) return res.status(401).json({ ok: false, message: 'Unauthorized' });
+  if (!orderId) return res.status(400).json({ ok: false, message: 'Bad request' });
+
+  const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+
+  try {
+    // 1) Load order + ensure ownership + detect SMM via join
+    const [[row]] = await promisePool.query(
+      `
+      SELECT
+        o.id,
+        o.userId,
+        o.productName,
+        o.provider_order_id,
+        so.status AS smm_status
+      FROM orders o
+      LEFT JOIN smm_orders so
+        ON so.provider_order_id = o.provider_order_id
+      WHERE o.id = ? AND o.userId = ?
+      LIMIT 1
+      `,
+      [orderId, userId]
+    );
+
+    if (!row) return res.status(404).json({ ok: false, message: 'Order not found' });
+
+    // ✅ شرط: refill فقط لطلبات SMM (مش SQL/stock)
+    if (!row.smm_status) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Refill is available for SMM orders only'
+      });
+    }
+
+    // ✅ لازم provider order id
+    if (!row.provider_order_id) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Missing provider order id'
+      });
+    }
+
+    // ✅ منع خدمات NO REFILL
+    const pname = String(row.productName || '').toUpperCase();
+    if (pname.includes('NO REFILL')) {
+      return res.status(400).json({
+        ok: false,
+        message: 'This service does not support refill (NO REFILL)'
+      });
+    }
+
+    // 2) Rate limit: once every 5 days
+    const [[last]] = await promisePool.query(
+      `
+      SELECT created_at
+      FROM smm_refills
+      WHERE order_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [orderId]
+    );
+
+    if (last?.created_at) {
+      const lastMs = new Date(last.created_at).getTime();
+      const nextAllowedMs = lastMs + FIVE_DAYS_MS;
+      const nowMs = Date.now();
+
+      if (nowMs < nextAllowedMs) {
+        const remainingMs = nextAllowedMs - nowMs;
+
+        const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+        const remainingDays  = Math.ceil(remainingHours / 24);
+
+        return res.status(429).json({
+          ok: false,
+          message: `Refill already requested recently. Try again in ~${remainingDays} day(s) (${remainingHours}h).`,
+          refill_next_at: new Date(nextAllowedMs).toISOString(),
+          retry_after_seconds: Math.ceil(remainingMs / 1000)
+        });
+      }
+    }
+
+    // 3) Call provider
+    await createSmmRefill(row.provider_order_id);
+
+    // 4) Save refill request
+    await promisePool.query(
+      `
+      INSERT INTO smm_refills (order_id, provider_order_id, status)
+      VALUES (?, ?, 'requested')
+      `,
+      [orderId, String(row.provider_order_id)]
+    );
+
+    // (اختياري) append admin_reply
+    await promisePool.query(
+      `
+      UPDATE orders
+      SET admin_reply = CONCAT(IFNULL(admin_reply,''), '\n✅ Refill requested successfully')
+      WHERE id = ?
+      `,
+      [orderId]
+    );
+
+    // ✅ next allowed time (5 days from now OR based on inserted time)
+    const nextAllowedMs = Date.now() + FIVE_DAYS_MS;
+
+    return res.json({
+      ok: true,
+      message: 'Refill requested successfully',
+      refill_next_at: new Date(nextAllowedMs).toISOString()
+    });
+
+  } catch (e) {
+    console.error('refill.json error:', e?.message || e);
+    return res.status(500).json({ ok: false, message: 'Server error' });
+  }
+});
+
+
+
 
 
 app.get('/social-checkout/:id', checkAuth, async (req, res) => {
@@ -7317,6 +7445,7 @@ app.get('/order-details/:id', checkAuth, (req, res) => {
   });
 });
 
+
 // JSON status for polling من صفحة Order Details (UPDATED: includes delivery summary)
 // JSON status for polling from Order Details
 app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
@@ -7331,7 +7460,7 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     SELECT
       o.*,
 
-      -- SMM block fields
+      -- ===== SMM fields =====
       so.status          AS smm_status,
       so.quantity        AS smm_quantity,
       so.delivered_qty   AS smm_delivered_qty,
@@ -7339,11 +7468,12 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
       so.refund_amount   AS smm_refund_amount,
       so.provider_status AS smm_provider_status,
 
-      -- Delivery (do not expose full secret here)
+      -- ===== Delivery (safe preview only) =====
       od.created_at      AS delivery_created_at,
       od.delivery_text   AS delivery_text
 
     FROM orders o
+
     LEFT JOIN smm_orders so
       ON so.provider_order_id = o.provider_order_id
 
@@ -7362,8 +7492,12 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
 
     const row = rows[0];
 
-    // ===== SMM block =====
+    // ======================================================
+    // ==================== SMM BLOCK =======================
+    // ======================================================
     let smmBlock = null;
+
+    // ✅ SMM فقط إذا في سجل بـ smm_orders
     if (row.smm_status) {
       const orderedQty   = Number(row.smm_quantity || 0);
       const hasDelivered = row.smm_delivered_qty !== null && row.smm_delivered_qty !== undefined;
@@ -7391,16 +7525,23 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
       };
     }
 
-    // ===== Delivery summary (NO full secret) =====
-    const hasDelivery = !!(row.delivery_text && String(row.delivery_text).trim() !== '');
+    // ======================================================
+    // ================= DELIVERY PREVIEW ===================
+    // ======================================================
+    const hasDelivery =
+      !!(row.delivery_text && String(row.delivery_text).trim() !== '');
 
     let preview = '';
     if (hasDelivery) {
       const t = String(row.delivery_text).trim();
-      preview = (t.length <= 10) ? 'Delivered' : `${t.slice(0, 3)}***${t.slice(-3)}`;
+      preview = (t.length <= 10)
+        ? 'Delivered'
+        : `${t.slice(0, 3)}***${t.slice(-3)}`;
     }
 
-    // pending_manual: stock product but no stock at purchase time
+    // ======================================================
+    // ============== MANUAL / STOCK CHECK ==================
+    // ======================================================
     let pendingManual = false;
 
     if (
@@ -7412,34 +7553,42 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
         (Number(row.stock_fallback || 0) === 1);
     } else {
       const det = String(row.order_details || '').toLowerCase();
-      pendingManual = det.includes('out of stock') || det.includes('auto-delivery unavailable');
+      pendingManual =
+        det.includes('out of stock') ||
+        det.includes('auto-delivery unavailable');
     }
 
-    // ✅ توحيد العرض:
-    // - إذا في delivery: نخفي admin_reply ونستعمل preview للعرض
-    // - إذا ما في delivery: نعرض admin_reply مثل قبل (للطلبات القديمة)
+    // ======================================================
+    // ============== ADMIN REPLY LOGIC =====================
+    // ======================================================
     const rawAdminReply = (row.admin_reply || '').toString();
+
+    // إذا في delivery → نخفي admin_reply الحقيقي
     const adminReplyForClient = hasDelivery ? '' : rawAdminReply;
 
+    // display_reply = نقطة عرض واحدة للواجهة
     const displayReply = hasDelivery
       ? (preview || 'Delivered')
       : (rawAdminReply.trim() ? rawAdminReply : '');
 
+    // ======================================================
+    // ==================== RESPONSE ========================
+    // ======================================================
     return res.json({
       ok: true,
       status: row.status,
 
-      // القديم (للناس/الطلبات القديمة)
+      // legacy (للواجهات القديمة)
       admin_reply: adminReplyForClient,
 
-      // ✅ الجديد: الواجهة تعتمد عليه مباشرة (مكان واحد)
+      // ✅ الجديد (الواجهة تعتمد عليه)
       display_reply: displayReply,
 
+      // SMM (null للطلبات العادية)
       smm: smmBlock,
 
-      // optional helpers (لو بدك تستعملهم بالواجهة)
+      // helpers
       delivery_preview: preview,
-
       delivery: {
         has_delivery: hasDelivery,
         preview,
@@ -7448,6 +7597,7 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     });
   });
 });
+
 
 
 app.get('/order-details/:id/delivery.json', checkAuth, async (req, res) => {
