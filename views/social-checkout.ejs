@@ -46,7 +46,7 @@
             <% } else if (error === 'missing_fields') { %>
               <strong>Missing data.</strong> Please fill the link and quantity.
             <% } else if (error === 'invalid_quantity') { %>
-              <strong>Invalid quantity.</strong> Please enter a valid number.</strong>
+              <strong>Invalid quantity.</strong> Please enter a valid number.
             <% } else if (error === 'range') { %>
               <strong>Quantity is out of allowed range.</strong><br />
               Min: <%= rangeMin %> – Max: <%= rangeMax %>.
@@ -60,6 +60,8 @@
               <strong>Service not found or disabled.</strong>
             <% } else if (error === 'server') { %>
               <strong>Internal server error.</strong> Please try again later.
+            <% } else if (error === 'missing_idem') { %>
+              <strong>Session expired.</strong> Please refresh the page and try again.
             <% } else { %>
               <strong>Unable to complete the order.</strong> Please try again.
             <% } %>
@@ -123,11 +125,15 @@
           <div class="row g-4">
             <!-- FORM -->
             <div class="col-md-8">
-              <form method="POST" action="/buy-social">
+              <form id="buySocialForm" method="POST" action="/buy-social" novalidate>
                 <input type="hidden" name="service_id" value="<%= service.id %>" />
-                <% if (idemKey) { %>
-                  <input type="hidden" name="idempotency_key" value="<%= idemKey %>" />
-                <% } %>
+
+                <!-- ✅ دايمًا ابعت idempotency_key (بدون شرط if) -->
+                <input
+                  type="hidden"
+                  name="idempotency_key"
+                  value="<%= (idemKey || '').toString() %>"
+                />
 
                 <!-- Link -->
                 <div class="mb-3">
@@ -186,7 +192,8 @@
                   </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                <!-- ✅ زر مع حماية double submit -->
+                <button id="confirmBtn" type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
                   Confirm Order
                 </button>
               </form>
@@ -251,6 +258,20 @@
         qtyInput.addEventListener('input', updateEst);
         updateEst();
       }
+    })();
+  </script>
+
+  <!-- ✅ منع double submit (أهم شي) -->
+  <script>
+    (function () {
+      const form = document.getElementById('buySocialForm');
+      const btn = document.getElementById('confirmBtn');
+      if (!form || !btn) return;
+
+      form.addEventListener('submit', function () {
+        btn.disabled = true;
+        btn.innerHTML = 'Processing...';
+      });
     })();
   </script>
 

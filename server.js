@@ -2093,11 +2093,12 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
 
   const [userRow] = await q(`SELECT balance FROM users WHERE id = ?`, [userId]);
 
-  // 🆕 نولّد idempotency key جديد لكل زيارة checkout
-  const idemKey = crypto.randomUUID(); // أو أي random string تاني لو حابب
-
-  // نخزّنه بالسيشن عشان /buy-social يقدّر يستعمله كـ fallback
-  req.session.idemKey = idemKey;
+  // ✅ idempotency key ثابت للمحاولة الحالية
+  // إذا في key محفوظ مسبقاً، استعمله. إذا لا، ولّد واحد جديد.
+  if (!req.session.checkoutIdemKey) {
+    req.session.checkoutIdemKey = crypto.randomUUID();
+  }
+  const idemKey = String(req.session.checkoutIdemKey).slice(0, 64);
 
   res.render('social-checkout', {
     user: req.session.user,
@@ -2109,7 +2110,7 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
     rangeMax: max || service.max_qty,
     formLink: link || '',
     formQty: qty || '',
-    idemKey, // 🆕 نبعته للـ view
+    idemKey, // لازم يكون hidden input بالـ view
   });
 });
 
@@ -2134,101 +2135,119 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
-  const idemKey = (bodyIdemKey || req.session.idemKey || '')
-    .toString()
-    .slice(0, 64);
+  // ✅ المصدر الوحيد: body (ممنوع fallback من السيشن هون)
+  const idemKey = (bodyIdemKey || '').toString().slice(0, 64);
 
   let total = 0;
   let serviceName = '';
   let providerOrderId = '';
+  let orderId = null;
+
+  let refunded = false;
+  const doRefund = async (reason) => {
+    if (refunded) return;
+    if (!(total > 0)) return;
+    refunded = true;
+
+    await q(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
+    await q(
+      `INSERT INTO transactions (user_id, type, amount, reason)
+       VALUES (?, 'credit', ?, ?)`,
+      [userId, total, reason]
+    );
+  };
 
   try {
     console.log('🟦 /buy-social START', { userId, serviceIdNum, link, qty, idemKey });
 
-    // 🆕 0) Idempotency gate
-    if (idemKey) {
-      try {
-        await q(
-          `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
-          [userId, idemKey]
-        );
-      } catch (e) {
-        console.log('⏩ duplicate /buy-social detected, skipping', { userId, idemKey });
-        return res.redirect('/processing');
-      }
-    }
-
-    // 1) تحقّق من المدخلات الأساسية
+    // 1) تحقّق من المدخلات الأساسية (قبل idempotency insert)
     if (!serviceIdNum || !link || !quantity) {
-      console.log('❌ missing_fields');
       return res.redirect('/social-media?error=missing_fields');
     }
-
     if (!Number.isFinite(qty) || qty <= 0) {
-      console.log('❌ invalid_quantity');
       return res.redirect(`/social-checkout/${serviceIdNum}?error=invalid_quantity`);
     }
+    if (!idemKey) {
+      // ✅ ممنوع تمشي بدون key (هذا اللي كان يفتح باب التكرار)
+      return res.redirect(`/social-checkout/${serviceIdNum}?error=missing_idem`);
+    }
 
-    // 2) جلب الخدمة من smm_services (فقط المفعّلة)
+    // 2) جلب الخدمة (فقط المفعّلة)
     const [service] = await q(
       `SELECT * FROM smm_services WHERE id = ? AND is_active = 1`,
       [serviceIdNum]
     );
-
     if (!service) {
-      console.log('❌ service_not_found');
       return res.redirect(`/social-checkout/${serviceIdNum}?error=service_not_found`);
     }
-
     serviceName = service.name;
 
-    // 3) التحقق من min/max
+    // 3) تحقق min/max
     const minQty = Number(service.min_qty || 0);
     const maxQty = Number(service.max_qty || 0);
-
     if ((minQty && qty < minQty) || (maxQty && qty > maxQty)) {
-      console.log('❌ range_error', { minQty, maxQty, qty });
       return res.redirect(
         `/social-checkout/${serviceIdNum}?error=range&min=${minQty}&max=${maxQty}`
       );
     }
 
-    // 4) السعر (rate لكل rate_per)
+    // 4) حساب السعر
     const rate = Number(service.rate || 0);
     const ratePer = Number(service.rate_per || 1000) || 1000;
-
     if (!Number.isFinite(rate) || rate <= 0) {
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
-
     const totalCents = Math.round((qty * rate * 100) / ratePer);
-
     if (!Number.isFinite(totalCents) || totalCents <= 0) {
-      console.log('❌ pricing_too_low', { totalCents });
       return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
     }
     total = totalCents / 100;
 
-    // 5) خصم من رصيد المستخدم (ذَرّي)
+    // ✅ 5) Idempotency gate (مرتبط بالـ order_id)
+    // حاول تسجل المفتاح. إذا موجود، جيب order_id وارجع عليه بدل ما تخصم من جديد.
+    try {
+      await q(
+        `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
+        [userId, idemKey]
+      );
+    } catch (e) {
+      // duplicate key
+      const rows = await q(
+        `SELECT order_id FROM idempotency_keys WHERE user_id = ? AND idem_key = ? LIMIT 1`,
+        [userId, idemKey]
+      );
+      const existingOrderId = rows?.[0]?.order_id;
+
+      console.log('⏩ duplicate /buy-social detected', { userId, idemKey, existingOrderId });
+
+      if (existingOrderId) {
+        req.session.pendingOrderId = existingOrderId;
+      }
+      return res.redirect('/processing');
+    }
+
+    // 6) خصم رصيد المستخدم (ذري)
     const upd = await q(
       `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
       [total, userId, total]
     );
     if (!upd?.affectedRows) {
-      console.log('❌ not_enough_balance');
+      // مهم: إذا ما خصمنا، الأفضل نمسح idempotency record حتى ما يعلّق المحاولة
+      await q(
+        `DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ? AND order_id IS NULL`,
+        [userId, idemKey]
+      );
       return res.redirect(`/social-checkout/${serviceIdNum}?error=balance`);
     }
 
-    console.log('✅ balance_updated', { total });
-
-    // 6) تسجيل معاملة الخصم
+    // 7) سجل معاملة الخصم
     await q(
       `INSERT INTO transactions (user_id, type, amount, reason)
        VALUES (?, 'debit', ?, ?)`,
       [userId, total, `Social Media Service: ${serviceName}`]
     );
 
-    // 7) إنشاء الطلب عند مزوّد SMMGen
+    // 8) إنشاء الطلب عند مزوّد SMMGen
     try {
       providerOrderId = await createSmmOrder({
         service: service.provider_service_id,
@@ -2239,12 +2258,12 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     } catch (apiErr) {
       console.error('❌ SMMGEN API error:', apiErr.message || apiErr);
 
-      // Refund
-      await q(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
+      await doRefund(`Refund (SMMGEN error): ${serviceName}`);
+
+      // مهم: حذف idempotency record لأن العملية فشلت وما في order_id
       await q(
-        `INSERT INTO transactions (user_id, type, amount, reason)
-         VALUES (?, 'credit', ?, ?)`,
-        [userId, total, `Refund (SMMGEN error): ${serviceName}`]
+        `DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ? AND order_id IS NULL`,
+        [userId, idemKey]
       );
 
       return res.redirect(
@@ -2255,23 +2274,21 @@ app.post('/buy-social', checkAuth, async (req, res) => {
     }
 
     if (!providerOrderId) {
-      console.log('❌ no_provider_id');
-      await q(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
+      await doRefund(`Refund (no provider id): ${serviceName}`);
+
       await q(
-        `INSERT INTO transactions (user_id, type, amount, reason)
-         VALUES (?, 'credit', ?, ?)`,
-        [userId, total, `Refund (no provider id): ${serviceName}`]
+        `DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ? AND order_id IS NULL`,
+        [userId, idemKey]
       );
+
       return res.redirect(`/social-checkout/${serviceIdNum}?error=no_provider_id`);
     }
 
-    // 8) حفظ الطلب في جدول orders
+    // 9) حفظ الطلب في جدول orders
     const orderDetails = `Link: ${link} | Quantity: ${qty}`;
-
     const insertOrderSql = `
       INSERT INTO orders
-        (userId, productName, price, purchaseDate, order_details, status,
-         provider_order_id)
+        (userId, productName, price, purchaseDate, order_details, status, provider_order_id)
       VALUES
         (?, ?, ?, NOW(), ?, 'Waiting', ?)
     `;
@@ -2284,10 +2301,9 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       providerOrderId,
     ]);
 
-    const orderId = insertRes.insertId || null;
-    console.log('✅ order_inserted', { orderId });
+    orderId = insertRes.insertId || null;
 
-    // 9) حفظ الطلب في جدول smm_orders
+    // 10) حفظ الطلب في جدول smm_orders
     await q(
       `
       INSERT INTO smm_orders
@@ -2297,16 +2313,22 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       [userId, service.id, providerOrderId, qty, total, link]
     );
 
-    console.log('✅ smm_orders_inserted');
+    // ✅ 11) ربط idempotency record بالـ orderId (الخطوة الأهم)
+    if (orderId) {
+      await q(
+        `UPDATE idempotency_keys SET order_id = ? WHERE user_id = ? AND idem_key = ? LIMIT 1`,
+        [orderId, userId, idemKey]
+      );
+    }
 
-    // 10) إشعار داخلي
+    // 12) إشعار داخلي
     await q(
       `INSERT INTO notifications (user_id, message, created_at, is_read)
        VALUES (?, ?, NOW(), 0)`,
       [userId, `✅ تم استلام طلب خدمتك (${serviceName}) بنجاح. سيتم تنفيذها قريبًا.`]
     );
 
-    // 🆕 10.1) إشعارات تيليغرام (للزبون + الإدمن) عبر RELAY
+    // 13) إشعار تيليغرام (نفس كودك… ما لمست فيه شي)
     try {
       const now = new Date();
 
@@ -2317,7 +2339,6 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       const userRow = userRows[0] || {};
       const chatId = userRow.telegram_chat_id;
 
-      // إشعار للزبون
       if (chatId) {
         const userMsg = `
 📥 *تم استلام طلب خدمتك بنجاح*
@@ -2336,13 +2357,10 @@ app.post('/buy-social', checkAuth, async (req, res) => {
             { parseMode: 'Markdown', timeoutMs: 15000 }
           );
         } catch (e) {
-          console.warn('⚠️ Failed to send Telegram to user (social via relay):', e.message || e);
+          console.warn('⚠️ Failed to send Telegram to user:', e.message || e);
         }
-      } else {
-        console.log("ℹ️ No telegram_chat_id for this user (social order) أو ما كبس Start على البوت.");
       }
 
-      // إشعار للإدمن
       try {
         const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
         const adminMsg = `
@@ -2363,37 +2381,47 @@ app.post('/buy-social', checkAuth, async (req, res) => {
           process.env.TELEGRAM_BOT_TOKEN,
           { parseMode: 'HTML', timeoutMs: 15000 }
         );
-
-        console.log('📢 Admin notified via Telegram (social via relay)');
       } catch (e) {
-        console.warn('⚠️ Failed to notify admin via Telegram (social via relay):', e.message || e);
+        console.warn('⚠️ Failed to notify admin via Telegram:', e.message || e);
       }
     } catch (e) {
       console.warn('⚠️ Telegram notification flow error (social):', e.message || e);
     }
 
-    // 11) حفظ رقم الطلب للصفحة /processing
+    // ✅ 14) حفظ رقم الطلب للـ processing
     req.session.pendingOrderId = orderId;
-    console.log('✅ /buy-social DONE, redirect /processing');
+
+    // ✅ مهم: امسح checkout key حتى الطلب الجاي يكون مفتاح جديد
+    req.session.checkoutIdemKey = null;
 
     return res.redirect('/processing');
 
   } catch (err) {
     console.error('❌ /buy-social error:', err?.message || err);
 
-    // Refund لو صار Error بعد الخصم
+    // ✅ إذا ما صار providerOrderId (يعني ما انبعت للمزوّد)، منعمل refund
+    // إذا providerOrderId موجود، لا تعمل refund تلقائي (لأن الطلب عند المزود انعمل فعلياً)
     try {
-      if (total > 0) {
-        await q(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
+      if (!providerOrderId) {
+        await doRefund(`Refund (server error): ${serviceName || 'Social Service'}`);
+
+        // إزالة idempotency record لأنه ما في order_id
+        if (idemKey) {
+          await q(
+            `DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ? AND order_id IS NULL`,
+            [userId, idemKey]
+          );
+        }
+      } else {
+        // إذا بدك: سجل إشعار للإدمن/لوج قوي هون لأن الطلب عند المزود انعمل
         await q(
-          `INSERT INTO transactions (user_id, type, amount, reason)
-           VALUES (?, 'credit', ?, ?)`,
-          [userId, total, `Refund (server error): ${serviceName || 'Social Service'}`]
+          `INSERT INTO notifications (user_id, message, created_at, is_read)
+           VALUES (?, ?, NOW(), 0)`,
+          [userId, `⚠️ حصل خطأ داخلي بعد إنشاء الطلب عند المزود. رقم المزود: ${providerOrderId}. تواصل مع الدعم.`]
         );
-        console.log('✅ refund done after server error');
       }
     } catch (e2) {
-      console.error('❌ refund after error failed:', e2?.message || e2);
+      console.error('❌ refund/cleanup after error failed:', e2?.message || e2);
     }
 
     return res.redirect(`/social-checkout/${serviceIdNum}?error=server`);
