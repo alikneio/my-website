@@ -1598,11 +1598,15 @@ app.get('/api-checkout/:id', checkAuth, async (req, res) => {
 
 
 function makeSlug(name = '') {
-  return smmSlugify(name, {
-    lower: true,
-    strict: true,
-    trim: true
-  }) || 'other';
+  return (
+    String(name)
+      .normalize('NFKD')                 // يفكّك الأحرف
+      .replace(/[\u0300-\u036f]/g, '')   // يشيل التشكيل
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')       // أي شي غير حرف/رقم → -
+      .replace(/^-+|-+$/g, '')           // يشيل - من الأول والآخر
+  ) || 'other';
 }
 
 
