@@ -8087,12 +8087,31 @@ const bot = require('./telegram/bot');
 //                  START SERVER
 // =============================================
 
-app.listen(PORT, '0.0.0.0', async () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
 
-  // شغلك الحالي (ما نلمسه)
-  syncSMM();
-  setInterval(syncSMM, 12 * 60 * 60 * 1000);
+  // --- syncSMM safe runner (no crash, no overlap) ---
+  let syncSmmRunning = false;
+
+  const runSyncSMM = async () => {
+    if (syncSmmRunning) {
+      console.log('⏭️ syncSMM: skipped (already running)');
+      return;
+    }
+    syncSmmRunning = true;
+
+    try {
+      await syncSMM();
+    } catch (e) {
+      console.error('❌ syncSMM run error:', e?.message || e);
+    } finally {
+      syncSmmRunning = false;
+    }
+  };
+
+  // شغلك الحالي بس صار آمن
+  runSyncSMM();
+  setInterval(runSyncSMM, 12 * 60 * 60 * 1000);
 
   console.log("🔑 API KEY:", process.env.DAILYCARD_API_KEY ? "Loaded" : "Missing");
   console.log("🔐 API SECRET:", process.env.DAILYCARD_API_SECRET ? "Loaded" : "Missing");
