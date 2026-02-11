@@ -20,17 +20,24 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
     );
   }
 
-  function mapStatuses(providerStatus) {
-    const s = (providerStatus || '').toLowerCase();
+  // ✅ normalize status strings (trim + lowercase)
+  function normStatus(s) {
+    return String(s || '').trim().toLowerCase();
+  }
 
-    // قيم SMMGen المتوقعة: Pending, Processing, In progress, Completed, Partial, Canceled
-    if (s === 'completed') return { smm: 'completed', local: 'Accepted' };
-    if (s === 'partial')   return { smm: 'partial',   local: 'Partial' };
-    if (s === 'canceled')  return { smm: 'canceled',  local: 'Rejected' };
-    if (s === 'processing' || s === 'in progress') {
+  // ✅ mapping مرن (contains بدل مساواة صارمة)
+  function mapStatuses(providerStatus) {
+    const s = normStatus(providerStatus);
+
+    // SMMGen: Pending, Processing, In progress, Completed, Partial, Canceled
+    if (s.includes('completed')) return { smm: 'completed',  local: 'Accepted' };
+    if (s.includes('partial'))   return { smm: 'partial',    local: 'Partial' };
+    if (s.includes('canceled') || s.includes('cancelled')) {
+      return { smm: 'canceled', local: 'Rejected' };
+    }
+    if (s.includes('processing') || s.includes('in progress') || s.includes('in_progress')) {
       return { smm: 'processing', local: 'In progress' };
     }
-    // pending / undefined
     return { smm: 'pending', local: 'Waiting' };
   }
 
@@ -38,11 +45,24 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
     const params = new URLSearchParams({
       key: API_KEY || '',
       action: 'status',
-      order: orderId,
+      order: String(orderId || ''),
     });
 
     // Timeout مهم حتى ما يعلق الـ job
-    const { data } = await axios.post(API_URL, params, { timeout: 20_000 });
+    const { data } = await axios.post(API_URL, params, {
+      timeout: 20_000,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      validateStatus: () => true,
+    });
+
+    // لو رجع error من API
+    if (!data || (typeof data === 'object' && data.error)) {
+      const msg = data?.error || 'Unknown provider error';
+      const err = new Error(msg);
+      err.provider_payload = data;
+      throw err;
+    }
+
     return data;
   }
 
@@ -50,7 +70,6 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
     try {
       return await promisePool.query(sql, params);
     } catch (err) {
-      // Retry مرة واحدة إذا انقطع الاتصال
       if (isDbDisconnect(err)) {
         console.error('❌ syncSMM: DB connection lost (retry once):', err.message || err);
         await new Promise((r) => setTimeout(r, 1500));
@@ -72,13 +91,29 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
     }
   }
 
+  async function dbHealthy() {
+    try {
+      await promisePool.query('SELECT 1');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   return async function syncSmmOrders() {
     console.log('🔄 syncSMM job running...');
 
-    // 1) أول SELECT كان سبب الكراش لأنه برا try/catch
+    // Gate سريع: إذا DB مش جاهزة ما نفوت
+    if (!(await dbHealthy())) {
+      console.log('⏭️ syncSMM skipped: DB not ready');
+      return;
+    }
+
+    // 1) ✅ SELECT مع ORDER BY قبل LIMIT (حل مشكلة طلبات ما عم توصل)
     let rows = [];
     try {
-      const [r] = await safeQuery(`
+      const [r] = await safeQuery(
+        `
         SELECT
           so.*,
           o.id     AS order_id,
@@ -95,8 +130,10 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
             so.status IN ('pending','processing','partial')
             OR (so.status = 'completed' AND so.refunded = 0 AND so.charge > 0)
           )
+        ORDER BY so.updated_at DESC, so.id DESC
         LIMIT 20
-      `);
+        `
+      );
       rows = r || [];
     } catch (err) {
       if (isDbDisconnect(err)) {
@@ -119,10 +156,15 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
       let statusData;
       try {
         statusData = await fetchStatus(providerOrderId);
-        console.log('SMMGEN status response:', statusData);
+        // log مختصر (مش payload ضخم)
+        console.log('SMMGEN status:', {
+          order: providerOrderId,
+          status: statusData?.status,
+          remains: statusData?.remains,
+          charge: statusData?.charge,
+        });
       } catch (err) {
-        // Axios errors
-        const msg = err?.response?.data || err?.message || err;
+        const msg = err?.provider_payload || err?.response?.data || err?.message || err;
         console.error(`❌ syncSMM: error fetching status for provider_order_id=${providerOrderId}:`, msg);
         continue;
       }
@@ -131,10 +173,10 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
       const { smm: smmStatus, local: localStatus } = mapStatuses(providerStatusRaw);
 
       const orderedQty     = Number(row.quantity || 0);
-      const remainsFromApi = Number(statusData?.remains || 0);
-      const remainsFromDb  = Number(row.remains_qty || 0);
+      const remainsFromApi = Number(statusData?.remains);
+      const remainsFromDb  = Number(row.remains_qty);
 
-      // remains: نختار الأحدث/الأصح، ونضبط الحدود
+      // remains: نختار الأصح، ونضبط الحدود
       let remains = remainsFromApi;
       if (!Number.isFinite(remains) || remains < 0) remains = remainsFromDb;
       if (!Number.isFinite(remains) || remains < 0) remains = 0;
@@ -152,18 +194,14 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
         if (refundAmount < 0.01) refundAmount = 0;
       }
 
-      // 3) Transaction: لازم تكون آمنة وتضمن release
+      // 3) Transaction
       const conn = await safeGetConnection();
-      if (!conn) {
-        // DB واقعة / ما قدرنا ناخد connection
-        // نتركها للدورة الجاية بدل ما نوقع السيرفر
-        continue;
-      }
+      if (!conn) continue;
 
       try {
         await conn.beginTransaction();
 
-        // تحديث smm_orders
+        // ✅ تحديث smm_orders
         await conn.query(
           `
           UPDATE smm_orders
@@ -188,13 +226,13 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
           ]
         );
 
-        // تحديث orders.status
+        // ✅ تحديث orders.status
         await conn.query(
           `UPDATE orders SET status = ? WHERE id = ?`,
           [localStatus, row.order_id]
         );
 
-        // Refund إذا لازم
+        // ✅ Refund إذا لازم
         if (refundAmount > 0 && !row.refunded) {
           await conn.query(
             `UPDATE users SET balance = balance + ? WHERE id = ?`,
@@ -238,24 +276,15 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
           `✅ syncSMM: order #${row.order_id} provider ${providerOrderId} → ${providerStatusRaw}, local=${localStatus}, refund=$${refundAmount}`
         );
       } catch (innerErr) {
-        // إذا DB قطعت خلال الترانزاكشن، rollback إذا ممكن
         if (isDbDisconnect(innerErr)) {
           console.error('❌ syncSMM: DB lost during transaction (will retry next run):', innerErr.message || innerErr);
         } else {
           console.error('❌ syncSMM (transaction) error:', innerErr.message || innerErr);
         }
 
-        try {
-          await conn.rollback();
-        } catch (_) {
-          // تجاهل
-        }
+        try { await conn.rollback(); } catch (_) {}
       } finally {
-        try {
-          conn.release();
-        } catch (_) {
-          // تجاهل
-        }
+        try { conn.release(); } catch (_) {}
       }
     }
   };
