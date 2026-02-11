@@ -66,15 +66,6 @@ const makeSyncSMMJob = require('./jobs/syncSMM');
 const syncSMM = makeSyncSMMJob(db, promisePool);
 
 
-// 🔁 شغّل syncSMM كل 60 ثانية
-setInterval(async () => {
-  try {
-    await syncSMM();
-  } catch (err) {
-    console.error('❌ syncSMM top-level error:', err.message || err);
-  }
-}, 50 * 1000);
-
 
 // ===============================
 //  User Levels & Discounts System
