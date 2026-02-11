@@ -64,6 +64,8 @@ app.set('view engine', 'ejs');
 const { pool: db, promisePool, query } = require('./database');
 const makeSyncSMMJob = require('./jobs/syncSMM');
 const syncSMM = makeSyncSMMJob(db, promisePool);
+const makeSyncJob = require('./jobs/syncProviderOrders');
+const syncJob = makeSyncJob(db, promisePool);
 
 
 
@@ -8045,17 +8047,7 @@ app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
 });
 
 
-const makeSyncJob = require('./jobs/syncProviderOrders');
-const syncJob = makeSyncJob(db, promisePool);
 
-
-setInterval(() => {
-  if (isMaintenance()) {
-    // ما نعمل sync خلال الصيانة لتوفير موارد
-    return;
-  }
-  syncJob().catch(() => {});
-}, 2 * 60 * 1000);
 
 
 app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
@@ -8081,31 +8073,98 @@ const bot = require('./telegram/bot');
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
 
-  // --- syncSMM safe runner (no crash, no overlap) ---
+  // ---- DB health gate ----
+  const dbHealthy = async () => {
+    try {
+      await promisePool.query('SELECT 1');
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // =========================================================
+  // syncSMM safe runner (no crash, no overlap, + backoff)
+  // =========================================================
   let syncSmmRunning = false;
+  let smmBackoffMs = 0;
 
   const runSyncSMM = async () => {
-    if (syncSmmRunning) {
-      console.log('⏭️ syncSMM: skipped (already running)');
+    if (syncSmmRunning) return;
+
+    if (smmBackoffMs > 0) {
+      console.log(`⏳ syncSMM backoff ${Math.round(smmBackoffMs / 1000)}s`);
       return;
     }
-    syncSmmRunning = true;
 
+    if (typeof isMaintenance === 'function' && isMaintenance()) return;
+
+    if (!(await dbHealthy())) {
+      console.log('⏭️ syncSMM skipped: DB not ready');
+      smmBackoffMs = 30_000;
+      setTimeout(() => { smmBackoffMs = 0; }, smmBackoffMs);
+      return;
+    }
+
+    syncSmmRunning = true;
     try {
       await syncSMM();
+      smmBackoffMs = 0;
     } catch (e) {
       console.error('❌ syncSMM run error:', e?.message || e);
+      smmBackoffMs = smmBackoffMs ? Math.min(smmBackoffMs * 2, 10 * 60 * 1000) : 30_000;
+      setTimeout(() => { smmBackoffMs = 0; }, smmBackoffMs);
     } finally {
       syncSmmRunning = false;
     }
   };
 
-  // شغلك الحالي بس صار آمن
-  runSyncSMM();
-  setInterval(runSyncSMM, 12 * 60 * 60 * 1000);
+  // =========================================================
+  // syncProviderOrders safe runner (syncJob) + backoff
+  // =========================================================
+  let providerRunning = false;
+  let providerBackoffMs = 0;
 
-  console.log("🔑 API KEY:", process.env.DAILYCARD_API_KEY ? "Loaded" : "Missing");
-  console.log("🔐 API SECRET:", process.env.DAILYCARD_API_SECRET ? "Loaded" : "Missing");
+  const runSyncProvider = async () => {
+    if (providerRunning) return;
+
+    if (providerBackoffMs > 0) {
+      console.log(`⏳ syncProviderOrders backoff ${Math.round(providerBackoffMs / 1000)}s`);
+      return;
+    }
+
+    if (typeof isMaintenance === 'function' && isMaintenance()) return;
+
+    if (!(await dbHealthy())) {
+      console.log('⏭️ syncProviderOrders skipped: DB not ready');
+      providerBackoffMs = 30_000;
+      setTimeout(() => { providerBackoffMs = 0; }, providerBackoffMs);
+      return;
+    }
+
+    providerRunning = true;
+    try {
+      await syncJob(); // ✅ نفس الدالة اللي عندك
+      providerBackoffMs = 0;
+    } catch (e) {
+      console.error('❌ syncProviderOrders error:', e?.message || e);
+      providerBackoffMs = providerBackoffMs ? Math.min(providerBackoffMs * 2, 10 * 60 * 1000) : 30_000;
+      setTimeout(() => { providerBackoffMs = 0; }, providerBackoffMs);
+    } finally {
+      providerRunning = false;
+    }
+  };
+
+  // ✅ تشغيل أولي
+  runSyncSMM();
+  runSyncProvider();
+
+  // ✅ خفّف الضغط: كل 3 دقائق (بدل 50 ثانية)
+  setInterval(runSyncSMM, 3 * 60 * 1000);
+  setInterval(runSyncProvider, 3 * 60 * 1000);
+
+  // Logs غير حساسة
+  console.log("🔑 DAILYCARD API KEY:", process.env.DAILYCARD_API_KEY ? "Loaded" : "Missing");
   console.log("✅ Test route registered at /test");
 
   // =========================

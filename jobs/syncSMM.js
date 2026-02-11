@@ -95,7 +95,7 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
             so.status IN ('pending','processing','partial')
             OR (so.status = 'completed' AND so.refunded = 0 AND so.charge > 0)
           )
-        LIMIT 100
+        LIMIT 20
       `);
       rows = r || [];
     } catch (err) {

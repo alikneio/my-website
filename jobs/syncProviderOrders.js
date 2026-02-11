@@ -2,8 +2,6 @@
 const { getOrderStatusFromDailycard } = require('../services/dailycard');
 const sendTelegramMessage = require('../utils/sendTelegramNotification');
 
-// ✅ إذا موجود عندك recalcUserLevel كـ require، ضيفه
-// إذا هو global عندك، شيل هالسطر وخلي الاستدعاء مثل ما هو
 let recalcUserLevel = null;
 try {
   recalcUserLevel = require('../utils/recalcUserLevel');
@@ -11,9 +9,6 @@ try {
   // ignore if not present as a module
 }
 
-/**
- * Auto-sync provider orders (DailyCard) into local `orders` table.
- */
 module.exports = function makeSyncJob(_db, promisePool) {
   const APPROVE_MSG_EN = '✅ Your order has been approved and completed successfully.';
   const REJECT_MSG_EN  = '❌ Your order has been rejected. The amount has been refunded to your balance.';
@@ -37,9 +32,54 @@ module.exports = function makeSyncJob(_db, promisePool) {
     return REJECT_KEYWORDS.some(k => s.includes(k));
   }
 
+  function isDbDisconnect(err) {
+    const code = err?.code;
+    return (
+      code === 'PROTOCOL_CONNECTION_LOST' ||
+      code === 'ECONNRESET' ||
+      code === 'ECONNREFUSED' ||
+      code === 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR' ||
+      code === 'PROTOCOL_ENQUEUE_AFTER_QUIT'
+    );
+  }
+
+  async function dbHealthy() {
+    try {
+      await promisePool.query('SELECT 1');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function safeQuery(sql, params) {
+    try {
+      return await promisePool.query(sql, params);
+    } catch (err) {
+      if (isDbDisconnect(err)) {
+        console.error('❌ syncProviderOrders: DB lost (retry once):', err.message || err);
+        await new Promise(r => setTimeout(r, 1500));
+        return await promisePool.query(sql, params);
+      }
+      throw err;
+    }
+  }
+
+  async function safeGetConnection() {
+    try {
+      return await promisePool.getConnection();
+    } catch (err) {
+      if (isDbDisconnect(err)) {
+        console.error('❌ syncProviderOrders: cannot get DB connection (skip):', err.message || err);
+        return null;
+      }
+      throw err;
+    }
+  }
+
   async function sendOrderUpdateTelegram(orderId, statusLabel) {
     try {
-      const [rows] = await promisePool.query(
+      const [rows] = await safeQuery(
         `SELECT o.productName, o.order_details, o.admin_reply, u.telegram_chat_id
            FROM orders o
            JOIN users u ON u.id = o.userId
@@ -47,6 +87,7 @@ module.exports = function makeSyncJob(_db, promisePool) {
           LIMIT 1`,
         [orderId]
       );
+
       const info = rows?.[0];
       if (!info || !info.telegram_chat_id) return;
 
@@ -67,7 +108,7 @@ module.exports = function makeSyncJob(_db, promisePool) {
 
       await sendTelegramMessage(info.telegram_chat_id, message, process.env.TELEGRAM_BOT_TOKEN);
     } catch (e) {
-      console.error(`⚠️ Telegram notify error for order #${orderId}:`, e.message);
+      console.error(`⚠️ Telegram notify error for order #${orderId}:`, e.message || e);
     }
   }
 
@@ -76,24 +117,26 @@ module.exports = function makeSyncJob(_db, promisePool) {
     const providerOrderId = row.provider_order_id;
     if (!providerOrderId) return;
 
-    // 1) fetch provider status
+    // 1) fetch provider status (شبكة خارج DB)
     let providerStatus = null;
     try {
       const { ok, status } = await getOrderStatusFromDailycard(providerOrderId);
       if (!ok) return;
       providerStatus = status || '';
     } catch (e) {
-      console.error(`❌ DailyCard status fetch error for provider_order_id=${providerOrderId}:`, e.message);
+      console.error(`❌ DailyCard status fetch error for provider_order_id=${providerOrderId}:`, e.message || e);
       return;
     }
 
-    // 2) ignore pending-ish statuses
+    // 2) ignore pending-ish
     if (!looksAccepted(providerStatus) && !looksRejected(providerStatus)) {
       return;
     }
 
-    // 3) Transaction per order to be safe/idempotent
-    const conn = await promisePool.getConnection();
+    // 3) Transaction per order
+    const conn = await safeGetConnection();
+    if (!conn) return; // DB مش جاهزة
+
     let userId = null;
     let price = 0;
 
@@ -109,6 +152,7 @@ module.exports = function makeSyncJob(_db, promisePool) {
           FOR UPDATE`,
         [orderId]
       );
+
       if (!orderRow) {
         await conn.rollback();
         return;
@@ -120,13 +164,11 @@ module.exports = function makeSyncJob(_db, promisePool) {
 
       // ----- Accepted -----
       if (looksAccepted(providerStatus)) {
-        // إذا أصلًا Accepted، ما نعمل شي
         if (oldStatus === 'Accepted') {
           await conn.rollback();
           return;
         }
 
-        // حدّث الطلب إلى Accepted
         const [upd] = await conn.query(
           `UPDATE orders
               SET status = 'Accepted',
@@ -136,7 +178,6 @@ module.exports = function makeSyncJob(_db, promisePool) {
         );
 
         if (upd.affectedRows > 0) {
-          // ✅ زِد total_spent مرة واحدة فقط عند أول قبول
           await conn.query(
             `UPDATE users SET total_spent = total_spent + ? WHERE id = ?`,
             [price, userId]
@@ -145,7 +186,6 @@ module.exports = function makeSyncJob(_db, promisePool) {
 
         await conn.commit();
 
-        // after commit
         if (upd.affectedRows > 0) {
           try {
             if (typeof recalcUserLevel === 'function') {
@@ -163,13 +203,11 @@ module.exports = function makeSyncJob(_db, promisePool) {
 
       // ----- Rejected/Canceled/Failed -----
       if (looksRejected(providerStatus)) {
-        // إذا أصلًا Rejected، ما نعمل شي
         if (oldStatus === 'Rejected') {
           await conn.rollback();
           return;
         }
 
-        // غيّر الحالة فقط لو كانت بعدا بالحالات اللي عم نراقبها
         const [updOrder] = await conn.query(
           `UPDATE orders
               SET status = 'Rejected',
@@ -180,7 +218,6 @@ module.exports = function makeSyncJob(_db, promisePool) {
         );
 
         if (updOrder.affectedRows > 0) {
-          // Refund مرة واحدة فقط (بسبب تغيير الحالة)
           await conn.query(
             `UPDATE users SET balance = balance + ? WHERE id = ?`,
             [price, userId]
@@ -201,19 +238,30 @@ module.exports = function makeSyncJob(_db, promisePool) {
         return;
       }
 
-      // fallback
       await conn.rollback();
     } catch (e) {
+      // لو DB قطعت خلال tx
+      if (isDbDisconnect(e)) {
+        console.error(`❌ syncProviderOrders: DB lost during tx for order #${orderId} (will retry next run):`, e.message || e);
+      } else {
+        console.error(`❌ sync tx error for order #${orderId}:`, e.message || e);
+      }
+
       try { await conn.rollback(); } catch (_) {}
-      console.error(`❌ sync tx error for order #${orderId}:`, e.message || e);
     } finally {
-      conn.release();
+      try { conn.release(); } catch (_) {}
     }
   }
 
   return async function runOnce() {
+    // Gate سريع: إذا DB مش جاهزة، ما نبلش
+    if (!(await dbHealthy())) {
+      console.log('⏭️ syncProviderOrders skipped: DB not ready');
+      return;
+    }
+
     try {
-      const [rows] = await promisePool.query(
+      const [rows] = await safeQuery(
         `SELECT id, provider_order_id
            FROM orders
           WHERE source = 'api'
@@ -221,7 +269,7 @@ module.exports = function makeSyncJob(_db, promisePool) {
             AND provider_order_id IS NOT NULL
             AND status IN ('Waiting','Processing','Pending')
           ORDER BY id DESC
-          LIMIT 50`
+          LIMIT 20`
       );
 
       if (!rows || rows.length === 0) return;
@@ -230,10 +278,14 @@ module.exports = function makeSyncJob(_db, promisePool) {
         try {
           await handleOne(row);
         } catch (e) {
-          console.error(`❌ sync error for order #${row.id}:`, e.message);
+          console.error(`❌ sync error for order #${row.id}:`, e.message || e);
         }
       }
     } catch (e) {
+      if (isDbDisconnect(e)) {
+        console.error('❌ syncProviderOrders runOnce DB lost (skipping):', e.message || e);
+        return;
+      }
       console.error('❌ syncProviderOrders runOnce error:', e.message || e);
     }
   };
