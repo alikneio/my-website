@@ -130,7 +130,7 @@ module.exports = function makeSyncSMMJob(db, promisePool) {
             so.status IN ('pending','processing','partial')
             OR (so.status = 'completed' AND so.refunded = 0 AND so.charge > 0)
           )
-        ORDER BY so.updated_at DESC, so.id DESC
+        ORDER BY o.id DESC
         LIMIT 20
         `
       );
