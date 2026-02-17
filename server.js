@@ -4383,6 +4383,22 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
   else if (error === 'server') errorMessage = 'Server error during purchase. Please try again.';
   else if (error === 'notfound') errorMessage = 'Package not found.';
 
+  // ✅ 0) Load saved profile (auto-fill)
+  let savedProfile = null;
+  try {
+    const [[p]] = await promisePool.query(
+      `SELECT phone, first_name, last_name, country_code
+       FROM user_shahid_profiles
+       WHERE user_id = ?
+       LIMIT 1`,
+      [user?.id]
+    );
+    savedProfile = p || null;
+  } catch (e) {
+    console.error("⚠️ load user_shahid_profiles failed:", e?.message || e);
+    savedProfile = null;
+  }
+
   // 1) Fetch API types (to get title/months)
   let apiTypes = [];
   try {
@@ -4410,31 +4426,25 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
       return res.redirect('/shahid-section?error=notfound');
     }
 
-    // 3) Build a "product-like" object for checkout.ejs
-    // نستخدم نفس keys اللي checkout.ejs متوقعها
+    // 3) Build a "product-like" object for checkout
     const product = {
       id: null,
       source: 'shahid_api',
       type: typeParam,
 
-      // display
       name: cfg.custom_title || apiTypeObj.title || 'Shahid Package',
       image: cfg.image || '/images/shahid.png',
 
-      // notes (اختياري)
       notes: `Shahid API Package • ${apiTypeObj.months} month(s)`,
 
-      // delivery style (manual)
       delivery_mode: 'manual',
       in_stock: true,
 
-      // الأسعار (سعر بيع عندك)
       sell_price_shared: cfg.sell_price_shared,
       sell_price_full: cfg.sell_price_full
     };
 
-    // 4) اختيار Shared/Full بالـ checkout
-    // default shared
+    // 4) Shared/Full selection (via query ?full=1)
     const isFullQuery = String(req.query.full || '0') === '1';
     const basePrice = isFullQuery
       ? Number(cfg.sell_price_full || 0)
@@ -4454,19 +4464,16 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
     const idemKey = uuidv4();
     req.session.idemKey = idemKey;
 
-    // ملاحظات
     const notes = (product.notes && String(product.notes).trim() !== '') ? String(product.notes).trim() : null;
 
-   return res.render('checkout-shahid', {
+    return res.render('checkout-shahid', {
       user,
       product,
       error: errorMessage,
       notes,
       idemKey,
-      // نفس يلي عندك
       effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0),
 
-      // ✅ إضافات لشاهد (بتفيد بالـ checkout.ejs إذا بدك تعمل Toggle shared/full)
       shahid: {
         type: typeParam,
         apiTitle: apiTypeObj.title,
@@ -4475,10 +4482,14 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
         isFull: isFullQuery ? 1 : 0,
         sellShared: cfg.sell_price_shared,
         sellFull: cfg.sell_price_full
-      }
+      },
+
+      // ✅ auto-fill
+      savedProfile
     });
   });
 });
+
 
 app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
   const {
@@ -4523,12 +4534,22 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
     return false;
   }
 
+  // helper mapping
+  function mapTypeToApiValue(t) {
+    const s = String(t || "").toLowerCase();
+    if (s.includes("1-month")) return "1-month";
+    if (s.includes("3-month")) return "3-month";
+    if (s.includes("1-year") || s.includes("12")) return "1-year";
+    return t;
+  }
+
   try {
     const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
     if (alreadyReturned) return;
 
-    const typeParam = String(shahidType || '').trim();      // e.g. shahid-1-month
+    const typeParam = String(shahidType || '').trim();
     const fullFlag = String(isFull) === 'true' || String(isFull) === '1';
+
     const phone = String(customerPhone || '').trim();
     const fn = String(customerFirstName || '').trim();
     const ln = String(customerLastName || '').trim();
@@ -4571,7 +4592,6 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
 
     const now = new Date();
     const conn = await promisePool.getConnection();
-
     let orderId = null;
 
     try {
@@ -4613,7 +4633,19 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         return res.status(400).json(failPayload);
       }
 
-      // ✅ Insert order (بنفس جدولك)
+      // ✅ Save/Update Shahid profile (so next time auto-fill)
+      await conn.query(
+        `INSERT INTO user_shahid_profiles (user_id, phone, first_name, last_name, country_code)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           phone = VALUES(phone),
+           first_name = VALUES(first_name),
+           last_name = VALUES(last_name),
+           country_code = VALUES(country_code)`,
+        [freshUser.id, phone, fn, ln, cc]
+      );
+
+      // ✅ Insert order
       const productName = (cfg.custom_title && String(cfg.custom_title).trim() !== '')
         ? String(cfg.custom_title).trim()
         : `Shahid (${typeParam})`;
@@ -4622,7 +4654,9 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         `Provider: Shahid API`,
         `Type: ${typeParam}`,
         `Account: ${fullFlag ? 'Full' : 'Shared'}`,
-        `Phone: ${phone}`
+        `Phone: ${phone}`,
+        `Name: ${fn} ${ln}`,
+        `Country: ${cc}`
       ].join(' | ');
 
       const [orderResult] = await conn.query(
@@ -4632,11 +4666,10 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
       );
       orderId = orderResult.insertId;
 
-      // notification
       await conn.query(
         `INSERT INTO notifications (user_id, message, created_at, is_read)
          VALUES (?, ?, NOW(), 0)`,
-        [freshUser.id, `✅ تم تسجيل طلب شاهد بنجاح. رقم الطلب: ${orderId}`,]
+        [freshUser.id, `✅ تم تسجيل طلب شاهد بنجاح. رقم الطلب: ${orderId}`]
       );
 
       const successPayload = { success: true, redirectUrl: `/order-details/${orderId}` };
@@ -4665,7 +4698,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         const payload = e?.response?.data || { error: e.message };
         console.error("❌ Shahid buy failed:", payload);
 
-        // refund + mark order waiting
+        // refund + keep order waiting
         try {
           await promisePool.query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [purchasePrice, freshUser.id]);
           await promisePool.query(
@@ -4698,7 +4731,6 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
           [status === 'active' ? 'Accepted' : 'Waiting', adminReply, orderId]
         );
 
-        // notification
         await promisePool.query(
           `INSERT INTO notifications (user_id, message, created_at, is_read)
            VALUES (?, ?, NOW(), 0)`,
@@ -4722,15 +4754,6 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
   } catch (err) {
     console.error('❌ Shahid Buy Error:', err?.response?.data || err.message || err);
     return res.status(500).json({ success: false, message: 'Server error' });
-  }
-
-  // helper same mapping you already use
-  function mapTypeToApiValue(t) {
-    const s = String(t || "").toLowerCase();
-    if (s.includes("1-month")) return "1-month";
-    if (s.includes("3-month")) return "3-month";
-    if (s.includes("1-year") || s.includes("12")) return "1-year";
-    return t;
   }
 });
 
