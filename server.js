@@ -4457,7 +4457,7 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
     // ملاحظات
     const notes = (product.notes && String(product.notes).trim() !== '') ? String(product.notes).trim() : null;
 
-    return res.render('checkout', {
+   return res.render('checkout-shahid', {
       user,
       product,
       error: errorMessage,
