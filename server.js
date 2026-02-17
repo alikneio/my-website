@@ -6148,10 +6148,21 @@ app.get("/api/shahid/types", checkAuthJson, async (req, res) => {
   try {
     return res.json(await shahidApi.getTypes());
   } catch (e) {
-    console.error("Shahid types:", e?.response?.data || e.message);
-    return res.status(500).json({ success: false, message: "Shahid API error", data: null });
+    const status = e?.response?.status || 500;
+    const payload = e?.response?.data || { error: e.message };
+
+    console.error("Shahid types FAIL status=", status);
+    console.error("Shahid types FAIL payload=", payload);
+    console.error("Shahid types FAIL baseURL=", process.env.SHAHID_BASE_URL);
+
+    return res.status(status).json({
+      success: false,
+      message: "Shahid API error",
+      data: payload
+    });
   }
 });
+
 
 app.post("/api/shahid/buy", checkAuthJson, async (req, res) => {
   try {
