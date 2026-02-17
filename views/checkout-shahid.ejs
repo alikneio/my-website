@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout - <%= product.name %></title>
+
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+</head>
+<body>
+
+<%- include('partials/header') %>
+
+<div class="container my-5">
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      <div class="card shadow-sm rounded-4 border-0">
+
+        <div class="card-body p-4">
+
+          <h3 class="mb-4 text-center">Checkout</h3>
+
+          <% if (error) { %>
+            <div class="alert alert-danger"><%= error %></div>
+          <% } %>
+
+          <!-- Product Summary -->
+          <div class="d-flex align-items-center mb-4">
+            <img src="<%= product.image %>" style="width:90px; height:90px; object-fit:contain;" class="me-3 rounded-3 border">
+            <div>
+              <h5 class="mb-1"><%= product.name %></h5>
+              <div class="text-muted small">
+                <%= shahid.months %> month(s) • Shahid API
+              </div>
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- Account Type -->
+          <div class="mb-3">
+            <label class="form-label">Account Type</label>
+            <select id="isFull" class="form-select">
+              <option value="0" <%= shahid.isFull ? '' : 'selected' %>>Shared (Profile)</option>
+              <option value="1" <%= shahid.isFull ? 'selected' : '' %>>Full Account</option>
+            </select>
+          </div>
+
+          <!-- Customer Info -->
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">First Name</label>
+              <input type="text" id="firstName" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Last Name</label>
+              <input type="text" id="lastName" class="form-control">
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label">Customer Phone</label>
+            <input type="text" id="phone" class="form-control" placeholder="96170000000">
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label">Country Code</label>
+            <input type="text" id="countryCode" class="form-control" value="lb">
+          </div>
+
+          <hr>
+
+          <!-- Pricing -->
+          <div class="d-flex justify-content-between mb-2">
+            <span>Original Price</span>
+            <span id="originalPrice">$<%= product.original_price.toFixed(2) %></span>
+          </div>
+
+          <% if (effectiveDiscount > 0) { %>
+          <div class="d-flex justify-content-between mb-2 text-success">
+            <span>Discount (<%= effectiveDiscount %>%)</span>
+            <span>-</span>
+          </div>
+          <% } %>
+
+          <div class="d-flex justify-content-between fw-bold fs-5">
+            <span>Total</span>
+            <span id="finalPrice">$<%= product.price.toFixed(2) %></span>
+          </div>
+
+          <hr>
+
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <small class="text-muted">Your Balance</small><br>
+              <strong>$<%= Number(user.balance || 0).toFixed(2) %></strong>
+            </div>
+
+            <button id="buyBtn" class="btn btn-primary btn-lg rounded-3">
+              Confirm Purchase
+            </button>
+          </div>
+
+          <div class="mt-3 text-danger d-none" id="errorBox"></div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>
+
+<script>
+const sellShared = <%= Number(shahid.sellShared || 0) %>;
+const sellFull = <%= Number(shahid.sellFull || 0) %>;
+const discountPercent = <%= Number(effectiveDiscount || 0) %>;
+
+function calculatePrice(isFull){
+  let base = isFull ? sellFull : sellShared;
+  let final = base;
+
+  if(discountPercent > 0){
+    final = base - (base * discountPercent / 100);
+  }
+
+  document.getElementById('originalPrice').innerText = "$" + base.toFixed(2);
+  document.getElementById('finalPrice').innerText = "$" + final.toFixed(2);
+}
+
+document.getElementById('isFull').addEventListener('change', function(){
+  calculatePrice(this.value === "1");
+});
+
+calculatePrice(<%= shahid.isFull ? 'true' : 'false' %>);
+
+document.getElementById('buyBtn').addEventListener('click', async function(){
+
+  const phone = document.getElementById('phone').value.trim();
+  const fn = document.getElementById('firstName').value.trim();
+  const ln = document.getElementById('lastName').value.trim();
+  const isFull = document.getElementById('isFull').value === "1";
+  const cc = document.getElementById('countryCode').value.trim() || "lb";
+
+  if(!phone || phone.length < 10){
+    return showError("Invalid phone number.");
+  }
+  if(!fn || !ln){
+    return showError("Enter first and last name.");
+  }
+
+  this.disabled = true;
+  this.innerText = "Processing...";
+
+  try {
+    const resp = await fetch("/buy-shahid", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shahidType: "<%= product.type %>",
+        isFull,
+        customerPhone: phone,
+        customerFirstName: fn,
+        customerLastName: ln,
+        countryCode: cc,
+        idempotency_key: "<%= idemKey %>"
+      })
+    });
+
+    const data = await resp.json();
+
+    if(!resp.ok || !data.success){
+      throw new Error(data.message || "Purchase failed");
+    }
+
+    window.location = data.redirectUrl;
+
+  } catch(e){
+    showError(e.message || "Error occurred");
+    this.disabled = false;
+    this.innerText = "Confirm Purchase";
+  }
+});
+
+function showError(msg){
+  const box = document.getElementById("errorBox");
+  box.innerText = msg;
+  box.classList.remove("d-none");
+}
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -35,46 +35,79 @@
       <% if (shahidCards && shahidCards.length > 0) { %>
         <% shahidCards.forEach(function(card) { %>
 
+          <% const title = card.title || "Shahid"; %>
+          <% const img = card.image || "/images/shahid.png"; %>
+
+          <% const sharedPrice = (card.sell_price_shared != null && card.sell_price_shared !== "") ? Number(card.sell_price_shared) : null; %>
+          <% const fullPrice   = (card.sell_price_full != null && card.sell_price_full !== "") ? Number(card.sell_price_full) : null; %>
+
           <div class="col-6 col-sm-4 col-md-3 shahid-card-col">
-            <% const title = card.title || "Shahid"; %>
-            <% const img = card.image || "/images/shahid.png"; %>
+            <div class="product-card border-0 shadow-sm rounded-4 overflow-hidden text-center bg-white h-100 animate-zoom">
 
-            <% const sellShared = (card.sell_price_shared != null) ? Number(card.sell_price_shared) : null; %>
-            <% const sellFull   = (card.sell_price_full != null) ? Number(card.sell_price_full) : null; %>
+              <div class="product-image-wrapper mb-2">
+                <img src="<%= img %>" alt="<%= title %>" class="img-fluid rounded-3">
+              </div>
 
-            <% // السعر الافتراضي يلي بينعرض على الكارد (Shared إذا موجود وإلا Full) %>
-            <% const displayPrice = (sellShared != null) ? sellShared : sellFull; %>
+              <h6 class="fw-semibold text-dark mb-1"><%= title %></h6>
 
-            <a
-              href="<%= user ? 'javascript:void(0)' : '/login' %>"
-              class="text-decoration-none h-100"
-              <% if (user) { %>
-                onclick="openShahidBuyModal(
-                  '<%= card.type %>',
-                  '<%= title.replace(/'/g, '&#39;') %>',
-                  '<%= img %>',
-                  <%= (sellShared != null ? sellShared : 'null') %>,
-                  <%= (sellFull != null ? sellFull : 'null') %>
-                )"
-              <% } %>
-            >
-              <div class="product-card border-0 shadow-sm rounded-4 overflow-hidden text-center bg-white h-100 animate-zoom">
-
-                <div class="product-image-wrapper mb-2">
-                  <img src="<%= img %>" alt="<%= title %>" class="img-fluid rounded-3">
+              <!-- Prices -->
+              <div class="px-2 pb-2">
+                <div class="d-flex justify-content-between small text-muted">
+                  <span>Shared</span>
+                  <span class="fw-semibold text-dark">
+                    <% if (sharedPrice != null && !Number.isNaN(sharedPrice)) { %>
+                      $<%= sharedPrice.toFixed(2) %>
+                    <% } else { %>
+                      -
+                    <% } %>
+                  </span>
                 </div>
 
-                <h6 class="fw-semibold text-dark mb-1"><%= title %></h6>
+                <div class="d-flex justify-content-between small text-muted">
+                  <span>Full</span>
+                  <span class="fw-semibold text-dark">
+                    <% if (fullPrice != null && !Number.isNaN(fullPrice)) { %>
+                      $<%= fullPrice.toFixed(2) %>
+                    <% } else { %>
+                      -
+                    <% } %>
+                  </span>
+                </div>
 
-                <p class="text-primary fw-bold mb-0">
-                  <% if (displayPrice != null) { %>
-                    $<%= displayPrice.toFixed(2) %>
+                <!-- Action buttons -->
+                <div class="d-grid gap-2 mt-2">
+                  <% if (!user) { %>
+                    <a href="/login" class="btn btn-outline-primary btn-sm rounded-3">
+                      Login to buy
+                    </a>
                   <% } else { %>
-                    -
+
+                    <% if (sharedPrice != null && !Number.isNaN(sharedPrice)) { %>
+                      <a href="/checkout/shahid/<%= encodeURIComponent(card.type) %>?full=0"
+                         class="btn btn-primary btn-sm rounded-3">
+                        Buy Shared
+                      </a>
+                    <% } else { %>
+                      <button class="btn btn-secondary btn-sm rounded-3" disabled>
+                        Shared Unavailable
+                      </button>
+                    <% } %>
+
+                    <% if (fullPrice != null && !Number.isNaN(fullPrice)) { %>
+                      <a href="/checkout/shahid/<%= encodeURIComponent(card.type) %>?full=1"
+                         class="btn btn-outline-primary btn-sm rounded-3">
+                        Buy Full
+                      </a>
+                    <% } else { %>
+                      <button class="btn btn-secondary btn-sm rounded-3" disabled>
+                        Full Unavailable
+                      </button>
+                    <% } %>
+
                   <% } %>
-                </p>
+                </div>
               </div>
-            </a>
+            </div>
           </div>
 
         <% }) %>
@@ -86,98 +119,12 @@
     </div>
   </div>
 
-  <!-- ✅ Buy Modal -->
-  <div class="modal fade" id="shahidBuyModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content rounded-4">
-        <div class="modal-header">
-          <h5 class="modal-title">Buy Shahid Package</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-
-        <div class="modal-body">
-          <div class="mb-2">
-            <div class="small text-muted">Selected package</div>
-            <div class="fw-semibold" id="shahidSelectedTitle">-</div>
-            <div class="text-muted small" id="shahidSelectedType">-</div>
-          </div>
-
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="small text-muted">Price</div>
-            <div class="fw-bold text-primary" id="shahidSelectedPrice">-</div>
-          </div>
-
-          <hr />
-
-          <div class="mb-3">
-            <label class="form-label">Customer Phone</label>
-            <input type="text" id="shahidPhone" class="form-control" placeholder="96170000000" />
-            <div class="form-text">Minimum 10 digits.</div>
-          </div>
-
-          <div class="row g-2">
-            <div class="col-6">
-              <label class="form-label">First Name</label>
-              <input type="text" id="shahidFirstName" class="form-control" placeholder="John" />
-            </div>
-            <div class="col-6">
-              <label class="form-label">Last Name</label>
-              <input type="text" id="shahidLastName" class="form-control" placeholder="Doe" />
-            </div>
-          </div>
-
-          <div class="mt-3">
-            <label class="form-label">Account Type</label>
-            <select id="shahidIsFull" class="form-select">
-              <option value="false" selected>Shared (Profile)</option>
-              <option value="true">Full Account</option>
-            </select>
-            <div class="form-text">Shared/Full affects the Shahid API request.</div>
-          </div>
-
-          <div class="mt-3">
-            <label class="form-label">Country Code</label>
-            <input type="text" id="shahidCountryCode" class="form-control" value="lb" />
-          </div>
-
-          <div class="alert alert-danger mt-3 d-none" id="shahidError"></div>
-
-          <div class="mt-3 d-none" id="shahidResultBox">
-            <div class="alert alert-success mb-2" id="shahidResultMsg"></div>
-
-            <div class="border rounded-3 p-2 bg-light">
-              <div class="small text-muted">Email</div>
-              <div class="fw-semibold" id="shahidEmail">-</div>
-              <div class="small text-muted mt-2">Password</div>
-              <div class="fw-semibold" id="shahidPassword">-</div>
-              <div class="small text-muted mt-2">Expiry</div>
-              <div class="fw-semibold" id="shahidExpiry">-</div>
-              <div class="small text-muted mt-2">Subscription ID</div>
-              <div class="fw-semibold" id="shahidSubId">-</div>
-              <div class="small text-muted mt-2">Status</div>
-              <div class="fw-semibold" id="shahidStatus">-</div>
-            </div>
-
-            <button class="btn btn-outline-primary w-100 mt-3 d-none" id="shahidCheckStatusBtn" type="button">
-              Check Status (pending)
-            </button>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-primary rounded-3" id="shahidBuyBtn">Buy Now</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <%- include('partials/footer') %>
 
   <script src="/main.js"></script>
 
   <script>
-    // ===== Search (same behavior as SQL cards) =====
+    // ===== Search (filters shahid cards) =====
     document.addEventListener("DOMContentLoaded", function () {
       const searchInput = document.getElementById("searchInput");
       if (!searchInput) return;
@@ -194,199 +141,6 @@
           col.style.display = title.includes(query) ? "" : "none";
         });
       });
-    });
-
-    // ===== Shahid Buy Modal =====
-    let shahidModalInstance = null;
-    let selectedType = "";
-    let selectedTitle = "";
-    let selectedSellShared = null;
-    let selectedSellFull = null;
-
-    function openShahidBuyModal(type, title, image, sellShared, sellFull) {
-      selectedType = type;
-      selectedTitle = title;
-      selectedSellShared = (sellShared === null || sellShared === undefined) ? null : Number(sellShared);
-      selectedSellFull = (sellFull === null || sellFull === undefined) ? null : Number(sellFull);
-
-      document.getElementById("shahidSelectedTitle").textContent = title || "-";
-      document.getElementById("shahidSelectedType").textContent = type || "-";
-
-      // reset UI
-      hideEl("shahidError");
-      hideEl("shahidResultBox");
-      document.getElementById("shahidResultMsg").textContent = "";
-      document.getElementById("shahidEmail").textContent = "-";
-      document.getElementById("shahidPassword").textContent = "-";
-      document.getElementById("shahidExpiry").textContent = "-";
-      document.getElementById("shahidSubId").textContent = "-";
-      document.getElementById("shahidStatus").textContent = "-";
-      hideEl("shahidCheckStatusBtn");
-
-      // default account type = shared
-      const sel = document.getElementById("shahidIsFull");
-      sel.value = "false";
-
-      // update shown price
-      updateModalPrice(false);
-
-      const el = document.getElementById("shahidBuyModal");
-      shahidModalInstance = bootstrap.Modal.getOrCreateInstance(el);
-      shahidModalInstance.show();
-    }
-
-    function updateModalPrice(isFull) {
-      const priceEl = document.getElementById("shahidSelectedPrice");
-      const price = isFull ? selectedSellFull : selectedSellShared;
-
-      if (price == null || Number.isNaN(price)) {
-        priceEl.textContent = "-";
-      } else {
-        priceEl.textContent = "$" + Number(price).toFixed(2);
-      }
-    }
-
-    function showEl(id) {
-      const el = document.getElementById(id);
-      if (el) el.classList.remove("d-none");
-    }
-    function hideEl(id) {
-      const el = document.getElementById(id);
-      if (el) el.classList.add("d-none");
-    }
-    function setError(msg) {
-      const el = document.getElementById("shahidError");
-      el.textContent = msg || "Error";
-      showEl("shahidError");
-    }
-
-    async function buyShahid() {
-      hideEl("shahidError");
-      hideEl("shahidResultBox");
-      hideEl("shahidCheckStatusBtn");
-
-      const phone = (document.getElementById("shahidPhone").value || "").trim();
-      const firstName = (document.getElementById("shahidFirstName").value || "").trim();
-      const lastName = (document.getElementById("shahidLastName").value || "").trim();
-      const isFull = (document.getElementById("shahidIsFull").value === "true");
-      const countryCode = (document.getElementById("shahidCountryCode").value || "lb").trim() || "lb";
-
-      if (!selectedType) return setError("Missing subscription type.");
-      if (!phone || phone.replace(/\D/g, "").length < 10) return setError("Phone number must be at least 10 digits.");
-
-      // لحد الآن: نطلب الاسم دايمًا (بعدين منعمل شرط “أول مرة” إذا بدك)
-      if (!firstName || !lastName) return setError("Please enter first name and last name.");
-
-      const payload = {
-        type: mapTypeToApiValue(selectedType),
-        customerPhone: phone,
-        isFull,
-        customerFirstName: firstName,
-        customerLastName: lastName,
-        countryCode
-      };
-
-      const btn = document.getElementById("shahidBuyBtn");
-      btn.disabled = true;
-      btn.textContent = "Processing...";
-
-      try {
-        const resp = await fetch("/api/shahid/buy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await resp.json().catch(() => null);
-
-        if (!resp.ok || !data || data.success === false) {
-          const msg = data?.message || "Purchase failed.";
-          throw new Error(msg);
-        }
-
-        document.getElementById("shahidResultMsg").textContent = data.message || "Purchased.";
-        document.getElementById("shahidEmail").textContent = data.data?.email || "-";
-        document.getElementById("shahidPassword").textContent = data.data?.password || "-";
-        document.getElementById("shahidExpiry").textContent = data.data?.expiryDate || "-";
-        document.getElementById("shahidSubId").textContent = data.data?.id || "-";
-        document.getElementById("shahidStatus").textContent = data.data?.status || (data.data?.email?.includes("pending") ? "pending" : "active");
-
-        showEl("shahidResultBox");
-
-        const subId = data.data?.id;
-        const status = (data.data?.status || "").toLowerCase();
-        const isPending = status === "pending" || (data.data?.email && String(data.data.email).includes("pending"));
-        if (subId && isPending) {
-          showEl("shahidCheckStatusBtn");
-          document.getElementById("shahidCheckStatusBtn").onclick = () => checkStatus(subId, phone);
-        }
-
-      } catch (e) {
-        setError(e.message || "Error");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "Buy Now";
-      }
-    }
-
-    async function checkStatus(subId, phone) {
-      hideEl("shahidError");
-
-      const btn = document.getElementById("shahidCheckStatusBtn");
-      btn.disabled = true;
-      btn.textContent = "Checking...";
-
-      try {
-        const resp = await fetch(`/api/shahid/subscription/${encodeURIComponent(subId)}`);
-        const data = await resp.json().catch(() => null);
-
-        if (!resp.ok || !data || data.success === false) {
-          const msg = data?.message || "Status check failed.";
-          throw new Error(msg);
-        }
-
-        const profiles = Array.isArray(data.data) ? data.data : [];
-        const myProfile = profiles.find(p => String(p.phoneNumber || "") === String(phone));
-
-        if (!myProfile) {
-          throw new Error("Profile not found for this phone number yet. Try again.");
-        }
-
-        document.getElementById("shahidEmail").textContent = myProfile.email || "-";
-        document.getElementById("shahidPassword").textContent = myProfile.password || "-";
-        document.getElementById("shahidExpiry").textContent = myProfile.expiryDate || "-";
-        document.getElementById("shahidStatus").textContent = myProfile.status || "-";
-
-        if ((myProfile.status || "").toLowerCase() === "active") {
-          hideEl("shahidCheckStatusBtn");
-        }
-
-      } catch (e) {
-        setError(e.message || "Error");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "Check Status (pending)";
-      }
-    }
-
-    function mapTypeToApiValue(t) {
-      const s = String(t || "").toLowerCase();
-      if (s.includes("1-month")) return "1-month";
-      if (s.includes("3-month")) return "3-month";
-      if (s.includes("1-year") || s.includes("12")) return "1-year";
-      return t;
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const buyBtn = document.getElementById("shahidBuyBtn");
-      if (buyBtn) buyBtn.addEventListener("click", buyShahid);
-
-      const isFullSel = document.getElementById("shahidIsFull");
-      if (isFullSel) {
-        isFullSel.addEventListener("change", (e) => {
-          updateModalPrice(e.target.value === "true");
-        });
-      }
     });
   </script>
 

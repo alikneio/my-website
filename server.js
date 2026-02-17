@@ -4371,6 +4371,370 @@ app.get('/order/:id', checkAuth, (req, res) => {
   });
 });
 
+app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
+  const typeParam = String(req.params.type || '').trim(); // e.g. shahid-1-month
+  const error = req.query.error || null;
+
+  const user = req.session.user || null;
+
+  // رسائل الخطأ
+  let errorMessage = '';
+  if (error === 'balance') errorMessage = 'Insufficient balance.';
+  else if (error === 'server') errorMessage = 'Server error during purchase. Please try again.';
+  else if (error === 'notfound') errorMessage = 'Package not found.';
+
+  // 1) Fetch API types (to get title/months)
+  let apiTypes = [];
+  try {
+    const resp = await shahidApi.getTypes();
+    apiTypes = Array.isArray(resp?.data) ? resp.data : [];
+  } catch (e) {
+    console.error("❌ Shahid getTypes error:", e?.response?.data || e.message);
+    apiTypes = [];
+  }
+
+  const apiTypeObj = apiTypes.find(t => String(t.type) === typeParam) || null;
+  if (!apiTypeObj) {
+    return res.redirect('/shahid-section?error=notfound');
+  }
+
+  // 2) Fetch your local config (image + sell prices + enabled)
+  const cfgSql = `SELECT * FROM shahid_api_products WHERE type = ? AND is_enabled = 1 LIMIT 1`;
+  db.query(cfgSql, [typeParam], (err, rows) => {
+    if (err) {
+      console.error("DB error shahid_api_products:", err);
+      return res.status(500).send("Server error");
+    }
+    const cfg = rows?.[0] || null;
+    if (!cfg) {
+      return res.redirect('/shahid-section?error=notfound');
+    }
+
+    // 3) Build a "product-like" object for checkout.ejs
+    // نستخدم نفس keys اللي checkout.ejs متوقعها
+    const product = {
+      id: null,
+      source: 'shahid_api',
+      type: typeParam,
+
+      // display
+      name: cfg.custom_title || apiTypeObj.title || 'Shahid Package',
+      image: cfg.image || '/images/shahid.png',
+
+      // notes (اختياري)
+      notes: `Shahid API Package • ${apiTypeObj.months} month(s)`,
+
+      // delivery style (manual)
+      delivery_mode: 'manual',
+      in_stock: true,
+
+      // الأسعار (سعر بيع عندك)
+      sell_price_shared: cfg.sell_price_shared,
+      sell_price_full: cfg.sell_price_full
+    };
+
+    // 4) اختيار Shared/Full بالـ checkout
+    // default shared
+    const isFullQuery = String(req.query.full || '0') === '1';
+    const basePrice = isFullQuery
+      ? Number(cfg.sell_price_full || 0)
+      : Number(cfg.sell_price_shared || 0);
+
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
+      return res.redirect('/shahid-section?error=server');
+    }
+
+    // discount
+    const finalPrice = applyUserDiscount(basePrice, user);
+
+    product.original_price = Number(basePrice.toFixed(2));
+    product.price = Number(finalPrice.toFixed(2));
+
+    // idempotency
+    const idemKey = uuidv4();
+    req.session.idemKey = idemKey;
+
+    // ملاحظات
+    const notes = (product.notes && String(product.notes).trim() !== '') ? String(product.notes).trim() : null;
+
+    return res.render('checkout', {
+      user,
+      product,
+      error: errorMessage,
+      notes,
+      idemKey,
+      // نفس يلي عندك
+      effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0),
+
+      // ✅ إضافات لشاهد (بتفيد بالـ checkout.ejs إذا بدك تعمل Toggle shared/full)
+      shahid: {
+        type: typeParam,
+        apiTitle: apiTypeObj.title,
+        months: apiTypeObj.months,
+        apiPrice: apiTypeObj.price || null,
+        isFull: isFullQuery ? 1 : 0,
+        sellShared: cfg.sell_price_shared,
+        sellFull: cfg.sell_price_full
+      }
+    });
+  });
+});
+
+app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
+  const {
+    shahidType,
+    isFull,
+    customerPhone,
+    customerFirstName,
+    customerLastName,
+    countryCode,
+    idempotency_key: bodyIdemKey
+  } = req.body;
+
+  const sessionUser = req.session.user;
+  if (!sessionUser?.id) {
+    return res.status(401).json({ success: false, message: 'Session expired. Please log in.' });
+  }
+
+  const idemKey = (bodyIdemKey || req.session.idemKey || '').toString().slice(0, 64).trim();
+
+  async function storeIdempotencyResponse(conn, userId, key, payload) {
+    if (!key) return;
+    const json = JSON.stringify(payload);
+    await conn.query(
+      `INSERT INTO idempotency_keys (user_id, idem_key, response_json)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE response_json = VALUES(response_json)`,
+      [userId, key, json]
+    );
+  }
+
+  async function returnExistingIdempotentResponse(userId, key) {
+    if (!key) return false;
+    try {
+      const [[row]] = await promisePool.query(
+        `SELECT response_json FROM idempotency_keys WHERE user_id = ? AND idem_key = ? LIMIT 1`,
+        [userId, key]
+      );
+      if (row?.response_json) {
+        try { return res.json(JSON.parse(row.response_json)); } catch (_) {}
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  try {
+    const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
+    if (alreadyReturned) return;
+
+    const typeParam = String(shahidType || '').trim();      // e.g. shahid-1-month
+    const fullFlag = String(isFull) === 'true' || String(isFull) === '1';
+    const phone = String(customerPhone || '').trim();
+    const fn = String(customerFirstName || '').trim();
+    const ln = String(customerLastName || '').trim();
+    const cc = String(countryCode || 'lb').trim() || 'lb';
+
+    if (!typeParam) return res.status(400).json({ success: false, message: 'Missing package type.' });
+    if (!phone || phone.replace(/\D/g, '').length < 10) return res.status(400).json({ success: false, message: 'Invalid phone.' });
+    if (!fn || !ln) return res.status(400).json({ success: false, message: 'Missing first/last name.' });
+
+    // ✅ Fresh user
+    let freshUser = null;
+    try {
+      const [[u]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [sessionUser.id]);
+      freshUser = u || sessionUser;
+      if (u) req.session.user = u;
+    } catch (_) {
+      freshUser = sessionUser;
+    }
+
+    // ✅ Load pricing from your DB (sell price)
+    const [[cfg]] = await promisePool.query(
+      `SELECT * FROM shahid_api_products WHERE type = ? AND is_enabled = 1 LIMIT 1`,
+      [typeParam]
+    );
+    if (!cfg) return res.status(404).json({ success: false, message: 'Package not found or disabled.' });
+
+    const basePrice = fullFlag ? Number(cfg.sell_price_full || 0) : Number(cfg.sell_price_shared || 0);
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
+      return res.status(400).json({ success: false, message: 'Pricing error' });
+    }
+
+    const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
+      ? Number(getUserEffectiveDiscount(freshUser) || 0)
+      : Number(freshUser.discount_percent || 0) || 0;
+
+    const purchasePrice = applyUserDiscount(basePrice, freshUser);
+    if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
+      return res.status(400).json({ success: false, message: 'Pricing error' });
+    }
+
+    const now = new Date();
+    const conn = await promisePool.getConnection();
+
+    let orderId = null;
+
+    try {
+      await conn.beginTransaction();
+
+      // ✅ Idempotency gate inside TX
+      if (idemKey) {
+        try {
+          await conn.query(
+            `INSERT INTO idempotency_keys (user_id, idem_key, response_json) VALUES (?, ?, NULL)`,
+            [freshUser.id, idemKey]
+          );
+        } catch (e) {
+          const [[row]] = await conn.query(
+            `SELECT response_json FROM idempotency_keys WHERE user_id = ? AND idem_key = ? LIMIT 1`,
+            [freshUser.id, idemKey]
+          );
+          if (row?.response_json) {
+            try {
+              const payload = JSON.parse(row.response_json);
+              await conn.commit();
+              return res.json(payload);
+            } catch (_) {}
+          }
+          await conn.rollback();
+          return res.status(409).json({ success: false, message: 'Request already in progress. Please wait and refresh.' });
+        }
+      }
+
+      // ✅ Deduct balance
+      const [updRes] = await conn.query(
+        `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
+        [purchasePrice, freshUser.id, purchasePrice]
+      );
+      if (!updRes?.affectedRows) {
+        const failPayload = { success: false, message: 'Insufficient balance' };
+        await storeIdempotencyResponse(conn, freshUser.id, idemKey, failPayload);
+        await conn.rollback();
+        return res.status(400).json(failPayload);
+      }
+
+      // ✅ Insert order (بنفس جدولك)
+      const productName = (cfg.custom_title && String(cfg.custom_title).trim() !== '')
+        ? String(cfg.custom_title).trim()
+        : `Shahid (${typeParam})`;
+
+      const orderDetails = [
+        `Provider: Shahid API`,
+        `Type: ${typeParam}`,
+        `Account: ${fullFlag ? 'Full' : 'Shared'}`,
+        `Phone: ${phone}`
+      ].join(' | ');
+
+      const [orderResult] = await conn.query(
+        `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status, admin_reply)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [freshUser.id, productName, purchasePrice, now, orderDetails, 'Processing', null]
+      );
+      orderId = orderResult.insertId;
+
+      // notification
+      await conn.query(
+        `INSERT INTO notifications (user_id, message, created_at, is_read)
+         VALUES (?, ?, NOW(), 0)`,
+        [freshUser.id, `✅ تم تسجيل طلب شاهد بنجاح. رقم الطلب: ${orderId}`,]
+      );
+
+      const successPayload = { success: true, redirectUrl: `/order-details/${orderId}` };
+      await storeIdempotencyResponse(conn, freshUser.id, idemKey, successPayload);
+
+      await conn.commit();
+
+      // refresh session user
+      try {
+        const [[freshAfter]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [freshUser.id]);
+        if (freshAfter) req.session.user = freshAfter;
+      } catch (_) {}
+
+      // ✅ AFTER COMMIT: call external API
+      let apiResp = null;
+      try {
+        apiResp = await shahidApi.buy({
+          type: mapTypeToApiValue(typeParam),
+          customerPhone: phone,
+          isFull: fullFlag,
+          customerFirstName: fn,
+          customerLastName: ln,
+          countryCode: cc
+        });
+      } catch (e) {
+        const payload = e?.response?.data || { error: e.message };
+        console.error("❌ Shahid buy failed:", payload);
+
+        // refund + mark order waiting
+        try {
+          await promisePool.query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [purchasePrice, freshUser.id]);
+          await promisePool.query(
+            `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ? LIMIT 1`,
+            ['Waiting', `Shahid API failed. Refunded.\n${JSON.stringify(payload)}`, orderId]
+          );
+        } catch (refundErr) {
+          console.error("Refund/update failed:", refundErr);
+        }
+
+        return res.json({ success: true, redirectUrl: `/order-details/${orderId}` });
+      }
+
+      // ✅ Update order with credentials/status
+      try {
+        const d = apiResp?.data || null;
+        const status = String(d?.status || '').toLowerCase() || 'active';
+
+        const adminReply = [
+          `✅ Shahid Delivered`,
+          `Email: ${d?.email || '-'}`,
+          `Password: ${d?.password || '-'}`,
+          `Expiry: ${d?.expiryDate || '-'}`,
+          `Subscription ID: ${d?.id || '-'}`,
+          `Status: ${d?.status || '-'}`
+        ].join('\n');
+
+        await promisePool.query(
+          `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ? LIMIT 1`,
+          [status === 'active' ? 'Accepted' : 'Waiting', adminReply, orderId]
+        );
+
+        // notification
+        await promisePool.query(
+          `INSERT INTO notifications (user_id, message, created_at, is_read)
+           VALUES (?, ?, NOW(), 0)`,
+          [freshUser.id, `✅ تم تنفيذ اشتراك شاهد. ادخل على Order Details لرؤية البيانات. (Order #${orderId})`]
+        );
+
+      } catch (uErr) {
+        console.error("Update order after API success failed:", uErr);
+      }
+
+      return res.json({ success: true, redirectUrl: `/order-details/${orderId}` });
+
+    } catch (e) {
+      try { await conn.rollback(); } catch (_) {}
+      console.error('Transaction failed (buy-shahid):', e?.message || e);
+      return res.status(500).json({ success: false, message: 'Transaction failed' });
+    } finally {
+      conn.release();
+    }
+
+  } catch (err) {
+    console.error('❌ Shahid Buy Error:', err?.response?.data || err.message || err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+
+  // helper same mapping you already use
+  function mapTypeToApiValue(t) {
+    const s = String(t || "").toLowerCase();
+    if (s.includes("1-month")) return "1-month";
+    if (s.includes("3-month")) return "3-month";
+    if (s.includes("1-year") || s.includes("12")) return "1-year";
+    return t;
+  }
+});
+
+
 
 
 // =============================================
