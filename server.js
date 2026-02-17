@@ -4909,41 +4909,112 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
       }
 
       // ✅ Update order with credentials/status
-      try {
-        // apiResp هو data مباشرة
-        const d = apiResp || null;
-        const status = String(d?.status || '').toLowerCase() || 'active';
+    // ✅ Update order with credentials/status (robust mapping)
+try {
+  // IMPORTANT: shahidApi.buy() returns the body already (not axios response)
+  const d0 = apiResp || null;
 
-        const isPending = status === 'pending';
-        const title = isPending ? '⏳ Shahid Pending' : '✅ Shahid Delivered';
+  // Some providers wrap inside {data:{...}} or {result:{...}}
+  const d =
+    (d0 && typeof d0 === 'object' && d0.data && typeof d0.data === 'object') ? d0.data :
+    (d0 && typeof d0 === 'object' && d0.result && typeof d0.result === 'object') ? d0.result :
+    d0;
 
-        const adminReply = [
-          title,
-          `Email: ${d?.email || '-'}`,          // إذا pending غالباً فيها pendingid:...
-          `Password: ${d?.password || '-'}`,
-          `Expiry: ${d?.expiryDate || '-'}`,
-          `Subscription ID: ${d?.id || '-'}`,   // مهم للـ sync
-          `Status: ${d?.status || '-'}`,
-        ].join('\n');
+  // ✅ Robust field mapping (supports different provider keys)
+  const pick = (...vals) => {
+    for (const v of vals) {
+      if (v === undefined || v === null) continue;
+      const s = String(v).trim();
+      if (s && s !== 'null' && s !== 'undefined' && s !== '-') return s;
+    }
+    return '-';
+  };
 
-        await promisePool.query(
-          `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ? LIMIT 1`,
-          [isPending ? 'Waiting' : 'Accepted', adminReply, orderId]
-        );
+  const statusRaw = pick(d?.status, d?.state, d?.subscriptionStatus, d?.subscription_status);
+  const statusLower = String(statusRaw).toLowerCase();
 
-        await promisePool.query(
-          `INSERT INTO notifications (user_id, message, created_at, is_read)
-           VALUES (?, ?, NOW(), 0)`,
-          [freshUser.id,
-            isPending
-              ? `⏳ طلب شاهد قيد المعالجة لدى المزوّد (Pending). سيتم تحديثه عبر Sync. (Order #${orderId})`
-              : `✅ تم تنفيذ اشتراك شاهد. ادخل على Order Details لرؤية البيانات. (Order #${orderId})`
-          ]
-        );
+  const email = pick(
+    d?.email, d?.accountEmail, d?.username, d?.user, d?.login,
+    d?.credentials?.email, d?.credentials?.username
+  );
 
-      } catch (uErr) {
-        console.error("Update order after API success failed:", uErr);
-      }
+  const password = pick(
+    d?.password, d?.pass, d?.pwd,
+    d?.credentials?.password, d?.credentials?.pass
+  );
+
+  const expiry = pick(
+    d?.expiryDate, d?.expiry, d?.expiresAt, d?.expires_at, d?.expiration, d?.expirationDate,
+    d?.subscription?.expiryDate, d?.subscription?.expiresAt
+  );
+
+  const subId = pick(
+    d?.id, d?.subscriptionId, d?.subscription_id, d?.sub_id, d?.uuid,
+    d?.subscription?.id, d?.subscription?.subscriptionId
+  );
+
+  // ✅ Keep a debug snapshot (hidden) for admin only if something is missing
+  const missingCreds = (email === '-' && password === '-' && expiry === '-' && subId === '-');
+  if (missingCreds) {
+    console.warn("⚠️ Shahid API returned active but credentials missing. Raw:", d0);
+  }
+
+  // ✅ Decide order status
+  // If provider says active => Accepted
+  // Else => Waiting
+  const newOrderStatus = (statusLower === 'active' || statusLower === 'delivered' || statusLower === 'success')
+    ? 'Accepted'
+    : 'Waiting';
+
+  const adminReply = [
+    `✅ Shahid Delivered`,
+    `Email: ${email}`,
+    `Password: ${password}`,
+    `Expiry: ${expiry}`,
+    `Subscription ID: ${subId}`,
+    `Status: ${statusRaw || '-'}`
+  ].join('\n');
+
+  await promisePool.query(
+    `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ? LIMIT 1`,
+    [newOrderStatus, adminReply, orderId]
+  );
+
+  await promisePool.query(
+    `INSERT INTO notifications (user_id, message, created_at, is_read)
+     VALUES (?, ?, NOW(), 0)`,
+    [freshUser.id, `✅ تم تحديث بيانات اشتراك شاهد. (Order #${orderId})`]
+  );
+
+  // ✅ Telegram: delivered to user (optional)
+  try {
+    const [rows] = await promisePool.query(
+      'SELECT telegram_chat_id FROM users WHERE id = ?',
+      [freshUser.id]
+    );
+    const chatId = rows?.[0]?.telegram_chat_id;
+    if (chatId && newOrderStatus === 'Accepted') {
+      const deliveredMsg = `
+✅ *تم تنفيذ اشتراك شاهد بنجاح*
+
+🧾 *Order ID:* ${orderId}
+📧 *Email:* ${email}
+🔐 *Password:* ${password}
+📆 *Expiry:* ${expiry}
+      `.trim();
+
+      await sendTelegramMessage(
+        chatId,
+        deliveredMsg,
+        process.env.TELEGRAM_BOT_TOKEN,
+        { parseMode: "Markdown", timeoutMs: 15000 }
+      );
+    }
+  } catch (_) {}
+
+} catch (uErr) {
+  console.error("Update order after API success failed:", uErr);
+}
 
       return res.json({ success: true, redirectUrl: `/order-details/${orderId}` });
 
