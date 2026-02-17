@@ -4628,7 +4628,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
       const [orderResult] = await conn.query(
         `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status, admin_reply)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [freshUser.id, productName, purchasePrice, now, orderDetails, 'Processing', null]
+        [freshUser.id, productName, purchasePrice, now, orderDetails, 'Waiting', null]
       );
       orderId = orderResult.insertId;
 
