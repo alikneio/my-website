@@ -4502,16 +4502,20 @@ app.get('/order/:id', checkAuth, (req, res) => {
 });
 
 app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
-  const typeParam = String(req.params.type || '').trim();
+  const typeParamRaw = String(req.params.type || '').trim(); // e.g. shahid-3-month
   const error = req.query.error || null;
 
   const user = req.session.user || null;
 
-  // رسائل الخطأ
   let errorMessage = '';
   if (error === 'balance') errorMessage = 'Insufficient balance.';
   else if (error === 'server') errorMessage = 'Server error during purchase. Please try again.';
   else if (error === 'notfound') errorMessage = 'Package not found.';
+
+  // ✅ normalize for API matching: remove "shahid-" prefix if exists
+  const normalizeType = (s) => String(s || '').trim().replace(/^shahid[-_]/i, '');
+
+  const typeParamApi = normalizeType(typeParamRaw); // e.g. 3-month
 
   // ✅ 0) Load saved profile (auto-fill)
   let savedProfile = null;
@@ -4529,22 +4533,29 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
   }
 
   // ✅ 1) Fetch API types
-  // IMPORTANT: shahidApi.getTypes() بيرجع data مباشرة
   let apiTypes = [];
   try {
-    const resp = await shahidApi.getTypes(); // resp هو array
-    apiTypes = Array.isArray(resp) ? resp : [];
+    const resp = await shahidApi.getTypes();
+    // مهم: حسب ملف shahidApi.js عندك بيرجع data مباشرة
+    apiTypes = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
   } catch (e) {
     console.error("❌ Shahid getTypes error:", e?.response?.data || e.message);
-    apiTypes = [];
   }
 
-  const apiTypeObj = apiTypes.find(t => String(t.type) === typeParam) || null;
-  if (!apiTypeObj) return res.redirect('/shahid-section?error=notfound');
+  // ✅ match normalized
+  const apiTypeObj =
+    apiTypes.find(t => normalizeType(t?.type) === typeParamApi) ||
+    apiTypes.find(t => String(t?.type) === typeParamApi) ||
+    null;
 
-  // ✅ 2) Fetch local config
+  if (!apiTypeObj) {
+    console.log("❌ Type not found in API:", { typeParamRaw, typeParamApi, apiTypesLen: apiTypes.length });
+    return res.redirect('/shahid-section?error=notfound');
+  }
+
+  // ✅ 2) Fetch local config by RAW type (your DB uses shahid-3-month)
   const cfgSql = `SELECT * FROM shahid_api_products WHERE type = ? AND is_enabled = 1 LIMIT 1`;
-  db.query(cfgSql, [typeParam], (err, rows) => {
+  db.query(cfgSql, [typeParamRaw], (err, rows) => {
     if (err) {
       console.error("DB error shahid_api_products:", err);
       return res.status(500).send("Server error");
@@ -4553,25 +4564,19 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
     const cfg = rows?.[0] || null;
     if (!cfg) return res.redirect('/shahid-section?error=notfound');
 
-    // 3) Build product object
     const product = {
       id: null,
       source: 'shahid_api',
-      type: typeParam,
-
+      type: typeParamRaw, // ✅ keep raw for DB + later buy
       name: cfg.custom_title || apiTypeObj.title || 'Shahid Package',
       image: cfg.image || '/images/shahid.png',
       notes: `Shahid API Package • ${apiTypeObj.months} month(s)`,
-
-      // ✅ هذا أوتوماتيك مش manual
-      delivery_mode: 'automatic',
+      delivery_mode: 'manual',
       in_stock: true,
-
       sell_price_shared: cfg.sell_price_shared,
       sell_price_full: cfg.sell_price_full
     };
 
-    // 4) Shared/Full selection
     const isFullQuery = String(req.query.full || '0') === '1';
     const basePrice = isFullQuery
       ? Number(cfg.sell_price_full || 0)
@@ -4586,13 +4591,10 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
     product.original_price = Number(basePrice.toFixed(2));
     product.price = Number(finalPrice.toFixed(2));
 
-    // ✅ idempotency
     const idemKey = uuidv4();
     req.session.idemKey = idemKey;
 
-    const notes = (product.notes && String(product.notes).trim() !== '')
-      ? String(product.notes).trim()
-      : null;
+    const notes = (product.notes && String(product.notes).trim() !== '') ? String(product.notes).trim() : null;
 
     return res.render('checkout-shahid', {
       user,
@@ -4603,7 +4605,8 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
       effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0),
 
       shahid: {
-        type: typeParam,
+        type: typeParamRaw,
+        apiType: typeParamApi, // ✅ helpful
         apiTitle: apiTypeObj.title,
         months: apiTypeObj.months,
         apiPrice: apiTypeObj.price || null,
@@ -4616,6 +4619,7 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
     });
   });
 });
+
 
 
 
