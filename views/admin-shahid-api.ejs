@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shahid API Products - Admin</title>
+
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+</head>
+<body>
+
+<%- include('partials/admin-header') %>
+
+<div class="container my-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="mb-0">Shahid API Products</h2>
+    <a href="/admin/products" class="btn btn-outline-secondary">Back</a>
+  </div>
+
+  <% if (typeof query !== "undefined" && query.saved === "1") { %>
+    <div class="alert alert-success">Saved ✅</div>
+  <% } %>
+  <% if (typeof query !== "undefined" && query.saved === "0") { %>
+    <div class="alert alert-danger">Save failed ❌ (check logs)</div>
+  <% } %>
+
+  <div class="alert alert-info">
+    هنا بتتحكم بالعرض والسعر والصورة. الأسعار هي “سعر بيع” عندك، مش سعر المزود.
+  </div>
+
+  <form method="POST" action="/admin/shahid-api/save">
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Enable</th>
+            <th>Preview</th>
+            <th>API Type</th>
+            <th>API Price</th>
+            <th>Custom Title</th>
+            <th>Image URL</th>
+            <th>Sell Shared</th>
+            <th>Sell Full</th>
+            <th>Order</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% if (items && items.length > 0) { %>
+            <% items.forEach(function(it) { %>
+              <tr>
+                <td>
+                  <input type="hidden" name="type" value="<%= it.type %>">
+                  <select class="form-select form-select-sm" name="is_enabled">
+                    <option value="0" <%= it.is_enabled ? "" : "selected" %>>Off</option>
+                    <option value="1" <%= it.is_enabled ? "selected" : "" %>>On</option>
+                  </select>
+                </td>
+
+                <td style="width:120px">
+                  <div class="border rounded-3 p-2 bg-light text-center">
+                    <% if (it.image) { %>
+                      <img src="<%= it.image %>" alt="" style="max-width:80px; max-height:50px; object-fit:contain;">
+                    <% } else { %>
+                      <span class="text-muted small">No image</span>
+                    <% } %>
+                  </div>
+                </td>
+
+                <td>
+                  <div class="fw-semibold"><%= it.api_title %></div>
+                  <div class="text-muted small"><%= it.type %> • <%= it.months %> months</div>
+                </td>
+
+                <td>
+                  <div class="small">Shared: <b>$<%= it.api_shared ?? "-" %></b></div>
+                  <div class="small">Full: <b>$<%= it.api_full ?? "-" %></b></div>
+                </td>
+
+                <td>
+                  <input class="form-control form-control-sm" name="custom_title" value="<%= it.custom_title %>" placeholder="Leave empty to use API title">
+                </td>
+
+                <td>
+                  <input class="form-control form-control-sm" name="image" value="<%= it.image %>" placeholder="/images/shahid.png or https://...">
+                </td>
+
+                <td style="width:140px">
+                  <input class="form-control form-control-sm" name="sell_price_shared" value="<%= it.sell_price_shared %>" placeholder="e.g. 1.50">
+                </td>
+
+                <td style="width:140px">
+                  <input class="form-control form-control-sm" name="sell_price_full" value="<%= it.sell_price_full %>" placeholder="e.g. 4.00">
+                </td>
+
+                <td style="width:90px">
+                  <input class="form-control form-control-sm" name="sort_order" value="<%= it.sort_order %>">
+                </td>
+              </tr>
+            <% }) %>
+          <% } else { %>
+            <tr><td colspan="9" class="text-center text-muted">No types returned from API.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
