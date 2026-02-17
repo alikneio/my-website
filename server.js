@@ -4962,9 +4962,20 @@ try {
   // ✅ Decide order status
   // If provider says active => Accepted
   // Else => Waiting
-  const newOrderStatus = (statusLower === 'active' || statusLower === 'delivered' || statusLower === 'success')
+  const hasCreds =
+  (email !== '-' && email !== '') ||
+  (password !== '-' && password !== '') ||
+  (expiry !== '-' && expiry !== '') ||
+  (subId !== '-' && subId !== '');
+
+const newOrderStatus =
+  hasCreds ||
+  statusLower === 'active' ||
+  statusLower === 'delivered' ||
+  statusLower === 'success'
     ? 'Accepted'
     : 'Waiting';
+
 
   const adminReply = [
     `✅ Shahid Delivered`,
