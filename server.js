@@ -7857,7 +7857,7 @@ app.get('/db-test', (req, res) => {
   });
 });
 
-app.get("/admin/shahid-api", checkAdminAuth, async (req, res) => {
+app.get("/admin/shahid-api", checkAdmin, async (req, res) => {
   // 1) Types from API
   let types = [];
   try {
@@ -7904,7 +7904,7 @@ app.get("/admin/shahid-api", checkAdminAuth, async (req, res) => {
   });
 });
 
-app.post("/admin/shahid-api/save", checkAdminAuth, (req, res) => {
+app.post("/admin/shahid-api/save", checkAdmin, (req, res) => {
   // نتوقع fields arrays
   const types = [].concat(req.body.type || []);
   const enabled = [].concat(req.body.is_enabled || []);
