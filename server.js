@@ -4534,7 +4534,6 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
     return false;
   }
 
-  // helper mapping
   function mapTypeToApiValue(t) {
     const s = String(t || "").toLowerCase();
     if (s.includes("1-month")) return "1-month";
@@ -4569,7 +4568,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
       freshUser = sessionUser;
     }
 
-    // ✅ Load pricing from your DB (sell price)
+    // ✅ Load pricing/config
     const [[cfg]] = await promisePool.query(
       `SELECT * FROM shahid_api_products WHERE type = ? AND is_enabled = 1 LIMIT 1`,
       [typeParam]
@@ -4593,6 +4592,20 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
     const now = new Date();
     const conn = await promisePool.getConnection();
     let orderId = null;
+
+    // keep some values for telegram after commit
+    const productName = (cfg.custom_title && String(cfg.custom_title).trim() !== '')
+      ? String(cfg.custom_title).trim()
+      : `Shahid (${typeParam})`;
+
+    const orderDetails = [
+      `Provider: Shahid API`,
+      `Type: ${typeParam}`,
+      `Account: ${fullFlag ? 'Full' : 'Shared'}`,
+      `Phone: ${phone}`,
+      `Name: ${fn} ${ln}`,
+      `Country: ${cc}`
+    ].join(' | ');
 
     try {
       await conn.beginTransaction();
@@ -4633,7 +4646,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         return res.status(400).json(failPayload);
       }
 
-      // ✅ Save/Update Shahid profile (so next time auto-fill)
+      // ✅ Save/Update Shahid profile (auto-fill next time)
       await conn.query(
         `INSERT INTO user_shahid_profiles (user_id, phone, first_name, last_name, country_code)
          VALUES (?, ?, ?, ?, ?)
@@ -4645,20 +4658,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         [freshUser.id, phone, fn, ln, cc]
       );
 
-      // ✅ Insert order
-      const productName = (cfg.custom_title && String(cfg.custom_title).trim() !== '')
-        ? String(cfg.custom_title).trim()
-        : `Shahid (${typeParam})`;
-
-      const orderDetails = [
-        `Provider: Shahid API`,
-        `Type: ${typeParam}`,
-        `Account: ${fullFlag ? 'Full' : 'Shared'}`,
-        `Phone: ${phone}`,
-        `Name: ${fn} ${ln}`,
-        `Country: ${cc}`
-      ].join(' | ');
-
+      // ✅ Insert order (status Waiting)
       const [orderResult] = await conn.query(
         `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status, admin_reply)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -4677,13 +4677,71 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
 
       await conn.commit();
 
-      // refresh session user
+      // ✅ refresh session user
       try {
         const [[freshAfter]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [freshUser.id]);
         if (freshAfter) req.session.user = freshAfter;
       } catch (_) {}
 
-      // ✅ AFTER COMMIT: call external API
+      // ===========================
+      // ✅ Telegram AFTER COMMIT (like your /buy)
+      // ===========================
+      try {
+        // user chat id + username
+        const [rows] = await promisePool.query(
+          'SELECT telegram_chat_id, username FROM users WHERE id = ?',
+          [freshUser.id]
+        );
+        const chatId = rows?.[0]?.telegram_chat_id;
+        const username = rows?.[0]?.username || freshUser.username || `User#${freshUser.id}`;
+
+        // message to user (order registered)
+        if (chatId) {
+          const msg = `
+📥 *طلب شاهد تم تسجيله بنجاح*
+
+🛍️ *الباقة:* ${productName}
+💰 *السعر بعد الخصم:* ${purchasePrice}$
+📉 *الخصم الفعلي:* ${effectiveDiscountPercent}%
+📌 *الحالة:* جاري المعالجة (Waiting)
+🧾 *رقم الطلب:* ${orderId}
+          `.trim();
+
+          await sendTelegramMessage(
+            chatId,
+            msg,
+            process.env.TELEGRAM_BOT_TOKEN,
+            { parseMode: "Markdown", timeoutMs: 15000 }
+          );
+        }
+
+        // message to admin
+        const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+        const adminMsg = `
+🆕 <b>طلب شاهد جديد!</b>
+
+👤 <b>الزبون:</b> ${username}
+🛍️ <b>الباقة:</b> ${productName}
+💰 <b>السعر بعد الخصم:</b> ${purchasePrice}$
+📉 <b>الخصم الفعلي:</b> ${effectiveDiscountPercent}%
+📋 <b>التفاصيل:</b> ${orderDetails}
+📌 <b>الحالة:</b> ⏳ Waiting
+🧾 <b>Order ID:</b> ${orderId}
+🕒 <b>الوقت:</b> ${now.toLocaleString()}
+        `.trim();
+
+        await sendTelegramMessage(
+          adminChatId,
+          adminMsg,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: "HTML", timeoutMs: 15000 }
+        );
+
+      } catch (e) {
+        console.warn('⚠️ Telegram notification flow error (buy-shahid):', e?.message || e);
+      }
+
+      // ✅ THEN: call external API (after commit)
       let apiResp = null;
       try {
         apiResp = await shahidApi.buy({
@@ -4705,9 +4763,37 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
             `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ? LIMIT 1`,
             ['Waiting', `Shahid API failed. Refunded.\n${JSON.stringify(payload)}`, orderId]
           );
+
+          // notify user in-app
+          await promisePool.query(
+            `INSERT INTO notifications (user_id, message, created_at, is_read)
+             VALUES (?, ?, NOW(), 0)`,
+            [freshUser.id, `⚠️ فشل تنفيذ اشتراك شاهد وتمت إعادة الرصيد. (Order #${orderId})`]
+          );
+
         } catch (refundErr) {
           console.error("Refund/update failed:", refundErr);
         }
+
+        // optional: Telegram to admin about failure
+        try {
+          const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+          const failMsg = `
+⚠️ <b>Shahid API Failed</b>
+
+🧾 <b>Order ID:</b> ${orderId}
+🛍️ <b>Package:</b> ${productName}
+💰 <b>Refunded:</b> ${purchasePrice}$
+📋 <b>Error:</b> ${escapeHtml(JSON.stringify(payload))}
+          `.trim();
+
+          await sendTelegramMessage(
+            adminChatId,
+            failMsg,
+            process.env.TELEGRAM_BOT_TOKEN,
+            { parseMode: "HTML", timeoutMs: 15000 }
+          );
+        } catch (_) {}
 
         return res.json({ success: true, redirectUrl: `/order-details/${orderId}` });
       }
@@ -4737,6 +4823,32 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
           [freshUser.id, `✅ تم تنفيذ اشتراك شاهد. ادخل على Order Details لرؤية البيانات. (Order #${orderId})`]
         );
 
+        // ✅ Telegram: delivered to user (optional)
+        try {
+          const [rows] = await promisePool.query(
+            'SELECT telegram_chat_id FROM users WHERE id = ?',
+            [freshUser.id]
+          );
+          const chatId = rows?.[0]?.telegram_chat_id;
+          if (chatId) {
+            const deliveredMsg = `
+✅ *تم تنفيذ اشتراك شاهد بنجاح*
+
+🧾 *Order ID:* ${orderId}
+📧 *Email:* ${d?.email || '-'}
+🔐 *Password:* ${d?.password || '-'}
+📆 *Expiry:* ${d?.expiryDate || '-'}
+            `.trim();
+
+            await sendTelegramMessage(
+              chatId,
+              deliveredMsg,
+              process.env.TELEGRAM_BOT_TOKEN,
+              { parseMode: "Markdown", timeoutMs: 15000 }
+            );
+          }
+        } catch (_) {}
+
       } catch (uErr) {
         console.error("Update order after API success failed:", uErr);
       }
@@ -4755,8 +4867,15 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
     console.error('❌ Shahid Buy Error:', err?.response?.data || err.message || err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
-});
 
+  // tiny helper for admin HTML messages (avoid breaking HTML)
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+});
 
 
 
