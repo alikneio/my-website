@@ -13,5 +13,5 @@ const shahid = axios.create({
 module.exports = {
   getTypes: async () => (await shahid.get("/api/v1/shahid/types")).data,
   buy: async (payload) => (await shahid.post("/api/v1/shahid/buy", payload)).data,
-  getById: async (id) => (await shahid.get(`/api/v1/shahid/subscription/${id}`)).data,
+  getById: async (id) => (await shahid.get(`/api/v1/shahid/subscription/${encodeURIComponent(id)}`)).data,
 };

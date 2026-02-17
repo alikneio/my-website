@@ -155,18 +155,10 @@
 
           <%
             // ========= Refill gating (FULL) =========
-
-            // 1) SMM فقط
             const isSmmOrder = !!order.smm_status;
-
-            // 2) لازم provider order id
             const hasProviderId = !!order.provider_order_id;
-
-            // 3) منع NO REFILL من اسم المنتج (baseline)
             const noRefill = String(order.productName || '').toUpperCase().includes('NO REFILL');
 
-            // 4) منطق إضافي لتفادي "REFILL 365D" الكاذب:
-            // لا نعرض الزر إلا بعد اكتمال الطلب (completed) أو remains=0
             const providerStatus = String(order.smm_provider_status || order.smm_status || '').toLowerCase();
             const remainsNum = Number(order.smm_remains_qty || 0);
             const deliveredNum = (order.smm_delivered_qty === null || order.smm_delivered_qty === undefined)
@@ -177,7 +169,6 @@
               providerStatus.includes('completed') ||
               remainsNum === 0;
 
-            // 5) (اختياري) إذا السيرفر حاطط flag إنو refill ممنوع لهذا الطلب
             const refillDisabled = Number(order.refill_disabled || 0) === 1;
 
             const canShowRefill =
@@ -187,8 +178,11 @@
               !refillDisabled &&
               isCompletedLike;
 
-            // قفل 5 أيام (backend يمرر refill_next_at)
             const refillNextAtRaw = order.refill_next_at || null;
+
+            // ========= Shahid detection =========
+            const isShahidOrder = String(order.order_details || '').includes('Shahid API');
+            const isPendingShahid = isShahidOrder && String(order.status || '') === 'Waiting';
           %>
 
           <% if (canShowRefill) { %>
@@ -209,6 +203,13 @@
           </button>
         </div>
       </div>
+
+      <% if (isPendingShahid) { %>
+        <div class="alert alert-warning rounded-4 small mb-4">
+          ⏳ This Shahid subscription is currently pending from the provider.
+          The admin can run a manual sync and the credentials will appear here once activated.
+        </div>
+      <% } %>
 
       <p class="last-updated mb-4">
         Last updated:
@@ -236,7 +237,6 @@
             <div class="kv-value"><%= order.order_details %></div>
           <% } %>
 
-          <!-- ✅ ADMIN REPLY ONLY -->
           <div class="kv-label mt-3 d-flex align-items-center justify-content-between">
             <span>ADMIN REPLY</span>
           </div>
@@ -253,11 +253,11 @@
               </button>
             </div>
 
+            <!-- ✅ safe output -->
             <pre class="reply-text user-select-all mb-0" id="adminReplyBox"><%= (order.admin_reply || '').toString() %></pre>
             <div class="hidden-note mt-2 d-none" id="noReplyNote">No admin reply yet.</div>
           </div>
 
-          <!-- ✅ SMM -->
           <% if (order.smm_status) { %>
             <div class="kv-label mt-3">SOCIAL MEDIA PROGRESS</div>
             <div class="kv-value">
@@ -317,24 +317,22 @@
       const $btn    = document.getElementById('refreshBtn');
       const $spin   = document.getElementById('refreshSpinner');
 
-      // ✅ Refill UI
       const $refillBtn  = document.getElementById('refillBtn');
       const $refillSpin = document.getElementById('refillSpinner');
       const $refillNote = document.getElementById('refillNote');
 
-      // refill lock time from server
       const refillNextAtRaw = <%- JSON.stringify(order.refill_next_at || null) %>;
 
-      // Admin reply UI
       const $adminReplyBox = document.getElementById('adminReplyBox');
       const $copyReplyBtn  = document.getElementById('copyReplyBtn');
       const $noReplyNote   = document.getElementById('noReplyNote');
 
-      // SMM
       const smmOrdered        = document.getElementById('smm-ordered');
       const smmDelivered      = document.getElementById('smm-delivered');
       const smmRemains        = document.getElementById('smm-remains');
       const smmProviderStatus = document.getElementById('smm-provider-status');
+
+      const isShahid = <%- JSON.stringify(String(order.order_details || '').includes('Shahid API')) %>;
 
       let lastStatus = $status ? $status.textContent.trim() : '';
       let lastReply  = ($adminReplyBox?.textContent || '').trim();
@@ -357,8 +355,6 @@
           $refillBtn.setAttribute('disabled','disabled');
         }else{
           $refillSpin.classList.add('d-none');
-          // ملاحظة: ما نرجع نفتح الزر هون إذا عليه lock
-          // applyRefillLock رح يقرر
           $refillBtn.removeAttribute('disabled');
         }
       }
@@ -437,7 +433,6 @@
 
       async function fetchStatus() {
         try {
-          setLoading(true);
           const res = await fetch(`/order-details/${orderId}/status.json`, { cache: 'no-store' });
           if (!res.ok) return;
           const data = await res.json();
@@ -478,14 +473,11 @@
 
         } catch (e) {
           console.error('order-details poll error:', e);
-        } finally {
-          setLoading(false);
         }
       }
 
       async function requestRefill(){
         if(!$refillBtn) return;
-        // إذا الزر disabled بسبب lock ما نعمل شي
         if ($refillBtn.hasAttribute('disabled')) return;
 
         try{
@@ -503,9 +495,7 @@
             setReplyUI(`❌ ${msg}`);
             lastReply = (`❌ ${msg}`).trim();
 
-            // إذا السيرفر رجّع refill_next_at (429) طبّق lock مباشرة
             if (data.refill_next_at) applyRefillLock(data.refill_next_at);
-
             return;
           }
 
@@ -521,24 +511,59 @@
           lastReply = (`❌ Refill error: ${e.message}`).trim();
         }finally{
           setRefillLoading(false);
-          // بعد التحميل رجّع قرار القفل الحقيقي
           applyRefillLock(refillNextAtRaw);
         }
       }
 
-      document.getElementById('refreshBtn')?.addEventListener('click', fetchStatus);
+      // ✅ Refresh button:
+      // If Shahid + Waiting => try manual sync endpoint then refresh status
+      document.getElementById('refreshBtn')?.addEventListener('click', async () => {
+        try {
+          setLoading(true);
+
+          const currentStatus = ($status?.textContent || '').trim();
+          if (isShahid && currentStatus === 'Waiting') {
+            await fetch('/admin/shahid/sync-pending', { cache: 'no-store' });
+          }
+
+          await fetchStatus();
+        } catch (e) {
+          console.error('refresh error:', e);
+        } finally {
+          setLoading(false);
+        }
+      });
+
       $refillBtn?.addEventListener('click', requestRefill);
 
       $copyReplyBtn?.addEventListener('click', async () => {
         const t = ($adminReplyBox?.textContent || '').trim();
         if (!t) return;
-        await copyTextToClipboard(t);
+
+        const ok = await copyTextToClipboard(t);
+        if (!ok) return;
+
+        const original = $copyReplyBtn.innerHTML;
+        $copyReplyBtn.innerHTML = '<i class="bi bi-check-lg"></i> Copied';
+        setTimeout(() => {
+          $copyReplyBtn.innerHTML = original;
+        }, 1500);
       });
 
       setReplyUI(($adminReplyBox?.textContent || '').trim());
       applyRefillLock(refillNextAtRaw);
+
+      // initial fetch
       fetchStatus();
-      setInterval(fetchStatus, 5000);
+
+      // ✅ smart polling: stop when Accepted/Rejected
+      let poller = setInterval(async () => {
+        await fetchStatus();
+        const st = ($status?.textContent || '').trim();
+        if (st === 'Accepted' || st === 'Rejected') {
+          clearInterval(poller);
+        }
+      }, 5000);
     })();
   </script>
 

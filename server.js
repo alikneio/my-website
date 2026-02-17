@@ -1780,6 +1780,136 @@ app.get('/admin/smm/sync', checkAdmin, async (req, res) => {
 });
 
 
+app.get('/admin/shahid/sync-pending', checkAdmin, async (req, res) => {
+  try {
+    console.log('🔄 Shahid Pending Sync Started...');
+
+    // هات الطلبات اللي بعدها Waiting وفيها pendingid
+    const [orders] = await promisePool.query(
+      `SELECT id, userId, status, order_details, admin_reply
+       FROM orders
+       WHERE status = 'Waiting'
+         AND order_details LIKE '%Provider: Shahid API%'
+         AND admin_reply LIKE '%pendingid:%'
+       ORDER BY id DESC
+       LIMIT 80`
+    );
+
+    console.log(`📦 Found ${orders.length} pending shahid orders to check.`);
+
+    function extractPhone(orderDetails) {
+      const m = String(orderDetails || '').match(/Phone:\s*([0-9]+)/i);
+      return m ? String(m[1]).trim() : null;
+    }
+
+    function extractSubId(adminReply) {
+      const s = String(adminReply || '');
+
+      // Subscription ID: xxxx
+      let m = s.match(/Subscription ID:\s*([a-zA-Z0-9_-]+)/i);
+      if (m?.[1]) return m[1].trim();
+
+      // Email: pendingid:8253....
+      m = s.match(/pendingid:\s*([^@\s]+)/i);
+      if (m?.[1]) return m[1].trim();
+
+      return null;
+    }
+
+    function buildAdminReply(title, d, subIdOverride) {
+      return [
+        title,
+        `Email: ${d?.email || '-'}`,
+        `Password: ${d?.password || '-'}`,
+        `Expiry: ${d?.expiryDate || '-'}`,
+        `Subscription ID: ${subIdOverride || d?.id || '-'}`,
+        `Status: ${d?.status || '-'}`,
+      ].join('\n');
+    }
+
+    let updatedToActive = 0;
+    let stillPending = 0;
+    let missingSubId = 0;
+
+    for (const o of orders) {
+      const phone = extractPhone(o.order_details);
+      const subId = extractSubId(o.admin_reply);
+
+      if (!subId) {
+        missingSubId++;
+        continue;
+      }
+
+      try {
+        // ✅ مهم: shahidApi.getById بيرجع data مباشرة
+        const data = await shahidApi.getById(subId);
+
+        // provider غالباً بيرجع Array
+        const arr = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+        const mine =
+          (phone ? arr.find(x => String(x?.phoneNumber || '') === String(phone)) : null) ||
+          arr[0] ||
+          null;
+
+        if (!mine) {
+          stillPending++;
+          continue;
+        }
+
+        const st = String(mine.status || '').toLowerCase();
+
+        if (st === 'active') {
+          const adminReply = buildAdminReply('✅ Shahid Delivered', mine, subId);
+
+          await promisePool.query(
+            `UPDATE orders
+             SET status = 'Accepted', admin_reply = ?
+             WHERE id = ? LIMIT 1`,
+            [adminReply, o.id]
+          );
+
+          await promisePool.query(
+            `INSERT INTO notifications (user_id, message, created_at, is_read)
+             VALUES (?, ?, NOW(), 0)`,
+            [o.userId, `✅ تم تفعيل اشتراك شاهد تلقائياً (Order #${o.id})`]
+          );
+
+          updatedToActive++;
+        } else {
+          // pending/processing
+          const adminReply = buildAdminReply('⏳ Shahid Pending', mine, subId);
+
+          await promisePool.query(
+            `UPDATE orders SET admin_reply = ? WHERE id = ? LIMIT 1`,
+            [adminReply, o.id]
+          );
+
+          stillPending++;
+        }
+
+      } catch (e) {
+        console.warn('⚠️ shahid sync error order:', o.id, e?.message || e);
+        stillPending++;
+      }
+    }
+
+    console.log('✅ Shahid Pending Sync Done.', { updatedToActive, stillPending, missingSubId });
+
+    return res.send(
+      `✔️ Shahid pending sync done.
+Active updated: ${updatedToActive}
+Still pending/failed: ${stillPending}
+Missing sub id: ${missingSubId}`
+    );
+
+  } catch (err) {
+    console.error('❌ Shahid Sync Error:', err);
+    return res.status(500).send('Sync Error');
+  }
+});
+
+
+
 
 // =============== SOCIAL MEDIA SERVICES (SMMGEN) ===============
 
@@ -4372,7 +4502,7 @@ app.get('/order/:id', checkAuth, (req, res) => {
 });
 
 app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
-  const typeParam = String(req.params.type || '').trim(); // e.g. shahid-1-month
+  const typeParam = String(req.params.type || '').trim();
   const error = req.query.error || null;
 
   const user = req.session.user || null;
@@ -4396,37 +4526,34 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
     savedProfile = p || null;
   } catch (e) {
     console.error("⚠️ load user_shahid_profiles failed:", e?.message || e);
-    savedProfile = null;
   }
 
-  // 1) Fetch API types (to get title/months)
+  // ✅ 1) Fetch API types
+  // IMPORTANT: shahidApi.getTypes() بيرجع data مباشرة
   let apiTypes = [];
   try {
-    const resp = await shahidApi.getTypes();
-    apiTypes = Array.isArray(resp?.data) ? resp.data : [];
+    const resp = await shahidApi.getTypes(); // resp هو array
+    apiTypes = Array.isArray(resp) ? resp : [];
   } catch (e) {
     console.error("❌ Shahid getTypes error:", e?.response?.data || e.message);
     apiTypes = [];
   }
 
   const apiTypeObj = apiTypes.find(t => String(t.type) === typeParam) || null;
-  if (!apiTypeObj) {
-    return res.redirect('/shahid-section?error=notfound');
-  }
+  if (!apiTypeObj) return res.redirect('/shahid-section?error=notfound');
 
-  // 2) Fetch your local config (image + sell prices + enabled)
+  // ✅ 2) Fetch local config
   const cfgSql = `SELECT * FROM shahid_api_products WHERE type = ? AND is_enabled = 1 LIMIT 1`;
   db.query(cfgSql, [typeParam], (err, rows) => {
     if (err) {
       console.error("DB error shahid_api_products:", err);
       return res.status(500).send("Server error");
     }
-    const cfg = rows?.[0] || null;
-    if (!cfg) {
-      return res.redirect('/shahid-section?error=notfound');
-    }
 
-    // 3) Build a "product-like" object for checkout
+    const cfg = rows?.[0] || null;
+    if (!cfg) return res.redirect('/shahid-section?error=notfound');
+
+    // 3) Build product object
     const product = {
       id: null,
       source: 'shahid_api',
@@ -4434,17 +4561,17 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
 
       name: cfg.custom_title || apiTypeObj.title || 'Shahid Package',
       image: cfg.image || '/images/shahid.png',
-
       notes: `Shahid API Package • ${apiTypeObj.months} month(s)`,
 
-      delivery_mode: 'manual',
+      // ✅ هذا أوتوماتيك مش manual
+      delivery_mode: 'automatic',
       in_stock: true,
 
       sell_price_shared: cfg.sell_price_shared,
       sell_price_full: cfg.sell_price_full
     };
 
-    // 4) Shared/Full selection (via query ?full=1)
+    // 4) Shared/Full selection
     const isFullQuery = String(req.query.full || '0') === '1';
     const basePrice = isFullQuery
       ? Number(cfg.sell_price_full || 0)
@@ -4454,17 +4581,18 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
       return res.redirect('/shahid-section?error=server');
     }
 
-    // discount
     const finalPrice = applyUserDiscount(basePrice, user);
 
     product.original_price = Number(basePrice.toFixed(2));
     product.price = Number(finalPrice.toFixed(2));
 
-    // idempotency
+    // ✅ idempotency
     const idemKey = uuidv4();
     req.session.idemKey = idemKey;
 
-    const notes = (product.notes && String(product.notes).trim() !== '') ? String(product.notes).trim() : null;
+    const notes = (product.notes && String(product.notes).trim() !== '')
+      ? String(product.notes).trim()
+      : null;
 
     return res.render('checkout-shahid', {
       user,
@@ -4484,11 +4612,11 @@ app.get('/checkout/shahid/:type', checkAuth, async (req, res) => {
         sellFull: cfg.sell_price_full
       },
 
-      // ✅ auto-fill
       savedProfile
     });
   });
 });
+
 
 
 app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
@@ -4542,6 +4670,13 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
     return t;
   }
 
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
   try {
     const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
     if (alreadyReturned) return;
@@ -4593,7 +4728,6 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
     const conn = await promisePool.getConnection();
     let orderId = null;
 
-    // keep some values for telegram after commit
     const productName = (cfg.custom_title && String(cfg.custom_title).trim() !== '')
       ? String(cfg.custom_title).trim()
       : `Shahid (${typeParam})`;
@@ -4646,7 +4780,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         return res.status(400).json(failPayload);
       }
 
-      // ✅ Save/Update Shahid profile (auto-fill next time)
+      // ✅ Save/Update Shahid profile
       await conn.query(
         `INSERT INTO user_shahid_profiles (user_id, phone, first_name, last_name, country_code)
          VALUES (?, ?, ?, ?, ?)
@@ -4658,7 +4792,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         [freshUser.id, phone, fn, ln, cc]
       );
 
-      // ✅ Insert order (status Waiting)
+      // ✅ Insert order (Waiting)
       const [orderResult] = await conn.query(
         `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status, admin_reply)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -4677,17 +4811,8 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
 
       await conn.commit();
 
-      // ✅ refresh session user
+      // ✅ Telegram AFTER COMMIT (نفس كودك)
       try {
-        const [[freshAfter]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [freshUser.id]);
-        if (freshAfter) req.session.user = freshAfter;
-      } catch (_) {}
-
-      // ===========================
-      // ✅ Telegram AFTER COMMIT (like your /buy)
-      // ===========================
-      try {
-        // user chat id + username
         const [rows] = await promisePool.query(
           'SELECT telegram_chat_id, username FROM users WHERE id = ?',
           [freshUser.id]
@@ -4695,7 +4820,6 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         const chatId = rows?.[0]?.telegram_chat_id;
         const username = rows?.[0]?.username || freshUser.username || `User#${freshUser.id}`;
 
-        // message to user (order registered)
         if (chatId) {
           const msg = `
 📥 *طلب شاهد تم تسجيله بنجاح*
@@ -4707,15 +4831,9 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
 🧾 *رقم الطلب:* ${orderId}
           `.trim();
 
-          await sendTelegramMessage(
-            chatId,
-            msg,
-            process.env.TELEGRAM_BOT_TOKEN,
-            { parseMode: "Markdown", timeoutMs: 15000 }
-          );
+          await sendTelegramMessage(chatId, msg, process.env.TELEGRAM_BOT_TOKEN, { parseMode: "Markdown", timeoutMs: 15000 });
         }
 
-        // message to admin
         const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
         const adminMsg = `
 🆕 <b>طلب شاهد جديد!</b>
@@ -4730,20 +4848,15 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
 🕒 <b>الوقت:</b> ${now.toLocaleString()}
         `.trim();
 
-        await sendTelegramMessage(
-          adminChatId,
-          adminMsg,
-          process.env.TELEGRAM_BOT_TOKEN,
-          { parseMode: "HTML", timeoutMs: 15000 }
-        );
-
+        await sendTelegramMessage(adminChatId, adminMsg, process.env.TELEGRAM_BOT_TOKEN, { parseMode: "HTML", timeoutMs: 15000 });
       } catch (e) {
         console.warn('⚠️ Telegram notification flow error (buy-shahid):', e?.message || e);
       }
 
-      // ✅ THEN: call external API (after commit)
+      // ✅ Call external API
       let apiResp = null;
       try {
+        // IMPORTANT: shahidApi.buy بيرجع data مباشرة
         apiResp = await shahidApi.buy({
           type: mapTypeToApiValue(typeParam),
           customerPhone: phone,
@@ -4756,7 +4869,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         const payload = e?.response?.data || { error: e.message };
         console.error("❌ Shahid buy failed:", payload);
 
-        // refund + keep order waiting
+        // refund
         try {
           await promisePool.query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [purchasePrice, freshUser.id]);
           await promisePool.query(
@@ -4764,18 +4877,16 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
             ['Waiting', `Shahid API failed. Refunded.\n${JSON.stringify(payload)}`, orderId]
           );
 
-          // notify user in-app
           await promisePool.query(
             `INSERT INTO notifications (user_id, message, created_at, is_read)
              VALUES (?, ?, NOW(), 0)`,
             [freshUser.id, `⚠️ فشل تنفيذ اشتراك شاهد وتمت إعادة الرصيد. (Order #${orderId})`]
           );
-
         } catch (refundErr) {
           console.error("Refund/update failed:", refundErr);
         }
 
-        // optional: Telegram to admin about failure
+        // telegram admin fail
         try {
           const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
           const failMsg = `
@@ -4787,12 +4898,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
 📋 <b>Error:</b> ${escapeHtml(JSON.stringify(payload))}
           `.trim();
 
-          await sendTelegramMessage(
-            adminChatId,
-            failMsg,
-            process.env.TELEGRAM_BOT_TOKEN,
-            { parseMode: "HTML", timeoutMs: 15000 }
-          );
+          await sendTelegramMessage(adminChatId, failMsg, process.env.TELEGRAM_BOT_TOKEN, { parseMode: "HTML", timeoutMs: 15000 });
         } catch (_) {}
 
         return res.json({ success: true, redirectUrl: `/order-details/${orderId}` });
@@ -4800,54 +4906,36 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
 
       // ✅ Update order with credentials/status
       try {
-        const d = apiResp?.data || null;
+        // apiResp هو data مباشرة
+        const d = apiResp || null;
         const status = String(d?.status || '').toLowerCase() || 'active';
 
+        const isPending = status === 'pending';
+        const title = isPending ? '⏳ Shahid Pending' : '✅ Shahid Delivered';
+
         const adminReply = [
-          `✅ Shahid Delivered`,
-          `Email: ${d?.email || '-'}`,
+          title,
+          `Email: ${d?.email || '-'}`,          // إذا pending غالباً فيها pendingid:...
           `Password: ${d?.password || '-'}`,
           `Expiry: ${d?.expiryDate || '-'}`,
-          `Subscription ID: ${d?.id || '-'}`,
-          `Status: ${d?.status || '-'}`
+          `Subscription ID: ${d?.id || '-'}`,   // مهم للـ sync
+          `Status: ${d?.status || '-'}`,
         ].join('\n');
 
         await promisePool.query(
           `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ? LIMIT 1`,
-          [status === 'active' ? 'Accepted' : 'Waiting', adminReply, orderId]
+          [isPending ? 'Waiting' : 'Accepted', adminReply, orderId]
         );
 
         await promisePool.query(
           `INSERT INTO notifications (user_id, message, created_at, is_read)
            VALUES (?, ?, NOW(), 0)`,
-          [freshUser.id, `✅ تم تنفيذ اشتراك شاهد. ادخل على Order Details لرؤية البيانات. (Order #${orderId})`]
+          [freshUser.id,
+            isPending
+              ? `⏳ طلب شاهد قيد المعالجة لدى المزوّد (Pending). سيتم تحديثه عبر Sync. (Order #${orderId})`
+              : `✅ تم تنفيذ اشتراك شاهد. ادخل على Order Details لرؤية البيانات. (Order #${orderId})`
+          ]
         );
-
-        // ✅ Telegram: delivered to user (optional)
-        try {
-          const [rows] = await promisePool.query(
-            'SELECT telegram_chat_id FROM users WHERE id = ?',
-            [freshUser.id]
-          );
-          const chatId = rows?.[0]?.telegram_chat_id;
-          if (chatId) {
-            const deliveredMsg = `
-✅ *تم تنفيذ اشتراك شاهد بنجاح*
-
-🧾 *Order ID:* ${orderId}
-📧 *Email:* ${d?.email || '-'}
-🔐 *Password:* ${d?.password || '-'}
-📆 *Expiry:* ${d?.expiryDate || '-'}
-            `.trim();
-
-            await sendTelegramMessage(
-              chatId,
-              deliveredMsg,
-              process.env.TELEGRAM_BOT_TOKEN,
-              { parseMode: "Markdown", timeoutMs: 15000 }
-            );
-          }
-        } catch (_) {}
 
       } catch (uErr) {
         console.error("Update order after API success failed:", uErr);
@@ -4866,14 +4954,6 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
   } catch (err) {
     console.error('❌ Shahid Buy Error:', err?.response?.data || err.message || err);
     return res.status(500).json({ success: false, message: 'Server error' });
-  }
-
-  // tiny helper for admin HTML messages (avoid breaking HTML)
-  function escapeHtml(str) {
-    return String(str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
   }
 });
 
@@ -8166,6 +8246,7 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     return res.json({ ok: false });
   }
 
+  // ✅ Get latest delivery only (avoid duplicate join ambiguity)
   const sql = `
     SELECT
       o.*,
@@ -8178,7 +8259,7 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
       so.refund_amount   AS smm_refund_amount,
       so.provider_status AS smm_provider_status,
 
-      -- ===== Delivery (safe preview only) =====
+      -- ===== Latest delivery only =====
       od.created_at      AS delivery_created_at,
       od.delivery_text   AS delivery_text
 
@@ -8187,7 +8268,17 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     LEFT JOIN smm_orders so
       ON so.provider_order_id = o.provider_order_id
 
-    LEFT JOIN order_deliveries od
+    LEFT JOIN (
+      SELECT d1.*
+      FROM order_deliveries d1
+      INNER JOIN (
+        SELECT order_id, MAX(created_at) AS max_created_at
+        FROM order_deliveries
+        GROUP BY order_id
+      ) d2
+        ON d2.order_id = d1.order_id
+       AND d2.max_created_at = d1.created_at
+    ) od
       ON od.order_id = o.id
 
     WHERE o.id = ? AND o.userId = ?
@@ -8207,7 +8298,6 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     // ======================================================
     let smmBlock = null;
 
-    // ✅ SMM فقط إذا في سجل بـ smm_orders
     if (row.smm_status) {
       const orderedQty   = Number(row.smm_quantity || 0);
       const hasDelivered = row.smm_delivered_qty !== null && row.smm_delivered_qty !== undefined;
@@ -8244,6 +8334,7 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     let preview = '';
     if (hasDelivery) {
       const t = String(row.delivery_text).trim();
+      // ✅ keep your original logic, but guard empty/short safely
       preview = (t.length <= 10)
         ? 'Delivered'
         : `${t.slice(0, 3)}***${t.slice(-3)}`;
@@ -8254,6 +8345,7 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     // ======================================================
     let pendingManual = false;
 
+    // Prefer explicit columns if they exist
     if (
       Object.prototype.hasOwnProperty.call(row, 'fulfillment_mode') ||
       Object.prototype.hasOwnProperty.call(row, 'stock_fallback')
@@ -8273,13 +8365,25 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     // ======================================================
     const rawAdminReply = (row.admin_reply || '').toString();
 
-    // إذا في delivery → نخفي admin_reply الحقيقي
+    // ✅ If delivery exists -> hide raw admin reply (privacy)
     const adminReplyForClient = hasDelivery ? '' : rawAdminReply;
 
-    // display_reply = نقطة عرض واحدة للواجهة
+    // ✅ display_reply is the only reliable display field
     const displayReply = hasDelivery
       ? (preview || 'Delivered')
       : (rawAdminReply.trim() ? rawAdminReply : '');
+
+    // ======================================================
+    // ============== SHAHID HELPERS (safe) =================
+    // ======================================================
+    const isShahid = String(row.order_details || '').includes('Shahid API');
+    const isPendingShahid =
+      isShahid &&
+      String(row.status || '') === 'Waiting' &&
+      rawAdminReply.toLowerCase().includes('pending');
+
+    // Optional normalized status (doesn't replace original)
+    const statusNormalized = String(row.status || '').toLowerCase();
 
     // ======================================================
     // ==================== RESPONSE ========================
@@ -8287,6 +8391,7 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
     return res.json({
       ok: true,
       status: row.status,
+      status_normalized: statusNormalized,
 
       // legacy (للواجهات القديمة)
       admin_reply: adminReplyForClient,
@@ -8298,15 +8403,20 @@ app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
       smm: smmBlock,
 
       // helpers
+      is_shahid: isShahid,
+      is_pending_shahid: isPendingShahid,
+
       delivery_preview: preview,
       delivery: {
         has_delivery: hasDelivery,
         preview,
-        pending_manual: pendingManual
+        pending_manual: pendingManual,
+        delivery_created_at: row.delivery_created_at || null
       }
     });
   });
 });
+
 
 
 
