@@ -6184,37 +6184,68 @@ app.get("/api/shahid/subscription/:id", checkAuthJson, async (req, res) => {
 
 
 app.get('/shahid-section', async (req, res) => {
-  const sql = `
-    SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'Shahid'
-    ORDER BY sort_order ASC, id ASC
-  `;
+  const user = req.session.user || null;
 
-  db.query(sql, [], async (err, products) => {
-    if (err) {
-      console.error("Database error:", err);
-      return res.status(500).send("Server error");
+  // 1) Fetch types from Shahid API
+  let types = [];
+  try {
+    const resp = await shahidApi.getTypes(); // { success, message, data: [...] }
+    types = Array.isArray(resp?.data) ? resp.data : [];
+  } catch (e) {
+    console.error("❌ Shahid API types error:", e?.response?.data || e.message);
+    types = [];
+  }
+
+  // 2) Fetch your local pricing + images + ordering overrides
+  db.query(
+    "SELECT * FROM shahid_api_products WHERE is_enabled = 1 ORDER BY sort_order ASC, id ASC",
+    [],
+    (err, rows) => {
+      if (err) {
+        console.error("❌ DB error shahid_api_products:", err);
+        return res.status(500).send("Server error");
+      }
+
+      const configRows = rows || [];
+
+      // Map configs by type for fast merge
+      const cfgMap = new Map(configRows.map(r => [String(r.type), r]));
+
+      // 3) Merge: only show types that you configured locally (for image + sell price)
+      const shahidCards = (types || [])
+        .map(t => {
+          const key = String(t.type);
+          const cfg = cfgMap.get(key);
+          if (!cfg) return null; // not configured -> hide
+
+          return {
+            type: t.type,            // e.g. "shahid-1-month"
+            months: t.months,        // from API
+            api_title: t.title,      // from API (optional)
+            api_price: t.price,      // from API (reference)
+
+            // Your store display fields
+            title: cfg.custom_title || t.title,
+            image: cfg.image || "/images/shahid.png",
+            sell_price_full: cfg.sell_price_full,
+            sell_price_shared: cfg.sell_price_shared,
+            sort_order: cfg.sort_order || 0,
+          };
+        })
+        .filter(Boolean);
+
+      // Optional: log for debugging
+      console.log("✅ /shahid-section types:", types.length, "configs:", configRows.length, "cards:", shahidCards.length);
+
+      // 4) Render the new EJS that uses shahidCards
+      return res.render('shahid-section', {
+        user,
+        shahidCards
+      });
     }
-
-    const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
-
-    // ✅ جلب أنواع Shahid من الـ API (منفصل عن MySQL)
-    let shahidTypes = [];
-    try {
-      const typesResp = await shahidApi.getTypes();
-      // حسب توثيقهم: response فيه success/message/data :contentReference[oaicite:1]{index=1}
-      shahidTypes = Array.isArray(typesResp?.data) ? typesResp.data : [];
-    } catch (e) {
-      console.error("Shahid types error:", e?.response?.data || e.message);
-      // ما منوقف الصفحة لو الـ API وقع
-      shahidTypes = [];
-    }
-
-    // ✅ مرّر shahidTypes للـ EJS
-    res.render('shahid-section', { user, products: finalProducts, shahidTypes });
-  });
+  );
 });
+
 
 app.get('/osn-section', (req, res) => {
   const sql = `
