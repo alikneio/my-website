@@ -4631,7 +4631,8 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
     customerFirstName,
     customerLastName,
     countryCode,
-    idempotency_key: bodyIdemKey
+    idempotency_key: bodyIdemKey,
+    rememberDetails // optional
   } = req.body;
 
   const sessionUser = req.session.user;
@@ -4640,6 +4641,36 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
   }
 
   const idemKey = (bodyIdemKey || req.session.idemKey || '').toString().slice(0, 64).trim();
+
+  // ===== Helpers =====
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function normalizeType(s) {
+    // "shahid-3-month" -> "3-month"
+    return String(s || '').trim().replace(/^shahid[-_]/i, '');
+  }
+
+  function mapTypeToApiValue(t) {
+    const s = String(t || "").toLowerCase();
+    if (s.includes("1-month")) return "1-month";
+    if (s.includes("3-month")) return "3-month";
+    if (s.includes("1-year") || s.includes("12")) return "1-year";
+    return t;
+  }
+
+  const pick = (...vals) => {
+    for (const v of vals) {
+      if (v === undefined || v === null) continue;
+      const s = String(v).trim();
+      if (s && s !== 'null' && s !== 'undefined' && s !== '-') return s;
+    }
+    return '-';
+  };
 
   async function storeIdempotencyResponse(conn, userId, key, payload) {
     if (!key) return;
@@ -4666,26 +4697,15 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
     return false;
   }
 
-  function mapTypeToApiValue(t) {
-    const s = String(t || "").toLowerCase();
-    if (s.includes("1-month")) return "1-month";
-    if (s.includes("3-month")) return "3-month";
-    if (s.includes("1-year") || s.includes("12")) return "1-year";
-    return t;
-  }
-
-  function escapeHtml(str) {
-    return String(str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
+  // =========================
+  // ===== Main Flow =========
+  // =========================
   try {
     const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
     if (alreadyReturned) return;
 
-    const typeParam = String(shahidType || '').trim();
+    const typeParamRaw = String(shahidType || '').trim();          // DB expects this (e.g. shahid-1-month)
+    const typeParamApi = normalizeType(typeParamRaw);              // API expects this (e.g. 1-month)
     const fullFlag = String(isFull) === 'true' || String(isFull) === '1';
 
     const phone = String(customerPhone || '').trim();
@@ -4693,7 +4713,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
     const ln = String(customerLastName || '').trim();
     const cc = String(countryCode || 'lb').trim() || 'lb';
 
-    if (!typeParam) return res.status(400).json({ success: false, message: 'Missing package type.' });
+    if (!typeParamRaw) return res.status(400).json({ success: false, message: 'Missing package type.' });
     if (!phone || phone.replace(/\D/g, '').length < 10) return res.status(400).json({ success: false, message: 'Invalid phone.' });
     if (!fn || !ln) return res.status(400).json({ success: false, message: 'Missing first/last name.' });
 
@@ -4707,10 +4727,10 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
       freshUser = sessionUser;
     }
 
-    // ✅ Load pricing/config
+    // ✅ Load pricing/config (DB uses RAW type)
     const [[cfg]] = await promisePool.query(
       `SELECT * FROM shahid_api_products WHERE type = ? AND is_enabled = 1 LIMIT 1`,
-      [typeParam]
+      [typeParamRaw]
     );
     if (!cfg) return res.status(404).json({ success: false, message: 'Package not found or disabled.' });
 
@@ -4734,11 +4754,11 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
 
     const productName = (cfg.custom_title && String(cfg.custom_title).trim() !== '')
       ? String(cfg.custom_title).trim()
-      : `Shahid (${typeParam})`;
+      : `Shahid (${typeParamRaw})`;
 
     const orderDetails = [
       `Provider: Shahid API`,
-      `Type: ${typeParam}`,
+      `Type: ${typeParamRaw}`,
       `Account: ${fullFlag ? 'Full' : 'Shared'}`,
       `Phone: ${phone}`,
       `Name: ${fn} ${ln}`,
@@ -4784,17 +4804,20 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         return res.status(400).json(failPayload);
       }
 
-      // ✅ Save/Update Shahid profile
-      await conn.query(
-        `INSERT INTO user_shahid_profiles (user_id, phone, first_name, last_name, country_code)
-         VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           phone = VALUES(phone),
-           first_name = VALUES(first_name),
-           last_name = VALUES(last_name),
-           country_code = VALUES(country_code)`,
-        [freshUser.id, phone, fn, ln, cc]
-      );
+      // ✅ Save profile only if user wants (default true if undefined)
+      const remember = (rememberDetails === undefined) ? true : (String(rememberDetails) === '1' || String(rememberDetails) === 'true');
+      if (remember) {
+        await conn.query(
+          `INSERT INTO user_shahid_profiles (user_id, phone, first_name, last_name, country_code)
+           VALUES (?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             phone = VALUES(phone),
+             first_name = VALUES(first_name),
+             last_name = VALUES(last_name),
+             country_code = VALUES(country_code)`,
+          [freshUser.id, phone, fn, ln, cc]
+        );
+      }
 
       // ✅ Insert order (Waiting)
       const [orderResult] = await conn.query(
@@ -4815,7 +4838,13 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
 
       await conn.commit();
 
-      // ✅ Telegram AFTER COMMIT (نفس كودك)
+      // ✅ refresh session user
+      try {
+        const [[freshAfter]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [freshUser.id]);
+        if (freshAfter) req.session.user = freshAfter;
+      } catch (_) {}
+
+      // ✅ Telegram AFTER COMMIT (order registered)
       try {
         const [rows] = await promisePool.query(
           'SELECT telegram_chat_id, username FROM users WHERE id = ?',
@@ -4857,12 +4886,11 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         console.warn('⚠️ Telegram notification flow error (buy-shahid):', e?.message || e);
       }
 
-      // ✅ Call external API
+      // ✅ Call external API (after commit)
       let apiResp = null;
       try {
-        // IMPORTANT: shahidApi.buy بيرجع data مباشرة
         apiResp = await shahidApi.buy({
-          type: mapTypeToApiValue(typeParam),
+          type: mapTypeToApiValue(typeParamApi), // ✅ API type normalized
           customerPhone: phone,
           isFull: fullFlag,
           customerFirstName: fn,
@@ -4873,7 +4901,7 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         const payload = e?.response?.data || { error: e.message };
         console.error("❌ Shahid buy failed:", payload);
 
-        // refund
+        // refund + keep order waiting
         try {
           await promisePool.query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [purchasePrice, freshUser.id]);
           await promisePool.query(
@@ -4908,124 +4936,113 @@ app.post('/buy-shahid', checkAuth, uploadNone.none(), async (req, res) => {
         return res.json({ success: true, redirectUrl: `/order-details/${orderId}` });
       }
 
-      // ✅ Update order with credentials/status
-    // ✅ Update order with credentials/status (robust mapping)
-try {
-  // IMPORTANT: shahidApi.buy() returns the body already (not axios response)
-  const d0 = apiResp || null;
+      // ✅ Update order with credentials/status (robust + pending-safe)
+      try {
+        const d0 = apiResp || null;
 
-  // Some providers wrap inside {data:{...}} or {result:{...}}
-  const d =
-    (d0 && typeof d0 === 'object' && d0.data && typeof d0.data === 'object') ? d0.data :
-    (d0 && typeof d0 === 'object' && d0.result && typeof d0.result === 'object') ? d0.result :
-    d0;
+        const d =
+          (d0 && typeof d0 === 'object' && d0.data && typeof d0.data === 'object') ? d0.data :
+          (d0 && typeof d0 === 'object' && d0.result && typeof d0.result === 'object') ? d0.result :
+          d0;
 
-  // ✅ Robust field mapping (supports different provider keys)
-  const pick = (...vals) => {
-    for (const v of vals) {
-      if (v === undefined || v === null) continue;
-      const s = String(v).trim();
-      if (s && s !== 'null' && s !== 'undefined' && s !== '-') return s;
-    }
-    return '-';
-  };
+        const statusRaw = pick(d?.status, d?.state, d?.subscriptionStatus, d?.subscription_status);
+        const statusLower = String(statusRaw || '').toLowerCase();
 
-  const statusRaw = pick(d?.status, d?.state, d?.subscriptionStatus, d?.subscription_status);
-  const statusLower = String(statusRaw).toLowerCase();
+        const email = pick(
+          d?.email, d?.accountEmail, d?.username, d?.user, d?.login,
+          d?.credentials?.email, d?.credentials?.username
+        );
 
-  const email = pick(
-    d?.email, d?.accountEmail, d?.username, d?.user, d?.login,
-    d?.credentials?.email, d?.credentials?.username
-  );
+        const password = pick(
+          d?.password, d?.pass, d?.pwd,
+          d?.credentials?.password, d?.credentials?.pass
+        );
 
-  const password = pick(
-    d?.password, d?.pass, d?.pwd,
-    d?.credentials?.password, d?.credentials?.pass
-  );
+        const expiry = pick(
+          d?.expiryDate, d?.expiry, d?.expiresAt, d?.expires_at, d?.expiration, d?.expirationDate,
+          d?.subscription?.expiryDate, d?.subscription?.expiresAt
+        );
 
-  const expiry = pick(
-    d?.expiryDate, d?.expiry, d?.expiresAt, d?.expires_at, d?.expiration, d?.expirationDate,
-    d?.subscription?.expiryDate, d?.subscription?.expiresAt
-  );
+        const subId = pick(
+          d?.id, d?.subscriptionId, d?.subscription_id, d?.sub_id, d?.uuid,
+          d?.subscription?.id, d?.subscription?.subscriptionId
+        );
 
-  const subId = pick(
-    d?.id, d?.subscriptionId, d?.subscription_id, d?.sub_id, d?.uuid,
-    d?.subscription?.id, d?.subscription?.subscriptionId
-  );
+        // ✅ Detect pending placeholder email
+        const emailLower = String(email || '').toLowerCase();
+        const isPendingEmail =
+          emailLower.includes('pendingid:') ||
+          emailLower.startsWith('pendingid') ||
+          emailLower.includes('pending');
 
-  // ✅ Keep a debug snapshot (hidden) for admin only if something is missing
-  const missingCreds = (email === '-' && password === '-' && expiry === '-' && subId === '-');
-  if (missingCreds) {
-    console.warn("⚠️ Shahid API returned active but credentials missing. Raw:", d0);
-  }
+        const hasRealEmail = (email !== '-' && email !== '' && !isPendingEmail);
+        const hasRealPassword = (password !== '-' && password !== '' && String(password).length >= 4);
 
-  // ✅ Decide order status
-  // If provider says active => Accepted
-  // Else => Waiting
-  const hasCreds =
-  (email !== '-' && email !== '') ||
-  (password !== '-' && password !== '') ||
-  (expiry !== '-' && expiry !== '') ||
-  (subId !== '-' && subId !== '');
+        // ✅ "Real creds" require BOTH email & password real
+        const hasRealCreds = hasRealEmail && hasRealPassword;
 
-const newOrderStatus =
-  hasCreds ||
-  statusLower === 'active' ||
-  statusLower === 'delivered' ||
-  statusLower === 'success'
-    ? 'Accepted'
-    : 'Waiting';
+        // ✅ Decide final status
+        const newOrderStatus =
+          hasRealCreds ||
+          statusLower === 'active' ||
+          statusLower === 'delivered' ||
+          statusLower === 'success'
+            ? 'Accepted'
+            : 'Waiting';
 
+        const title = (newOrderStatus === 'Accepted') ? '✅ Shahid Delivered' : '⏳ Shahid Pending';
 
-  const adminReply = [
-    `✅ Shahid Delivered`,
-    `Email: ${email}`,
-    `Password: ${password}`,
-    `Expiry: ${expiry}`,
-    `Subscription ID: ${subId}`,
-    `Status: ${statusRaw || '-'}`
-  ].join('\n');
+        // If pending, show a cleaner hint in Status
+        const statusShown = (statusRaw && statusRaw !== '-') ? statusRaw : (newOrderStatus === 'Accepted' ? 'active' : 'pending');
 
-  await promisePool.query(
-    `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ? LIMIT 1`,
-    [newOrderStatus, adminReply, orderId]
-  );
+        const adminReply = [
+          title,
+          `Email: ${email}`,
+          `Password: ${password}`,
+          `Expiry: ${expiry}`,
+          `Subscription ID: ${subId}`,
+          `Status: ${statusShown}`
+        ].join('\n');
 
-  await promisePool.query(
-    `INSERT INTO notifications (user_id, message, created_at, is_read)
-     VALUES (?, ?, NOW(), 0)`,
-    [freshUser.id, `✅ تم تحديث بيانات اشتراك شاهد. (Order #${orderId})`]
-  );
+        await promisePool.query(
+          `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ? LIMIT 1`,
+          [newOrderStatus, adminReply, orderId]
+        );
 
-  // ✅ Telegram: delivered to user (optional)
-  try {
-    const [rows] = await promisePool.query(
-      'SELECT telegram_chat_id FROM users WHERE id = ?',
-      [freshUser.id]
-    );
-    const chatId = rows?.[0]?.telegram_chat_id;
-    if (chatId && newOrderStatus === 'Accepted') {
-      const deliveredMsg = `
+        await promisePool.query(
+          `INSERT INTO notifications (user_id, message, created_at, is_read)
+           VALUES (?, ?, NOW(), 0)`,
+          [freshUser.id, (newOrderStatus === 'Accepted')
+            ? `✅ تم تنفيذ اشتراك شاهد. ادخل على Order Details لرؤية البيانات. (Order #${orderId})`
+            : `⏳ اشتراك شاهد قيد الانتظار عند المزود. ستظهر البيانات عند التفعيل. (Order #${orderId})`
+          ]
+        );
+
+        // ✅ Telegram to user only if Accepted (real creds)
+        try {
+          const [rows] = await promisePool.query(
+            'SELECT telegram_chat_id FROM users WHERE id = ?',
+            [freshUser.id]
+          );
+          const chatId = rows?.[0]?.telegram_chat_id;
+
+          if (chatId && newOrderStatus === 'Accepted') {
+            const deliveredMsg = `
 ✅ *تم تنفيذ اشتراك شاهد بنجاح*
 
 🧾 *Order ID:* ${orderId}
 📧 *Email:* ${email}
 🔐 *Password:* ${password}
 📆 *Expiry:* ${expiry}
-      `.trim();
+            `.trim();
 
-      await sendTelegramMessage(
-        chatId,
-        deliveredMsg,
-        process.env.TELEGRAM_BOT_TOKEN,
-        { parseMode: "Markdown", timeoutMs: 15000 }
-      );
-    }
-  } catch (_) {}
+            await sendTelegramMessage(chatId, deliveredMsg, process.env.TELEGRAM_BOT_TOKEN, { parseMode: "Markdown", timeoutMs: 15000 });
+          }
+        } catch (_) {}
 
-} catch (uErr) {
-  console.error("Update order after API success failed:", uErr);
-}
+      } catch (uErr) {
+        console.error("Update order after API success failed:", uErr);
+      }
 
       return res.json({ success: true, redirectUrl: `/order-details/${orderId}` });
 
