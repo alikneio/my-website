@@ -9,6 +9,8 @@ const axios = require('axios');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const multer = require('multer');
+const shahidApi = require("./services/shahidApi");
+
 
 
 
@@ -284,6 +286,12 @@ const checkAuth = (req, res, next) => {
     if (req.session.user) next();
     else res.redirect('/login');
 };
+
+const checkAuthJson = (req, res, next) => {
+  if (req.session?.user) return next();
+  return res.status(401).json({ success: false, message: "Session expired. Please log in.", data: null });
+};
+
 
 const checkAdmin = (req, res, next) => {
     if (req.session.user && req.session.user.role === 'admin') next();
@@ -6135,21 +6143,65 @@ app.get('/netflix-section', (req, res) => {
   });
 });
 
-app.get('/shahid-section', (req, res) => {
+// Shahid API endpoints (separated from MySQL products)
+app.get("/api/shahid/types", checkAuthJson, async (req, res) => {
+  try {
+    return res.json(await shahidApi.getTypes());
+  } catch (e) {
+    console.error("Shahid types:", e?.response?.data || e.message);
+    return res.status(500).json({ success: false, message: "Shahid API error", data: null });
+  }
+});
+
+app.post("/api/shahid/buy", checkAuthJson, async (req, res) => {
+  try {
+    return res.json(await shahidApi.buy(req.body));
+  } catch (e) {
+    const status = e?.response?.status || 500;
+    return res.status(status).json(e?.response?.data || { success: false, message: "Shahid API error", data: null });
+  }
+});
+
+app.get("/api/shahid/subscription/:id", checkAuthJson, async (req, res) => {
+  try {
+    return res.json(await shahidApi.getById(req.params.id));
+  } catch (e) {
+    const status = e?.response?.status || 500;
+    return res.status(status).json(e?.response?.data || { success: false, message: "Shahid API error", data: null });
+  }
+});
+
+
+app.get('/shahid-section', async (req, res) => {
   const sql = `
     SELECT * FROM products
     WHERE main_category = 'Accounts' AND sub_category = 'Shahid'
     ORDER BY sort_order ASC, id ASC
   `;
-  db.query(sql, [], (err, products) => {
+
+  db.query(sql, [], async (err, products) => {
     if (err) {
       console.error("Database error:", err);
       return res.status(500).send("Server error");
     }
+
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('shahid-section', { user, products: finalProducts });
+    // ✅ جلب أنواع Shahid من الـ API (منفصل عن MySQL)
+    let shahidTypes = [];
+    try {
+      const typesResp = await shahidApi.getTypes();
+      // حسب توثيقهم: response فيه success/message/data :contentReference[oaicite:1]{index=1}
+      shahidTypes = Array.isArray(typesResp?.data) ? typesResp.data : [];
+    } catch (e) {
+      console.error("Shahid types error:", e?.response?.data || e.message);
+      // ما منوقف الصفحة لو الـ API وقع
+      shahidTypes = [];
+    }
+
+    // ✅ مرّر shahidTypes للـ EJS
+    res.render('shahid-section', { user, products: finalProducts, shahidTypes });
   });
 });
 
@@ -8163,9 +8215,7 @@ app.listen(PORT, '0.0.0.0', () => {
   setInterval(runSyncSMM, 3 * 60 * 1000);
   setInterval(runSyncProvider, 3 * 60 * 1000);
 
-  // Logs غير حساسة
-  console.log("🔑 DAILYCARD API KEY:", process.env.DAILYCARD_API_KEY ? "Loaded" : "Missing");
-  console.log("✅ Test route registered at /test");
+ 
 
   // =========================
   // ✅ Telegram Webhook setup (DISABLED on Railway)
