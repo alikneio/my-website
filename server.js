@@ -192,44 +192,58 @@ function applyUserDiscountToProducts(products, user) {
 
 // ... (باقي الكود مثل app.use و المسارات)
 
+// ... (باقي الكود مثل app.use و المسارات)
+
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json()); // Important for API routes
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cookieParser());
+
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
+
+// ✅ جيب نفس pool تبع مشروعك
+const { pool } = require('./database');
 
 // خلف Proxy (Railway/NGINX) لازم نثق بالـ proxy للـ secure cookies
 app.set('trust proxy', 1);
 
 const isProd = process.env.NODE_ENV === 'production';
 
-// إعدادات MySQLStore
-const sessionStore = new MySQLStore({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),   // تأكد أنها رقم
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  // createDatabaseTable: true,       // اختياري: ينشئ جدول الجلسات تلقائياً إذا مش موجود
-  // schema: { tableName: 'sessions' } // اختياري: اسم الجدول
-});
+// ✅ خلي MySQLStore يستخدم الـ pool بدل ما يعمل اتصالات لحالو
+const sessionStore = new MySQLStore(
+  {
+    clearExpired: true,
+    checkExpirationInterval: 15 * 60 * 1000, // كل 15 دقيقة
+    expiration: 24 * 60 * 60 * 1000,         // يوم
+
+    // إذا جدول sessions موجود وما بدك ينشئه، خليه false (default)
+    // createDatabaseTable: false,
+    // schema: { tableName: 'sessions' },
+  },
+  pool
+);
 
 // تفعيل الجلسات باستخدام MySQLStore
-app.use(session({
-  name: process.env.SESSION_NAME || 'akcell_sid',
-  secret: process.env.SESSION_SECRET,      // ⚠️ لازم تضيفه في .env
-  store: sessionStore,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 1000 * 60 * 60 * 24,           // يوم
-    httpOnly: true,                         // يمنع الوصول من الجافاسكربت
-    sameSite: 'lax',                        // جيّد لمعظم الحالات (عدّل لـ 'none' مع secure لو عندك cross-site)
-    secure: isProd                          // true فقط على https (production)
-  }
-}));
+app.use(
+  session({
+    name: process.env.SESSION_NAME || 'akcell_sid',
+    secret: process.env.SESSION_SECRET,
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
 
+    // (اختياري لكنه مفيد لتخفيف writes على DB)
+    // rolling: true,
+
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24, // يوم
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isProd,
+    },
+  })
+);
 
 
 
