@@ -40,12 +40,9 @@ const pool = mysql.createPool({
   connectTimeout: 20_000,
 
   // بعض المزودين يتطلب SSL بالـ production
-  ...(isProduction && {
-    ssl: {
-      rejectUnauthorized: false,
-      minVersion: 'TLSv1.2',
-    },
-  }),
+  ...(process.env.MYSQL_SSL === 'true' && {
+  ssl: { rejectUnauthorized: false },
+}),
 
   timezone: 'Z',
   dateStrings: true,
