@@ -1241,6 +1241,24 @@ app.get('/iptv-section', (req, res) => {
   });
 });
 
+app.get('/ibo', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'IBO player'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (ibo):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('ibo', { user, products: finalProducts });
+  });
+});
+
 app.get('/touch-section', (req, res) => {
   const sql = `
     SELECT * FROM products
