@@ -6992,7 +6992,7 @@ app.get('/touchcredit', (req, res) => {
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('touchcredits', { user, products: finalProducts });
+    res.render('touchcredit', { user, products: finalProducts });
   });
 });
 
