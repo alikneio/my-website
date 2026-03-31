@@ -4339,7 +4339,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
   }
 
   try {
-    // 0) لو نفس الطلب تكرر وفيه payload مخزنة
+    // إذا نفس الطلب النجاح تبعه محفوظ مسبقًا
     const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
     if (alreadyReturned) return;
 
@@ -4351,7 +4351,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       });
     }
 
-    // 0.5) Fresh user from DB
+    // fresh user
     let freshUser = null;
     try {
       const [[u]] = await promisePool.query(
@@ -4364,11 +4364,12 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       freshUser = sessionUser;
     }
 
-    // 1) Fetch product
-    const [product] = await q(
+    // product
+    const productRows = await q(
       'SELECT * FROM products WHERE id = ? AND active = 1 LIMIT 1',
       [productIdNum]
     );
+    const product = productRows?.[0];
 
     if (!product) {
       return res.status(404).json({
@@ -4377,7 +4378,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       });
     }
 
-    // legacy out_of_stock
     if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
       const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
       if (oos) {
@@ -4391,7 +4391,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     const deliveryMode = (product.delivery_mode || 'manual').toString().toLowerCase().trim();
     const isStock = deliveryMode === 'stock';
 
-    // 2) Fetch checkout options if they exist
+    // options
     const optionRows = await q(
       `
       SELECT id, product_id, option_label, option_value, price, is_active
@@ -4404,7 +4404,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
     const hasCheckoutOptions = Array.isArray(optionRows) && optionRows.length > 0;
 
-    // 3) Resolve final base price from server only
     let selectedOption = null;
     let basePrice = 0;
 
@@ -4453,7 +4452,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       });
     }
 
-    // 4) Discount + final price
     const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
       ? Number(getUserEffectiveDiscount(freshUser) || 0)
       : Number(freshUser.discount_percent || 0) || 0;
@@ -4473,7 +4471,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     try {
       await conn.beginTransaction();
 
-      // 5) Idempotency gate
+      // idempotency gate
       if (idemKey) {
         try {
           await conn.query(
@@ -4506,7 +4504,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         }
       }
 
-      // ===== STOCK LOCK =====
       let stockItem = null;
 
       if (isStock) {
@@ -4531,7 +4528,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       const orderDetails = orderDetailsParts.length ? orderDetailsParts.join(' | ') : null;
       const initialStatus = shouldAutoDeliver ? 'Accepted' : 'Waiting';
 
-      // 6) Deduct balance atomically
+      // خصم ذري
       const [updRes] = await conn.query(
         `UPDATE users
             SET balance = balance - ?
@@ -4540,13 +4537,27 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       );
 
       if (!updRes?.affectedRows) {
-        const failPayload = { success: false, message: 'Insufficient balance.' };
-        await storeIdempotencyResponse(conn, freshUser.id, idemKey, failPayload);
+        // مهم: لا تخزن failPayload داخل idempotency
         await conn.rollback();
-        return res.status(400).json(failPayload);
+
+        // اختياري: امسح record المفتاح إذا انعمل insert بهالطلب
+        if (idemKey) {
+          try {
+            await promisePool.query(
+              `DELETE FROM idempotency_keys
+               WHERE user_id = ? AND idem_key = ? AND response_json IS NULL`,
+              [freshUser.id, idemKey]
+            );
+          } catch (_) {}
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: 'Insufficient balance.'
+        });
       }
 
-      // 7) Save transaction log
+      // transaction log
       const transactionReason = hasCheckoutOptions
         ? `Purchase: ${product.name} - ${selectedOption.option_label}`
         : `Purchase: ${product.name}`;
@@ -4557,7 +4568,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         [freshUser.id, purchasePrice, transactionReason]
       );
 
-      // 8) Insert order
       const adminReplyAuto = shouldAutoDeliver ? (stockItem.delivery_text || '') : null;
 
       const orderProductName = hasCheckoutOptions
@@ -4580,7 +4590,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
       const orderId = orderResult.insertId;
 
-      // 9) Auto-delivery stock consume
       if (shouldAutoDeliver) {
         await conn.query(
           `UPDATE product_stock_items
@@ -4592,7 +4601,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         );
       }
 
-      // 10) Notification
       const notifMsg = shouldAutoDeliver
         ? `✅ تم تسليم طلبك (${orderProductName}) تلقائياً. ادخل على Order Details لرؤية البيانات.`
         : `✅ تم استلام طلبك (${orderProductName}) بنجاح. سيتم معالجته قريبًا.`;
@@ -4603,7 +4611,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         [freshUser.id, notifMsg]
       );
 
-      // 11) Success response payload
       const successPayload = shouldAutoDeliver
         ? { success: true, redirectUrl: `/order-details/${orderId}` }
         : { success: true, redirectUrl: '/processing' };
@@ -4612,7 +4619,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
       await conn.commit();
 
-      // After commit
       try {
         const [[freshAfter]] = await promisePool.query(
           'SELECT * FROM users WHERE id = ? LIMIT 1',
@@ -4625,7 +4631,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
       req.session.pendingOrderId = orderId;
 
-      // 12) Telegram
       try {
         const [rows] = await promisePool.query(
           'SELECT telegram_chat_id, username FROM users WHERE id = ?',
@@ -4705,22 +4710,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     });
   }
 });
-
-app.get('/order/:id', checkAuth, (req, res) => {
-  const orderId = parseInt(req.params.id);
-  const userId = req.session.user.id;
-
-  const sql = "SELECT * FROM orders WHERE id = ? AND userId = ?";
-  db.query(sql, [orderId, userId], (err, results) => {
-    if (err || results.length === 0) {
-      return res.status(404).send("❌ Order not found or access denied.");
-    }
-
-    const order = results[0];
-    res.render('order-details', { order });
-  });
-});
-
 
 
 // =============================================
