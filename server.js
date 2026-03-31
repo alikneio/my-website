@@ -6978,6 +6978,44 @@ app.get('/touchvalidity', (req, res) => {
   });
 });
 
+app.get('/touchcredits', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Communication' AND sub_category = 'Touch Credits'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('touchcredits', { user, products: finalProducts });
+  });
+});
+
+app.get('/alfacredit', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Communication' AND sub_category = 'Alfa Credits'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('alfacredit', { user, products: finalProducts });
+  });
+});
+
+
+
 
 app.get('/chatgpt-section', (req, res) => {
   const sql = `
