@@ -4278,16 +4278,31 @@ app.post('/profile/update-email', checkAuth, (req, res) => {
 
 
 app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
-  const { productId, playerId, idempotency_key: bodyIdemKey } = req.body;
+  const {
+    productId,
+    playerId,
+    optionId,
+    idempotency_key: bodyIdemKey
+  } = req.body;
 
   const sessionUser = req.session.user;
   if (!sessionUser?.id) {
-    return res.status(401).json({ success: false, message: 'Session expired. Please log in.' });
+    return res.status(401).json({
+      success: false,
+      message: 'Session expired. Please log in.'
+    });
   }
 
-  const idemKey = (bodyIdemKey || req.session.idemKey || '').toString().slice(0, 64).trim();
+  const idemKey = (bodyIdemKey || req.session.idemKey || '')
+    .toString()
+    .slice(0, 64)
+    .trim();
 
-  // Helper to store & return idempotent response
+  const q = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
   async function storeIdempotencyResponse(conn, userId, key, payload) {
     if (!key) return;
     const json = JSON.stringify(payload);
@@ -4300,7 +4315,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     );
   }
 
-  // Helper: if existing response for idemKey exists, return it
   async function returnExistingIdempotentResponse(userId, key) {
     if (!key) return false;
 
@@ -4325,15 +4339,19 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
   }
 
   try {
-    // ✅ 0) إذا نفس الطلب تكرر ومعه response مخزنة -> رجّعها فورًا
+    // 0) لو نفس الطلب تكرر وفيه payload مخزنة
     const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
     if (alreadyReturned) return;
 
-    if (!productId) {
-      return res.status(400).json({ success: false, message: 'Invalid product ID' });
+    const productIdNum = parseInt(productId, 10);
+    if (!Number.isFinite(productIdNum) || productIdNum <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product ID'
+      });
     }
 
-    // ✅ 0.5) Fresh user from DB
+    // 0.5) Fresh user from DB
     let freshUser = null;
     try {
       const [[u]] = await promisePool.query(
@@ -4349,41 +4367,113 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     // 1) Fetch product
     const [product] = await q(
       'SELECT * FROM products WHERE id = ? AND active = 1 LIMIT 1',
-      [productId]
+      [productIdNum]
     );
+
     if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    // legacy out_of_stock
+    if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
+      const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
+      if (oos) {
+        return res.status(403).json({
+          success: false,
+          message: 'This product is currently out of stock.'
+        });
+      }
     }
 
     const deliveryMode = (product.delivery_mode || 'manual').toString().toLowerCase().trim();
     const isStock = deliveryMode === 'stock';
 
-    // 2) Base price
-    const basePrice = Number(product.price || 0);
-    if (!Number.isFinite(basePrice) || basePrice <= 0) {
-      return res.status(400).json({ success: false, message: 'Pricing error' });
+    // 2) Fetch checkout options if they exist
+    const optionRows = await q(
+      `
+      SELECT id, product_id, option_label, option_value, price, is_active
+      FROM product_checkout_options
+      WHERE product_id = ? AND is_active = 1
+      ORDER BY sort_order ASC, id ASC
+      `,
+      [productIdNum]
+    );
+
+    const hasCheckoutOptions = Array.isArray(optionRows) && optionRows.length > 0;
+
+    // 3) Resolve final base price from server only
+    let selectedOption = null;
+    let basePrice = 0;
+
+    const pId = (playerId && String(playerId).trim() !== '')
+      ? String(playerId).trim()
+      : null;
+
+    const orderDetailsParts = [];
+
+    if (hasCheckoutOptions) {
+      const optionIdNum = parseInt(optionId, 10);
+
+      if (!Number.isFinite(optionIdNum) || optionIdNum <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please choose an option before buying.'
+        });
+      }
+
+      selectedOption = optionRows.find(x => Number(x.id) === optionIdNum);
+
+      if (!selectedOption) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid option selected.'
+        });
+      }
+
+      basePrice = Number(selectedOption.price || 0);
+
+      orderDetailsParts.push(
+        `Option: ${selectedOption.option_label}${selectedOption.option_value ? ` (${selectedOption.option_value})` : ''}`
+      );
+    } else {
+      basePrice = Number(product.price || 0);
     }
 
-    // 3) Discount + final price
+    if (pId) {
+      orderDetailsParts.push(`Player ID: ${pId}`);
+    }
+
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pricing error'
+      });
+    }
+
+    // 4) Discount + final price
     const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
       ? Number(getUserEffectiveDiscount(freshUser) || 0)
       : Number(freshUser.discount_percent || 0) || 0;
 
     const purchasePrice = applyUserDiscount(basePrice, freshUser);
+
     if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
-      return res.status(400).json({ success: false, message: 'Pricing error' });
+      return res.status(400).json({
+        success: false,
+        message: 'Pricing error'
+      });
     }
 
-    // 4) Order details
     const now = new Date();
-    const pId = (playerId && playerId.trim() !== '') ? playerId.trim() : null;
-
     const conn = await promisePool.getConnection();
 
     try {
       await conn.beginTransaction();
 
-      // ✅ 5) Idempotency gate INSIDE transaction:
+      // 5) Idempotency gate
       if (idemKey) {
         try {
           await conn.query(
@@ -4416,11 +4506,10 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         }
       }
 
-      // ===== ✅ STOCK (LOCKED) =====
+      // ===== STOCK LOCK =====
       let stockItem = null;
 
       if (isStock) {
-        // عمود المخزن عندنا اسمه delivery_text
         const [[item]] = await conn.query(
           `SELECT id, delivery_text
              FROM product_stock_items
@@ -4428,24 +4517,21 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
             ORDER BY id ASC
             LIMIT 1
             FOR UPDATE`,
-          [productId]
+          [productIdNum]
         );
         stockItem = item || null;
       }
 
       const shouldAutoDeliver = isStock && !!stockItem;
 
-      // order_details
-      const orderDetailsParts = [];
-      if (pId) orderDetailsParts.push(`Player ID: ${pId}`);
       if (isStock && !stockItem) {
         orderDetailsParts.push('Auto-delivery: Out of stock — will be processed manually.');
       }
-      const orderDetails = orderDetailsParts.length ? orderDetailsParts.join(' | ') : null;
 
+      const orderDetails = orderDetailsParts.length ? orderDetailsParts.join(' | ') : null;
       const initialStatus = shouldAutoDeliver ? 'Accepted' : 'Waiting';
 
-      // ✅ 6) Deduct balance atomically
+      // 6) Deduct balance atomically
       const [updRes] = await conn.query(
         `UPDATE users
             SET balance = balance - ?
@@ -4454,37 +4540,62 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       );
 
       if (!updRes?.affectedRows) {
-        const failPayload = { success: false, message: 'Insufficient balance' };
+        const failPayload = { success: false, message: 'Insufficient balance.' };
         await storeIdempotencyResponse(conn, freshUser.id, idemKey, failPayload);
         await conn.rollback();
         return res.status(400).json(failPayload);
       }
 
-      // ✅ 7) Insert order
-      // (نفس جدولك بدون أعمدة جديدة)
+      // 7) Save transaction log
+      const transactionReason = hasCheckoutOptions
+        ? `Purchase: ${product.name} - ${selectedOption.option_label}`
+        : `Purchase: ${product.name}`;
+
+      await conn.query(
+        `INSERT INTO transactions (user_id, type, amount, reason)
+         VALUES (?, 'debit', ?, ?)`,
+        [freshUser.id, purchasePrice, transactionReason]
+      );
+
+      // 8) Insert order
       const adminReplyAuto = shouldAutoDeliver ? (stockItem.delivery_text || '') : null;
+
+      const orderProductName = hasCheckoutOptions
+        ? `${product.name} - ${selectedOption.option_label}`
+        : product.name;
 
       const [orderResult] = await conn.query(
         `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status, admin_reply)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [freshUser.id, product.name, purchasePrice, now, orderDetails, initialStatus, adminReplyAuto]
+        [
+          freshUser.id,
+          orderProductName,
+          purchasePrice,
+          now,
+          orderDetails,
+          initialStatus,
+          adminReplyAuto
+        ]
       );
+
       const orderId = orderResult.insertId;
 
-      // ✅ 8) إذا auto-delivery: علّم item sold + اربط order_id
+      // 9) Auto-delivery stock consume
       if (shouldAutoDeliver) {
         await conn.query(
           `UPDATE product_stock_items
-              SET status='sold', sold_at=NOW(), order_id=?
-            WHERE id=?`,
+              SET status = 'sold',
+                  sold_at = NOW(),
+                  order_id = ?
+            WHERE id = ?`,
           [orderId, stockItem.id]
         );
       }
 
-      // ✅ 9) Notification (user)
+      // 10) Notification
       const notifMsg = shouldAutoDeliver
-        ? `✅ تم تسليم طلبك (${product.name}) تلقائياً. ادخل على Order Details لرؤية البيانات.`
-        : `✅ تم استلام طلبك (${product.name}) بنجاح. سيتم معالجته قريبًا.`;
+        ? `✅ تم تسليم طلبك (${orderProductName}) تلقائياً. ادخل على Order Details لرؤية البيانات.`
+        : `✅ تم استلام طلبك (${orderProductName}) بنجاح. سيتم معالجته قريبًا.`;
 
       await conn.query(
         `INSERT INTO notifications (user_id, message, created_at, is_read)
@@ -4492,7 +4603,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         [freshUser.id, notifMsg]
       );
 
-      // ✅ 10) idempotency response payload
+      // 11) Success response payload
       const successPayload = shouldAutoDeliver
         ? { success: true, redirectUrl: `/order-details/${orderId}` }
         : { success: true, redirectUrl: '/processing' };
@@ -4501,7 +4612,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
       await conn.commit();
 
-      // ✅ After commit side-effects
+      // After commit
       try {
         const [[freshAfter]] = await promisePool.query(
           'SELECT * FROM users WHERE id = ? LIMIT 1',
@@ -4514,21 +4625,22 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
       req.session.pendingOrderId = orderId;
 
-      // ✅ Telegram (after commit)
+      // 12) Telegram
       try {
         const [rows] = await promisePool.query(
           'SELECT telegram_chat_id, username FROM users WHERE id = ?',
           [freshUser.id]
         );
+
         const chatId = rows[0]?.telegram_chat_id;
         const username = rows[0]?.username || freshUser.username;
 
         if (chatId) {
           const userStatus = shouldAutoDeliver ? 'تم التسليم تلقائياً' : 'جاري المعالجة (Waiting)';
-          const msg = `
+          const userMsg = `
 📥 *طلبك تم تسجيله بنجاح*
 
-🛍️ *المنتج:* ${product.name}
+🛍️ *المنتج:* ${orderProductName}
 💰 *السعر بعد الخصم:* ${purchasePrice}$
 📉 *الخصم الفعلي:* ${effectiveDiscountPercent}%
 📌 *الحالة:* ${userStatus}
@@ -4537,9 +4649,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
           await sendTelegramMessage(
             chatId,
-            msg,
+            userMsg,
             process.env.TELEGRAM_BOT_TOKEN,
-            { parseMode: "Markdown", timeoutMs: 15000 }
+            { parseMode: 'Markdown', timeoutMs: 15000 }
           );
         }
 
@@ -4552,7 +4664,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 🆕 <b>طلب جديد!</b>
 
 👤 <b>الزبون:</b> ${username}
-🛍️ <b>المنتج:</b> ${product.name}
+🛍️ <b>المنتج:</b> ${orderProductName}
 💰 <b>السعر بعد الخصم:</b> ${purchasePrice}$
 📉 <b>الخصم الفعلي:</b> ${effectiveDiscountPercent}%
 📋 <b>التفاصيل:</b> ${orderDetails || 'لا يوجد'}
@@ -4565,7 +4677,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
           adminChatId,
           adminMsg,
           process.env.TELEGRAM_BOT_TOKEN,
-          { parseMode: "HTML", timeoutMs: 15000 }
+          { parseMode: 'HTML', timeoutMs: 15000 }
         );
 
       } catch (e) {
@@ -4577,14 +4689,20 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     } catch (e) {
       try { await conn.rollback(); } catch (_) {}
       console.error('Transaction failed:', e?.message || e);
-      return res.status(500).json({ success: false, message: 'Transaction failed' });
+      return res.status(500).json({
+        success: false,
+        message: 'Transaction failed'
+      });
     } finally {
       conn.release();
     }
 
   } catch (err) {
     console.error('❌ SQL Product Order Error:', err?.response?.data || err.message || err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    return res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
   }
 });
 
