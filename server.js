@@ -1425,18 +1425,40 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const error = req.query.error || null;
 
-  const sql = "SELECT * FROM products WHERE id = ?";
+  if (!Number.isFinite(productId)) {
+    return res.status(400).send('❌ Invalid product ID.');
+  }
 
-  db.query(sql, [productId], (err, results) => {
-    if (err || !results || results.length === 0) {
+  const user = req.session.user || null;
+
+  const productSql = "SELECT * FROM products WHERE id = ? LIMIT 1";
+  const optionsSql = `
+    SELECT id, product_id, option_label, option_value, price, sort_order, is_active
+    FROM product_checkout_options
+    WHERE product_id = ? AND is_active = 1
+    ORDER BY sort_order ASC, id ASC
+  `;
+  const stockSql = `
+    SELECT 1
+    FROM product_stock_items
+    WHERE product_id = ? AND status = 'available'
+    LIMIT 1
+  `;
+
+  db.query(productSql, [productId], (err, results) => {
+    if (err) {
+      console.error('❌ /checkout/:id product error:', err.message || err);
+      return res.status(500).send('Server error.');
+    }
+
+    if (!results || results.length === 0) {
       return res.status(404).send('❌ Product not found.');
     }
 
-    const user = req.session.user || null;
     const product = results[0];
     product.source = 'sql';
 
-    // (اختياري) legacy out_of_stock column
+    // legacy out_of_stock
     if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
       const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
       if (oos) return res.status(403).send('This product is currently out of stock.');
@@ -1446,59 +1468,90 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
     let errorMessage = '';
     if (error === 'balance') errorMessage = 'Insufficient balance.';
     else if (error === 'server') errorMessage = 'Server error during purchase. Please try again.';
+    else if (error === 'invalid_option') errorMessage = 'Invalid option selected.';
+    else if (error === 'missing_option') errorMessage = 'Please choose an option before buying.';
 
     // ملاحظات المنتج
-    const notes = (product.notes && String(product.notes).trim() !== '') ? String(product.notes).trim() : null;
-
-    // خصم السعر بالـ checkout
-    const originalPrice = Number(product.price || 0);
-    const finalPrice = applyUserDiscount(originalPrice, user);
-
-    product.original_price = Number.isFinite(originalPrice) ? Number(originalPrice.toFixed(2)) : 0;
-    product.price = finalPrice;
+    const notes =
+      (product.notes && String(product.notes).trim() !== '')
+        ? String(product.notes).trim()
+        : null;
 
     // idempotency key
     const idemKey = uuidv4();
     req.session.idemKey = idemKey;
 
-    // ===== Hybrid: stock availability =====
+    // delivery mode
     const deliveryMode = (product.delivery_mode || 'manual').toString();
     product.delivery_mode = deliveryMode;
 
-    if (deliveryMode !== 'stock') {
-      return res.render('checkout', {
-        user,
-        product,
-        error: errorMessage,
-        notes,
-        idemKey,
-        effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0)
-      });
-    }
+    // 1) هات خيارات الـ checkout إذا موجودة
+    db.query(optionsSql, [productId], (optErr, optionRows) => {
+      if (optErr) {
+        console.error('❌ /checkout/:id options error:', optErr.message || optErr);
+        return res.status(500).send('Server error.');
+      }
 
-    const stockSql = `
-      SELECT 1
-      FROM product_stock_items
-      WHERE product_id = ? AND status = 'available'
-      LIMIT 1
-    `;
+      const hasOptions = Array.isArray(optionRows) && optionRows.length > 0;
 
-    db.query(stockSql, [productId], (stockErr, stockRows) => {
-      // إذا فشل query، نخليه false بس منضل نسمح بالشراء (رح يصير Pending)
-      product.in_stock = (!stockErr && stockRows && stockRows.length > 0);
+      let checkoutOptions = [];
 
-      return res.render('checkout', {
-        user,
-        product,
-        error: errorMessage,
-        notes,
-        idemKey,
-        effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0)
+      if (hasOptions) {
+        checkoutOptions = optionRows.map(opt => {
+          const originalPrice = Number(opt.price || 0);
+          const finalPrice = applyUserDiscount(originalPrice, user);
+
+          return {
+            ...opt,
+            original_price: Number.isFinite(originalPrice)
+              ? Number(originalPrice.toFixed(2))
+              : 0,
+            price: finalPrice
+          };
+        });
+
+        // للسعر المعروض أعلى الصفحة: أول خيار
+        const firstOption = checkoutOptions[0];
+        product.original_price = Number(firstOption.original_price || 0);
+        product.price = Number(firstOption.price || 0);
+        product.has_checkout_options = true;
+      } else {
+        // fallback: السعر العادي القديم
+        const originalPrice = Number(product.price || 0);
+        const finalPrice = applyUserDiscount(originalPrice, user);
+
+        product.original_price = Number.isFinite(originalPrice)
+          ? Number(originalPrice.toFixed(2))
+          : 0;
+        product.price = finalPrice;
+        product.has_checkout_options = false;
+      }
+
+      const renderCheckout = () => {
+        return res.render('checkout', {
+          user,
+          product,
+          checkoutOptions,
+          error: errorMessage,
+          notes,
+          idemKey,
+          effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0)
+        });
+      };
+
+      // 2) stock logic مثل ما هو
+      if (deliveryMode !== 'stock') {
+        return renderCheckout();
+      }
+
+      db.query(stockSql, [productId], (stockErr, stockRows) => {
+        // إذا فشل query نخليه false بس نسمح بالشراء
+        product.in_stock = (!stockErr && stockRows && stockRows.length > 0);
+        return renderCheckout();
       });
     });
   });
 });
-
 
 app.get('/api-checkout/:id', checkAuth, async (req, res) => {
   const productId = parseInt(req.params.id, 10);
@@ -2154,265 +2207,428 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
   });
 });
 
-// شراء خدمات السوشيال ميديا
-app.post('/buy-social', checkAuth, async (req, res) => {
-  const userId = req.session.user?.id;
-  if (!userId) return res.redirect('/login?error=session');
 
+app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
   const {
-    service_id,
-    serviceId,
-    link,
-    quantity,
-    idempotency_key: bodyIdemKey,
+    productId,
+    playerId,
+    optionId,
+    idempotency_key: bodyIdemKey
   } = req.body;
 
-  const serviceIdNum = parseInt(service_id || serviceId, 10);
-  const qty = parseInt(quantity, 10);
+  const sessionUser = req.session.user;
+  if (!sessionUser?.id) {
+    return res.status(401).json({
+      success: false,
+      message: 'Session expired. Please log in.'
+    });
+  }
 
+  const idemKey = (bodyIdemKey || req.session.idemKey || '')
+    .toString()
+    .slice(0, 64)
+    .trim();
+
+  // helper local query
   const q = (sql, params = []) =>
     new Promise((resolve, reject) =>
       db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
     );
 
-  // ✅ المصدر الوحيد: body (ممنوع fallback من السيشن هون)
-  const idemKey = (bodyIdemKey || '').toString().slice(0, 64);
+  async function storeIdempotencyResponse(conn, userId, key, payload) {
+    if (!key) return;
+    const json = JSON.stringify(payload);
 
-  let total = 0;
-  let serviceName = '';
-  let providerOrderId = '';
-  let orderId = null;
-
-  let refunded = false;
-  const doRefund = async (reason) => {
-    if (refunded) return;
-    if (!(total > 0)) return;
-    refunded = true;
-
-    await q(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
-    await q(
-      `INSERT INTO transactions (user_id, type, amount, reason)
-       VALUES (?, 'credit', ?, ?)`,
-      [userId, total, reason]
+    await conn.query(
+      `INSERT INTO idempotency_keys (user_id, idem_key, response_json)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE response_json = VALUES(response_json)`,
+      [userId, key, json]
     );
-  };
+  }
+
+  async function returnExistingIdempotentResponse(userId, key) {
+    if (!key) return false;
+
+    try {
+      const [[row]] = await promisePool.query(
+        `SELECT response_json
+           FROM idempotency_keys
+          WHERE user_id = ? AND idem_key = ?
+          LIMIT 1`,
+        [userId, key]
+      );
+
+      if (row?.response_json) {
+        try {
+          const payload = JSON.parse(row.response_json);
+          return res.json(payload);
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    return false;
+  }
 
   try {
-    console.log('🟦 /buy-social START', { userId, serviceIdNum, link, qty, idemKey });
+    // 0) لو نفس الطلب تكرر ومعه response مخزنة -> رجّعها
+    const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
+    if (alreadyReturned) return;
 
-    // 1) تحقّق من المدخلات الأساسية (قبل idempotency insert)
-    if (!serviceIdNum || !link || !quantity) {
-      return res.redirect('/social-media?error=missing_fields');
-    }
-    if (!Number.isFinite(qty) || qty <= 0) {
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=invalid_quantity`);
-    }
-    if (!idemKey) {
-      // ✅ ممنوع تمشي بدون key (هذا اللي كان يفتح باب التكرار)
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=missing_idem`);
-    }
-
-    // 2) جلب الخدمة (فقط المفعّلة)
-    const [service] = await q(
-      `SELECT * FROM smm_services WHERE id = ? AND is_active = 1`,
-      [serviceIdNum]
-    );
-    if (!service) {
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=service_not_found`);
-    }
-    serviceName = service.name;
-
-    // 3) تحقق min/max
-    const minQty = Number(service.min_qty || 0);
-    const maxQty = Number(service.max_qty || 0);
-    if ((minQty && qty < minQty) || (maxQty && qty > maxQty)) {
-      return res.redirect(
-        `/social-checkout/${serviceIdNum}?error=range&min=${minQty}&max=${maxQty}`
-      );
-    }
-
-    // 4) حساب السعر
-    const rate = Number(service.rate || 0);
-    const ratePer = Number(service.rate_per || 1000) || 1000;
-    if (!Number.isFinite(rate) || rate <= 0) {
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
-    }
-    const totalCents = Math.round((qty * rate * 100) / ratePer);
-    if (!Number.isFinite(totalCents) || totalCents <= 0) {
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=pricing`);
-    }
-    total = totalCents / 100;
-
-    // ✅ 5) Idempotency gate (مرتبط بالـ order_id)
-    // حاول تسجل المفتاح. إذا موجود، جيب order_id وارجع عليه بدل ما تخصم من جديد.
-    try {
-      await q(
-        `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
-        [userId, idemKey]
-      );
-    } catch (e) {
-      // duplicate key
-      const rows = await q(
-        `SELECT order_id FROM idempotency_keys WHERE user_id = ? AND idem_key = ? LIMIT 1`,
-        [userId, idemKey]
-      );
-      const existingOrderId = rows?.[0]?.order_id;
-
-      console.log('⏩ duplicate /buy-social detected', { userId, idemKey, existingOrderId });
-
-      if (existingOrderId) {
-        req.session.pendingOrderId = existingOrderId;
-      }
-      return res.redirect('/processing');
-    }
-
-    // 6) خصم رصيد المستخدم (ذري)
-    const upd = await q(
-      `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
-      [total, userId, total]
-    );
-    if (!upd?.affectedRows) {
-      // مهم: إذا ما خصمنا، الأفضل نمسح idempotency record حتى ما يعلّق المحاولة
-      await q(
-        `DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ? AND order_id IS NULL`,
-        [userId, idemKey]
-      );
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=balance`);
-    }
-
-    // 7) سجل معاملة الخصم
-    await q(
-      `INSERT INTO transactions (user_id, type, amount, reason)
-       VALUES (?, 'debit', ?, ?)`,
-      [userId, total, `Social Media Service: ${serviceName}`]
-    );
-
-    // 8) إنشاء الطلب عند مزوّد SMMGen
-    try {
-      providerOrderId = await createSmmOrder({
-        service: service.provider_service_id,
-        link,
-        quantity: qty,
+    const productIdNum = parseInt(productId, 10);
+    if (!Number.isFinite(productIdNum) || productIdNum <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product ID'
       });
-      console.log('✅ providerOrderId from SMMGEN:', providerOrderId);
-    } catch (apiErr) {
-      console.error('❌ SMMGEN API error:', apiErr.message || apiErr);
-
-      await doRefund(`Refund (SMMGEN error): ${serviceName}`);
-
-      // مهم: حذف idempotency record لأن العملية فشلت وما في order_id
-      await q(
-        `DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ? AND order_id IS NULL`,
-        [userId, idemKey]
-      );
-
-      return res.redirect(
-        `/social-checkout/${serviceIdNum}?error=provider&msg=${encodeURIComponent(
-          apiErr.message || 'Provider error'
-        )}`
-      );
     }
 
-    if (!providerOrderId) {
-      await doRefund(`Refund (no provider id): ${serviceName}`);
-
-      await q(
-        `DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ? AND order_id IS NULL`,
-        [userId, idemKey]
-      );
-
-      return res.redirect(`/social-checkout/${serviceIdNum}?error=no_provider_id`);
-    }
-
-    // 9) حفظ الطلب في جدول orders
-    const orderDetails = `Link: ${link} | Quantity: ${qty}`;
-    const insertOrderSql = `
-      INSERT INTO orders
-        (userId, productName, price, purchaseDate, order_details, status, provider_order_id)
-      VALUES
-        (?, ?, ?, NOW(), ?, 'Waiting', ?)
-    `;
-
-    const insertRes = await q(insertOrderSql, [
-      userId,
-      serviceName,
-      total,
-      orderDetails,
-      providerOrderId,
-    ]);
-
-    orderId = insertRes.insertId || null;
-
-    // 10) حفظ الطلب في جدول smm_orders
-    await q(
-      `
-      INSERT INTO smm_orders
-        (user_id, smm_service_id, provider_order_id, status, quantity, charge, link)
-      VALUES (?, ?, ?, 'pending', ?, ?, ?)
-      `,
-      [userId, service.id, providerOrderId, qty, total, link]
-    );
-
-    // ✅ 11) ربط idempotency record بالـ orderId (الخطوة الأهم)
-    if (orderId) {
-      await q(
-        `UPDATE idempotency_keys SET order_id = ? WHERE user_id = ? AND idem_key = ? LIMIT 1`,
-        [orderId, userId, idemKey]
-      );
-    }
-
-    // 12) إشعار داخلي
-    await q(
-      `INSERT INTO notifications (user_id, message, created_at, is_read)
-       VALUES (?, ?, NOW(), 0)`,
-      [userId, `✅ تم استلام طلب خدمتك (${serviceName}) بنجاح. سيتم تنفيذها قريبًا.`]
-    );
-
-    // 13) إشعار تيليغرام (نفس كودك… ما لمست فيه شي)
+    // 0.5) Fresh user from DB
+    let freshUser = null;
     try {
-      const now = new Date();
-
-      const userRows = await q(
-        'SELECT username, telegram_chat_id FROM users WHERE id = ? LIMIT 1',
-        [userId]
+      const [[u]] = await promisePool.query(
+        'SELECT * FROM users WHERE id = ? LIMIT 1',
+        [sessionUser.id]
       );
-      const userRow = userRows[0] || {};
-      const chatId = userRow.telegram_chat_id;
+      freshUser = u || sessionUser;
+      if (u) req.session.user = u;
+    } catch (_) {
+      freshUser = sessionUser;
+    }
 
-      if (chatId) {
-        const userMsg = `
-📥 *تم استلام طلب خدمتك بنجاح*
+    // 1) Fetch product
+    const [product] = await q(
+      'SELECT * FROM products WHERE id = ? AND active = 1 LIMIT 1',
+      [productIdNum]
+    );
 
-🧾 *الخدمة:* ${serviceName}
-🔢 *الكمية:* ${qty}
-💰 *السعر:* ${total}$
-📌 *الحالة:* جاري التنفيذ
-        `.trim();
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
 
+    // legacy out_of_stock
+    if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
+      const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
+      if (oos) {
+        return res.status(403).json({
+          success: false,
+          message: 'This product is currently out of stock.'
+        });
+      }
+    }
+
+    const deliveryMode = (product.delivery_mode || 'manual')
+      .toString()
+      .toLowerCase()
+      .trim();
+
+    const isStock = deliveryMode === 'stock';
+
+    // 2) هل عند المنتج checkout options؟
+    const optionRows = await q(
+      `
+      SELECT id, product_id, option_label, option_value, price, is_active
+      FROM product_checkout_options
+      WHERE product_id = ? AND is_active = 1
+      ORDER BY sort_order ASC, id ASC
+      `,
+      [productIdNum]
+    );
+
+    const hasCheckoutOptions = Array.isArray(optionRows) && optionRows.length > 0;
+
+    // 3) Resolve final price from server only
+    let selectedOption = null;
+    let basePrice = 0;
+    let orderDetails = '';
+    const pId = (playerId && String(playerId).trim() !== '') ? String(playerId).trim() : null;
+
+    if (hasCheckoutOptions) {
+      const optionIdNum = parseInt(optionId, 10);
+
+      if (!Number.isFinite(optionIdNum) || optionIdNum <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please choose an option before buying.'
+        });
+      }
+
+      selectedOption = optionRows.find(x => Number(x.id) === optionIdNum);
+
+      if (!selectedOption) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid option selected.'
+        });
+      }
+
+      basePrice = Number(selectedOption.price || 0);
+
+      orderDetails =
+        `Option: ${selectedOption.option_label}` +
+        (selectedOption.option_value ? ` (${selectedOption.option_value})` : '') +
+        (pId ? ` | Player ID: ${pId}` : '');
+    } else {
+      basePrice = Number(product.price || 0);
+      orderDetails = pId ? `Player ID: ${pId}` : '';
+    }
+
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pricing error'
+      });
+    }
+
+    // 4) Discount + final price
+    const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
+      ? Number(getUserEffectiveDiscount(freshUser) || 0)
+      : Number(freshUser.discount_percent || 0) || 0;
+
+    const purchasePrice = applyUserDiscount(basePrice, freshUser);
+
+    if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pricing error'
+      });
+    }
+
+    const now = new Date();
+
+    const conn = await promisePool.getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      // 5) Idempotency gate داخل transaction
+      if (idemKey) {
         try {
-          await sendTelegramMessage(
-            chatId,
-            userMsg,
-            process.env.TELEGRAM_BOT_TOKEN,
-            { parseMode: 'Markdown', timeoutMs: 15000 }
+          await conn.query(
+            `INSERT INTO idempotency_keys (user_id, idem_key, response_json)
+             VALUES (?, ?, NULL)`,
+            [freshUser.id, idemKey]
           );
         } catch (e) {
-          console.warn('⚠️ Failed to send Telegram to user:', e.message || e);
+          const [[row]] = await conn.query(
+            `SELECT response_json
+               FROM idempotency_keys
+              WHERE user_id = ? AND idem_key = ?
+              LIMIT 1`,
+            [freshUser.id, idemKey]
+          );
+
+          if (row?.response_json) {
+            try {
+              const payload = JSON.parse(row.response_json);
+              await conn.commit();
+              return res.json(payload);
+            } catch (_) {}
+          }
+
+          await conn.rollback();
+          return res.status(409).json({
+            success: false,
+            message: 'Request already in progress. Please wait a moment and refresh.'
+          });
         }
       }
 
-      try {
-        const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
-        const adminMsg = `
-🆕 <b>طلب سوشيال ميديا جديد!</b>
+      // 6) خصم ذري من الرصيد
+      const [updRes] = await conn.query(
+        `UPDATE users
+            SET balance = balance - ?
+          WHERE id = ? AND balance >= ?`,
+        [purchasePrice, freshUser.id, purchasePrice]
+      );
 
-👤 <b>الزبون:</b> ${userRow.username || userId}
-🧾 <b>الخدمة:</b> ${serviceName}
-🔢 <b>الكمية:</b> ${qty}
-💰 <b>السعر:</b> ${total}$
-🔗 <b>الرابط:</b> ${link}
-🔢 <b>رقم الطلب عند المزود:</b> ${providerOrderId}
-🕒 <b>الوقت:</b> ${now.toLocaleString()}
+      if (!updRes?.affectedRows) {
+        const failPayload = {
+          success: false,
+          message: 'Insufficient balance.'
+        };
+
+        await storeIdempotencyResponse(conn, freshUser.id, idemKey, failPayload);
+        await conn.commit();
+        return res.status(400).json(failPayload);
+      }
+
+      // 7) Transaction log
+      const reasonText = hasCheckoutOptions
+        ? `Purchase: ${product.name} - ${selectedOption.option_label}`
+        : `Purchase: ${product.name}`;
+
+      await conn.query(
+        `INSERT INTO transactions (user_id, type, amount, reason)
+         VALUES (?, 'debit', ?, ?)`,
+        [freshUser.id, purchasePrice, reasonText]
+      );
+
+      // 8) stock auto-delivery لو المنتج stock
+      let shouldAutoDeliver = false;
+      let stockItem = null;
+      let adminReplyAuto = null;
+      let initialStatus = 'Waiting';
+
+      if (isStock) {
+        const [stockRows] = await conn.query(
+          `
+          SELECT id, content
+          FROM product_stock_items
+          WHERE product_id = ? AND status = 'available'
+          ORDER BY id ASC
+          LIMIT 1
+          FOR UPDATE
+          `,
+          [productIdNum]
+        );
+
+        if (Array.isArray(stockRows) && stockRows.length > 0) {
+          stockItem = stockRows[0];
+          shouldAutoDeliver = true;
+          initialStatus = 'Accepted';
+          adminReplyAuto = stockItem.content || '';
+        } else {
+          shouldAutoDeliver = false;
+          initialStatus = 'Pending';
+          adminReplyAuto = 'Pending manual delivery (currently no stock item available).';
+        }
+      }
+
+      // 9) إنشاء order
+      const [orderResult] = await conn.query(
+        `
+        INSERT INTO orders
+          (userId, productName, price, purchaseDate, order_details, status, admin_reply${idemKey ? ', client_token' : ''})
+        VALUES
+          (?, ?, ?, ?, ?, ?, ?${idemKey ? ', ?' : ''})
+        `,
+        idemKey
+          ? [
+              freshUser.id,
+              product.name,
+              purchasePrice,
+              now,
+              orderDetails,
+              initialStatus,
+              adminReplyAuto,
+              idemKey
+            ]
+          : [
+              freshUser.id,
+              product.name,
+              purchasePrice,
+              now,
+              orderDetails,
+              initialStatus,
+              adminReplyAuto
+            ]
+      );
+
+      const orderId = orderResult.insertId;
+
+      // 10) لو auto-delivery: علّم stock item sold
+      if (shouldAutoDeliver && stockItem?.id) {
+        await conn.query(
+          `
+          UPDATE product_stock_items
+             SET status = 'sold',
+                 sold_at = NOW(),
+                 order_id = ?
+           WHERE id = ?
+          `,
+          [orderId, stockItem.id]
+        );
+      }
+
+      // 11) إشعار داخلي
+      const notifMsg = shouldAutoDeliver
+        ? `✅ تم تسليم طلبك (${product.name}) تلقائياً. ادخل على Order Details لرؤية البيانات.`
+        : `✅ تم استلام طلبك (${product.name}) بنجاح. سيتم معالجته قريبًا.`;
+
+      await conn.query(
+        `INSERT INTO notifications (user_id, message, created_at, is_read)
+         VALUES (?, ?, NOW(), 0)`,
+        [freshUser.id, notifMsg]
+      );
+
+      // 12) response payload
+      const successPayload = shouldAutoDeliver
+        ? { success: true, redirectUrl: `/order-details/${orderId}` }
+        : { success: true, redirectUrl: '/processing' };
+
+      await storeIdempotencyResponse(conn, freshUser.id, idemKey, successPayload);
+
+      await conn.commit();
+
+      // 13) refresh session user after commit
+      try {
+        const [[freshAfter]] = await promisePool.query(
+          'SELECT * FROM users WHERE id = ? LIMIT 1',
+          [freshUser.id]
+        );
+        if (freshAfter) req.session.user = freshAfter;
+      } catch (sessErr) {
+        console.error('⚠️ Failed to refresh session user (buy):', sessErr.message || sessErr);
+      }
+
+      req.session.pendingOrderId = orderId;
+
+      // 14) Telegram after commit
+      try {
+        const [rows] = await promisePool.query(
+          'SELECT telegram_chat_id, username FROM users WHERE id = ?',
+          [freshUser.id]
+        );
+
+        const chatId = rows[0]?.telegram_chat_id;
+        const username = rows[0]?.username || freshUser.username;
+
+        const productDisplayName = hasCheckoutOptions
+          ? `${product.name} - ${selectedOption.option_label}`
+          : product.name;
+
+        if (chatId) {
+          const userStatus = shouldAutoDeliver
+            ? 'تم التسليم تلقائياً'
+            : 'جاري المعالجة';
+
+          const msg = `
+📥 *طلبك تم تسجيله بنجاح*
+
+🛍️ *المنتج:* ${productDisplayName}
+💰 *السعر بعد الخصم:* ${purchasePrice}$
+📉 *الخصم الفعلي:* ${effectiveDiscountPercent}%
+📌 *الحالة:* ${userStatus}
+🧾 *رقم الطلب:* ${orderId}
+          `.trim();
+
+          await sendTelegramMessage(
+            chatId,
+            msg,
+            process.env.TELEGRAM_BOT_TOKEN,
+            { parseMode: 'Markdown', timeoutMs: 15000 }
+          );
+        }
+
+        const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+        const adminStatus = shouldAutoDeliver
+          ? '✅ Delivered automatically (stock)'
+          : (isStock ? '🟡 Pending manual (stock empty)' : '🕓 Waiting');
+
+        const adminMsg = `
+🆕 <b>طلب جديد (SQL Product)!</b>
+
+👤 <b>الزبون:</b> ${username || freshUser.id}
+🎁 <b>المنتج:</b> ${productDisplayName}
+💰 <b>السعر بعد الخصم:</b> ${purchasePrice}$
+📉 <b>الخصم الفعلي:</b> ${effectiveDiscountPercent}%
+📌 <b>الحالة:</b> ${adminStatus}
+🧾 <b>رقم الطلب:</b> ${orderId}
+${pId ? `🆔 <b>Player ID:</b> ${pId}` : ''}
         `.trim();
 
         await sendTelegramMessage(
@@ -2421,50 +2637,31 @@ app.post('/buy-social', checkAuth, async (req, res) => {
           process.env.TELEGRAM_BOT_TOKEN,
           { parseMode: 'HTML', timeoutMs: 15000 }
         );
-      } catch (e) {
-        console.warn('⚠️ Failed to notify admin via Telegram:', e.message || e);
+      } catch (tgErr) {
+        console.warn('⚠️ Telegram error (buy):', tgErr.message || tgErr);
       }
-    } catch (e) {
-      console.warn('⚠️ Telegram notification flow error (social):', e.message || e);
+
+      return res.json(successPayload);
+
+    } catch (txErr) {
+      try { await conn.rollback(); } catch (_) {}
+      console.error('❌ /buy tx error:', txErr.message || txErr);
+
+      return res.status(500).json({
+        success: false,
+        message: 'Server error during purchase. Please try again.'
+      });
+    } finally {
+      conn.release();
     }
-
-    // ✅ 14) حفظ رقم الطلب للـ processing
-    req.session.pendingOrderId = orderId;
-
-    // ✅ مهم: امسح checkout key حتى الطلب الجاي يكون مفتاح جديد
-    req.session.checkoutIdemKey = null;
-
-    return res.redirect('/processing');
 
   } catch (err) {
-    console.error('❌ /buy-social error:', err?.message || err);
+    console.error('❌ /buy error:', err?.message || err);
 
-    // ✅ إذا ما صار providerOrderId (يعني ما انبعت للمزوّد)، منعمل refund
-    // إذا providerOrderId موجود، لا تعمل refund تلقائي (لأن الطلب عند المزود انعمل فعلياً)
-    try {
-      if (!providerOrderId) {
-        await doRefund(`Refund (server error): ${serviceName || 'Social Service'}`);
-
-        // إزالة idempotency record لأنه ما في order_id
-        if (idemKey) {
-          await q(
-            `DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ? AND order_id IS NULL`,
-            [userId, idemKey]
-          );
-        }
-      } else {
-        // إذا بدك: سجل إشعار للإدمن/لوج قوي هون لأن الطلب عند المزود انعمل
-        await q(
-          `INSERT INTO notifications (user_id, message, created_at, is_read)
-           VALUES (?, ?, NOW(), 0)`,
-          [userId, `⚠️ حصل خطأ داخلي بعد إنشاء الطلب عند المزود. رقم المزود: ${providerOrderId}. تواصل مع الدعم.`]
-        );
-      }
-    } catch (e2) {
-      console.error('❌ refund/cleanup after error failed:', e2?.message || e2);
-    }
-
-    return res.redirect(`/social-checkout/${serviceIdNum}?error=server`);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during purchase. Please try again.'
+    });
   }
 });
 
@@ -4725,7 +4922,7 @@ app.get('/admin/products/new', checkAdmin, (req, res) => {
     res.render('admin-add-product', { user: req.session.user });
 });
 
-app.post('/admin/products', checkAdmin, (req, res) => {
+app.post('/admin/products', checkAdmin, async (req, res) => {
   const {
     name,
     price,
@@ -4736,37 +4933,36 @@ app.post('/admin/products', checkAdmin, (req, res) => {
     player_id_label,
     notes,
     description,
-    delivery_mode
+    delivery_mode,
+    pricing_mode
   } = req.body;
 
-  // ✅ checkboxes
+  // checkboxes
   const requires_player_id =
     (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on') ? 1 : 0;
 
   const is_out_of_stock =
     (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
 
-  const active = (req.body.active === '0') ? 0 : 1; // افتراضي شغّال
+  const active = (req.body.active === '0') ? 0 : 1;
   const sort_order = Number(req.body.sort_order || 0);
 
-  // ✅ Delivery mode sanitize
+  // sanitize delivery mode
   const dm = (delivery_mode || 'manual').toString().toLowerCase().trim();
   const safeDeliveryMode = (dm === 'stock' || dm === 'manual') ? dm : 'manual';
 
-  // ✅ validation بسيط
-  if (!name || !price || !main_category || !sub_category) {
+  // sanitize pricing mode
+  const pm = (pricing_mode || 'fixed').toString().toLowerCase().trim();
+  const safePricingMode = (pm === 'options' || pm === 'fixed') ? pm : 'fixed';
+
+  // validation أساسي
+  if (!name || !main_category || !sub_category) {
     return res.status(400).send("Missing required fields");
   }
 
-  // ✅ تنظيف القيم (منع تخزين سترينغ فاضي)
   const cleanName = name.trim();
   const cleanMainCat = main_category.trim();
   const cleanSubCat = sub_category.trim();
-
-  const cleanPrice = Number(price);
-  if (!Number.isFinite(cleanPrice) || cleanPrice < 0) {
-    return res.status(400).send("Invalid price");
-  }
 
   const cleanImage = image?.trim() ? image.trim() : null;
   const cleanSubImage = sub_category_image?.trim() ? sub_category_image.trim() : null;
@@ -4774,63 +4970,160 @@ app.post('/admin/products', checkAdmin, (req, res) => {
   const cleanNotes = notes?.trim() ? notes.trim() : null;
   const cleanDescription = description?.trim() ? description.trim() : null;
 
-  // ✅ ملاحظة منطقية:
-  // إذا المنتج Stock، ما في داعي تخليه Out of Stock بالcheckbox
-  // (المخزون هو اللي بيقرر) بس منخليها مثل ما هي لتوافق نظامك الحالي.
-  // إذا بدك نجبرها 0 وقت stock، قلّي وبعملها.
+  // helper query
+  const q = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
 
-  const sql = `
-    INSERT INTO products
-    (
-      name,
-      price,
-      image,
-      main_category,
-      sub_category,
-      sub_category_image,
-      requires_player_id,
-      player_id_label,
-      notes,
-      description,
-      is_out_of_stock,
-      active,
-      sort_order,
-      delivery_mode
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
+  // ==== تجهيز السعر + الخيارات ====
+  let cleanPrice = 0;
+  let normalizedOptions = [];
 
-  const params = [
-    cleanName,
-    cleanPrice,
-    cleanImage,
-    cleanMainCat,
-    cleanSubCat,
-    cleanSubImage,
-    requires_player_id,
-    cleanPlayerLabel,
-    cleanNotes,
-    cleanDescription,
-    is_out_of_stock,
-    active,
-    sort_order,
-    safeDeliveryMode
-  ];
+  try {
+    if (safePricingMode === 'fixed') {
+      cleanPrice = Number(price);
 
-  db.query(sql, params, (err, result) => {
-    if (err) {
+      if (!Number.isFinite(cleanPrice) || cleanPrice < 0) {
+        return res.status(400).send("Invalid price");
+      }
+    } else {
+      // options mode
+      const rawOptions = req.body.options || {};
+      const optionList = Array.isArray(rawOptions)
+        ? rawOptions
+        : Object.values(rawOptions);
+
+      normalizedOptions = optionList
+        .map(opt => ({
+          option_label: opt?.option_label?.toString().trim() || '',
+          option_value: opt?.option_value?.toString().trim() || '',
+          price: Number(opt?.price),
+          sort_order: Number(opt?.sort_order || 0),
+          is_active: (String(opt?.is_active || '0') === '1') ? 1 : 0
+        }))
+        .filter(opt => opt.option_label !== '');
+
+      if (!normalizedOptions.length) {
+        return res.status(400).send("At least one option is required");
+      }
+
+      const invalidOption = normalizedOptions.find(
+        opt => !Number.isFinite(opt.price) || opt.price < 0
+      );
+
+      if (invalidOption) {
+        return res.status(400).send("One or more option prices are invalid");
+      }
+
+      // نخزن price الأساسي = أول option active أو أول option فقط
+      const firstActive = normalizedOptions.find(opt => opt.is_active === 1);
+      const fallbackOption = firstActive || normalizedOptions[0];
+      cleanPrice = Number(fallbackOption?.price || 0);
+
+      if (!Number.isFinite(cleanPrice) || cleanPrice < 0) {
+        return res.status(400).send("Invalid option price");
+      }
+    }
+
+    const conn = await promisePool.getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      // إذا عندك عمود pricing_mode بجدول products استعمل هذا الـ SQL
+      // وإذا ما عندك، شوف النسخة البديلة تحت
+      const sql = `
+        INSERT INTO products
+        (
+          name,
+          price,
+          image,
+          main_category,
+          sub_category,
+          sub_category_image,
+          requires_player_id,
+          player_id_label,
+          notes,
+          description,
+          is_out_of_stock,
+          active,
+          sort_order,
+          delivery_mode,
+          pricing_mode
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      const params = [
+        cleanName,
+        cleanPrice,
+        cleanImage,
+        cleanMainCat,
+        cleanSubCat,
+        cleanSubImage,
+        requires_player_id,
+        cleanPlayerLabel,
+        cleanNotes,
+        cleanDescription,
+        is_out_of_stock,
+        active,
+        sort_order,
+        safeDeliveryMode,
+        safePricingMode
+      ];
+
+      const [result] = await conn.query(sql, params);
+      const productId = result.insertId;
+
+      // حفظ options إذا المنتج options
+      if (safePricingMode === 'options' && normalizedOptions.length) {
+        for (const opt of normalizedOptions) {
+          await conn.query(
+            `
+            INSERT INTO product_checkout_options
+            (
+              product_id,
+              option_label,
+              option_value,
+              price,
+              sort_order,
+              is_active
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            `,
+            [
+              productId,
+              opt.option_label,
+              opt.option_value || null,
+              opt.price,
+              opt.sort_order,
+              opt.is_active
+            ]
+          );
+        }
+      }
+
+      await conn.commit();
+
+      if (safeDeliveryMode === 'stock') {
+        return res.redirect(`/admin/products/${productId}/stock`);
+      }
+
+      return res.redirect('/admin/products');
+
+    } catch (err) {
+      await conn.rollback();
       console.error("❌ DATABASE INSERT ERROR:", err?.message || err);
       return res.status(500).send("Error adding product");
+    } finally {
+      conn.release();
     }
 
-    // ✅ إذا المنتج Stock: الأفضل تروح مباشرة على صفحة المخزون لتضيف حسابات
-    if (safeDeliveryMode === 'stock') {
-      return res.redirect(`/admin/products/${result.insertId}/stock`);
-    }
-
-    // ✅ غير هيك رجوع للمنتجات
-    return res.redirect('/admin/products');
-  });
+  } catch (err) {
+    console.error("❌ POST /admin/products error:", err?.message || err);
+    return res.status(500).send("Server error");
+  }
 });
 
 

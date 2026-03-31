@@ -10,7 +10,6 @@
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 
   <style>
-    /* خلفية ناعمة */
     body {
       background: radial-gradient(1200px 600px at 20% 10%, rgba(25,135,84,.10), transparent 60%),
                   radial-gradient(1000px 500px at 90% 20%, rgba(13,110,253,.08), transparent 55%),
@@ -98,7 +97,7 @@
       line-height: 1.2;
     }
 
-    .form-control{
+    .form-control, .form-select{
       border-radius: 12px;
       padding: 12px 14px;
     }
@@ -121,7 +120,6 @@
       opacity: .85;
     }
 
-    /* نبضة خفيفة وقت المعالجة */
     .is-loading{
       position: relative;
     }
@@ -146,6 +144,7 @@
       gap: 10px;
       margin-top: 14px;
     }
+
     .trust-pill{
       display:inline-flex;
       align-items:center;
@@ -162,7 +161,6 @@
       color: rgba(0,0,0,.55);
     }
 
-    /* ========= BEST UI for Notes/Description ========= */
     .info-card{
       background: rgba(255,255,255,.92);
       border: 1px solid rgba(0,0,0,.06);
@@ -215,13 +213,13 @@
       white-space: pre-wrap;
     }
 
-    /* Read more */
     .clamp-3{
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+
     .readmore-btn{
       border: 0;
       background: transparent;
@@ -230,21 +228,23 @@
       font-size: 13px;
     }
 
-    /* Accordion polish */
     .accordion-button{
       border-radius: 14px !important;
       padding: 12px 14px;
       font-weight: 900;
     }
+
     .accordion-item{
       border: 0;
       background: transparent;
     }
+
     .accordion-button:not(.collapsed){
       background: rgba(25,135,84,.08);
       color: #146c43;
       box-shadow: none;
     }
+
     .accordion-body{
       padding: 12px 14px;
       background: rgba(255,255,255,.85);
@@ -253,15 +253,26 @@
       border-radius: 0 0 16px 16px;
     }
 
-    /* RTL helpers */
     .rtl { direction: rtl; text-align: right; }
     .ltr { direction: ltr; text-align: left; }
 
-    /* tiny divider */
     .soft-divider{
       height: 1px;
       background: rgba(0,0,0,.06);
       margin: 10px 0;
+    }
+
+    .option-card{
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .option-helper{
+      font-size: 12px;
+      color: rgba(0,0,0,.55);
+      margin-top: 6px;
     }
   </style>
 </head>
@@ -269,12 +280,16 @@
 <body>
   <%- include('partials/header') %>
 
+  <%
+    const hasCheckoutOptions = Array.isArray(checkoutOptions) && checkoutOptions.length > 0;
+    const defaultOption = hasCheckoutOptions ? checkoutOptions[0] : null;
+  %>
+
   <div class="container my-5 checkout-wrap">
     <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5 mx-auto">
 
       <div class="card checkout-card">
 
-        <!-- رأس الكارد -->
         <div class="checkout-head">
           <h5 class="checkout-title">
             <i class="bi bi-bag-check-fill"></i>
@@ -289,7 +304,6 @@
 
         <div class="card-body p-4">
 
-          <!-- المنتج -->
           <div class="text-center mb-3">
             <img
               src="<%= product.image %>"
@@ -307,25 +321,23 @@
 
             <div class="text-end">
               <div class="summary-label">Total</div>
-              <div class="price-chip">
+              <div class="price-chip" id="priceChip">
                 <i class="bi bi-cash-coin"></i>
-                $<%= Number(product.price).toFixed(2) %>
+                $<span id="displayPrice"><%= Number(product.price || 0).toFixed(2) %></span>
               </div>
 
-              <% if (product.original_price && Number(product.original_price) > Number(product.price)) { %>
-                <div class="small text-muted mt-1">
-                  <span style="text-decoration:line-through;">
-                    $<%= Number(product.original_price).toFixed(2) %>
-                  </span>
-                  <% if (typeof effectiveDiscount !== 'undefined') { %>
-                    <span class="ms-1">(-<%= Number(effectiveDiscount || 0) %>%)</span>
-                  <% } %>
-                </div>
-              <% } %>
+              <div class="small text-muted mt-1" id="originalPriceWrap"
+                   style="<%= (product.original_price && Number(product.original_price) > Number(product.price)) ? '' : 'display:none;' %>">
+                <span style="text-decoration:line-through;">
+                  $<span id="displayOriginalPrice"><%= Number(product.original_price || 0).toFixed(2) %></span>
+                </span>
+                <% if (typeof effectiveDiscount !== 'undefined') { %>
+                  <span class="ms-1">(-<%= Number(effectiveDiscount || 0) %>%)</span>
+                <% } %>
+              </div>
             </div>
           </div>
 
-          <!-- ✅ Hybrid delivery banner (ONLY for stock-enabled products) -->
           <% if ((product.delivery_mode || 'manual') === 'stock') { %>
             <div class="alert <%= product.in_stock ? 'alert-success' : 'alert-warning' %> d-flex align-items-start gap-2 mb-3"
                  style="border-radius:14px;">
@@ -342,7 +354,6 @@
             </div>
           <% } %>
 
-          <!-- ✅ Error banner (from server query string /checkout/:id?error=...) -->
           <% if (error) { %>
             <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:14px;">
               <i class="bi bi-exclamation-triangle-fill"></i>
@@ -350,7 +361,6 @@
             </div>
           <% } %>
 
-          <!-- ✅ BEST UI Notes/Description -->
           <%
             const hasDesc = !!(product.description && String(product.description).trim());
             const hasNotes = !!(product.notes && String(product.notes).trim());
@@ -407,7 +417,6 @@
                             </div>
                             <p class="desc-text mb-0"><%= product.notes %></p>
                           <% } %>
-
                         </div>
                       </div>
                     </div>
@@ -441,7 +450,6 @@
             </div>
           <% } %>
 
-          <!-- ✅ نموذج الشراء -->
           <form
             id="sql-buy-form"
             method="POST"
@@ -451,6 +459,41 @@
           >
             <input type="hidden" name="productId" value="<%= product.id %>">
             <input type="hidden" name="idempotency_key" value="<%= idemKey %>">
+
+            <% if (hasCheckoutOptions) { %>
+              <div class="option-card mb-3">
+                <label for="optionId" class="form-label fw-bold mb-2">
+                  <i class="bi bi-list-check me-1"></i>
+                  Choose Amount
+                </label>
+
+                <select
+                  class="form-select"
+                  id="optionId"
+                  name="optionId"
+                  required
+                >
+                  <% checkoutOptions.forEach((opt, idx) => { %>
+                    <option
+                      value="<%= opt.id %>"
+                      data-price="<%= Number(opt.price || 0).toFixed(2) %>"
+                      data-original-price="<%= Number(opt.original_price || 0).toFixed(2) %>"
+                      <%= idx === 0 ? 'selected' : '' %>
+                    >
+                      <%= opt.option_label %> — $<%= Number(opt.price || 0).toFixed(2) %>
+                    </option>
+                  <% }) %>
+                </select>
+
+                <div class="option-helper">
+                  Select the recharge/package you want before completing the order.
+                </div>
+
+                <div class="invalid-feedback">
+                  Please choose an option.
+                </div>
+              </div>
+            <% } %>
 
             <% if (product.requires_player_id == 1) { %>
               <div class="mb-3">
@@ -512,6 +555,11 @@
     const btnText = buyBtn.querySelector('.btn-text');
     const btnSpinner = buyBtn.querySelector('.spinner-border');
 
+    const optionSelect = document.getElementById('optionId');
+    const displayPrice = document.getElementById('displayPrice');
+    const displayOriginalPrice = document.getElementById('displayOriginalPrice');
+    const originalPriceWrap = document.getElementById('originalPriceWrap');
+
     let submitting = false;
 
     function setLoading(state) {
@@ -537,7 +585,6 @@
       });
     }
 
-    // ✅ Read more for description
     (function () {
       const descText = document.getElementById('descText');
       const descToggle = document.getElementById('descToggle');
@@ -559,6 +606,33 @@
           : 'Read more <i class="bi bi-chevron-down"></i>';
       });
     })();
+
+    function refreshDisplayedPrice() {
+      if (!optionSelect) return;
+
+      const selected = optionSelect.options[optionSelect.selectedIndex];
+      if (!selected) return;
+
+      const price = parseFloat(selected.dataset.price || '0') || 0;
+      const originalPrice = parseFloat(selected.dataset.originalPrice || '0') || 0;
+
+      if (displayPrice) {
+        displayPrice.textContent = price.toFixed(2);
+      }
+
+      if (displayOriginalPrice) {
+        displayOriginalPrice.textContent = originalPrice.toFixed(2);
+      }
+
+      if (originalPriceWrap) {
+        originalPriceWrap.style.display = originalPrice > price ? '' : 'none';
+      }
+    }
+
+    if (optionSelect) {
+      optionSelect.addEventListener('change', refreshDisplayedPrice);
+      refreshDisplayedPrice();
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();

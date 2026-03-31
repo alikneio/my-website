@@ -10,6 +10,35 @@
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper/swiper-bundle.min.css"/>
+
+  <style>
+    .soft-card {
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    .section-title {
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .option-row {
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fafbfc;
+      margin-bottom: 12px;
+    }
+
+    .option-row .remove-option-btn {
+      min-width: 44px;
+    }
+
+    .d-none-force {
+      display: none !important;
+    }
+  </style>
 </head>
 
 <body class="bg-light">
@@ -26,7 +55,7 @@
 
       <div class="card shadow-sm" style="border-radius: 16px;">
         <div class="card-body">
-          <form action="/admin/products" method="POST" autocomplete="off">
+          <form action="/admin/products" method="POST" autocomplete="off" id="addProductForm">
             <div class="row g-3">
 
               <div class="col-12">
@@ -34,7 +63,7 @@
                 <input type="text" class="form-control" name="name" required>
               </div>
 
-              <!-- ✅ NEW: Delivery Mode -->
+              <!-- Delivery Mode -->
               <div class="col-12 col-md-6">
                 <label class="form-label fw-semibold">
                   <i class="bi bi-truck me-1"></i> Delivery Mode
@@ -45,7 +74,7 @@
                 </select>
 
                 <div class="form-text">
-                  Stock = إذا في مخزون بيتسلم تلقائي، وإذا ما في → الطلب بيضل Waiting ويوصل للأدمن.
+                  Stock = إذا في مخزون بيتسلم تلقائي، وإذا ما في → الطلب بيضل Pending / Waiting وينشاف من الأدمن.
                 </div>
 
                 <div id="stockHint" class="alert alert-info mt-2 mb-0 d-none" style="border-radius: 14px;">
@@ -59,9 +88,25 @@
                 </div>
               </div>
 
+              <!-- Pricing Mode -->
               <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-cash-stack me-1"></i> Pricing Mode
+                </label>
+                <select class="form-select" name="pricing_mode" id="pricingMode">
+                  <option value="fixed" selected>Fixed Price</option>
+                  <option value="options">Options / Variants</option>
+                </select>
+
+                <div class="form-text">
+                  Fixed = سعر واحد للمنتج. Options = الزبون يختار من عدة خيارات مثل 1$ / 2$ / 3$.
+                </div>
+              </div>
+
+              <!-- Fixed Price -->
+              <div class="col-12 col-md-6" id="fixedPriceWrap">
                 <label class="form-label fw-semibold">Price</label>
-                <input type="number" step="0.01" min="0" class="form-control" name="price" required>
+                <input type="number" step="0.01" min="0" class="form-control" name="price" id="fixedPriceInput" required>
               </div>
 
               <div class="col-12 col-md-4">
@@ -97,7 +142,6 @@
                 <input type="text" class="form-control" name="sub_category_image" placeholder="/images/webp/cat_netflix.webp">
               </div>
 
-              <!-- Description -->
               <div class="col-12">
                 <label class="form-label fw-semibold">Description</label>
                 <textarea class="form-control" name="description" rows="3"
@@ -124,6 +168,37 @@
 
             </div>
 
+            <!-- Options Section -->
+            <div id="optionsSection" class="mt-4 d-none">
+              <div class="soft-card p-3 p-md-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                  <div>
+                    <h5 class="section-title mb-1">
+                      <i class="bi bi-list-check me-1"></i> Product Options
+                    </h5>
+                    <div class="text-muted small">
+                      أضف الخيارات اللي بدك المستخدم يختار بينها في صفحة الـ checkout.
+                    </div>
+                  </div>
+
+                  <button type="button" class="btn btn-outline-primary" id="addOptionBtn">
+                    <i class="bi bi-plus-circle me-1"></i> Add Option
+                  </button>
+                </div>
+
+                <div id="optionsContainer"></div>
+
+                <div class="alert alert-secondary mb-0 mt-2" style="border-radius: 14px;">
+                  <div class="small">
+                    <b>مثال:</b><br>
+                    Label = 1 Dollar<br>
+                    Value = 1<br>
+                    Price = 100
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <hr class="my-4">
 
             <div class="d-flex gap-2">
@@ -140,23 +215,180 @@
     </div>
   </div>
 
+  <template id="optionRowTemplate">
+    <div class="option-row">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Option Label</label>
+          <input type="text" class="form-control option-label-input" placeholder="e.g. 1 Dollar">
+        </div>
+
+        <div class="col-12 col-md-2">
+          <label class="form-label fw-semibold">Value</label>
+          <input type="text" class="form-control option-value-input" placeholder="e.g. 1">
+        </div>
+
+        <div class="col-12 col-md-2">
+          <label class="form-label fw-semibold">Price</label>
+          <input type="number" step="0.01" min="0" class="form-control option-price-input" placeholder="100">
+        </div>
+
+        <div class="col-12 col-md-2">
+          <label class="form-label fw-semibold">Sort</label>
+          <input type="number" step="1" min="0" class="form-control option-sort-input" placeholder="0">
+        </div>
+
+        <div class="col-12 col-md-2">
+          <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input option-active-input" checked>
+            <label class="form-check-label">Active</label>
+          </div>
+
+          <button type="button" class="btn btn-outline-danger w-100 remove-option-btn">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/main.js"></script>
 
   <script>
-    // Show hint when Stock is selected
     const deliveryMode = document.getElementById('deliveryMode');
     const stockHint = document.getElementById('stockHint');
 
-    function toggleHint(){
-      if(!deliveryMode || !stockHint) return;
+    const pricingMode = document.getElementById('pricingMode');
+    const fixedPriceWrap = document.getElementById('fixedPriceWrap');
+    const fixedPriceInput = document.getElementById('fixedPriceInput');
+    const optionsSection = document.getElementById('optionsSection');
+    const optionsContainer = document.getElementById('optionsContainer');
+    const addOptionBtn = document.getElementById('addOptionBtn');
+    const optionRowTemplate = document.getElementById('optionRowTemplate');
+    const form = document.getElementById('addProductForm');
+
+    function toggleHint() {
+      if (!deliveryMode || !stockHint) return;
       const v = (deliveryMode.value || '').toLowerCase();
       if (v === 'stock') stockHint.classList.remove('d-none');
       else stockHint.classList.add('d-none');
     }
 
+    function buildHiddenInput(name, value) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      input.className = 'generated-option-hidden';
+      return input;
+    }
+
+    function refreshPricingMode() {
+      const mode = (pricingMode?.value || 'fixed').toLowerCase();
+      const isOptions = mode === 'options';
+
+      fixedPriceWrap.classList.toggle('d-none', isOptions);
+      optionsSection.classList.toggle('d-none', !isOptions);
+
+      fixedPriceInput.required = !isOptions;
+
+      if (isOptions && optionsContainer.children.length === 0) {
+        addOptionRow();
+      }
+    }
+
+    function addOptionRow(data = {}) {
+      const fragment = optionRowTemplate.content.cloneNode(true);
+      const row = fragment.querySelector('.option-row');
+
+      const labelInput = row.querySelector('.option-label-input');
+      const valueInput = row.querySelector('.option-value-input');
+      const priceInput = row.querySelector('.option-price-input');
+      const sortInput = row.querySelector('.option-sort-input');
+      const activeInput = row.querySelector('.option-active-input');
+      const removeBtn = row.querySelector('.remove-option-btn');
+
+      labelInput.value = data.option_label || '';
+      valueInput.value = data.option_value || '';
+      priceInput.value = data.price || '';
+      sortInput.value = data.sort_order || optionsContainer.children.length;
+      activeInput.checked = typeof data.is_active === 'undefined' ? true : !!data.is_active;
+
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+      });
+
+      optionsContainer.appendChild(row);
+    }
+
+    function rebuildOptionHiddenInputs() {
+      form.querySelectorAll('.generated-option-hidden').forEach(el => el.remove());
+
+      const mode = (pricingMode?.value || 'fixed').toLowerCase();
+      if (mode !== 'options') return;
+
+      const rows = optionsContainer.querySelectorAll('.option-row');
+
+      rows.forEach((row, index) => {
+        const label = row.querySelector('.option-label-input')?.value?.trim() || '';
+        const value = row.querySelector('.option-value-input')?.value?.trim() || '';
+        const price = row.querySelector('.option-price-input')?.value?.trim() || '';
+        const sort = row.querySelector('.option-sort-input')?.value?.trim() || '0';
+        const active = row.querySelector('.option-active-input')?.checked ? '1' : '0';
+
+        form.appendChild(buildHiddenInput(`options[${index}][option_label]`, label));
+        form.appendChild(buildHiddenInput(`options[${index}][option_value]`, value));
+        form.appendChild(buildHiddenInput(`options[${index}][price]`, price));
+        form.appendChild(buildHiddenInput(`options[${index}][sort_order]`, sort));
+        form.appendChild(buildHiddenInput(`options[${index}][is_active]`, active));
+      });
+    }
+
+    function validateOptionsMode() {
+      const mode = (pricingMode?.value || 'fixed').toLowerCase();
+      if (mode !== 'options') return true;
+
+      const rows = optionsContainer.querySelectorAll('.option-row');
+      if (!rows.length) {
+        alert('Please add at least one option.');
+        return false;
+      }
+
+      for (const row of rows) {
+        const label = row.querySelector('.option-label-input')?.value?.trim() || '';
+        const price = row.querySelector('.option-price-input')?.value?.trim() || '';
+
+        if (!label) {
+          alert('Each option must have a label.');
+          return false;
+        }
+
+        if (price === '' || Number(price) < 0) {
+          alert('Each option must have a valid price.');
+          return false;
+        }
+      }
+
+      return true;
+    }
+
     toggleHint();
+    refreshPricingMode();
+
     deliveryMode?.addEventListener('change', toggleHint);
+    pricingMode?.addEventListener('change', refreshPricingMode);
+
+    addOptionBtn?.addEventListener('click', () => addOptionRow());
+
+    form?.addEventListener('submit', (e) => {
+      if (!validateOptionsMode()) {
+        e.preventDefault();
+        return;
+      }
+
+      rebuildOptionHiddenInputs();
+    });
   </script>
 </body>
 </html>
