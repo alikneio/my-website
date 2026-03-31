@@ -6978,7 +6978,7 @@ app.get('/touchvalidity', (req, res) => {
   });
 });
 
-app.get('/touchcredits', (req, res) => {
+app.get('/touchcredit', (req, res) => {
   const sql = `
     SELECT * FROM products
     WHERE main_category = 'Communication' AND sub_category = 'Touch Credits'
