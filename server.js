@@ -2267,9 +2267,9 @@ app.post('/buy-social', checkAuth, async (req, res) => {
 
     // لو نفس الطلب انبعت قبل
     const existingPayload = await getIdemPayload();
-    if (existingPayload?.redirectUrl) {
-      return res.redirect(existingPayload.redirectUrl);
-    }
+if (existingPayload?.success === true && existingPayload?.redirectUrl) {
+  return res.redirect(existingPayload.redirectUrl);
+}
 
     // Validate basic input
     if (!Number.isFinite(serviceId) || serviceId <= 0) {
