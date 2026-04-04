@@ -2445,7 +2445,7 @@ if (existingPayload?.success === true && existingPayload?.redirectUrl) {
         INSERT INTO orders
           (userId, productName, price, purchaseDate, order_details, status, provider_order_id, provider, source, client_token)
         VALUES
-          (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smm', 'social', ?)
+          (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smm', 'api', ?)
         `,
         [
           userId,
