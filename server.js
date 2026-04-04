@@ -2508,7 +2508,15 @@ app.post('/buy-social', checkAuth, async (req, res) => {
       await conn.commit();
     } catch (txErr) {
       try { await conn.rollback(); } catch (_) {}
-      console.error('❌ buy-social tx error:', txErr?.message || txErr);
+      console.error('❌ buy-social TX ERROR FULL:', {
+  message: txErr?.message,
+  code: txErr?.code,
+  errno: txErr?.errno,
+  sqlMessage: txErr?.sqlMessage,
+  sqlState: txErr?.sqlState,
+  sql: txErr?.sql,
+  stack: txErr?.stack
+});
 
       const payload = {
         success: false,
