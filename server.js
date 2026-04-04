@@ -2207,6 +2207,397 @@ app.get('/social-checkout/:id', checkAuth, async (req, res) => {
   });
 });
 
+app.post('/buy-social', checkAuth, async (req, res) => {
+  const userId = req.session.user?.id;
+  if (!userId) return res.redirect('/login?error=session');
+
+  const rawIdemKey = String(
+    req.body.idempotency_key ||
+    req.session.checkoutIdemKey ||
+    req.session.idemKey ||
+    ''
+  ).slice(0, 64).trim();
+
+  const serviceId = parseInt(req.body.service_id, 10);
+  const qty = parseInt(req.body.quantity, 10);
+  const link = String(req.body.link || '').trim();
+
+  const q = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    );
+
+  async function getIdemPayload() {
+    if (!rawIdemKey) return null;
+
+    const rows = await q(
+      `SELECT response_json
+       FROM idempotency_keys
+       WHERE user_id = ? AND idem_key = ?
+       LIMIT 1`,
+      [userId, rawIdemKey]
+    );
+
+    const raw = rows?.[0]?.response_json;
+    if (!raw) return null;
+
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function saveIdemPayload(payload) {
+    if (!rawIdemKey) return;
+
+    await q(
+      `INSERT INTO idempotency_keys (user_id, idem_key, response_json)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE response_json = VALUES(response_json)`,
+      [userId, rawIdemKey, JSON.stringify(payload)]
+    );
+  }
+
+  try {
+    // لازم يكون موجود لأن الفورم عم يبعتو دائمًا
+    if (!rawIdemKey) {
+      return res.redirect(`/social-checkout/${serviceId || ''}?error=missing_idem`);
+    }
+
+    // لو نفس الطلب انبعت قبل
+    const existingPayload = await getIdemPayload();
+    if (existingPayload?.redirectUrl) {
+      return res.redirect(existingPayload.redirectUrl);
+    }
+
+    // Validate basic input
+    if (!Number.isFinite(serviceId) || serviceId <= 0) {
+      return res.redirect('/social-media?error=service_not_found');
+    }
+
+    if (!link || !Number.isFinite(qty)) {
+      return res.redirect(
+        `/social-checkout/${serviceId}?error=missing_fields&link=${encodeURIComponent(link || '')}&qty=${encodeURIComponent(req.body.quantity || '')}`
+      );
+    }
+
+    if (qty <= 0) {
+      return res.redirect(
+        `/social-checkout/${serviceId}?error=invalid_quantity&link=${encodeURIComponent(link)}&qty=${encodeURIComponent(req.body.quantity || '')}`
+      );
+    }
+
+    // Fresh user from DB
+    let freshUser = req.session.user || null;
+    try {
+      const [[u]] = await promisePool.query(
+        `SELECT * FROM users WHERE id = ? LIMIT 1`,
+        [userId]
+      );
+      if (u) {
+        freshUser = u;
+        req.session.user = u;
+      }
+    } catch (_) {}
+
+    // Fetch active SMM service
+    const [service] = await q(
+      `
+      SELECT
+        s.*,
+        c.name AS category_name
+      FROM smm_services s
+      LEFT JOIN smm_categories c
+        ON c.id = s.category_id
+      WHERE s.id = ?
+        AND s.is_active = 1
+      LIMIT 1
+      `,
+      [serviceId]
+    );
+
+    if (!service) {
+      const payload = {
+        success: false,
+        redirectUrl: `/social-checkout/${serviceId}?error=service_not_found`
+      };
+      await saveIdemPayload(payload);
+      return res.redirect(payload.redirectUrl);
+    }
+
+    // Quantity range
+    const minQty = Math.max(1, parseInt(service.min_qty || 1, 10));
+    const maxQty = Math.max(minQty, parseInt(service.max_qty || minQty, 10));
+
+    if (qty < minQty || qty > maxQty) {
+      return res.redirect(
+        `/social-checkout/${serviceId}?error=range&min=${minQty}&max=${maxQty}&link=${encodeURIComponent(link)}&qty=${encodeURIComponent(qty)}`
+      );
+    }
+
+    // Pricing — no discounts at all
+    const rate = Number(service.rate || 0);
+    const ratePer = Number(service.rate_per || 1000) || 1000;
+
+    if (!Number.isFinite(rate) || rate <= 0 || !Number.isFinite(ratePer) || ratePer <= 0) {
+      const payload = {
+        success: false,
+        redirectUrl: `/social-checkout/${serviceId}?error=pricing&link=${encodeURIComponent(link)}&qty=${encodeURIComponent(qty)}`
+      };
+      await saveIdemPayload(payload);
+      return res.redirect(payload.redirectUrl);
+    }
+
+    // same formula as checkout page
+    const finalTotal = Number(((qty * rate) / ratePer).toFixed(4));
+
+    if (!Number.isFinite(finalTotal) || finalTotal <= 0) {
+      const payload = {
+        success: false,
+        redirectUrl: `/social-checkout/${serviceId}?error=pricing&link=${encodeURIComponent(link)}&qty=${encodeURIComponent(qty)}`
+      };
+      await saveIdemPayload(payload);
+      return res.redirect(payload.redirectUrl);
+    }
+
+    // Check balance before provider request
+    const userBalance = Number(freshUser?.balance || 0);
+    if (userBalance < finalTotal) {
+      const payload = {
+        success: false,
+        redirectUrl: `/social-checkout/${serviceId}?error=balance&link=${encodeURIComponent(link)}&qty=${encodeURIComponent(qty)}`
+      };
+      await saveIdemPayload(payload);
+      return res.redirect(payload.redirectUrl);
+    }
+
+    // Create provider order first
+    let providerOrderId = null;
+
+    try {
+      providerOrderId = await createSmmOrder({
+        service: String(service.provider_service_id).trim(),
+        link,
+        quantity: qty
+      });
+    } catch (err) {
+      console.error('❌ buy-social provider error:', err?.response?.data || err?.message || err);
+
+      const payload = {
+        success: false,
+        redirectUrl:
+          `/social-checkout/${serviceId}?error=provider&msg=${encodeURIComponent(err?.message || 'Provider rejected the order')}` +
+          `&link=${encodeURIComponent(link)}&qty=${encodeURIComponent(qty)}`
+      };
+      await saveIdemPayload(payload);
+      return res.redirect(payload.redirectUrl);
+    }
+
+    if (!providerOrderId) {
+      const payload = {
+        success: false,
+        redirectUrl:
+          `/social-checkout/${serviceId}?error=no_provider_id` +
+          `&link=${encodeURIComponent(link)}&qty=${encodeURIComponent(qty)}`
+      };
+      await saveIdemPayload(payload);
+      return res.redirect(payload.redirectUrl);
+    }
+
+    const conn = await promisePool.getConnection();
+    let orderId = null;
+
+    try {
+      await conn.beginTransaction();
+
+      // Atomic balance deduction
+      const [updRes] = await conn.query(
+        `UPDATE users
+            SET balance = balance - ?
+          WHERE id = ? AND balance >= ?`,
+        [finalTotal, userId, finalTotal]
+      );
+
+      if (!updRes?.affectedRows) {
+        await conn.rollback();
+
+        const payload = {
+          success: false,
+          redirectUrl: `/social-checkout/${serviceId}?error=balance&link=${encodeURIComponent(link)}&qty=${encodeURIComponent(qty)}`
+        };
+        await saveIdemPayload(payload);
+        return res.redirect(payload.redirectUrl);
+      }
+
+      // Transaction log
+      await conn.query(
+        `INSERT INTO transactions (user_id, type, amount, reason)
+         VALUES (?, 'debit', ?, ?)`,
+        [userId, finalTotal, `Purchase: ${service.name} [SMM]`]
+      );
+
+      const orderDetails = `Link: ${link} | Quantity: ${qty}`;
+
+      // Main orders table
+      const [orderRes] = await conn.query(
+        `
+        INSERT INTO orders
+          (userId, productName, price, purchaseDate, order_details, status, provider_order_id, provider, source, client_token)
+        VALUES
+          (?, ?, ?, NOW(), ?, 'Waiting', ?, 'smm', 'social', ?)
+        `,
+        [
+          userId,
+          service.name,
+          finalTotal,
+          orderDetails,
+          String(providerOrderId),
+          rawIdemKey
+        ]
+      );
+
+      orderId = orderRes.insertId;
+
+      // SMM tracking table - compatible with your current schema
+      await conn.query(
+        `
+        INSERT INTO smm_orders
+          (
+            user_id,
+            smm_service_id,
+            provider_order_id,
+            provider_status,
+            status,
+            quantity,
+            delivered_qty,
+            remains_qty,
+            charge,
+            refund_amount,
+            link,
+            created_at,
+            updated_at,
+            refunded
+          )
+        VALUES
+          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?)
+        `,
+        [
+          userId,
+          service.id,
+          String(providerOrderId),
+          'pending',
+          'Pending',
+          qty,
+          0,
+          qty,
+          finalTotal,
+          0,
+          link,
+          0
+        ]
+      );
+
+      // In-app notification
+      await conn.query(
+        `INSERT INTO notifications (user_id, message, created_at, is_read)
+         VALUES (?, ?, NOW(), 0)`,
+        [userId, `✅ تم استلام طلبك (${service.name}) بنجاح. سيتم معالجته قريبًا.`]
+      );
+
+      await conn.commit();
+    } catch (txErr) {
+      try { await conn.rollback(); } catch (_) {}
+      console.error('❌ buy-social tx error:', txErr?.message || txErr);
+
+      const payload = {
+        success: false,
+        redirectUrl: `/social-checkout/${serviceId}?error=server&link=${encodeURIComponent(link)}&qty=${encodeURIComponent(qty)}`
+      };
+      await saveIdemPayload(payload);
+      return res.redirect(payload.redirectUrl);
+    } finally {
+      conn.release();
+    }
+
+    // Refresh session user after successful commit
+    try {
+      const [[freshAfter]] = await promisePool.query(
+        `SELECT * FROM users WHERE id = ? LIMIT 1`,
+        [userId]
+      );
+      if (freshAfter) req.session.user = freshAfter;
+    } catch (_) {}
+
+    req.session.pendingOrderId = orderId;
+
+    // Telegram notifications
+    try {
+      const [urows] = await promisePool.query(
+        `SELECT username, telegram_chat_id FROM users WHERE id = ?`,
+        [userId]
+      );
+      const urow = urows?.[0] || null;
+
+      if (urow?.telegram_chat_id) {
+        const userMsg =
+          `📥 <b>تم استلام طلبك بنجاح</b>\n\n` +
+          `🛍️ <b>الخدمة:</b> ${service.name}\n` +
+          `📦 <b>الكمية:</b> ${qty}\n` +
+          `🔗 <b>الرابط:</b> ${link}\n` +
+          `💰 <b>السعر:</b> ${Number(finalTotal).toFixed(4)}$\n` +
+          `🧾 <b>رقم الطلب:</b> ${orderId}\n` +
+          `📌 <b>الحالة:</b> جاري المعالجة`;
+
+        await sendTelegramMessage(
+          urow.telegram_chat_id,
+          userMsg,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: 'HTML', timeoutMs: 15000 }
+        );
+      }
+
+      const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+      if (adminChatId) {
+        const adminMsg =
+          `🆕 <b>طلب SMM جديد!</b>\n\n` +
+          `👤 <b>الزبون:</b> ${urow?.username || userId}\n` +
+          `🎁 <b>الخدمة:</b> ${service.name}\n` +
+          `🗂 <b>الفئة:</b> ${service.category_name || service.category || '-'}\n` +
+          `🔢 <b>Service ID:</b> ${service.id}\n` +
+          `🆔 <b>Provider Service ID:</b> ${service.provider_service_id}\n` +
+          `📦 <b>الكمية:</b> ${qty}\n` +
+          `🔗 <b>الرابط:</b> ${link}\n` +
+          `💰 <b>السعر:</b> ${Number(finalTotal).toFixed(4)}$\n` +
+          `🧾 <b>رقم الطلب:</b> ${orderId}\n` +
+          `🏷 <b>Provider Order ID:</b> ${providerOrderId}`;
+
+        await sendTelegramMessage(
+          adminChatId,
+          adminMsg,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: 'HTML', timeoutMs: 15000 }
+        );
+      }
+    } catch (tgErr) {
+      console.warn('⚠️ Telegram error (buy-social):', tgErr?.message || tgErr);
+    }
+
+    const successPayload = {
+      success: true,
+      redirectUrl: '/processing',
+      orderId
+    };
+    await saveIdemPayload(successPayload);
+
+    return res.redirect('/processing');
+
+  } catch (err) {
+    console.error('❌ buy-social error:', err?.response?.data || err?.message || err);
+    return res.redirect(`/social-checkout/${encodeURIComponent(req.body.service_id || '')}?error=server`);
+  }
+});
+
 
 app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
   const {
