@@ -8,6 +8,33 @@
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
+
+  <style>
+    .checkout-card {
+      border: 0;
+      border-radius: 18px;
+    }
+    .info-chip {
+      border: 1px solid #e9ecef;
+      border-radius: 14px;
+      padding: 14px 16px;
+      height: 100%;
+      background: #fff;
+    }
+    .summary-box {
+      border-radius: 16px;
+    }
+    .sticky-side {
+      position: sticky;
+      top: 90px;
+    }
+    .muted-note {
+      font-size: 0.92rem;
+    }
+    .price-big {
+      letter-spacing: -0.5px;
+    }
+  </style>
 </head>
 <body>
   <%- include('partials/header', { user: user }) %>
@@ -15,7 +42,6 @@
   <main class="bg-light py-4">
     <div class="container" style="max-width: 1100px;">
 
-      <!-- Header -->
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">
           <i class="bi bi-instagram"></i>
@@ -27,7 +53,6 @@
         </a>
       </div>
 
-      <!-- Error messages -->
       <% if (error) { %>
         <div class="alert alert-danger d-flex align-items-start gap-2 mb-3">
           <i class="bi bi-exclamation-triangle-fill mt-1"></i>
@@ -40,8 +65,8 @@
               Please make sure:
               <ul class="mb-0">
                 <li>The URL is complete and starts with <code>http://</code> or <code>https://</code>.</li>
-                <li>The account / post is public (not private).</li>
-                <li>The link matches the service type (post, story, video…).</li>
+                <li>The account / post is public, when required by the service.</li>
+                <li>The link matches the service type.</li>
               </ul>
             <% } else if (error === 'missing_fields') { %>
               <strong>Missing data.</strong> Please fill the link and quantity.
@@ -51,11 +76,11 @@
               <strong>Quantity is out of allowed range.</strong><br />
               Min: <%= rangeMin %> – Max: <%= rangeMax %>.
             <% } else if (error === 'balance') { %>
-              <strong>Insufficient balance.</strong> You can add funds from <a href="/add-funds">Add Balance</a>.
+              <strong>Insufficient balance.</strong> Please recharge and try again.
             <% } else if (error === 'pricing') { %>
-              <strong>Pricing error.</strong> Please try later or contact support.
+              <strong>Pricing error.</strong> Please try again later.
             <% } else if (error === 'no_provider_id') { %>
-              <strong>No order ID received from provider.</strong> Amount has been refunded to your balance.
+              <strong>No order ID returned from provider.</strong> Please try again.
             <% } else if (error === 'service_not_found') { %>
               <strong>Service not found or disabled.</strong>
             <% } else if (error === 'server') { %>
@@ -69,49 +94,49 @@
         </div>
       <% } %>
 
-      <!-- MAIN CARD -->
-      <div class="card shadow-sm mb-4">
-        <div class="card-body">
+      <div class="card shadow-sm checkout-card mb-4">
+        <div class="card-body p-4">
 
           <% const ratePer = Number(service.rate_per || 1000) || 1000; %>
           <% const avgTime = service.average_time || ''; %>
+          <% const minQtySafe = Number(service.min_qty || 1); %>
+          <% const maxQtySafe = Number(service.max_qty || minQtySafe); %>
+          <% const userBalanceSafe = Number(balance || 0); %>
 
-          <!-- Top section: name + category -->
-          <h2 class="h5 mb-1"><%= service.name %></h2>
-          <% if (service.category_name) { %>
-            <p class="text-muted mb-3">
-              Category:
-              <strong><%= service.category_name %></strong>
-            </p>
-          <% } %>
+          <div class="mb-3">
+            <h2 class="h5 mb-1"><%= service.name %></h2>
+            <% if (service.category_name) { %>
+              <p class="text-muted mb-0">
+                Category:
+                <strong><%= service.category_name %></strong>
+              </p>
+            <% } %>
+          </div>
 
-          <!-- Info chips -->
-          <div class="row g-2 mb-3">
+          <div class="row g-2 mb-4">
             <div class="col-6 col-md-3">
-              <div class="border rounded-3 px-3 py-2 h-100">
+              <div class="info-chip">
                 <div class="small text-muted text-uppercase">Rate / <%= ratePer.toLocaleString() %></div>
-                <div class="fw-bold text-primary">
-                  $<%= Number(service.rate).toFixed(4) %>
-                </div>
+                <div class="fw-bold text-primary">$<%= Number(service.rate).toFixed(4) %></div>
               </div>
             </div>
 
             <div class="col-6 col-md-3">
-              <div class="border rounded-3 px-3 py-2 h-100">
+              <div class="info-chip">
                 <div class="small text-muted text-uppercase">Min quantity</div>
                 <div class="fw-bold"><%= service.min_qty %></div>
               </div>
             </div>
 
             <div class="col-6 col-md-3">
-              <div class="border rounded-3 px-3 py-2 h-100">
+              <div class="info-chip">
                 <div class="small text-muted text-uppercase">Max quantity</div>
                 <div class="fw-bold"><%= service.max_qty %></div>
               </div>
             </div>
 
             <div class="col-6 col-md-3">
-              <div class="border rounded-3 px-3 py-2 h-100">
+              <div class="info-chip">
                 <div class="small text-muted text-uppercase">Average time</div>
                 <div class="fw-semibold">
                   <%= avgTime || 'Varies depending on provider load' %>
@@ -120,38 +145,31 @@
             </div>
           </div>
 
-          <hr class="my-3" />
-
           <div class="row g-4">
-            <!-- FORM -->
-            <div class="col-md-8">
+            <div class="col-lg-7">
               <form id="buySocialForm" method="POST" action="/buy-social" novalidate>
                 <input type="hidden" name="service_id" value="<%= service.id %>" />
+                <input type="hidden" name="idempotency_key" id="idemKeyInput" value="<%= (idemKey || '').toString() %>" />
 
-                <!-- ✅ دايمًا ابعت idempotency_key (بدون شرط if) -->
-                <input
-                  type="hidden"
-                  name="idempotency_key"
-                  value="<%= (idemKey || '').toString() %>"
-                />
-
-                <!-- Link -->
                 <div class="mb-3">
-                  <label class="form-label">Link (URL or username)</label>
-
+                  <label class="form-label fw-semibold">Link (URL or username)</label>
                   <input
                     type="text"
                     name="link"
-                    class="form-control"
-                    placeholder="Paste the profile / post / video link here"
+                    id="linkInput"
+                    class="form-control form-control-lg"
+                    placeholder="Paste the profile / post / reel / video link here"
                     value="<%= formLink || '' %>"
+                    autocomplete="off"
                     required
                   />
+                  <div class="form-text">
+                    Paste the exact link required by the selected service.
+                  </div>
                 </div>
 
-                <!-- Quantity -->
                 <div class="mb-3">
-                  <label class="form-label">
+                  <label class="form-label fw-semibold">
                     Quantity
                     <small class="text-muted">
                       (Min <%= service.min_qty %>, Max <%= service.max_qty %>)
@@ -160,73 +178,95 @@
                   <input
                     type="number"
                     name="quantity"
-                    class="form-control"
+                    id="qtyInput"
+                    class="form-control form-control-lg"
                     min="<%= service.min_qty %>"
                     max="<%= service.max_qty %>"
                     value="<%= formQty || '' %>"
                     required
                   />
+                  <div id="qtyHelp" class="form-text">
+                    Enter a quantity within the allowed range.
+                  </div>
                 </div>
 
-                <!-- Estimated price -->
-                <div class="mb-3">
-                  <div class="card bg-light border-0">
-                    <div class="card-body d-flex justify-content-between align-items-center">
+                <div class="card bg-light border-0 summary-box mb-3">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
                       <div>
-                        <div class="small text-muted text-uppercase">Estimated price</div>
-                        <div class="fw-bold fs-5 mb-1">
-                          $<span id="estimated-price">0.00</span>
+                        <div class="small text-muted text-uppercase mb-1">Estimated price</div>
+                        <div class="fw-bold fs-3 price-big mb-1">
+                          $<span id="estimated-price">0.0000</span>
                         </div>
                         <div class="small text-muted">
                           Rate: $<%= Number(service.rate).toFixed(4) %> /
                           <%= ratePer.toLocaleString() %> units
                         </div>
                       </div>
+
                       <div class="text-end">
-                        <div class="small text-muted text-uppercase">Your balance</div>
-                        <div class="fw-bold fs-6">
-                          $<%= Number(balance || 0).toFixed(2) %>
+                        <div class="small text-muted text-uppercase mb-1">Your balance</div>
+                        <div class="fw-bold fs-5">
+                          $<span id="user-balance"><%= userBalanceSafe.toFixed(2) %></span>
+                        </div>
+                        <div id="balanceStatus" class="small mt-1 text-muted">
+                          Waiting for quantity...
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- ✅ زر مع حماية double submit -->
-                <button id="confirmBtn" type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-                  Confirm Order
-                </button>
+                <div class="d-grid gap-2">
+                  <button id="confirmBtn" type="submit" class="btn btn-primary btn-lg fw-semibold">
+                    Confirm Order
+                  </button>
+
+                  <button id="refreshBtn" type="button" class="btn btn-outline-secondary">
+                    Refresh checkout token
+                  </button>
+                </div>
+
+                <div class="text-muted small mt-3">
+                  By submitting, your request will be sent once. Do not press back or refresh while processing.
+                </div>
               </form>
             </div>
 
-            <!-- NOTES -->
-            <div class="col-md-4">
-              <div class="card bg-light border-0 h-100">
-                <div class="card-body">
-                  <h5 class="h6 mb-3">
-                    <i class="bi bi-info-circle"></i>
-                    Important notes
-                  </h5>
+            <div class="col-lg-5">
+              <div class="sticky-side">
+                <div class="card bg-light border-0 h-100 summary-box">
+                  <div class="card-body">
+                    <h5 class="h6 mb-3">
+                      <i class="bi bi-info-circle"></i>
+                      Important notes
+                    </h5>
 
-                  <%
-                    const rawNotes = (service.notes || '').trim();
-                    const notesLines = rawNotes
-                      ? rawNotes.split(/\r?\n/).map(n => n.trim()).filter(Boolean)
-                      : [];
-                  %>
+                    <%
+                      const rawNotes = (service.notes || '').trim();
+                      const notesLines = rawNotes
+                        ? rawNotes.split(/\r?\n/).map(n => n.trim()).filter(Boolean)
+                        : [];
+                    %>
 
-                  <ul class="small mb-0">
-                    <% if (notesLines.length) { %>
-                      <% notesLines.forEach(function (line) { %>
-                        <li><%= line %></li>
-                      <% }) %>
-                    <% } else { %>
-                      <li>Make sure the link is correct and public (not private).</li>
-                      <li>Do not change username / link until the order is fully completed.</li>
-                      <li>Delivery time depends on provider speed and queue.</li>
-                      <li>Quantity must be between the allowed min and max.</li>
-                    <% } %>
-                  </ul>
+                    <ul class="small mb-3">
+                      <% if (notesLines.length) { %>
+                        <% notesLines.forEach(function (line) { %>
+                          <li><%= line %></li>
+                        <% }) %>
+                      <% } else { %>
+                        <li>Make sure the link is correct and public if required.</li>
+                        <li>Do not change username or link until the order is fully completed.</li>
+                        <li>Delivery time depends on provider speed and queue.</li>
+                        <li>Quantity must stay inside the allowed range.</li>
+                      <% } %>
+                    </ul>
+
+                    <div class="border-top pt-3">
+                      <div class="small text-muted mb-1">Current checkout token</div>
+                      <code id="idemPreview" class="small"><%= (idemKey || '').toString() || 'missing' %></code>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -236,41 +276,100 @@
     </div>
   </main>
 
-  <!-- JS: dynamic price calculation with rate_per -->
   <script>
     (function () {
       const rate = <%= Number(service.rate || 0) %>;
       const ratePer = <%= Number(service.rate_per || 1000) || 1000 %>;
-      const qtyInput = document.querySelector('input[name="quantity"]');
+      const minQty = <%= minQtySafe %>;
+      const maxQty = <%= maxQtySafe %>;
+      const userBalance = <%= userBalanceSafe %>;
+
+      const qtyInput = document.getElementById('qtyInput');
+      const linkInput = document.getElementById('linkInput');
       const priceSpan = document.getElementById('estimated-price');
+      const balanceStatus = document.getElementById('balanceStatus');
+      const qtyHelp = document.getElementById('qtyHelp');
+      const confirmBtn = document.getElementById('confirmBtn');
 
       function updateEst() {
-        const q = Number(qtyInput.value || 0);
+        const q = Number(qtyInput?.value || 0);
+
         if (!q || !rate || !ratePer) {
-          priceSpan.textContent = '0.00';
+          priceSpan.textContent = '0.0000';
+          balanceStatus.textContent = 'Waiting for quantity...';
+          balanceStatus.className = 'small mt-1 text-muted';
+          confirmBtn.disabled = false;
           return;
         }
+
         const total = (q * rate) / ratePer;
         priceSpan.textContent = total.toFixed(4);
+
+        if (q < minQty || q > maxQty) {
+          qtyHelp.textContent = `Allowed quantity is between ${minQty} and ${maxQty}.`;
+          qtyHelp.className = 'form-text text-danger';
+          confirmBtn.disabled = true;
+          balanceStatus.textContent = 'Invalid quantity range.';
+          balanceStatus.className = 'small mt-1 text-danger';
+          return;
+        }
+
+        qtyHelp.textContent = `Allowed quantity is between ${minQty} and ${maxQty}.`;
+        qtyHelp.className = 'form-text text-muted';
+
+        if (userBalance >= total) {
+          balanceStatus.textContent = 'Balance is enough for this order.';
+          balanceStatus.className = 'small mt-1 text-success';
+          confirmBtn.disabled = false;
+        } else {
+          balanceStatus.textContent = 'Insufficient balance for this quantity.';
+          balanceStatus.className = 'small mt-1 text-danger';
+          confirmBtn.disabled = false;
+        }
       }
 
-      if (qtyInput && priceSpan) {
-        qtyInput.addEventListener('input', updateEst);
-        updateEst();
-      }
-    })();
-  </script>
+      qtyInput?.addEventListener('input', updateEst);
+      updateEst();
 
-  <!-- ✅ منع double submit (أهم شي) -->
-  <script>
-    (function () {
       const form = document.getElementById('buySocialForm');
-      const btn = document.getElementById('confirmBtn');
-      if (!form || !btn) return;
+      const refreshBtn = document.getElementById('refreshBtn');
+      const idemInput = document.getElementById('idemKeyInput');
+      const idemPreview = document.getElementById('idemPreview');
 
-      form.addEventListener('submit', function () {
-        btn.disabled = true;
-        btn.innerHTML = 'Processing...';
+      function generateClientToken() {
+        if (window.crypto && window.crypto.randomUUID) {
+          return window.crypto.randomUUID();
+        }
+
+        return 'fallback-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+      }
+
+      function refreshClientToken() {
+        const newToken = generateClientToken();
+        idemInput.value = newToken;
+        idemPreview.textContent = newToken;
+      }
+
+      refreshBtn?.addEventListener('click', function () {
+        refreshClientToken();
+      });
+
+      form?.addEventListener('submit', function (e) {
+        const q = Number(qtyInput?.value || 0);
+        const link = String(linkInput?.value || '').trim();
+
+        if (!link || !q || q < minQty || q > maxQty) {
+          e.preventDefault();
+          updateEst();
+          return;
+        }
+
+        if (!idemInput.value || idemInput.value.trim() === '') {
+          refreshClientToken();
+        }
+
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = 'Processing...';
       });
     })();
   </script>

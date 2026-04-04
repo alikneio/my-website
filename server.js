@@ -2161,50 +2161,80 @@ app.post('/order-details/:id/refill.json', checkAuth, async (req, res) => {
 
 
 
+const crypto = require('crypto');
+
 app.get('/social-checkout/:id', checkAuth, async (req, res) => {
-  const userId = req.session.user.id;
-  const serviceId = parseInt(req.params.id, 10);
+  try {
+    const userId = req.session.user?.id;
+    if (!userId) return res.redirect('/login');
 
-  const { error, msg, min, max, link, qty } = req.query;
+    const serviceId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(serviceId) || serviceId <= 0) {
+      return res.redirect('/social-media?error=service_not_found');
+    }
 
-  const q = (sql, params = []) =>
-    new Promise((resolve, reject) =>
-      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+    const { error, msg, min, max, link, qty } = req.query;
+
+    const q = (sql, params = []) =>
+      new Promise((resolve, reject) =>
+        db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+      );
+
+    // 🔹 Fetch service
+    const [service] = await q(
+      `SELECT s.*, c.name AS category_name
+       FROM smm_services s
+       LEFT JOIN smm_categories c ON c.id = s.category_id
+       WHERE s.id = ? AND s.is_active = 1
+       LIMIT 1`,
+      [serviceId]
     );
 
-  const [service] = await q(
-    `SELECT s.*, c.name AS category_name
-     FROM smm_services s
-     LEFT JOIN smm_categories c ON c.id = s.category_id
-     WHERE s.id = ? AND s.is_active = 1`,
-    [serviceId]
-  );
+    if (!service) {
+      return res.redirect('/social-media?error=service_not_found');
+    }
 
-  if (!service) {
-    return res.redirect('/social-media?error=service_not_found');
+    // 🔹 Fetch user balance
+    const [userRow] = await q(
+      `SELECT balance FROM users WHERE id = ? LIMIT 1`,
+      [userId]
+    );
+
+    // ✅ الحل الأساسي: دايمًا key جديد لكل زيارة
+    const idemKey = crypto.randomUUID();
+
+    // خزنه بالsession فقط لراحة الـ POST (optional)
+    req.session.checkoutIdemKey = idemKey;
+
+    // 🔹 Normalize ranges
+    const minQty = Math.max(1, parseInt(service.min_qty || 1, 10));
+    const maxQty = Math.max(minQty, parseInt(service.max_qty || minQty, 10));
+
+    // 🔹 Clean inputs
+    const safeLink = typeof link === 'string' ? link.trim() : '';
+    const safeQty = Number.isFinite(parseInt(qty, 10)) ? parseInt(qty, 10) : '';
+
+    res.render('social-checkout', {
+      user: req.session.user,
+      service,
+      balance: Number(userRow?.balance || 0),
+
+      error: error || null,
+      errorMessage: msg || null,
+
+      rangeMin: min || minQty,
+      rangeMax: max || maxQty,
+
+      formLink: safeLink,
+      formQty: safeQty,
+
+      idemKey // 🔥 جديد كل مرة
+    });
+
+  } catch (err) {
+    console.error('❌ social-checkout GET error:', err);
+    return res.redirect('/social-media?error=server');
   }
-
-  const [userRow] = await q(`SELECT balance FROM users WHERE id = ?`, [userId]);
-
-  // ✅ idempotency key ثابت للمحاولة الحالية
-  // إذا في key محفوظ مسبقاً، استعمله. إذا لا، ولّد واحد جديد.
-  if (!req.session.checkoutIdemKey) {
-    req.session.checkoutIdemKey = crypto.randomUUID();
-  }
-  const idemKey = String(req.session.checkoutIdemKey).slice(0, 64);
-
-  res.render('social-checkout', {
-    user: req.session.user,
-    service,
-    balance: userRow?.balance || 0,
-    error: error || null,
-    errorMessage: msg || null,
-    rangeMin: min || service.min_qty,
-    rangeMax: max || service.max_qty,
-    formLink: link || '',
-    formQty: qty || '',
-    idemKey, // لازم يكون hidden input بالـ view
-  });
 });
 
 app.post('/buy-social', checkAuth, async (req, res) => {
