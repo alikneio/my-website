@@ -1259,6 +1259,97 @@ app.get('/ibo', (req, res) => {
   });
 });
 
+
+app.get('/openart', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'OpenArt AI'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (openart):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('openart', { user, products: finalProducts });
+  });
+});
+
+app.get('/hailuo', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Hailuo AI'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (hailuo):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('hailuo', { user, products: finalProducts });
+  });
+});
+
+app.get('/hailuo', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Hailuo AI'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (hailuo):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('hailuo', { user, products: finalProducts });
+  });
+});
+
+app.get('/lovable', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Lovable AI'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (lovable):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('lovable', { user, products: finalProducts });
+  });
+});
+
+app.get('/gamma', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Gamma AI'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (gamma):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('gamma', { user, products: finalProducts });
+  });
+});
+
 app.get('/touch-section', (req, res) => {
   const sql = `
     SELECT * FROM products
