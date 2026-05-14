@@ -1278,6 +1278,24 @@ app.get('/openart', (req, res) => {
   });
 });
 
+app.get('/office365', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Microsoft Office 365'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (office365):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('office365', { user, products: finalProducts });
+  });
+});
+
 app.get('/hailuo', (req, res) => {
   const sql = `
     SELECT * FROM products
