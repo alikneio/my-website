@@ -863,35 +863,7 @@ app.get('/accounts', (req, res) => {
 });
 
 
-app.get('/accounts-new', async (req, res) => {
-  try {
-    const [categories] = await promisePool.query(`
-      SELECT
-        sub_category,
-        COALESCE(
-          MAX(NULLIF(sub_category_image, '')),
-          MAX(NULLIF(image, '')),
-          '/images/default-category.png'
-        ) AS image,
-        MIN(sort_order) AS sort_order
-      FROM products
-      WHERE active = 1
-        AND sub_category IS NOT NULL
-        AND sub_category <> ''
-      GROUP BY sub_category
-      ORDER BY sort_order ASC, sub_category ASC
-    `);
 
-    res.render('accounts-new', {
-      user: req.session.user || null,
-      categories
-    });
-
-  } catch (err) {
-    console.error('❌ /accounts-new error:', err);
-    res.status(500).send('Server Error');
-  }
-});
 
 // ====== Games: list categories ======
 app.get('/games', async (req, res) => {
