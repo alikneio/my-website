@@ -4,39 +4,171 @@
   <meta charset="UTF-8" />
   <title>Login - AK Cell</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+
   <style>
-    body {
-      font-family: 'Cairo', sans-serif;
-      background: linear-gradient(to right, #e9eff5, #f4f7fa);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    :root{
+      --primary:#1e3c72;
+      --primary-dark:#142b55;
+      --bg:#eef4fb;
+      --card:#ffffff;
+      --muted:#6b7280;
     }
-    .login-card {
-      border-radius: 20px;
-      padding: 40px 30px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-      background-color: white;
-      width: 100%;
-      max-width: 420px;
+
+    body{
+      font-family:'Cairo', sans-serif;
+      min-height:100vh;
+      margin:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:
+        radial-gradient(circle at top left, rgba(30,60,114,.18), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(13,110,253,.12), transparent 30%),
+        linear-gradient(135deg, #eef4fb, #f8fbff);
+      padding:18px;
     }
-    .login-card h2 {
-      font-weight: 700;
-      color: #1e3c72;
+
+    .login-shell{
+      width:100%;
+      max-width:460px;
     }
-    .btn-primary {
-      background-color: #1e3c72;
-      border-color: #1e3c72;
+
+    .brand-box{
+      text-align:center;
+      margin-bottom:18px;
     }
-    .btn-primary:hover {
-      background-color: #16325c;
-      border-color: #16325c;
+
+    .brand-logo{
+      width:74px;
+      height:74px;
+      border-radius:22px;
+      object-fit:contain;
+      background:#fff;
+      padding:10px;
+      box-shadow:0 16px 40px rgba(30,60,114,.16);
+      margin-bottom:10px;
+    }
+
+    .login-card{
+      background:rgba(255,255,255,.94);
+      border:1px solid rgba(30,60,114,.08);
+      border-radius:28px;
+      padding:34px;
+      box-shadow:0 24px 70px rgba(15,23,42,.12);
+      backdrop-filter:blur(10px);
+    }
+
+    .login-card h2{
+      font-weight:800;
+      color:var(--primary);
+      letter-spacing:.2px;
+    }
+
+    .subtitle{
+      color:var(--muted);
+      font-size:.95rem;
+      margin-top:-8px;
+      margin-bottom:24px;
+      text-align:center;
+    }
+
+    .form-label{
+      font-weight:700;
+      color:#111827;
+    }
+
+    .input-wrap{
+      position:relative;
+    }
+
+    .input-wrap i{
+      position:absolute;
+      left:15px;
+      top:50%;
+      transform:translateY(-50%);
+      color:#7b8794;
+      font-size:1.05rem;
+    }
+
+    .form-control{
+      height:52px;
+      border-radius:14px;
+      background:#eef5ff;
+      border:1px solid rgba(30,60,114,.12);
+      padding-left:44px;
+      font-size:1rem;
+    }
+
+    .form-control:focus{
+      background:#fff;
+      border-color:rgba(30,60,114,.55);
+      box-shadow:0 0 0 .22rem rgba(30,60,114,.12);
+    }
+
+    .password-toggle{
+      position:absolute;
+      right:12px;
+      top:50%;
+      transform:translateY(-50%);
+      border:0;
+      background:transparent;
+      color:#6b7280;
+      padding:6px;
+    }
+
+    .password-input{
+      padding-right:45px;
+    }
+
+    .btn-primary{
+      background:linear-gradient(135deg, var(--primary), #2b5aa0);
+      border:0;
+      border-radius:15px;
+      height:54px;
+      font-weight:800;
+      box-shadow:0 14px 30px rgba(30,60,114,.24);
+    }
+
+    .btn-primary:hover{
+      background:linear-gradient(135deg, var(--primary-dark), #244d8d);
+      transform:translateY(-1px);
+    }
+
+    .small-link{
+      color:var(--primary);
+      font-weight:800;
+      text-decoration:none;
+    }
+
+    .small-link:hover{
+      text-decoration:underline;
+    }
+
+    .security-note{
+      margin-top:16px;
+      padding:11px 13px;
+      border-radius:16px;
+      background:rgba(30,60,114,.06);
+      color:#334155;
+      font-size:.88rem;
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+
+    @media(max-width:576px){
+      .login-card{
+        padding:26px 20px;
+        border-radius:22px;
+      }
     }
   </style>
 </head>
+
 <body>
 
   <% if (query.error === 'session') { %>
@@ -45,43 +177,91 @@
     </div>
   <% } %>
 
-  <div class="login-card">
-    <h2 class="text-center mb-4">Welcome Back</h2>
+  <div class="login-shell">
 
-    <form id="login-form">
-      <div id="error-message" class="alert alert-danger d-none"></div>
-
-      <div class="mb-3">
-        <label for="login_identifier" class="form-label">Email or Username</label>
-        <input type="text" class="form-control" id="login_identifier" name="login_identifier" required>
-      </div>
-      <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <input type="password" class="form-control" id="password" name="password" required>
-      </div>
-
-      <div id="captcha-wrapper" style="display: none; margin-top: 15px;">
-  <div class="g-recaptcha" data-sitekey="<%= process.env.RECAPTCHA_SITE_KEY %>"></div>
-
-</div>
-      <div class="d-grid">
-        <button type="submit" class="btn btn-primary btn-lg">Login</button>
-      </div>
-    </form>
-
-    <div class="text-center mt-3">
-      <small class="text-muted">Don't have an account? <a href="/register">Register here</a></small>
+    <div class="brand-box">
+      <img src="/images/logo.png" class="brand-logo" alt="AK Cell">
     </div>
+
+    <div class="login-card">
+      <h2 class="text-center mb-2">Welcome Back</h2>
+      <div class="subtitle">Login to manage your AK Cell account</div>
+
+      <form id="login-form">
+        <div id="error-message" class="alert alert-danger d-none"></div>
+
+        <div class="mb-3">
+          <label for="login_identifier" class="form-label">Email or Username</label>
+          <div class="input-wrap">
+            <i class="bi bi-person"></i>
+            <input type="text" class="form-control" id="login_identifier" name="login_identifier" required>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label for="password" class="form-label">Password</label>
+          <div class="input-wrap">
+            <i class="bi bi-lock"></i>
+            <input type="password" class="form-control password-input" id="password" name="password" required>
+            <button type="button" class="password-toggle" onclick="togglePassword()">
+              <i class="bi bi-eye" id="eyeIcon"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="captcha-wrapper" style="display:none; margin-top:15px;">
+          <div class="g-recaptcha" data-sitekey="<%= process.env.RECAPTCHA_SITE_KEY %>"></div>
+        </div>
+
+        <div class="d-grid mt-3">
+          <button type="submit" class="btn btn-primary btn-lg" id="loginBtn">
+            <span id="btnText">Login</span>
+          </button>
+        </div>
+      </form>
+
+      <div class="text-center mt-3">
+        <small class="text-muted">
+          Don't have an account?
+          <a href="/register" class="small-link">Register here</a>
+        </small>
+      </div>
+
+      <div class="security-note">
+        <i class="bi bi-shield-check text-primary"></i>
+        <span>Secure login with protected session access.</span>
+      </div>
+    </div>
+
   </div>
 
-
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
   <script>
+    function togglePassword(){
+      const password = document.getElementById("password");
+      const eyeIcon = document.getElementById("eyeIcon");
+
+      if(password.type === "password"){
+        password.type = "text";
+        eyeIcon.className = "bi bi-eye-slash";
+      }else{
+        password.type = "password";
+        eyeIcon.className = "bi bi-eye";
+      }
+    }
+
     document.getElementById("login-form").addEventListener("submit", async function (e) {
       e.preventDefault();
+
       const identifier = document.getElementById("login_identifier").value.trim();
       const password = document.getElementById("password").value;
       const captcha = document.querySelector(".g-recaptcha-response")?.value || "";
+      const loginBtn = document.getElementById("loginBtn");
+      const btnText = document.getElementById("btnText");
+
+      loginBtn.disabled = true;
+      btnText.textContent = "Checking...";
 
       const res = await fetch("/login", {
         method: "POST",
@@ -90,27 +270,26 @@
       });
 
       const data = await res.json();
+      const errorBox = document.getElementById("error-message");
 
-     const errorBox = document.getElementById("error-message");
+      if (data.success && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else {
+        errorBox.textContent = data.message || "Login failed.";
+        errorBox.classList.remove("d-none");
 
-if (data.success && data.redirectUrl) {
-  window.location.href = data.redirectUrl;
-} else {
-  errorBox.textContent = data.message || "Login failed.";
-  errorBox.classList.remove("d-none");
+        if (data.showCaptcha) {
+          document.getElementById("captcha-wrapper").style.display = "block";
+          if (typeof grecaptcha !== "undefined") {
+            grecaptcha.reset();
+          }
+        }
 
-  if (data.showCaptcha) {
-    document.getElementById("captcha-wrapper").style.display = "block";
-
-    // ✅ Reset reCAPTCHA token for next attempt
-    if (typeof grecaptcha !== "undefined") {
-      grecaptcha.reset();
-    }
-  }
-
-
+        loginBtn.disabled = false;
+        btnText.textContent = "Login";
       }
     });
   </script>
+
 </body>
 </html>
