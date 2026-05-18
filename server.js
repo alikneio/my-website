@@ -7285,6 +7285,24 @@ app.get('/watchit', (req, res) => {
   });
 });
 
+app.get('/yango', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'YANGO PLAY'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('yango', { user, products: finalProducts });
+  });
+});
+
 
 app.get('/starzplay', (req, res) => {
   const sql = `
