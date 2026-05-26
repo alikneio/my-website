@@ -48,7 +48,7 @@
           const isOut = Number(p.is_out_of_stock) === 1;
           const isVariable = Number(p.variable_quantity) === 1;
 
-          const hrefFinal = user ? `/api-checkout/${p.id}` : '/login';
+          const hrefFinal = user ? (p.checkout_url || `/api-checkout/${p.id}`) : '/login';
           const title = p.name || p.custom_name || ('Product ' + p.id);
 
           const unitLabel = p.unit_label || 'units';

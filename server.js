@@ -871,8 +871,7 @@ app.get('/games', async (req, res) => {
     new Promise((ok, no) => db.query(sql, p, (e, r) => (e ? no(e) : ok(r))));
 
   try {
-    const rows = await q(
-      `
+    const rows = await q(`
       SELECT
         c.id,
         c.label,
@@ -880,15 +879,31 @@ app.get('/games', async (req, res) => {
         c.image AS image_url,
         c.sort_order,
         c.active,
-        COUNT(sap.product_id) AS products_count
+
+        (
+          SELECT COUNT(*)
+          FROM selected_api_products sap
+          WHERE sap.category = c.slug AND sap.active = 1
+        )
+        +
+        (
+          SELECT COUNT(*)
+          FROM products p
+          WHERE p.active = 1
+            AND (
+              LOWER(p.main_category) = 'games'
+              OR LOWER(p.main_category) = 'game'
+            )
+            AND (
+              LOWER(p.sub_category) = LOWER(c.slug)
+              OR LOWER(p.sub_category) = LOWER(c.label)
+            )
+        ) AS products_count
+
       FROM api_categories c
-      LEFT JOIN selected_api_products sap
-        ON sap.category = c.slug AND sap.active = 1
       WHERE c.active = 1 AND c.section = 'games'
-      GROUP BY c.id, c.label, c.slug, c.image, c.sort_order, c.active
       ORDER BY c.sort_order ASC, c.label ASC
-      `
-    );
+    `);
 
     res.render('games', {
       user: req.session.user || null,
@@ -910,45 +925,76 @@ app.get('/games/:slug', async (req, res) => {
     new Promise((ok, no) => db.query(sql, p, (e, r) => (e ? no(e) : ok(r))));
 
   try {
-    // 1) تأكيد الكاتيجوري
-    const [category] = await q(
-      `
+    const [category] = await q(`
       SELECT id, label, slug, image AS image_url
       FROM api_categories
       WHERE slug = ? AND active = 1 AND section = 'games'
       LIMIT 1
-      `,
-      [slug]
-    );
+    `, [slug]);
+
     if (!category) return res.status(404).send('Category not found');
 
-    // 2) إعدادات المنتجات المختارة
+    // API products
     const selected = await q(
       `SELECT * FROM selected_api_products WHERE active = 1 AND category = ?`,
       [slug]
     );
+
     const map = new Map(selected.map(p => [Number(p.product_id), p]));
 
-    // 3) منتجات المزود (الكاش)
-    const { getCachedAPIProducts } = require('./utils/getCachedAPIProducts');
-    const apiProducts = await getCachedAPIProducts();
+    const apiProductsRaw = await getCachedAPIProducts();
 
-    // 4) نجهز الداتا للعرض
-    const products = apiProducts
-      .filter(p => map.has(p.id))
+    const apiProducts = apiProductsRaw
+      .filter(p => map.has(Number(p.id)))
       .map(p => {
-        const c = map.get(p.id);
-        const isQty = c.variable_quantity === 1;
+        const c = map.get(Number(p.id));
+        const isQty = Number(c.variable_quantity) === 1;
+
         return {
           id: p.id,
+          source: 'api',
+          checkout_url: `/api-checkout/${p.id}`,
           name: c.custom_name || p.name,
           image: c.custom_image || p.image || '/images/default-product.png',
           price: isQty ? null : Number(c.custom_price || p.price),
-          variable_quantity: isQty,
+          variable_quantity: isQty ? 1 : 0,
+          unit_label: c.unit_label || 'units',
           requires_player_id: (c.player_check ?? p.player_check) ? 1 : 0,
-          is_out_of_stock: c.is_out_of_stock === 1,
+          is_out_of_stock: Number(c.is_out_of_stock) === 1 ? 1 : 0,
         };
       });
+
+    // SQL products
+    const sqlRows = await q(`
+      SELECT *
+      FROM products
+      WHERE active = 1
+        AND (
+          LOWER(main_category) = 'games'
+          OR LOWER(main_category) = 'game'
+        )
+        AND (
+          LOWER(sub_category) = LOWER(?)
+          OR LOWER(sub_category) = LOWER(?)
+        )
+      ORDER BY sort_order ASC, id ASC
+    `, [category.slug, category.label]);
+
+    const sqlProducts = applyUserDiscountToProducts(sqlRows, req.session.user || null)
+      .map(p => ({
+        id: p.id,
+        source: 'sql',
+        checkout_url: `/checkout/${p.id}`,
+        name: p.name,
+        image: p.image || '/images/default-product.png',
+        price: Number(p.price || 0),
+        variable_quantity: 0,
+        unit_label: null,
+        requires_player_id: Number(p.requires_player_id || 0),
+        is_out_of_stock: Number(p.is_out_of_stock || 0),
+      }));
+
+    const products = [...apiProducts, ...sqlProducts];
 
     res.render('api-category-list', {
       user: req.session.user || null,
