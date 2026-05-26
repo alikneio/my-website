@@ -1,60 +1,269 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Manage Orders - AK Cell</title>
 
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 
   <style>
-    body { background:#f6f7fb; }
-    .page-title { font-weight: 900; letter-spacing: .2px; }
-    .card-soft{
-      border:0; border-radius:16px;
-      box-shadow:0 10px 30px rgba(15,23,42,.08);
+    :root {
+      --ak-bg: #f6f8fc;
+      --ak-card: #ffffff;
+      --ak-dark: #0f172a;
+      --ak-muted: #64748b;
+      --ak-border: rgba(15, 23, 42, .08);
+      --ak-blue: #0d6efd;
+      --ak-green: #22c55e;
+      --ak-red: #ef4444;
+      --ak-orange: #f59e0b;
+      --ak-shadow: 0 14px 35px rgba(15, 23, 42, .08);
+      --ak-radius: 18px;
     }
-    .stat-card{
-      border:0; border-radius:16px;
-      box-shadow:0 10px 30px rgba(15,23,42,.08);
-      overflow:hidden;
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        radial-gradient(circle at 5% 5%, rgba(13,110,253,.10), transparent 28%),
+        radial-gradient(circle at 95% 10%, rgba(34,197,94,.08), transparent 30%),
+        var(--ak-bg);
+      color: var(--ak-dark);
     }
-    .stat-icon{
-      width:42px;height:42px;border-radius:12px;
-      display:flex;align-items:center;justify-content:center;
-      background: rgba(13,110,253,.12);
-      color:#0d6efd;
-      font-size:1.2rem;
+
+    .page-title {
+      font-weight: 900;
+      letter-spacing: -.3px;
     }
-    .mono{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+    .small-muted {
+      color: var(--ak-muted);
+      font-size: .86rem;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-variant-numeric: tabular-nums;
     }
-    .badge-soft{
-      border-radius:999px; padding:6px 10px;
-      font-weight:800; font-size:.75rem;
-      border:1px solid transparent;
-      display:inline-flex; align-items:center; gap:6px;
+
+    .btn-round,
+    .form-control,
+    .form-select,
+    .input-group-text {
+      border-radius: 13px;
     }
-    .b-waiting{ background:rgba(245,158,11,.12); color:#92400e; border-color:rgba(245,158,11,.25); }
-    .b-accepted{ background:rgba(34,197,94,.12); color:#166534; border-color:rgba(34,197,94,.25); }
-    .b-rejected{ background:rgba(239,68,68,.12); color:#b91c1c; border-color:rgba(239,68,68,.25); }
-    .table thead th{
-      position: sticky; top: 0;
-      background: #111827 !important;
-      color:#fff; z-index: 2;
+
+    .card-soft {
+      border: 1px solid var(--ak-border);
+      border-radius: var(--ak-radius);
+      box-shadow: var(--ak-shadow);
+      background: rgba(255,255,255,.95);
+    }
+
+    .hero-card {
+      border-radius: 24px;
+      padding: 22px;
+      background:
+        linear-gradient(135deg, rgba(13,110,253,.12), rgba(34,197,94,.08)),
+        rgba(255,255,255,.95);
+      border: 1px solid rgba(255,255,255,.75);
+      box-shadow: var(--ak-shadow);
+    }
+
+    .hero-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 20px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 1.8rem;
+      background: linear-gradient(135deg, #0d6efd, #22c55e);
+      box-shadow: 0 14px 30px rgba(13,110,253,.20);
+    }
+
+    .stat-card {
+      border: 1px solid var(--ak-border);
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: var(--ak-shadow);
+      padding: 16px;
+      height: 100%;
+    }
+
+    .stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 15px;
+      display: grid;
+      place-items: center;
+      font-size: 1.25rem;
+    }
+
+    .stat-icon.total { background: rgba(13,110,253,.12); color: var(--ak-blue); }
+    .stat-icon.waiting { background: rgba(245,158,11,.13); color: var(--ak-orange); }
+    .stat-icon.accepted { background: rgba(34,197,94,.13); color: var(--ak-green); }
+    .stat-icon.rejected { background: rgba(239,68,68,.13); color: var(--ak-red); }
+
+    .badge-soft {
+      border-radius: 999px;
+      padding: 7px 11px;
+      font-weight: 900;
+      font-size: .72rem;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       white-space: nowrap;
     }
-    .table td, .table th { vertical-align: middle; }
-    .td-wrap{ max-width: 360px; white-space: normal; word-break: break-word; }
-    .search-input, .filter-select, .btn-round { border-radius: 12px; }
-    .small-muted{ color:#64748b; font-size:.85rem; }
-    .btn-update{
-      border-radius:12px;
-      font-weight:800;
+
+    .b-waiting {
+      background: rgba(245,158,11,.12);
+      color: #92400e;
+      border-color: rgba(245,158,11,.25);
     }
-    .row-form > * { min-width: 0; }
+
+    .b-accepted {
+      background: rgba(34,197,94,.12);
+      color: #166534;
+      border-color: rgba(34,197,94,.25);
+    }
+
+    .b-rejected {
+      background: rgba(239,68,68,.12);
+      color: #b91c1c;
+      border-color: rgba(239,68,68,.25);
+    }
+
+    .table-wrap {
+      max-height: 72vh;
+      overflow: auto;
+      border-radius: var(--ak-radius);
+    }
+
+    .table {
+      min-width: 1250px;
+    }
+
+    .table thead th {
+      position: sticky;
+      top: 0;
+      background: #0f172a !important;
+      color: #fff;
+      z-index: 5;
+      white-space: nowrap;
+      font-size: .82rem;
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+
+    .table td,
+    .table th {
+      vertical-align: middle;
+    }
+
+    .table tbody tr {
+      transition: background .15s ease;
+    }
+
+    .table tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    .td-wrap {
+      max-width: 360px;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .order-id-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      font-weight: 900;
+    }
+
+    .quick-replies {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 7px;
+    }
+
+    .quick-reply {
+      border: 1px solid rgba(15,23,42,.09);
+      background: #f8fafc;
+      border-radius: 999px;
+      font-size: .72rem;
+      padding: 4px 8px;
+      color: #334155;
+    }
+
+    .quick-reply:hover {
+      background: #eef2ff;
+      color: #0d6efd;
+    }
+
+    .action-btn {
+      border-radius: 12px;
+      font-weight: 900;
+    }
+
+    .copy-btn {
+      border-radius: 12px;
+    }
+
+    .result-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px solid var(--ak-border);
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: #334155;
+      font-weight: 800;
+      font-size: .84rem;
+    }
+
+    .empty-state {
+      padding: 56px 18px;
+      text-align: center;
+      color: var(--ak-muted);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 10px;
+      color: #94a3b8;
+    }
+
+    @media (max-width: 768px) {
+      .container-fluid {
+        padding: 18px !important;
+      }
+
+      .hero-card {
+        padding: 18px;
+        border-radius: 20px;
+      }
+
+      .hero-icon {
+        width: 52px;
+        height: 52px;
+      }
+
+      .table {
+        min-width: 1120px;
+      }
+    }
   </style>
 </head>
 
@@ -64,47 +273,60 @@
 
   <div class="container-fluid p-4 p-lg-5">
 
-    <% 
+    <%
       const list = Array.isArray(orders) ? orders : [];
       const total = list.length;
-      const waiting = list.filter(o => (o.status||'') === 'Waiting').length;
-      const accepted = list.filter(o => (o.status||'') === 'Accepted').length;
-      const rejected = list.filter(o => (o.status||'') === 'Rejected').length;
+      const waiting = list.filter(o => String(o.status || '') === 'Waiting').length;
+      const accepted = list.filter(o => String(o.status || '') === 'Accepted').length;
+      const rejected = list.filter(o => String(o.status || '') === 'Rejected').length;
+      const revenue = list.reduce((sum, o) => sum + (Number(o.price) || 0), 0);
 
       function statusBadge(status){
-        const s = String(status||'').toLowerCase();
+        const s = String(status || '').toLowerCase();
         if (s === 'accepted') return { cls:'b-accepted', icon:'bi-check2-circle', label:'ACCEPTED' };
         if (s === 'rejected') return { cls:'b-rejected', icon:'bi-x-circle', label:'REJECTED' };
         return { cls:'b-waiting', icon:'bi-hourglass-split', label:'WAITING' };
       }
+
+      function cleanText(v) {
+        return String(v || '').replace(/"/g, '&quot;');
+      }
     %>
 
-    <!-- Header -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
-      <div>
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-bag-check fs-2 text-primary"></i>
-          <h1 class="page-title mb-0">Manage Orders</h1>
-        </div>
-        <div class="small-muted mt-1">Review, update statuses, and reply to customers.</div>
-      </div>
+    <div class="hero-card mb-4">
+      <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="hero-icon">
+            <i class="bi bi-bag-check"></i>
+          </div>
 
-      <div class="d-flex gap-2">
-        <a href="/admin" class="btn btn-outline-secondary btn-round">
-          <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
-        </a>
-        <a href="/admin/orders" class="btn btn-primary btn-round">
-          <i class="bi bi-arrow-clockwise me-1"></i> Refresh
-        </a>
+          <div>
+            <h1 class="page-title mb-1">Manage Orders</h1>
+            <div class="small-muted">
+              Review orders, update statuses, and send customer replies faster.
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+          <a href="/admin" class="btn btn-outline-secondary btn-round">
+            <i class="bi bi-arrow-left me-1"></i>
+            Dashboard
+          </a>
+
+          <a href="/admin/orders" class="btn btn-primary btn-round">
+            <i class="bi bi-arrow-clockwise me-1"></i>
+            Refresh
+          </a>
+        </div>
       </div>
     </div>
 
-    <!-- Stats -->
     <div class="row g-3 mb-4">
-      <div class="col-12 col-md-3">
-        <div class="stat-card p-3 bg-white">
+      <div class="col-6 col-xl-3">
+        <div class="stat-card">
           <div class="d-flex align-items-center gap-3">
-            <div class="stat-icon"><i class="bi bi-list-ul"></i></div>
+            <div class="stat-icon total"><i class="bi bi-list-ul"></i></div>
             <div>
               <div class="small-muted">Total Orders</div>
               <div class="fs-4 fw-bold mono"><%= total %></div>
@@ -113,12 +335,10 @@
         </div>
       </div>
 
-      <div class="col-12 col-md-3">
-        <div class="stat-card p-3 bg-white">
+      <div class="col-6 col-xl-3">
+        <div class="stat-card">
           <div class="d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:rgba(245,158,11,.12); color:#f59e0b;">
-              <i class="bi bi-hourglass-split"></i>
-            </div>
+            <div class="stat-icon waiting"><i class="bi bi-hourglass-split"></i></div>
             <div>
               <div class="small-muted">Waiting</div>
               <div class="fs-4 fw-bold mono"><%= waiting %></div>
@@ -127,12 +347,10 @@
         </div>
       </div>
 
-      <div class="col-12 col-md-3">
-        <div class="stat-card p-3 bg-white">
+      <div class="col-6 col-xl-3">
+        <div class="stat-card">
           <div class="d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:rgba(34,197,94,.12); color:#22c55e;">
-              <i class="bi bi-check2-circle"></i>
-            </div>
+            <div class="stat-icon accepted"><i class="bi bi-check2-circle"></i></div>
             <div>
               <div class="small-muted">Accepted</div>
               <div class="fs-4 fw-bold mono"><%= accepted %></div>
@@ -141,12 +359,10 @@
         </div>
       </div>
 
-      <div class="col-12 col-md-3">
-        <div class="stat-card p-3 bg-white">
+      <div class="col-6 col-xl-3">
+        <div class="stat-card">
           <div class="d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:rgba(239,68,68,.12); color:#ef4444;">
-              <i class="bi bi-x-circle"></i>
-            </div>
+            <div class="stat-icon rejected"><i class="bi bi-x-circle"></i></div>
             <div>
               <div class="small-muted">Rejected</div>
               <div class="fs-4 fw-bold mono"><%= rejected %></div>
@@ -156,96 +372,151 @@
       </div>
     </div>
 
-    <!-- Optional Filters UI (حتى لو ما عندك backend إلها، ما بتكسر الصفحة) -->
-    <div class="card card-soft mb-3">
+    <div class="card-soft mb-3">
       <div class="card-body">
-        <div class="row g-2 align-items-end row-form">
-          <div class="col-12 col-md-5">
-            <label class="form-label fw-semibold">Quick Search (client-side)</label>
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-lg-5">
+            <label class="form-label fw-bold">Quick Search</label>
             <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-search"></i></span>
-              <input id="orderSearch" type="text" class="form-control search-input" placeholder="Search by user, product, details, id…">
+              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+              <input
+                id="orderSearch"
+                type="text"
+                class="form-control"
+                placeholder="Search by order ID, user, product, details, reply..."
+              >
             </div>
-            <div class="small-muted mt-1">This search works instantly without server changes.</div>
           </div>
 
-          <div class="col-12 col-md-3">
-            <label class="form-label fw-semibold">Status</label>
-            <select id="statusFilter" class="form-select filter-select">
-              <option value="">All</option>
+          <div class="col-12 col-md-4 col-lg-2">
+            <label class="form-label fw-bold">Status</label>
+            <select id="statusFilter" class="form-select">
+              <option value="">All Statuses</option>
               <option value="Waiting">Waiting</option>
               <option value="Accepted">Accepted</option>
               <option value="Rejected">Rejected</option>
             </select>
           </div>
 
-          <div class="col-12 col-md-2 d-grid">
-            <button id="clearFilters" class="btn btn-outline-secondary btn-round">
-              <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+          <div class="col-12 col-md-4 col-lg-2">
+            <label class="form-label fw-bold">Sort</label>
+            <select id="sortFilter" class="form-select">
+              <option value="default">Default</option>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="priceHigh">Price high</option>
+              <option value="priceLow">Price low</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4 col-lg-3 d-flex gap-2">
+            <button id="clearFilters" type="button" class="btn btn-outline-secondary btn-round w-100">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>
+              Reset
+            </button>
+
+            <button id="exportCsv" type="button" class="btn btn-dark btn-round w-100">
+              <i class="bi bi-filetype-csv me-1"></i>
+              CSV
             </button>
           </div>
 
-          <div class="col-12 col-md-2 d-grid">
-            <button class="btn btn-dark btn-round" type="button" data-bs-toggle="collapse" data-bs-target="#tipsBox">
-              <i class="bi bi-lightbulb me-1"></i> Tips
-            </button>
-          </div>
+          <div class="col-12 mt-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <span class="result-pill">
+                <i class="bi bi-funnel"></i>
+                Showing <span id="visibleCount"><%= total %></span> of <%= total %>
+              </span>
 
-          <div class="col-12">
-            <div class="collapse mt-2" id="tipsBox">
-              <div class="alert alert-info mb-0">
-                ✅ You can paste a full delivery link in <b>Admin Reply</b>.  
-                ✅ Use <b>Accepted</b> when delivered, <b>Rejected</b> when not possible.  
-                ✅ Search + status filter هنا شغالين <b>بدون backend</b>.
-              </div>
+              <span class="result-pill">
+                <i class="bi bi-cash-stack"></i>
+                Total value: $<span class="mono"><%= revenue.toFixed(2) %></span>
+              </span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="card card-soft">
+    <div class="card-soft">
       <div class="card-body p-0">
-        <div class="table-responsive" style="max-height: 70vh;">
+        <div class="table-wrap">
           <table class="table table-hover mb-0" id="ordersTable">
             <thead>
               <tr>
-                <th style="width:90px;">ID</th>
-                <th style="width:180px;">User</th>
-                <th style="width:260px;">Product</th>
+                <th style="width:100px;">ID</th>
+                <th style="width:190px;">User</th>
+                <th style="width:280px;">Product</th>
                 <th>Details</th>
-                <th style="width:220px;">Date</th>
-                <th style="width:170px;">Status</th>
-                <th style="width:320px;">Admin Reply</th>
-                <th style="width:120px;">Action</th>
+                <th style="width:210px;">Date</th>
+                <th style="width:185px;">Status</th>
+                <th style="width:370px;">Admin Reply</th>
+                <th style="width:135px;">Action</th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody id="ordersTbody">
               <% if (orders && orders.length > 0) { %>
-                <% orders.forEach(order => { 
+                <% orders.forEach((order, idx) => {
                   const b = statusBadge(order.status);
-                  const dateStr = order.purchaseDate ? new Date(order.purchaseDate).toLocaleString('en-US', { hour12: true }) : '-';
+                  const dateObj = order.purchaseDate ? new Date(order.purchaseDate) : null;
+                  const dateStr = dateObj ? dateObj.toLocaleString('en-US', { hour12: true }) : '-';
+                  const dateMs = dateObj ? dateObj.getTime() : 0;
                   const reply = order.admin_reply || '';
-                  const isLink = /^https?:\/\//i.test(reply.trim());
+                  const isLink = /^https?:\/\//i.test(String(reply).trim());
+                  const rowText = [
+                    order.id,
+                    order.username,
+                    order.userId,
+                    order.productName,
+                    order.price,
+                    order.order_details,
+                    order.status,
+                    reply
+                  ].join(' ').toLowerCase();
                 %>
 
-                  <tr data-status="<%= order.status %>">
-                    <td class="mono fw-bold">#<%= order.id %></td>
+                  <tr
+                    data-index="<%= idx %>"
+                    data-status="<%= order.status || 'Waiting' %>"
+                    data-price="<%= Number(order.price || 0) %>"
+                    data-date="<%= dateMs %>"
+                    data-search="<%= cleanText(rowText) %>"
+                  >
+                    <td>
+                      <span class="order-id-pill mono">
+                        #<%= order.id %>
+                      </span>
+                    </td>
 
                     <td>
-                      <div class="fw-semibold"><%= order.username %></div>
-                      <div class="small-muted">User ID: <span class="mono"><%= order.userId || '-' %></span></div>
+                      <div class="fw-bold"><%= order.username || '-' %></div>
+                      <div class="small-muted">
+                        User ID:
+                        <span class="mono"><%= order.userId || '-' %></span>
+                      </div>
                     </td>
 
                     <td class="td-wrap">
-                      <div class="fw-semibold"><%= order.productName %></div>
-                      <div class="small-muted">Price: <span class="mono">$<%= Number(order.price || 0).toFixed(2) %></span></div>
+                      <div class="fw-bold"><%= order.productName || '-' %></div>
+                      <div class="small-muted">
+                        Price:
+                        <span class="mono">$<%= Number(order.price || 0).toFixed(2) %></span>
+                      </div>
                     </td>
 
                     <td class="td-wrap">
-                      <%= order.order_details || '-' %>
+                      <div><%= order.order_details || '-' %></div>
+                      <% if (order.order_details) { %>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-secondary copy-btn mt-2"
+                          data-copy="<%= cleanText(order.order_details) %>"
+                        >
+                          <i class="bi bi-copy me-1"></i>
+                          Copy
+                        </button>
+                      <% } %>
                     </td>
 
                     <td class="text-muted mono"><%= dateStr %></td>
@@ -253,13 +524,14 @@
                     <td>
                       <div class="mb-2">
                         <span class="badge-soft <%= b.cls %>">
-                          <i class="bi <%= b.icon %>"></i> <%= b.label %>
+                          <i class="bi <%= b.icon %>"></i>
+                          <%= b.label %>
                         </span>
                       </div>
 
-                      <form action="/admin/order/update/<%= order.id %>" method="POST" class="d-flex gap-2">
-                        <select name="status" class="form-select form-select-sm">
-                          <option value="Waiting"  <%= order.status === 'Waiting' ? 'selected' : '' %>>Waiting</option>
+                      <form action="/admin/order/update/<%= order.id %>" method="POST" class="order-update-form">
+                        <select name="status" class="form-select form-select-sm status-select">
+                          <option value="Waiting" <%= order.status === 'Waiting' ? 'selected' : '' %>>Waiting</option>
                           <option value="Accepted" <%= order.status === 'Accepted' ? 'selected' : '' %>>Accepted</option>
                           <option value="Rejected" <%= order.status === 'Rejected' ? 'selected' : '' %>>Rejected</option>
                         </select>
@@ -270,41 +542,62 @@
                           <input
                             type="text"
                             name="admin_reply"
-                            class="form-control"
-                            placeholder="e.g. https://delivery-link"
+                            class="form-control admin-reply-input"
+                            placeholder="Paste delivery link or short message..."
                             value="<%= reply %>"
-                          />
+                          >
+
                           <% if (isLink) { %>
                             <a class="btn btn-outline-secondary" target="_blank" href="<%= reply %>" title="Open link">
                               <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                           <% } %>
+
+                          <button
+                            type="button"
+                            class="btn btn-outline-secondary copy-reply-btn"
+                            title="Copy reply"
+                          >
+                            <i class="bi bi-copy"></i>
+                          </button>
                         </div>
-                        <div class="small-muted mt-1">You can paste link or short message.</div>
+
+                        <div class="quick-replies">
+                          <button type="button" class="quick-reply" data-reply="Delivered successfully.">Delivered</button>
+                          <button type="button" class="quick-reply" data-reply="Please check your order details.">Check details</button>
+                          <button type="button" class="quick-reply" data-reply="Rejected: incorrect or incomplete details.">Invalid details</button>
+                          <button type="button" class="quick-reply" data-reply="Currently out of stock. We will update you shortly.">Out of stock</button>
+                        </div>
                     </td>
 
                     <td class="text-end">
-                        <button type="submit" class="btn btn-primary btn-sm btn-update">
-                          <i class="bi bi-save2 me-1"></i> Update
+                        <button type="submit" class="btn btn-primary btn-sm action-btn update-btn">
+                          <i class="bi bi-save2 me-1"></i>
+                          Update
                         </button>
                       </form>
                     </td>
                   </tr>
-
                 <% }) %>
               <% } else { %>
-                <tr>
-                  <td colspan="8" class="text-center p-5">
-                    <div class="text-muted">
-                      <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                      No orders found.
+                <tr class="no-orders-row">
+                  <td colspan="8">
+                    <div class="empty-state">
+                      <i class="bi bi-inbox"></i>
+                      <div class="fw-bold">No orders found.</div>
+                      <div class="small-muted">New orders will appear here once customers start purchasing.</div>
                     </div>
                   </td>
                 </tr>
               <% } %>
             </tbody>
-
           </table>
+
+          <div id="noFilterResults" class="empty-state d-none">
+            <i class="bi bi-search"></i>
+            <div class="fw-bold">No matching orders.</div>
+            <div class="small-muted">Try changing the search text or status filter.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -315,37 +608,160 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  // Client-side search + status filter (بدون backend)
   const searchInput = document.getElementById('orderSearch');
   const statusFilter = document.getElementById('statusFilter');
+  const sortFilter = document.getElementById('sortFilter');
   const clearBtn = document.getElementById('clearFilters');
+  const exportBtn = document.getElementById('exportCsv');
   const table = document.getElementById('ordersTable');
-  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  const tbody = document.getElementById('ordersTbody');
+  const visibleCount = document.getElementById('visibleCount');
+  const noFilterResults = document.getElementById('noFilterResults');
 
-  function applyFilters(){
-    const q = (searchInput.value || '').toLowerCase().trim();
-    const st = statusFilter.value;
+  function getRows() {
+    return Array.from(tbody.querySelectorAll('tr')).filter(r => !r.classList.contains('no-orders-row'));
+  }
 
-    rows.forEach(r => {
-      if (!r.querySelector) return;
-      const status = r.getAttribute('data-status') || '';
-      const text = r.innerText.toLowerCase();
+  function applyFilters() {
+    const q = (searchInput?.value || '').toLowerCase().trim();
+    const st = statusFilter?.value || '';
+    let shown = 0;
 
-      const matchQ = !q || text.includes(q);
+    getRows().forEach(row => {
+      const rowText = row.dataset.search || row.innerText.toLowerCase();
+      const status = row.dataset.status || '';
+      const matchQ = !q || rowText.includes(q);
       const matchS = !st || status === st;
 
-      r.style.display = (matchQ && matchS) ? '' : 'none';
+      const visible = matchQ && matchS;
+      row.style.display = visible ? '' : 'none';
+      if (visible) shown++;
     });
+
+    if (visibleCount) visibleCount.textContent = shown;
+
+    if (noFilterResults) {
+      noFilterResults.classList.toggle('d-none', shown !== 0 || getRows().length === 0);
+    }
+  }
+
+  function applySort() {
+    const mode = sortFilter?.value || 'default';
+    const rows = getRows();
+
+    rows.sort((a, b) => {
+      if (mode === 'newest') return Number(b.dataset.date || 0) - Number(a.dataset.date || 0);
+      if (mode === 'oldest') return Number(a.dataset.date || 0) - Number(b.dataset.date || 0);
+      if (mode === 'priceHigh') return Number(b.dataset.price || 0) - Number(a.dataset.price || 0);
+      if (mode === 'priceLow') return Number(a.dataset.price || 0) - Number(b.dataset.price || 0);
+      return Number(a.dataset.index || 0) - Number(b.dataset.index || 0);
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+    applyFilters();
   }
 
   searchInput?.addEventListener('input', applyFilters);
   statusFilter?.addEventListener('change', applyFilters);
+  sortFilter?.addEventListener('change', applySort);
 
   clearBtn?.addEventListener('click', () => {
-    searchInput.value = '';
-    statusFilter.value = '';
-    applyFilters();
+    if (searchInput) searchInput.value = '';
+    if (statusFilter) statusFilter.value = '';
+    if (sortFilter) sortFilter.value = 'default';
+    applySort();
   });
+
+  document.addEventListener('click', async (e) => {
+    const copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) {
+      try {
+        await navigator.clipboard.writeText(copyBtn.dataset.copy || '');
+        copyBtn.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied';
+        setTimeout(() => copyBtn.innerHTML = '<i class="bi bi-copy me-1"></i>Copy', 1200);
+      } catch (_) {
+        alert('Copy failed.');
+      }
+      return;
+    }
+
+    const quickBtn = e.target.closest('.quick-reply');
+    if (quickBtn) {
+      const row = quickBtn.closest('tr');
+      const input = row?.querySelector('.admin-reply-input');
+      if (input) {
+        input.value = quickBtn.dataset.reply || '';
+        input.focus();
+      }
+      return;
+    }
+
+    const copyReplyBtn = e.target.closest('.copy-reply-btn');
+    if (copyReplyBtn) {
+      const row = copyReplyBtn.closest('tr');
+      const input = row?.querySelector('.admin-reply-input');
+      const text = input?.value || '';
+
+      try {
+        await navigator.clipboard.writeText(text);
+        copyReplyBtn.innerHTML = '<i class="bi bi-check2"></i>';
+        setTimeout(() => copyReplyBtn.innerHTML = '<i class="bi bi-copy"></i>', 1200);
+      } catch (_) {
+        alert('Copy failed.');
+      }
+    }
+  });
+
+  document.querySelectorAll('.order-update-form').forEach(form => {
+    form.addEventListener('submit', function () {
+      const btn = this.querySelector('.update-btn');
+      if (!btn) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving';
+    });
+  });
+
+  exportBtn?.addEventListener('click', () => {
+    const rows = getRows().filter(r => r.style.display !== 'none');
+
+    const data = [
+      ['Order ID', 'User', 'Product', 'Price', 'Details', 'Date', 'Status', 'Admin Reply']
+    ];
+
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      const reply = row.querySelector('.admin-reply-input')?.value || '';
+      const status = row.querySelector('.status-select')?.value || row.dataset.status || '';
+
+      data.push([
+        cells[0]?.innerText.trim() || '',
+        cells[1]?.innerText.trim().replace(/\s+/g, ' ') || '',
+        cells[2]?.innerText.trim().replace(/\s+/g, ' ') || '',
+        row.dataset.price || '',
+        cells[3]?.innerText.trim().replace(/\s+/g, ' ') || '',
+        cells[4]?.innerText.trim() || '',
+        status,
+        reply
+      ]);
+    });
+
+    const csv = data.map(row =>
+      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+
+    a.href = url;
+    a.download = `akcell-orders-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  });
+
+  applyFilters();
 </script>
 
 </body>
