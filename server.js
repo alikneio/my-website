@@ -883,25 +883,24 @@ app.get('/games', async (req, res) => {
         (
           SELECT COUNT(*)
           FROM selected_api_products sap
-          WHERE sap.category = c.slug AND sap.active = 1
+          WHERE sap.category COLLATE utf8mb4_general_ci = c.slug COLLATE utf8mb4_general_ci
+            AND sap.active = 1
         )
         +
         (
           SELECT COUNT(*)
           FROM products p
           WHERE p.active = 1
+            AND LOWER(p.main_category) COLLATE utf8mb4_general_ci IN ('games', 'game')
             AND (
-              LOWER(p.main_category) = 'games'
-              OR LOWER(p.main_category) = 'game'
-            )
-            AND (
-              LOWER(p.sub_category) = LOWER(c.slug)
-              OR LOWER(p.sub_category) = LOWER(c.label)
+              LOWER(p.sub_category) COLLATE utf8mb4_general_ci = LOWER(c.slug) COLLATE utf8mb4_general_ci
+              OR LOWER(p.sub_category) COLLATE utf8mb4_general_ci = LOWER(c.label) COLLATE utf8mb4_general_ci
             )
         ) AS products_count
 
       FROM api_categories c
-      WHERE c.active = 1 AND c.section = 'games'
+      WHERE c.active = 1
+        AND c.section COLLATE utf8mb4_general_ci = 'games'
       ORDER BY c.sort_order ASC, c.label ASC
     `);
 
@@ -917,7 +916,6 @@ app.get('/games', async (req, res) => {
     res.status(500).send('Failed to load games categories');
   }
 });
-
 // ====== Games: products in a single category ======
 app.get('/games/:slug', async (req, res) => {
   const { slug } = req.params;
@@ -966,19 +964,16 @@ app.get('/games/:slug', async (req, res) => {
 
     // SQL products
     const sqlRows = await q(`
-      SELECT *
-      FROM products
-      WHERE active = 1
-        AND (
-          LOWER(main_category) = 'games'
-          OR LOWER(main_category) = 'game'
-        )
-        AND (
-          LOWER(sub_category) = LOWER(?)
-          OR LOWER(sub_category) = LOWER(?)
-        )
-      ORDER BY sort_order ASC, id ASC
-    `, [category.slug, category.label]);
+  SELECT *
+  FROM products
+  WHERE active = 1
+    AND LOWER(main_category) COLLATE utf8mb4_general_ci IN ('games', 'game')
+    AND (
+      LOWER(sub_category) COLLATE utf8mb4_general_ci = LOWER(?) COLLATE utf8mb4_general_ci
+      OR LOWER(sub_category) COLLATE utf8mb4_general_ci = LOWER(?) COLLATE utf8mb4_general_ci
+    )
+  ORDER BY sort_order ASC, id ASC
+`, [category.slug, category.label]);
 
     const sqlProducts = applyUserDiscountToProducts(sqlRows, req.session.user || null)
       .map(p => ({
