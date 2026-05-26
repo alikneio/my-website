@@ -1,80 +1,323 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Whish Money - LBP Recharge</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Whish Money - Add LBP Balance</title>
+
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+
   <style>
     body {
       font-family: 'Cairo', sans-serif;
-      background-color: #f1f2f6;
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 35%),
+        linear-gradient(180deg, #f8fafc 0%, #eef7f1 100%);
+      min-height: 100vh;
     }
-    .whish-form-container {
-      max-width: 550px;
-      margin: 40px auto;
-      background-color: #fff;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+
+    .balance-page {
+      max-width: 560px;
+      margin: 45px auto;
+      padding: 0 14px;
     }
-    .form-title {
-      font-weight: bold;
-      font-size: 24px;
-      margin-bottom: 20px;
+
+    .form-wrapper {
+      background: rgba(255,255,255,.95);
+      border: 1px solid rgba(15,23,42,.08);
+      border-radius: 22px;
+      box-shadow: 0 18px 45px rgba(15,23,42,.10);
+      padding: 28px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .form-wrapper::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 6px;
+      background: linear-gradient(90deg, #22c55e, #16a34a);
+    }
+
+    .page-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 14px;
+      color: #fff;
+      font-size: 1.9rem;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      box-shadow: 0 10px 25px rgba(34,197,94,.25);
+    }
+
+    .title {
       text-align: center;
-      color: #2f3542;
+      font-weight: 800;
+      margin-bottom: 6px;
+      color: #0f172a;
     }
+
+    .subtitle {
+      text-align: center;
+      color: #64748b;
+      margin-bottom: 24px;
+      font-size: .95rem;
+    }
+
     .note-box {
-      background: #f1f1f1;
-      border-left: 5px solid #007bff;
-      padding: 10px 15px;
-      margin-bottom: 20px;
+      background: #f8fafc;
+      border: 1px solid rgba(34,197,94,.16);
+      border-left: 5px solid #22c55e;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 22px;
+    }
+
+    .note-line {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      color: #334155;
+    }
+
+    .note-line:last-child {
+      margin-bottom: 0;
+    }
+
+    .note-line i {
+      color: #16a34a;
+      font-size: 1.1rem;
+      margin-top: 2px;
+    }
+
+    .whish-number {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      border: 1px dashed rgba(34,197,94,.5);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-weight: 800;
+      color: #16a34a;
+    }
+
+    .form-label {
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .form-control {
+      border-radius: 14px;
+      padding: 12px 14px;
+      border-color: rgba(15,23,42,.14);
+    }
+
+    .form-control:focus {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 .2rem rgba(34,197,94,.13);
+    }
+
+    .form-text {
+      color: #64748b;
+    }
+
+    .proof-preview {
+      display: none;
+      margin-top: 12px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(15,23,42,.10);
+      background: #f8fafc;
+    }
+
+    .proof-preview img {
+      width: 100%;
+      max-height: 260px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .submit-btn {
+      border: 0;
+      border-radius: 16px;
+      padding: 13px 18px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      box-shadow: 0 12px 24px rgba(34,197,94,.22);
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 30px rgba(34,197,94,.28);
+      background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+
+    .safe-note {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #ecfdf5;
+      color: #047857;
+      font-size: .9rem;
+      border: 1px solid rgba(4,120,87,.14);
+    }
+
+    @media (max-width: 576px) {
+      .balance-page {
+        margin: 25px auto;
+      }
+
+      .form-wrapper {
+        padding: 22px 18px;
+        border-radius: 18px;
+      }
     }
   </style>
 </head>
+
 <body>
-<%- include('../partials/header') %>
+  <%- include('../partials/header') %>
 
-
-
-  <div class="container">
-
-    <div class="whish-form-container">
-      <h1 class="form-title">Whish Money - LBP</h1>
-       <div class="note-box">
-        <p>💸 Please transfer the amount to <strong>Whish Number: 71534662</strong></p>
-        <p>📌 Minimum recharge: <strong>1M</strong></p>
+  <main class="balance-page">
+    <div class="form-wrapper">
+      <div class="page-icon">
+        <i class="bi bi-cash-coin"></i>
       </div>
 
-      <form action="/add-balance/whish/lbp" method="POST" enctype="multipart/form-data">
-        <div class="mb-3">
-          <label for="amount" class="form-label">المبلغ (بالليرة اللبنانية)</label>
-          <input type="number" class="form-control" id="amount" name="amount" required>
-        </div>
-        <div class="mb-3">
-          <label for="screenshot" class="form-label">إرفاق صورة إيصال الدفع</label>
-          <input type="file" name="proofImage" id="proofImage" accept="image/*" class="form-control" required>
+      <h2 class="title">Recharge via Whish Money</h2>
+      <p class="subtitle">Submit your LBP balance request after sending the payment.</p>
 
+      <div class="note-box">
+        <div class="note-line">
+          <i class="bi bi-cash-stack"></i>
+          <div>
+            Please transfer the amount to:
+            <br>
+            <span class="whish-number">
+              <i class="bi bi-phone"></i>
+              71534662
+            </span>
+          </div>
         </div>
+
+        <div class="note-line">
+          <i class="bi bi-info-circle"></i>
+          <div>
+            Minimum recharge: <strong>1,000,000 LBP</strong>
+          </div>
+        </div>
+
+        <div class="note-line">
+          <i class="bi bi-receipt"></i>
+          <div>
+            Upload a clear screenshot of the Whish payment receipt.
+          </div>
+        </div>
+      </div>
+
+      <form action="/add-balance/whish/lbp" method="POST" enctype="multipart/form-data" id="whishLbpForm">
         <div class="mb-3">
-          <label for="notes" class="form-label">ملاحظات إضافية (اختياري)</label>
-          <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+          <label for="amount" class="form-label">Amount (LBP)</label>
+          <input
+            type="number"
+            class="form-control"
+            id="amount"
+            name="amount"
+            min="1000000"
+            step="1000"
+            placeholder="Example: 1000000"
+            required
+          >
+          <div class="form-text">Enter the same amount you transferred via Whish.</div>
         </div>
-        <div class="d-grid">
-          <button type="submit" class="btn btn-success">إرسال الطلب</button>
+
+        <div class="mb-3">
+          <label for="proofImage" class="form-label">Proof of Payment</label>
+          <input
+            type="file"
+            name="proofImage"
+            id="proofImage"
+            accept="image/*"
+            class="form-control"
+            required
+          >
+          <div class="form-text">Accepted: screenshot or photo of the payment receipt.</div>
+
+          <div class="proof-preview" id="proofPreview">
+            <img src="" alt="Payment proof preview" id="proofPreviewImg">
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label for="notes" class="form-label">Additional Notes <span class="text-muted fw-normal">(Optional)</span></label>
+          <textarea
+            class="form-control"
+            id="notes"
+            name="notes"
+            rows="3"
+            placeholder="Write any extra details if needed..."
+          ></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success submit-btn w-100" id="submitBtn">
+          <i class="bi bi-send-check me-1"></i>
+          Submit Request
+        </button>
+
+        <div class="safe-note">
+          <i class="bi bi-shield-check me-1"></i>
+          Your request will be reviewed and added to your balance after confirmation.
         </div>
       </form>
     </div>
-  </div>
+  </main>
 
- 
-<%- include('../partials/footer') %>
+  <%- include('../partials/footer') %>
 
   <script src="/main.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const proofInput = document.getElementById('proofImage');
+    const previewBox = document.getElementById('proofPreview');
+    const previewImg = document.getElementById('proofPreviewImg');
+    const form = document.getElementById('whishLbpForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    proofInput?.addEventListener('change', function () {
+      const file = this.files && this.files[0];
+
+      if (!file) {
+        previewBox.style.display = 'none';
+        previewImg.src = '';
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload an image only.');
+        this.value = '';
+        previewBox.style.display = 'none';
+        previewImg.src = '';
+        return;
+      }
+
+      previewImg.src = URL.createObjectURL(file);
+      previewBox.style.display = 'block';
+    });
+
+    form?.addEventListener('submit', function () {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+    });
+  </script>
 </body>
 </html>

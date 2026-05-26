@@ -1,469 +1,406 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Add Balance - Whish</title>
+  <meta charset="UTF-8" />
+  <title>Add Balance - Whish | AK Cell</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/custom.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 
   <style>
     :root {
-      --ak-primary: #0d6efd;
-      --ak-primary-soft: rgba(13, 110, 253, 0.18);
-      --ak-success: #27ae60;
-      --ak-bg: radial-gradient(circle at top, #e6f0ff 0, #f5f7fd 45%, #dde7ff 100%);
-      --ak-border-soft: rgba(15, 23, 42, 0.06);
+      --ak-blue: #0d6efd;
+      --ak-green: #22c55e;
+      --ak-dark: #0f172a;
+      --ak-muted: #64748b;
+      --ak-border: rgba(15, 23, 42, .09);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
-      font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: 'Cairo', system-ui, sans-serif;
       min-height: 100vh;
       margin: 0;
-      background: var(--ak-bg);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(13,110,253,.18), transparent 32%),
+        radial-gradient(circle at 90% 90%, rgba(34,197,94,.18), transparent 34%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+      color: var(--ak-dark);
+    }
+
+    .page-wrap {
+      min-height: 100vh;
+      padding: 28px 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 16px;
-      position: relative;
-      overflow: hidden;
-      color: #111827;
     }
 
-    /* خلفيات خفيفة */
-    .bg-orbit {
-      position: absolute;
-      border-radius: 999px;
-      pointer-events: none;
-      z-index: 0;
-      filter: blur(30px);
-      opacity: 0.6;
-    }
-    .bg-orbit.o1 {
-      width: 420px;
-      height: 420px;
-      background: rgba(13, 110, 253, 0.35);
-      top: -140px;
-      left: -120px;
-    }
-    .bg-orbit.o2 {
-      width: 360px;
-      height: 360px;
-      background: rgba(39, 174, 96, 0.32);
-      bottom: -140px;
-      right: -80px;
-    }
-
-    .shell {
-      position: relative;
-      z-index: 1;
-      max-width: 880px;
+    .balance-shell {
       width: 100%;
-      background: rgba(255, 255, 255, 0.92);
-      border-radius: 28px;
-      box-shadow:
-        0 22px 60px rgba(15, 23, 42, 0.25),
-        0 0 0 1px rgba(148, 163, 184, 0.08);
-      padding: 26px 26px 22px;
-      backdrop-filter: blur(14px);
+      max-width: 920px;
+      background: rgba(255,255,255,.94);
+      border: 1px solid rgba(255,255,255,.75);
+      border-radius: 30px;
+      box-shadow: 0 24px 70px rgba(15,23,42,.16);
+      overflow: hidden;
     }
 
-    @media (min-width: 768px) {
-      .shell {
-        padding: 30px 34px 26px;
-      }
+    .hero {
+      padding: 30px;
+      background:
+        linear-gradient(135deg, rgba(13,110,253,.12), rgba(34,197,94,.10)),
+        #fff;
+      border-bottom: 1px solid var(--ak-border);
     }
 
-    .shell-header {
+    .hero-inner {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 22px;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
     }
 
-    .shell-title {
+    .brand-block {
       display: flex;
       align-items: center;
       gap: 14px;
     }
 
-    .shell-icon {
-      width: 54px;
-      height: 54px;
-      border-radius: 20px;
-      background: conic-gradient(from 160deg, #4f46e5, #0ea5e9, #22c55e, #4f46e5);
-      padding: 2px;
-      position: relative;
-      overflow: hidden;
-    }
-    .shell-icon-inner {
-      width: 100%;
-      height: 100%;
-      border-radius: inherit;
-      background: radial-gradient(circle at 30% 20%, #e5f3ff, #0f172a);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #f9fafb;
-      font-size: 26px;
-    }
-
-    .shell-title-text h1 {
-      font-size: 1.6rem;
-      margin: 0;
-      font-weight: 700;
-      letter-spacing: 0.01em;
-    }
-
-    .shell-title-text p {
-      margin: 2px 0 0;
-      font-size: 0.9rem;
-      color: #6b7280;
-    }
-
-    /* Steps */
-    .steps {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 0.8rem;
-      color: #6b7280;
-    }
-
-    .step-dot {
-      width: 22px;
-      height: 22px;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.75rem;
-      background: #fff;
-    }
-    .step-dot.active {
-      background: #0d6efd;
-      border-color: #0d6efd;
+    .brand-icon {
+      width: 62px;
+      height: 62px;
+      border-radius: 22px;
+      display: grid;
+      place-items: center;
       color: #fff;
-      box-shadow: 0 0 0 5px rgba(13, 110, 253, 0.18);
+      font-size: 1.9rem;
+      background: linear-gradient(135deg, var(--ak-blue), var(--ak-green));
+      box-shadow: 0 14px 28px rgba(13,110,253,.22);
     }
 
-    .step-line {
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(to right, #0d6efd, rgba(148, 163, 184, 0.5));
-      opacity: 0.7;
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1.45rem, 3vw, 2rem);
+      font-weight: 800;
     }
 
-    .step-labels {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 4px;
-      font-size: 0.7rem;
-      color: #9ca3af;
+    .hero p {
+      margin: 4px 0 0;
+      color: var(--ak-muted);
+      font-size: .95rem;
     }
 
-    /* Body */
-    .shell-body {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
+    .security-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 13px;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid rgba(4,120,87,.14);
+      font-weight: 700;
+      font-size: .85rem;
+      white-space: nowrap;
     }
 
-    @media (min-width: 768px) {
-      .shell-body {
-        flex-direction: row;
-      }
+    .content {
+      padding: 30px;
+      display: grid;
+      grid-template-columns: 1.5fr .9fr;
+      gap: 22px;
+      align-items: start;
     }
 
-    .left-col {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .right-col {
-      width: 100%;
-      max-width: 320px;
-    }
-
-    /* Currency cards */
     .currency-grid {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-    }
-
-    @media (min-width: 576px) {
-      .currency-grid {
-        grid-template-columns: 1fr 1fr;
-      }
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
     }
 
     .currency-card {
       position: relative;
-      border-radius: 18px;
-      padding: 14px 14px 12px;
-      background: #ffffff;
-      border: 1px solid var(--ak-border-soft);
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-      cursor: pointer;
+      min-height: 190px;
+      padding: 20px;
+      border-radius: 24px;
       text-decoration: none;
       color: inherit;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      transition:
-        transform 0.13s ease-out,
-        box-shadow 0.13s ease-out,
-        border-color 0.13s ease-out,
-        background 0.13s ease-out;
+      border: 1px solid var(--ak-border);
+      background: #fff;
+      box-shadow: 0 12px 30px rgba(15,23,42,.07);
+      transition: .18s ease;
+      overflow: hidden;
     }
+
+    .currency-card::after {
+      content: "";
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      border-radius: 999px;
+      right: -45px;
+      bottom: -45px;
+      opacity: .16;
+    }
+
+    .currency-card.usd::after { background: var(--ak-blue); }
+    .currency-card.lbp::after { background: var(--ak-green); }
 
     .currency-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 45px rgba(15,23,42,.13);
+      border-color: rgba(13,110,253,.25);
     }
 
-    .currency-card.usd {
-      background: radial-gradient(circle at top left, var(--ak-primary-soft), #ffffff);
-      border-color: rgba(37, 99, 235, 0.28);
-    }
-    .currency-card.lbp {
-      background: radial-gradient(circle at top left, rgba(39, 174, 96, 0.18), #ffffff);
-      border-color: rgba(22, 163, 74, 0.28);
-    }
-
-    .currency-tag {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: 0.65rem;
-      font-weight: 600;
-      color: #0f172a;
-      background: rgba(255, 255, 255, 0.9);
-      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18);
-    }
-
-    .currency-header {
+    .currency-top {
       display: flex;
-      align-items: center;
+      justify-content: space-between;
       gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 18px;
     }
 
     .currency-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.3rem;
+      width: 50px;
+      height: 50px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
       color: #fff;
-    }
-    .currency-icon.usd {
-      background: linear-gradient(135deg, #2563eb, #0ea5e9);
-    }
-    .currency-icon.lbp {
-      background: linear-gradient(135deg, #22c55e, #16a34a);
+      font-size: 1.55rem;
     }
 
-    .currency-main {
-      text-align: left;
+    .currency-icon.usd { background: linear-gradient(135deg, #2563eb, #0ea5e9); }
+    .currency-icon.lbp { background: linear-gradient(135deg, #16a34a, #22c55e); }
+
+    .tag {
+      font-size: .72rem;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #f1f5f9;
+      color: #334155;
     }
-    .currency-main h3 {
-      margin: 0;
-      font-size: 1.05rem;
-      font-weight: 700;
+
+    .tag.recommended {
+      background: #eff6ff;
+      color: #1d4ed8;
     }
-    .currency-main span {
-      display: block;
-      font-size: 0.78rem;
-      color: #6b7280;
+
+    .currency-card h3 {
+      font-size: 1.2rem;
+      font-weight: 800;
+      margin: 0 0 6px;
+    }
+
+    .currency-card p {
+      color: var(--ak-muted);
+      font-size: .9rem;
+      margin: 0 0 16px;
+      line-height: 1.55;
     }
 
     .currency-footer {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-top: 4px;
-      font-size: 0.78rem;
-      color: #6b7280;
-    }
-
-    .pill {
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.9);
-      color: #0f172a;
-    }
-
-    /* Right column info */
-    .info-card {
-      border-radius: 18px;
-      padding: 16px 16px 14px;
-      background: #f9fafb;
-      border: 1px dashed rgba(148, 163, 184, 0.7);
-      font-size: 0.82rem;
-      color: #4b5563;
-    }
-
-    .info-card h4 {
-      font-size: 0.95rem;
+      justify-content: space-between;
+      color: #334155;
       font-weight: 700;
-      margin-bottom: 6px;
+      font-size: .86rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .arrow {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: #f8fafc;
+      display: grid;
+      place-items: center;
+      color: var(--ak-blue);
+    }
+
+    .side-card {
+      background: #f8fafc;
+      border: 1px dashed rgba(100,116,139,.35);
+      border-radius: 24px;
+      padding: 20px;
+    }
+
+    .side-card h4 {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
-    .info-card ul {
-      padding-left: 18px;
+    .note-list {
+      list-style: none;
+      padding: 0;
       margin: 0;
     }
-    .info-card li {
-      margin-bottom: 4px;
+
+    .note-list li {
+      display: flex;
+      gap: 10px;
+      color: #475569;
+      font-size: .88rem;
+      line-height: 1.5;
+      margin-bottom: 12px;
     }
 
-    .small-note {
-      margin-top: 10px;
-      font-size: 0.78rem;
-      color: #9ca3af;
-      text-align: right;
+    .note-list i {
+      color: var(--ak-blue);
+      margin-top: 2px;
     }
 
-    @media (max-width: 767px) {
-      .shell {
-        border-radius: 22px;
-      }
-      .shell-header {
-        flex-direction: column;
+    .support-note {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 16px;
+      background: #fff;
+      color: var(--ak-muted);
+      font-size: .82rem;
+      border: 1px solid var(--ak-border);
+    }
+
+    @media (max-width: 768px) {
+      .page-wrap {
         align-items: flex-start;
+        padding-top: 18px;
       }
-      .steps {
-        align-self: stretch;
-        justify-content: space-between;
+
+      .balance-shell {
+        border-radius: 24px;
       }
-      .step-labels {
-        display: none;
+
+      .hero,
+      .content {
+        padding: 22px;
       }
-      .right-col {
-        max-width: none;
+
+      .content {
+        grid-template-columns: 1fr;
+      }
+
+      .currency-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .currency-card {
+        min-height: 170px;
+      }
+
+      .security-pill {
+        width: 100%;
+        justify-content: center;
       }
     }
   </style>
 </head>
+
 <body>
+  <main class="page-wrap">
+    <section class="balance-shell">
 
-  <!-- soft background decor -->
-  <div class="bg-orbit o1"></div>
-  <div class="bg-orbit o2"></div>
+      <div class="hero">
+        <div class="hero-inner">
+          <div class="brand-block">
+            <div class="brand-icon">
+              <i class="bi bi-wallet2"></i>
+            </div>
 
-  <div class="shell">
-    <!-- Header -->
-    <div class="shell-header">
-      <div class="shell-title">
-        <div class="shell-icon">
-          <div class="shell-icon-inner">
-            <i class="bi bi-wallet2"></i>
+            <div>
+              <h1>Add Balance with Whish</h1>
+              <p>Choose the currency you want to use for your AK Cell wallet recharge.</p>
+            </div>
+          </div>
+
+          <div class="security-pill">
+            <i class="bi bi-shield-check"></i>
+            Secure manual review
           </div>
         </div>
-        <div class="shell-title-text">
-          <h1>Add Balance with Whish</h1>
-          <p>Choose your preferred currency to fund your AK CELL wallet.</p>
-        </div>
       </div>
 
-      <!-- Steps indicator (decorative) -->
-      <div>
-        <div class="steps">
-          <div class="step-dot active">1</div>
-          <div class="step-line"></div>
-          <div class="step-dot">2</div>
-          <div class="step-dot">3</div>
-        </div>
-        <div class="step-labels">
-          <span>Currency</span>
-          <span>Method</span>
-          <span>Payment</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Body -->
-    <div class="shell-body">
-      <!-- Left: currency options -->
-      <div class="left-col">
+      <div class="content">
         <div class="currency-grid">
 
-          <!-- USD -->
           <a href="/add-balance/whish/usd" class="currency-card usd">
-            <span class="currency-tag">Recommended</span>
-            <div class="currency-header">
+            <div class="currency-top">
               <div class="currency-icon usd">
                 <i class="bi bi-currency-dollar"></i>
               </div>
-              <div class="currency-main">
-                <h3>Add in USD</h3>
-                <span>Best for international payments & stable pricing.</span>
-              </div>
+              <span class="tag recommended">Recommended</span>
             </div>
+
+            <h3>Recharge in USD</h3>
+            <p>Best choice for stable pricing and services listed in dollars.</p>
+
             <div class="currency-footer">
-              <span>Pay in US dollars (USD)</span>
-              <span class="pill">Lower volatility</span>
+              <span>Pay with USD</span>
+              <span class="arrow"><i class="bi bi-arrow-right"></i></span>
             </div>
           </a>
 
-          <!-- LBP -->
           <a href="/add-balance/whish/lbp" class="currency-card lbp">
-            <div class="currency-header">
+            <div class="currency-top">
               <div class="currency-icon lbp">
                 <i class="bi bi-cash-coin"></i>
               </div>
-              <div class="currency-main">
-                <h3>Add in LBP</h3>
-                <span>Ideal if you are paying in Lebanese pounds.</span>
-              </div>
+              <span class="tag">Local</span>
             </div>
+
+            <h3>Recharge in LBP</h3>
+            <p>Use this option if you prefer paying in Lebanese pounds.</p>
+
             <div class="currency-footer">
-              <span>Pay in Lebanese pounds (LBP)</span>
-              <span class="pill">Local currency</span>
+              <span>Pay with LBP</span>
+              <span class="arrow"><i class="bi bi-arrow-right"></i></span>
             </div>
           </a>
 
         </div>
-      </div>
 
-      <!-- Right: info / tips -->
-      <div class="right-col mt-3 mt-md-0">
-        <div class="info-card">
+        <aside class="side-card">
           <h4>
             <i class="bi bi-info-circle-fill text-primary"></i>
-            Helpful notes
+            Important Notes
           </h4>
-          <ul>
-            <li>Your balance will appear instantly after a successful payment.</li>
-            <li>You can always come back and add funds in a different currency later.</li>
-            <li>Make sure the amount you choose matches your preferred payment method.</li>
+
+          <ul class="note-list">
+            <li>
+              <i class="bi bi-check-circle-fill"></i>
+              <span>After payment, upload a clear proof screenshot.</span>
+            </li>
+            <li>
+              <i class="bi bi-check-circle-fill"></i>
+              <span>Your request will be reviewed before the balance is added.</span>
+            </li>
+            <li>
+              <i class="bi bi-check-circle-fill"></i>
+              <span>Make sure the amount you submit matches the Whish transfer.</span>
+            </li>
           </ul>
-          <div class="small-note">
-            Need help? Contact support from the Help section.
+
+          <div class="support-note">
+            <i class="bi bi-headset me-1"></i>
+            Need help? Contact AK Cell support before submitting.
           </div>
-        </div>
+        </aside>
       </div>
-    </div>
-  </div>
+
+    </section>
+  </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/main.js"></script>
