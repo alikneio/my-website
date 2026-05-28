@@ -245,6 +245,55 @@
       color: #94a3b8;
     }
 
+
+    .details-box{
+      display:flex;
+      flex-direction:column;
+      gap:7px;
+      min-width: 260px;
+    }
+
+    .detail-line{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:8px;
+      padding:7px 9px;
+      border:1px solid rgba(15,23,42,.08);
+      background:#fff;
+      border-radius:12px;
+    }
+
+    .detail-label{
+      font-size:.70rem;
+      font-weight:900;
+      color:#475569;
+      text-transform:uppercase;
+      letter-spacing:.25px;
+      white-space:nowrap;
+    }
+
+    .detail-value{
+      font-size:.82rem;
+      color:#0f172a;
+      word-break:break-word;
+      text-align:right;
+      flex:1;
+    }
+
+    .details-empty{
+      color:#94a3b8;
+      font-size:.84rem;
+      font-weight:700;
+    }
+
+    .details-actions{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      margin-top:2px;
+    }
+
     @media (max-width: 768px) {
       .container-fluid {
         padding: 18px !important;
@@ -290,6 +339,30 @@
 
       function cleanText(v) {
         return String(v || '').replace(/"/g, '&quot;');
+      }
+
+      function splitOrderDetails(v) {
+        const raw = String(v || '').trim();
+        if (!raw) return [];
+
+        return raw
+          .split('|')
+          .map(x => x.trim())
+          .filter(Boolean)
+          .map(part => {
+            const idx = part.indexOf(':');
+            if (idx === -1) {
+              return { label: 'Detail', value: part };
+            }
+
+            const label = part.slice(0, idx).trim();
+            const value = part.slice(idx + 1).trim();
+
+            return {
+              label: label || 'Detail',
+              value: value || '-'
+            };
+          });
       }
     %>
 
@@ -506,16 +579,32 @@
                     </td>
 
                     <td class="td-wrap">
-                      <div><%= order.order_details || '-' %></div>
-                      <% if (order.order_details) { %>
-                        <button
-                          type="button"
-                          class="btn btn-sm btn-outline-secondary copy-btn mt-2"
-                          data-copy="<%= cleanText(order.order_details) %>"
-                        >
-                          <i class="bi bi-copy me-1"></i>
-                          Copy
-                        </button>
+                      <%
+                        const detailParts = splitOrderDetails(order.order_details);
+                      %>
+
+                      <% if (detailParts.length) { %>
+                        <div class="details-box">
+                          <% detailParts.forEach((d) => { %>
+                            <div class="detail-line">
+                              <div class="detail-label"><%= d.label %></div>
+                              <div class="detail-value mono"><%= d.value %></div>
+                            </div>
+                          <% }) %>
+
+                          <div class="details-actions">
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-secondary copy-btn"
+                              data-copy="<%= cleanText(order.order_details) %>"
+                            >
+                              <i class="bi bi-copy me-1"></i>
+                              Copy All
+                            </button>
+                          </div>
+                        </div>
+                      <% } else { %>
+                        <span class="details-empty">No details</span>
                       <% } %>
                     </td>
 
