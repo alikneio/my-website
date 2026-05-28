@@ -4860,6 +4860,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     productId,
     playerId,
     optionId,
+    checkoutChoice,
+    accountEmail,
+    accountPassword,
     idempotency_key: bodyIdemKey
   } = req.body;
 
@@ -4899,9 +4902,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     try {
       const [[row]] = await promisePool.query(
         `SELECT response_json
-           FROM idempotency_keys
-          WHERE user_id = ? AND idem_key = ?
-          LIMIT 1`,
+         FROM idempotency_keys
+         WHERE user_id = ? AND idem_key = ?
+         LIMIT 1`,
         [userId, key]
       );
 
@@ -4917,7 +4920,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
   }
 
   try {
-    // إذا نفس الطلب النجاح تبعه محفوظ مسبقًا
     const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
     if (alreadyReturned) return;
 
@@ -4929,7 +4931,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       });
     }
 
-    // fresh user
     let freshUser = null;
     try {
       const [[u]] = await promisePool.query(
@@ -4942,7 +4943,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       freshUser = sessionUser;
     }
 
-    // product
     const productRows = await q(
       'SELECT * FROM products WHERE id = ? AND active = 1 LIMIT 1',
       [productIdNum]
@@ -4969,7 +4969,11 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     const deliveryMode = (product.delivery_mode || 'manual').toString().toLowerCase().trim();
     const isStock = deliveryMode === 'stock';
 
-    // options
+    const checkoutFlow = (product.checkout_flow || 'player_id').toString().toLowerCase().trim();
+    const safeCheckoutFlow = ['player_id', 'account_choice', 'no_details'].includes(checkoutFlow)
+      ? checkoutFlow
+      : 'player_id';
+
     const optionRows = await q(
       `
       SELECT id, product_id, option_label, option_value, price, is_active
@@ -4984,10 +4988,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
     let selectedOption = null;
     let basePrice = 0;
-
-    const pId = (playerId && String(playerId).trim() !== '')
-      ? String(playerId).trim()
-      : null;
 
     const orderDetailsParts = [];
 
@@ -5019,8 +5019,50 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       basePrice = Number(product.price || 0);
     }
 
-    if (pId) {
-      orderDetailsParts.push(`Player ID: ${pId}`);
+    if (safeCheckoutFlow === 'player_id') {
+      const pId = (playerId && String(playerId).trim() !== '')
+        ? String(playerId).trim()
+        : null;
+
+      if (Number(product.requires_player_id) === 1 && !pId) {
+        return res.status(400).json({
+          success: false,
+          message: `Please enter ${product.player_id_label || 'Player ID'}.`
+        });
+      }
+
+      if (pId) {
+        orderDetailsParts.push(`${product.player_id_label || 'Player ID'}: ${pId}`);
+      }
+    }
+
+    if (safeCheckoutFlow === 'account_choice') {
+      const choice = (checkoutChoice || 'own_account').toString().toLowerCase().trim();
+      const safeChoice = ['own_account', 'account_from_us'].includes(choice)
+        ? choice
+        : 'own_account';
+
+      if (safeChoice === 'own_account') {
+        const email = (accountEmail || '').toString().trim();
+        const password = (accountPassword || '').toString().trim();
+
+        if (!email || !password) {
+          return res.status(400).json({
+            success: false,
+            message: 'Please enter account email and password.'
+          });
+        }
+
+        orderDetailsParts.push('Checkout Choice: Use my own account');
+        orderDetailsParts.push(`Account Email: ${email}`);
+        orderDetailsParts.push(`Account Password: ${password}`);
+      } else {
+        orderDetailsParts.push('Checkout Choice: Account from us');
+      }
+    }
+
+    if (safeCheckoutFlow === 'no_details') {
+      orderDetailsParts.push('Checkout: Buy now only — no customer details required.');
     }
 
     if (!Number.isFinite(basePrice) || basePrice <= 0) {
@@ -5049,7 +5091,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     try {
       await conn.beginTransaction();
 
-      // idempotency gate
       if (idemKey) {
         try {
           await conn.query(
@@ -5060,9 +5101,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         } catch (e) {
           const [[row]] = await conn.query(
             `SELECT response_json
-               FROM idempotency_keys
-              WHERE user_id = ? AND idem_key = ?
-              LIMIT 1`,
+             FROM idempotency_keys
+             WHERE user_id = ? AND idem_key = ?
+             LIMIT 1`,
             [freshUser.id, idemKey]
           );
 
@@ -5087,11 +5128,11 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       if (isStock) {
         const [[item]] = await conn.query(
           `SELECT id, delivery_text
-             FROM product_stock_items
-            WHERE product_id = ? AND status = 'available'
-            ORDER BY id ASC
-            LIMIT 1
-            FOR UPDATE`,
+           FROM product_stock_items
+           WHERE product_id = ? AND status = 'available'
+           ORDER BY id ASC
+           LIMIT 1
+           FOR UPDATE`,
           [productIdNum]
         );
         stockItem = item || null;
@@ -5106,19 +5147,16 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       const orderDetails = orderDetailsParts.length ? orderDetailsParts.join(' | ') : null;
       const initialStatus = shouldAutoDeliver ? 'Accepted' : 'Waiting';
 
-      // خصم ذري
       const [updRes] = await conn.query(
         `UPDATE users
-            SET balance = balance - ?
-          WHERE id = ? AND balance >= ?`,
+         SET balance = balance - ?
+         WHERE id = ? AND balance >= ?`,
         [purchasePrice, freshUser.id, purchasePrice]
       );
 
       if (!updRes?.affectedRows) {
-        // مهم: لا تخزن failPayload داخل idempotency
         await conn.rollback();
 
-        // اختياري: امسح record المفتاح إذا انعمل insert بهالطلب
         if (idemKey) {
           try {
             await promisePool.query(
@@ -5135,7 +5173,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         });
       }
 
-      // transaction log
       const transactionReason = hasCheckoutOptions
         ? `Purchase: ${product.name} - ${selectedOption.option_label}`
         : `Purchase: ${product.name}`;
@@ -5171,10 +5208,10 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       if (shouldAutoDeliver) {
         await conn.query(
           `UPDATE product_stock_items
-              SET status = 'sold',
-                  sold_at = NOW(),
-                  order_id = ?
-            WHERE id = ?`,
+           SET status = 'sold',
+               sold_at = NOW(),
+               order_id = ?
+           WHERE id = ?`,
           [orderId, stockItem.id]
         );
       }
@@ -5619,12 +5656,20 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
     notes,
     description,
     delivery_mode,
-    pricing_mode
+    pricing_mode,
+    checkout_flow
   } = req.body;
 
-  // checkboxes
+  const cf = (checkout_flow || 'player_id').toString().toLowerCase().trim();
+  const safeCheckoutFlow = ['player_id', 'account_choice', 'no_details'].includes(cf)
+    ? cf
+    : 'player_id';
+
   const requires_player_id =
-    (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on') ? 1 : 0;
+    safeCheckoutFlow === 'player_id' &&
+    (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on')
+      ? 1
+      : 0;
 
   const is_out_of_stock =
     (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
@@ -5632,15 +5677,12 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
   const active = (req.body.active === '0') ? 0 : 1;
   const sort_order = Number(req.body.sort_order || 0);
 
-  // sanitize delivery mode
   const dm = (delivery_mode || 'manual').toString().toLowerCase().trim();
   const safeDeliveryMode = (dm === 'stock' || dm === 'manual') ? dm : 'manual';
 
-  // sanitize pricing mode
   const pm = (pricing_mode || 'fixed').toString().toLowerCase().trim();
   const safePricingMode = (pm === 'options' || pm === 'fixed') ? pm : 'fixed';
 
-  // validation أساسي
   if (!name || !main_category || !sub_category) {
     return res.status(400).send("Missing required fields");
   }
@@ -5651,17 +5693,14 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
 
   const cleanImage = image?.trim() ? image.trim() : null;
   const cleanSubImage = sub_category_image?.trim() ? sub_category_image.trim() : null;
-  const cleanPlayerLabel = player_id_label?.trim() ? player_id_label.trim() : null;
+  const cleanPlayerLabel =
+    safeCheckoutFlow === 'player_id' && player_id_label?.trim()
+      ? player_id_label.trim()
+      : null;
+
   const cleanNotes = notes?.trim() ? notes.trim() : null;
   const cleanDescription = description?.trim() ? description.trim() : null;
 
-  // helper query
-  const q = (sql, params = []) =>
-    new Promise((resolve, reject) =>
-      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
-    );
-
-  // ==== تجهيز السعر + الخيارات ====
   let cleanPrice = 0;
   let normalizedOptions = [];
 
@@ -5673,7 +5712,6 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
         return res.status(400).send("Invalid price");
       }
     } else {
-      // options mode
       const rawOptions = req.body.options || {};
       const optionList = Array.isArray(rawOptions)
         ? rawOptions
@@ -5701,7 +5739,6 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
         return res.status(400).send("One or more option prices are invalid");
       }
 
-      // نخزن price الأساسي = أول option active أو أول option فقط
       const firstActive = normalizedOptions.find(opt => opt.is_active === 1);
       const fallbackOption = firstActive || normalizedOptions[0];
       cleanPrice = Number(fallbackOption?.price || 0);
@@ -5716,8 +5753,6 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
     try {
       await conn.beginTransaction();
 
-      // إذا عندك عمود pricing_mode بجدول products استعمل هذا الـ SQL
-      // وإذا ما عندك، شوف النسخة البديلة تحت
       const sql = `
         INSERT INTO products
         (
@@ -5735,9 +5770,10 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
           active,
           sort_order,
           delivery_mode,
-          pricing_mode
+          pricing_mode,
+          checkout_flow
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const params = [
@@ -5755,13 +5791,13 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
         active,
         sort_order,
         safeDeliveryMode,
-        safePricingMode
+        safePricingMode,
+        safeCheckoutFlow
       ];
 
       const [result] = await conn.query(sql, params);
       const productId = result.insertId;
 
-      // حفظ options إذا المنتج options
       if (safePricingMode === 'options' && normalizedOptions.length) {
         for (const opt of normalizedOptions) {
           await conn.query(
@@ -5810,7 +5846,6 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
     return res.status(500).send("Server error");
   }
 });
-
 
 app.post('/admin/update-balance', checkAdmin, (req, res) => {
     const { userId, amount, operation } = req.body;
@@ -5894,23 +5929,34 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
     player_id_label,
     notes,
     description,
-    delivery_mode
+    delivery_mode,
+    checkout_flow
   } = req.body;
 
-  // ✅ Sanitize delivery mode
   const dm = (delivery_mode || 'manual').toString().toLowerCase().trim();
   const safeDeliveryMode = (dm === 'stock' || dm === 'manual') ? dm : 'manual';
 
-  // ✅ قيم من الشيك بوكسات
+  const cf = (checkout_flow || 'player_id').toString().toLowerCase().trim();
+  const safeCheckoutFlow = ['player_id', 'account_choice', 'no_details'].includes(cf)
+    ? cf
+    : 'player_id';
+
   const requires_player_id =
-    (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on') ? 1 : 0;
+    safeCheckoutFlow === 'player_id' &&
+    (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on')
+      ? 1
+      : 0;
 
   const is_out_of_stock =
     (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
 
-  // ✅ Price normalize (اختياري بس مفيد)
   const normalizedPrice = Number(price);
   const safePrice = Number.isFinite(normalizedPrice) ? normalizedPrice : 0;
+
+  const safePlayerIdLabel =
+    safeCheckoutFlow === 'player_id' && player_id_label?.trim()
+      ? player_id_label.trim()
+      : null;
 
   const sql = `
     UPDATE products
@@ -5926,7 +5972,8 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
       notes = ?,
       description = ?,
       is_out_of_stock = ?,
-      delivery_mode = ?
+      delivery_mode = ?,
+      checkout_flow = ?
     WHERE id = ?
     LIMIT 1
   `;
@@ -5939,11 +5986,12 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
     (sub_category || '').trim() || null,
     (sub_category_image || '').trim() || null,
     requires_player_id,
-    (player_id_label || '').trim() || null,
+    safePlayerIdLabel,
     notes?.trim() ? notes.trim() : null,
     description?.trim() ? description.trim() : null,
     is_out_of_stock,
     safeDeliveryMode,
+    safeCheckoutFlow,
     productId
   ];
 
@@ -5956,7 +6004,6 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
     res.redirect('/admin/products');
   });
 });
-
 
 // ✅ Stock Manager Page
 app.get('/admin/products/:id/stock', checkAdmin, (req, res) => {

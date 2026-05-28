@@ -109,20 +109,21 @@
       box-shadow: 0 10px 18px rgba(25,135,84,.18);
       transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
     }
+
     .btn-buy:hover{
       transform: translateY(-1px);
       box-shadow: 0 14px 22px rgba(25,135,84,.22);
       filter: brightness(1.02);
     }
+
     .btn-buy:disabled{
       transform: none;
       box-shadow: none;
       opacity: .85;
     }
 
-    .is-loading{
-      position: relative;
-    }
+    .is-loading{ position: relative; }
+
     .is-loading::after{
       content:'';
       position:absolute;
@@ -132,6 +133,7 @@
       animation: pulse 1.2s infinite ease-in-out;
       pointer-events:none;
     }
+
     @keyframes pulse{
       0%{ opacity:.2; transform: scale(.99); }
       50%{ opacity:.7; transform: scale(1.01); }
@@ -157,9 +159,7 @@
       color: rgba(0,0,0,.70);
     }
 
-    .muted-note{
-      color: rgba(0,0,0,.55);
-    }
+    .muted-note{ color: rgba(0,0,0,.55); }
 
     .info-card{
       background: rgba(255,255,255,.92);
@@ -201,9 +201,7 @@
       white-space: nowrap;
     }
 
-    .info-body{
-      padding: 12px 14px;
-    }
+    .info-body{ padding: 12px 14px; }
 
     .desc-text{
       color: rgba(0,0,0,.72);
@@ -274,6 +272,39 @@
       color: rgba(0,0,0,.55);
       margin-top: 6px;
     }
+
+    .choice-card{
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #fff;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+
+    .choice-card:hover{
+      border-color: rgba(25,135,84,.35);
+      box-shadow: 0 8px 20px rgba(0,0,0,.06);
+    }
+
+    .choice-card.active{
+      border-color: rgba(25,135,84,.75);
+      background: rgba(25,135,84,.06);
+    }
+
+    .choice-title{
+      font-weight: 900;
+      margin: 0;
+      display:flex;
+      align-items:center;
+      gap: 8px;
+    }
+
+    .choice-desc{
+      margin: 5px 0 0;
+      font-size: 12px;
+      color: rgba(0,0,0,.58);
+    }
   </style>
 </head>
 
@@ -282,7 +313,7 @@
 
   <%
     const hasCheckoutOptions = Array.isArray(checkoutOptions) && checkoutOptions.length > 0;
-    const defaultOption = hasCheckoutOptions ? checkoutOptions[0] : null;
+    const checkoutFlow = (product.checkout_flow || 'player_id').toString().toLowerCase();
   %>
 
   <div class="container my-5 checkout-wrap">
@@ -467,12 +498,7 @@
                   Choose Amount
                 </label>
 
-                <select
-                  class="form-select"
-                  id="optionId"
-                  name="optionId"
-                  required
-                >
+                <select class="form-select" id="optionId" name="optionId" required>
                   <% checkoutOptions.forEach((opt, idx) => { %>
                     <option
                       value="<%= opt.id %>"
@@ -489,13 +515,11 @@
                   Select the recharge/package you want before completing the order.
                 </div>
 
-                <div class="invalid-feedback">
-                  Please choose an option.
-                </div>
+                <div class="invalid-feedback">Please choose an option.</div>
               </div>
             <% } %>
 
-            <% if (product.requires_player_id == 1) { %>
+            <% if (checkoutFlow === 'player_id' && product.requires_player_id == 1) { %>
               <div class="mb-3">
                 <label for="playerId" class="form-label fw-bold">
                   <i class="bi bi-person-vcard me-1"></i>
@@ -515,6 +539,79 @@
 
                 <div class="invalid-feedback">
                   Please enter <%= product.player_id_label || 'Player ID' %>.
+                </div>
+              </div>
+            <% } %>
+
+            <% if (checkoutFlow === 'account_choice') { %>
+              <input type="hidden" name="checkoutChoice" id="checkoutChoice" value="own_account">
+
+              <div class="option-card mb-3">
+                <label class="form-label fw-bold mb-2">
+                  <i class="bi bi-person-gear me-1"></i>
+                  Account Option
+                </label>
+
+                <div class="row g-2">
+                  <div class="col-12">
+                    <div class="choice-card active" id="ownAccountCard" data-choice="own_account">
+                      <p class="choice-title">
+                        <i class="bi bi-person-check-fill text-success"></i>
+                        Use my own account
+                      </p>
+                      <p class="choice-desc">
+                        Enter your account email and password so we can activate the product on it.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="choice-card" id="accountFromUsCard" data-choice="account_from_us">
+                      <p class="choice-title">
+                        <i class="bi bi-box-seam-fill text-primary"></i>
+                        Account from us
+                      </p>
+                      <p class="choice-desc">
+                        We will provide a ready account. No extra details needed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="ownAccountFields">
+                <div class="mb-3">
+                  <label for="accountEmail" class="form-label fw-bold">
+                    <i class="bi bi-envelope me-1"></i>
+                    Account Email
+                  </label>
+                  <input
+                    type="email"
+                    class="form-control"
+                    id="accountEmail"
+                    name="accountEmail"
+                    placeholder="Enter account email"
+                    autocomplete="off"
+                    required
+                  >
+                  <div class="invalid-feedback">Please enter account email.</div>
+                </div>
+
+                <div class="mb-3">
+                  <label for="accountPassword" class="form-label fw-bold">
+                    <i class="bi bi-key me-1"></i>
+                    Account Password
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="accountPassword"
+                    name="accountPassword"
+                    placeholder="Enter account password"
+                    autocomplete="off"
+                    required
+                  >
+                  <div class="invalid-feedback">Please enter account password.</div>
                 </div>
               </div>
             <% } %>
@@ -560,6 +657,12 @@
     const displayOriginalPrice = document.getElementById('displayOriginalPrice');
     const originalPriceWrap = document.getElementById('originalPriceWrap');
 
+    const checkoutChoice = document.getElementById('checkoutChoice');
+    const ownAccountFields = document.getElementById('ownAccountFields');
+    const accountEmail = document.getElementById('accountEmail');
+    const accountPassword = document.getElementById('accountPassword');
+    const choiceCards = document.querySelectorAll('.choice-card');
+
     let submitting = false;
 
     function setLoading(state) {
@@ -583,6 +686,42 @@
         title: 'خطأ',
         text: message || 'حدث خطأ أثناء تنفيذ العملية.'
       });
+    }
+
+    function setAccountChoice(choice) {
+      if (!checkoutChoice) return;
+
+      checkoutChoice.value = choice;
+
+      choiceCards.forEach(card => {
+        card.classList.toggle('active', card.dataset.choice === choice);
+      });
+
+      const isOwn = choice === 'own_account';
+
+      if (ownAccountFields) {
+        ownAccountFields.classList.toggle('d-none', !isOwn);
+      }
+
+      if (accountEmail) {
+        accountEmail.required = isOwn;
+        accountEmail.disabled = !isOwn;
+      }
+
+      if (accountPassword) {
+        accountPassword.required = isOwn;
+        accountPassword.disabled = !isOwn;
+      }
+    }
+
+    choiceCards.forEach(card => {
+      card.addEventListener('click', () => {
+        setAccountChoice(card.dataset.choice || 'own_account');
+      });
+    });
+
+    if (checkoutChoice) {
+      setAccountChoice(checkoutChoice.value || 'own_account');
     }
 
     (function () {
@@ -638,6 +777,11 @@
       e.preventDefault();
       if (submitting) return;
 
+      if (checkoutChoice && checkoutChoice.value === 'account_from_us') {
+        if (accountEmail) accountEmail.required = false;
+        if (accountPassword) accountPassword.required = false;
+      }
+
       if (!form.checkValidity()) {
         form.classList.add('was-validated');
         return;
@@ -688,6 +832,5 @@
       }
     });
   </script>
-
 </body>
 </html>

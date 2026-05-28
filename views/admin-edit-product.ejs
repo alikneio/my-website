@@ -15,157 +15,60 @@
                   radial-gradient(1000px 500px at 90% 20%, rgba(13,110,253,.08), transparent 55%),
                   #f6f7fb;
     }
-
     .page-wrap{ min-height: 72vh; }
-
     .page-head{
-      border-radius: 18px;
-      padding: 18px 18px;
+      border-radius: 18px; padding: 18px;
       background: linear-gradient(135deg, rgba(25,135,84,.12), rgba(13,110,253,.08));
       border: 1px solid rgba(0,0,0,.06);
       box-shadow: 0 10px 26px rgba(0,0,0,.06);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 12px;
-      flex-wrap: wrap;
+      display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
     }
-
-    .title{
-      margin:0;
-      font-weight: 900;
-      display:flex;
-      align-items:center;
-      gap: 10px;
-      letter-spacing: .2px;
-    }
-
+    .title{ margin:0; font-weight:900; display:flex; align-items:center; gap:10px; }
     .chip{
-      display:inline-flex;
-      align-items:center;
-      gap: 8px;
-      padding: 7px 10px;
-      border-radius: 999px;
-      background: rgba(0,0,0,.04);
-      color: rgba(0,0,0,.72);
-      font-weight: 800;
-      font-size: 12px;
-      white-space: nowrap;
+      display:inline-flex; align-items:center; gap:8px; padding:7px 10px;
+      border-radius:999px; background:rgba(0,0,0,.04);
+      color:rgba(0,0,0,.72); font-weight:800; font-size:12px; white-space:nowrap;
     }
-
     .edit-card{
-      border: 0;
-      border-radius: 18px;
-      overflow: hidden;
-      box-shadow: 0 12px 35px rgba(0,0,0,.08);
-      background: rgba(255,255,255,.92);
-      border: 1px solid rgba(0,0,0,.06);
+      border:0; border-radius:18px; overflow:hidden;
+      box-shadow:0 12px 35px rgba(0,0,0,.08);
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(0,0,0,.06);
     }
-
     .edit-card .card-head{
-      padding: 14px 16px;
-      border-bottom: 1px solid rgba(0,0,0,.06);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-      background: linear-gradient(135deg, rgba(13,110,253,.06), rgba(25,135,84,.08));
+      padding:14px 16px; border-bottom:1px solid rgba(0,0,0,.06);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      background:linear-gradient(135deg, rgba(13,110,253,.06), rgba(25,135,84,.08));
     }
-
-    .section-title{
-      margin: 0;
-      font-weight: 900;
-      display:flex;
-      align-items:center;
-      gap: 10px;
-    }
-
-    .form-control, .form-select{
-      border-radius: 12px;
-      padding: 12px 14px;
-    }
-
+    .section-title{ margin:0; font-weight:900; display:flex; align-items:center; gap:10px; }
+    .form-control, .form-select{ border-radius:12px; padding:12px 14px; }
     .input-group-text{
-      border-radius: 12px 0 0 12px;
-      border-color: rgba(0,0,0,.10);
-      background: rgba(0,0,0,.03);
+      border-radius:12px 0 0 12px; border-color:rgba(0,0,0,.10); background:rgba(0,0,0,.03);
     }
-
-    .input-group .form-control, .input-group .form-select{
-      border-radius: 0 12px 12px 0;
-    }
-
-    textarea.form-control{
-      min-height: 110px;
-    }
-
-    .helper{
-      color: rgba(0,0,0,.55);
-      font-size: 12px;
-      margin-top: 6px;
-    }
-
+    .input-group .form-control, .input-group .form-select{ border-radius:0 12px 12px 0; }
+    textarea.form-control{ min-height:110px; }
+    .helper{ color:rgba(0,0,0,.55); font-size:12px; margin-top:6px; }
     .img-preview{
-      display:flex;
-      align-items:center;
-      gap: 12px;
-      padding: 12px;
-      border-radius: 14px;
-      border: 1px dashed rgba(0,0,0,.12);
-      background: rgba(255,255,255,.7);
+      display:flex; align-items:center; gap:12px; padding:12px;
+      border-radius:14px; border:1px dashed rgba(0,0,0,.12); background:rgba(255,255,255,.7);
     }
-
     .img-preview img{
-      width: 58px;
-      height: 58px;
-      object-fit: contain;
-      border-radius: 12px;
-      background: #fff;
-      border: 1px solid rgba(0,0,0,.06);
-      padding: 6px;
-      flex: 0 0 auto;
+      width:58px; height:58px; object-fit:contain; border-radius:12px;
+      background:#fff; border:1px solid rgba(0,0,0,.06); padding:6px;
     }
-
     .btn-save{
-      border-radius: 14px;
-      padding: 12px 14px;
-      font-weight: 900;
-      box-shadow: 0 10px 18px rgba(25,135,84,.18);
-      transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+      border-radius:14px; padding:12px 14px; font-weight:900;
+      box-shadow:0 10px 18px rgba(25,135,84,.18);
     }
-    .btn-save:hover{
-      transform: translateY(-1px);
-      box-shadow: 0 14px 22px rgba(25,135,84,.22);
-      filter: brightness(1.02);
-    }
-
     .btn-soft{
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-weight: 900;
-      background: rgba(0,0,0,.04);
-      border: 1px solid rgba(0,0,0,.08);
+      border-radius:14px; padding:10px 12px; font-weight:900;
+      background:rgba(0,0,0,.04); border:1px solid rgba(0,0,0,.08);
     }
-
-    .btn-stock{
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-weight: 900;
-    }
-
-    .divider{
-      height: 1px;
-      background: rgba(0,0,0,.06);
-      margin: 14px 0;
-    }
-
+    .btn-stock{ border-radius:14px; padding:10px 12px; font-weight:900; }
+    .divider{ height:1px; background:rgba(0,0,0,.06); margin:14px 0; }
     .alert-soft{
-      border-radius: 14px;
-      border: 1px solid rgba(0,0,0,.06);
-      background: rgba(13,110,253,.06);
+      border-radius:14px; border:1px solid rgba(0,0,0,.06); background:rgba(13,110,253,.06);
     }
-
-    .badge-pill{ border-radius: 999px; }
   </style>
 </head>
 
@@ -176,35 +79,25 @@
 
     <%
       const deliveryMode = (product.delivery_mode || 'manual').toString().toLowerCase();
-      const isStock = (deliveryMode === 'stock');
-      const stockCount = (product.stock_count !== undefined && product.stock_count !== null)
-        ? Number(product.stock_count)
-        : null;
-      const inStock = (stockCount !== null) ? (stockCount > 0) : null;
+      const checkoutFlow = (product.checkout_flow || 'player_id').toString().toLowerCase();
+      const isStock = deliveryMode === 'stock';
+      const stockCount = product.stock_count !== undefined && product.stock_count !== null ? Number(product.stock_count) : null;
+      const inStock = stockCount !== null ? stockCount > 0 : null;
     %>
 
-    <!-- Header -->
     <div class="page-head mb-4">
       <div>
-        <h3 class="title">
-          <i class="bi bi-pencil-square"></i>
-          Edit Product
-        </h3>
+        <h3 class="title"><i class="bi bi-pencil-square"></i> Edit Product</h3>
         <div class="d-flex flex-wrap gap-2 mt-2">
           <span class="chip"><i class="bi bi-hash"></i> ID: <%= product.id %></span>
           <span class="chip"><i class="bi bi-tag-fill"></i> <%= product.main_category || 'No Main Category' %></span>
           <span class="chip"><i class="bi bi-diagram-3-fill"></i> <%= product.sub_category || 'No Sub Category' %></span>
+          <span class="chip"><i class="bi bi-ui-checks-grid"></i> <%= checkoutFlow %></span>
 
           <% if (isStock) { %>
-            <span class="chip">
-              <i class="bi bi-lightning-charge-fill text-primary"></i>
-              Stock (Auto)
-            </span>
+            <span class="chip"><i class="bi bi-lightning-charge-fill text-primary"></i> Stock (Auto)</span>
           <% } else { %>
-            <span class="chip">
-              <i class="bi bi-person-check-fill"></i>
-              Manual
-            </span>
+            <span class="chip"><i class="bi bi-person-check-fill"></i> Manual</span>
           <% } %>
 
           <% if (isStock) { %>
@@ -220,9 +113,7 @@
       </div>
 
       <div class="d-flex gap-2 flex-wrap">
-        <a href="/admin/products" class="btn btn-soft">
-          <i class="bi bi-arrow-left"></i> Back
-        </a>
+        <a href="/admin/products" class="btn btn-soft"><i class="bi bi-arrow-left"></i> Back</a>
 
         <% if (isStock) { %>
           <a href="/admin/products/<%= product.id %>/stock" class="btn btn-info btn-stock text-dark">
@@ -232,40 +123,23 @@
       </div>
     </div>
 
-    <!-- Card -->
     <div class="card edit-card">
       <div class="card-head">
-        <h6 class="section-title">
-          <i class="bi bi-box-seam"></i>
-          Product Information
-        </h6>
-
-        <span class="chip">
-          <i class="bi bi-shield-check"></i>
-          Admin Panel
-        </span>
+        <h6 class="section-title"><i class="bi bi-box-seam"></i> Product Information</h6>
+        <span class="chip"><i class="bi bi-shield-check"></i> Admin Panel</span>
       </div>
 
       <div class="card-body p-4">
-        <form action="/admin/products/edit/<%= product.id %>" method="POST" novalidate>
+        <form action="/admin/products/edit/<%= product.id %>" method="POST" novalidate id="editProductForm">
 
-          <!-- ✅ NEW: Delivery Mode -->
           <div class="mb-3">
-            <label class="form-label fw-bold">
-              <i class="bi bi-truck me-1"></i>
-              Delivery Mode
-            </label>
-
+            <label class="form-label fw-bold"><i class="bi bi-truck me-1"></i> Delivery Mode</label>
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-gear"></i></span>
               <select class="form-select" id="deliveryMode" name="delivery_mode">
                 <option value="manual" <%= deliveryMode === 'manual' ? 'selected' : '' %>>Manual (Admin processes order)</option>
-                <option value="stock"  <%= deliveryMode === 'stock'  ? 'selected' : '' %>>Stock (Auto delivery)</option>
+                <option value="stock" <%= deliveryMode === 'stock' ? 'selected' : '' %>>Stock (Auto delivery)</option>
               </select>
-            </div>
-
-            <div class="helper">
-              Manual = مثل النظام الحالي. Stock = تسليم تلقائي إذا في مخزون، وإذا ما في → الطلب بيضل Pending ويوصل للأدمن.
             </div>
 
             <div id="stockHint" class="alert alert-soft mt-3 mb-0 d-none">
@@ -274,9 +148,8 @@
                 <div class="flex-grow-1">
                   <div class="fw-bold">Stock Auto Delivery enabled</div>
                   <div class="small text-muted">
-                    If stock is empty, orders will stay <b>Waiting</b> and admin will fulfill manually (no rejection).
+                    If stock is empty, orders will stay <b>Waiting</b>.
                   </div>
-
                   <div class="mt-2">
                     <a href="/admin/products/<%= product.id %>/stock" class="btn btn-sm btn-info text-dark btn-round">
                       <i class="bi bi-boxes me-1"></i> Open Stock Manager
@@ -287,9 +160,32 @@
             </div>
           </div>
 
+          <div class="mb-3">
+            <label class="form-label fw-bold">
+              <i class="bi bi-ui-checks-grid me-1"></i>
+              Checkout Flow
+            </label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-check2-square"></i></span>
+              <select class="form-select" name="checkout_flow" id="checkoutFlow">
+                <option value="player_id" <%= checkoutFlow === 'player_id' ? 'selected' : '' %>>
+                  Player ID / Single Field
+                </option>
+                <option value="account_choice" <%= checkoutFlow === 'account_choice' ? 'selected' : '' %>>
+                  Account Choice (Own Account / Account From Us)
+                </option>
+                <option value="no_details" <%= checkoutFlow === 'no_details' ? 'selected' : '' %>>
+                  Buy Now Only (No Details)
+                </option>
+              </select>
+            </div>
+            <div class="helper">
+              Player ID = النظام القديم. Account Choice = خيارين. No Details = زر شراء فقط.
+            </div>
+          </div>
+
           <div class="divider"></div>
 
-          <!-- Product Name -->
           <div class="mb-3">
             <label class="form-label fw-bold">Product Name</label>
             <div class="input-group">
@@ -298,17 +194,14 @@
             </div>
           </div>
 
-          <!-- Price -->
           <div class="mb-3">
             <label class="form-label fw-bold">Price</label>
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-cash-coin"></i></span>
               <input type="number" step="0.01" class="form-control" name="price" value="<%= product.price %>" required>
             </div>
-            <div class="helper">Example: 2.30</div>
           </div>
 
-          <!-- Image URL -->
           <div class="mb-3">
             <label class="form-label fw-bold">Image URL</label>
             <div class="input-group">
@@ -327,7 +220,6 @@
 
           <div class="divider"></div>
 
-          <!-- Main Category -->
           <div class="mb-3">
             <label class="form-label fw-bold">Main Category</label>
             <div class="input-group">
@@ -336,7 +228,6 @@
             </div>
           </div>
 
-          <!-- Sub Category -->
           <div class="mb-3">
             <label class="form-label fw-bold">Sub-Category</label>
             <div class="input-group">
@@ -345,7 +236,6 @@
             </div>
           </div>
 
-          <!-- Sub Category Image -->
           <div class="mb-3">
             <label class="form-label fw-bold">Sub-Category Image</label>
             <div class="input-group">
@@ -356,45 +246,39 @@
 
           <div class="divider"></div>
 
-          <!-- ✅ Product Description -->
           <div class="mb-3">
             <label for="description" class="form-label fw-bold">
               <i class="bi bi-journal-text me-1"></i>
               Product Description
             </label>
-            <textarea class="form-control" id="description" name="description" rows="4"
-              placeholder="Write a clear product description..."><%= product.description || '' %></textarea>
+            <textarea class="form-control" id="description" name="description" rows="4"><%= product.description || '' %></textarea>
             <div class="d-flex justify-content-between">
               <div class="helper">This will appear in checkout details.</div>
               <div class="helper"><span id="descCount">0</span> chars</div>
             </div>
           </div>
 
-          <!-- Notes -->
           <div class="mb-3">
             <label for="notes" class="form-label fw-bold">
               <i class="bi bi-pencil-square me-1"></i>
               Product Notes (Optional)
             </label>
-            <textarea class="form-control" id="notes" name="notes" rows="3"
-              placeholder="Any special notes (delivery, requirements, warnings)..."><%= product.notes || '' %></textarea>
+            <textarea class="form-control" id="notes" name="notes" rows="3"><%= product.notes || '' %></textarea>
             <div class="d-flex justify-content-between">
               <div class="helper">Tips: Put warnings / required info here.</div>
               <div class="helper"><span id="notesCount">0</span> chars</div>
             </div>
           </div>
 
-          <!-- Player ID Label -->
-          <div class="mb-3">
+          <div class="mb-3" id="playerIdLabelWrap">
             <label for="player_id_label" class="form-label fw-bold">
               <i class="bi bi-person-vcard me-1"></i>
-              Player ID Label (اختياري)
+              Player ID Label
             </label>
             <input type="text" class="form-control" id="player_id_label" name="player_id_label"
               value="<%= product.player_id_label || '' %>" placeholder="مثال: Game UID / Player Tag ...">
           </div>
 
-          <!-- Out of Stock -->
           <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" id="is_out_of_stock" name="is_out_of_stock" value="1"
               <%= Number(product.is_out_of_stock) === 1 ? 'checked' : '' %>>
@@ -402,15 +286,11 @@
               <i class="bi bi-x-circle me-1"></i>
               Out of Stock
             </label>
-            <div class="helper">
-              (Optional) For manual products. For stock products, prefer using stock manager instead.
-            </div>
           </div>
 
-          <!-- Requires Player ID -->
-          <div class="form-check mb-4">
+          <div class="form-check mb-4" id="requiresPlayerIdWrap">
             <input type="checkbox" class="form-check-input" id="requiresPlayerId" name="requires_player_id" value="1"
-              <%= (product.requires_player_id == 1) ? 'checked' : '' %>>
+              <%= Number(product.requires_player_id) === 1 ? 'checked' : '' %>>
             <label class="form-check-label fw-bold" for="requiresPlayerId">
               <i class="bi bi-person-check me-1"></i>
               Requires Player ID
@@ -421,14 +301,9 @@
             <i class="bi bi-save2 me-1"></i> Save Changes
           </button>
 
-          <p class="helper mt-3 mb-0">
-            Make sure description & notes are correct — they appear to customers in checkout.
-          </p>
-
         </form>
       </div>
     </div>
-
   </div>
 
   <%- include('partials/footer') %>
@@ -436,7 +311,6 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    // Image preview
     const imageInput = document.getElementById('imageInput');
     const imagePreview = document.getElementById('imagePreview');
 
@@ -447,7 +321,6 @@
       });
     }
 
-    // Char counters
     const desc = document.getElementById('description');
     const notes = document.getElementById('notes');
     const descCount = document.getElementById('descCount');
@@ -462,7 +335,6 @@
     setCount(desc, descCount);
     setCount(notes, notesCount);
 
-    // Stock hint show/hide
     const deliveryModeSel = document.getElementById('deliveryMode');
     const stockHint = document.getElementById('stockHint');
 
@@ -473,8 +345,53 @@
       else stockHint.classList.add('d-none');
     }
 
+    const checkoutFlow = document.getElementById('checkoutFlow');
+    const requiresPlayerId = document.getElementById('requiresPlayerId');
+    const requiresPlayerIdWrap = document.getElementById('requiresPlayerIdWrap');
+    const playerIdLabelWrap = document.getElementById('playerIdLabelWrap');
+    const playerIdLabelInput = document.getElementById('player_id_label');
+    const editProductForm = document.getElementById('editProductForm');
+
+    function refreshCheckoutFlow(){
+      const flow = (checkoutFlow?.value || 'player_id').toLowerCase();
+      const isPlayerId = flow === 'player_id';
+
+      if (requiresPlayerId) {
+        requiresPlayerId.checked = isPlayerId;
+        requiresPlayerId.disabled = !isPlayerId;
+      }
+
+      if (requiresPlayerIdWrap) {
+        requiresPlayerIdWrap.classList.toggle('d-none', !isPlayerId);
+      }
+
+      if (playerIdLabelWrap) {
+        playerIdLabelWrap.classList.toggle('d-none', !isPlayerId);
+      }
+
+      if (playerIdLabelInput) {
+        playerIdLabelInput.disabled = !isPlayerId;
+      }
+    }
+
     toggleStockHint();
+    refreshCheckoutFlow();
+
     deliveryModeSel?.addEventListener('change', toggleStockHint);
+    checkoutFlow?.addEventListener('change', refreshCheckoutFlow);
+
+    editProductForm?.addEventListener('submit', () => {
+      const flow = (checkoutFlow?.value || 'player_id').toLowerCase();
+
+      if (requiresPlayerId) {
+        requiresPlayerId.disabled = false;
+        requiresPlayerId.checked = flow === 'player_id';
+      }
+
+      if (playerIdLabelInput) {
+        playerIdLabelInput.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
