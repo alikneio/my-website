@@ -4969,9 +4969,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     const deliveryMode = (product.delivery_mode || 'manual').toString().toLowerCase().trim();
     const isStock = deliveryMode === 'stock';
 
-    const checkoutFlow = (product.checkout_flow || 'player_id').toString().toLowerCase().trim();
-    const safeCheckoutFlow = ['player_id', 'account_choice', 'no_details'].includes(checkoutFlow)
-      ? checkoutFlow
+    const checkoutFlowRaw = (product.checkout_flow || 'player_id').toString().toLowerCase().trim();
+    const safeCheckoutFlow = ['player_id', 'account_choice', 'no_details'].includes(checkoutFlowRaw)
+      ? checkoutFlowRaw
       : 'player_id';
 
     const optionRows = await q(
@@ -4988,7 +4988,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
     let selectedOption = null;
     let basePrice = 0;
-
     const orderDetailsParts = [];
 
     if (hasCheckoutOptions) {
@@ -5063,6 +5062,10 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
     if (safeCheckoutFlow === 'no_details') {
       orderDetailsParts.push('Checkout: Buy now only — no customer details required.');
+    }
+
+    if (!orderDetailsParts.length) {
+      orderDetailsParts.push(`Checkout Flow: ${safeCheckoutFlow} — no customer details submitted.`);
     }
 
     if (!Number.isFinite(basePrice) || basePrice <= 0) {
@@ -5144,7 +5147,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         orderDetailsParts.push('Auto-delivery: Out of stock — will be processed manually.');
       }
 
-      const orderDetails = orderDetailsParts.length ? orderDetailsParts.join(' | ') : null;
+      const orderDetails = orderDetailsParts.join(' | ');
       const initialStatus = shouldAutoDeliver ? 'Accepted' : 'Waiting';
 
       const [updRes] = await conn.query(
@@ -5190,8 +5193,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         : product.name;
 
       const [orderResult] = await conn.query(
-        `INSERT INTO orders (userId, productName, price, purchaseDate, order_details, status, admin_reply)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO orders
+         (userId, productName, price, purchaseDate, order_details, status, admin_reply, product_id, source, fulfillment_mode)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'sql', ?)`,
         [
           freshUser.id,
           orderProductName,
@@ -5199,7 +5203,9 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
           now,
           orderDetails,
           initialStatus,
-          adminReplyAuto
+          adminReplyAuto,
+          productIdNum,
+          isStock ? 'stock' : 'manual'
         ]
       );
 
@@ -5325,7 +5331,6 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     });
   }
 });
-
 
 // =============================================
 //                  ADMIN ROUTES
