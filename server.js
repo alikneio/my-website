@@ -4856,6 +4856,11 @@ app.post('/profile/update-email', checkAuth, (req, res) => {
 
 
 app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
+  console.log("🔥 BUY ROUTE HIT - VERSION: SQL_BUY_V3_DEBUG");
+  console.log("🔥 BUY BODY:", req.body);
+
+  res.setHeader('X-Buy-Route-Version', 'SQL_BUY_V3_DEBUG');
+
   const {
     productId,
     playerId,
@@ -4909,12 +4914,20 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       );
 
       if (row?.response_json) {
+        console.log("⚠️ IDEMPOTENCY EXISTING RESPONSE RETURNED:", {
+          userId,
+          key,
+          response_json: row.response_json
+        });
+
         try {
           const payload = JSON.parse(row.response_json);
           return res.json(payload);
         } catch (_) {}
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn("⚠️ returnExistingIdempotentResponse error:", err.message || err);
+    }
 
     return false;
   }
@@ -4955,6 +4968,15 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         message: 'Product not found'
       });
     }
+
+    console.log("🔥 BUY PRODUCT:", {
+      productIdNum,
+      name: product.name,
+      checkout_flow: product.checkout_flow,
+      requires_player_id: product.requires_player_id,
+      delivery_mode: product.delivery_mode,
+      pricing_mode: product.pricing_mode
+    });
 
     if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
       const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
@@ -5040,6 +5062,13 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       const safeChoice = ['own_account', 'account_from_us'].includes(choice)
         ? choice
         : 'own_account';
+
+      console.log("🔥 ACCOUNT CHOICE DEBUG:", {
+        checkoutChoice,
+        safeChoice,
+        accountEmailPresent: !!String(accountEmail || '').trim(),
+        accountPasswordPresent: !!String(accountPassword || '').trim()
+      });
 
       if (safeChoice === 'own_account') {
         const email = (accountEmail || '').toString().trim();
@@ -5150,6 +5179,12 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       const orderDetails = orderDetailsParts.join(' | ');
       const initialStatus = shouldAutoDeliver ? 'Accepted' : 'Waiting';
 
+      console.log("🔥 BEFORE BALANCE UPDATE:", {
+        userId: freshUser.id,
+        balance: freshUser.balance,
+        purchasePrice
+      });
+
       const [updRes] = await conn.query(
         `UPDATE users
          SET balance = balance - ?
@@ -5192,6 +5227,18 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         ? `${product.name} - ${selectedOption.option_label}`
         : product.name;
 
+      console.log("🔥 BEFORE ORDERS INSERT V3:", {
+        freshUserId: freshUser.id,
+        orderProductName,
+        purchasePrice,
+        orderDetails,
+        initialStatus,
+        adminReplyAuto,
+        productIdNum,
+        source: 'sql',
+        fulfillment_mode: isStock ? 'stock' : 'manual'
+      });
+
       const [orderResult] = await conn.query(
         `INSERT INTO orders
          (userId, productName, price, purchaseDate, order_details, status, admin_reply, product_id, source, fulfillment_mode)
@@ -5210,6 +5257,12 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       );
 
       const orderId = orderResult.insertId;
+
+      console.log("✅ ORDER INSERTED V3:", {
+        orderId,
+        orderDetails,
+        productIdNum
+      });
 
       if (shouldAutoDeliver) {
         await conn.query(
@@ -5233,8 +5286,8 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       );
 
       const successPayload = shouldAutoDeliver
-        ? { success: true, redirectUrl: `/order-details/${orderId}` }
-        : { success: true, redirectUrl: '/processing' };
+        ? { success: true, redirectUrl: `/order-details/${orderId}`, debugVersion: 'SQL_BUY_V3_DEBUG' }
+        : { success: true, redirectUrl: '/processing', debugVersion: 'SQL_BUY_V3_DEBUG' };
 
       await storeIdempotencyResponse(conn, freshUser.id, idemKey, successPayload);
 
@@ -5317,7 +5370,8 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       console.error('Transaction failed:', e?.message || e);
       return res.status(500).json({
         success: false,
-        message: 'Transaction failed'
+        message: 'Transaction failed',
+        debugVersion: 'SQL_BUY_V3_DEBUG'
       });
     } finally {
       conn.release();
@@ -5327,7 +5381,8 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
     console.error('❌ SQL Product Order Error:', err?.response?.data || err.message || err);
     return res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error',
+      debugVersion: 'SQL_BUY_V3_DEBUG'
     });
   }
 });
