@@ -1411,6 +1411,24 @@ app.get('/gamma', (req, res) => {
   });
 });
 
+app.get('/duolingo', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Duolingo'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (duolingo):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('duolingo', { user, products: finalProducts });
+  });
+});
+
 app.get('/touch-section', (req, res) => {
   const sql = `
     SELECT * FROM products
