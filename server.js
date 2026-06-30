@@ -7211,7 +7211,7 @@ app.get('/alfacredit', (req, res) => {
 app.get('/chatgpt-section', (req, res) => {
   const sql = `
     SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'Chatgpt'
+    WHERE main_category = 'AI Tools' AND sub_category = 'Chatgpt'
     ORDER BY sort_order ASC, id ASC
   `;
   db.query(sql, [], (err, products) => {
