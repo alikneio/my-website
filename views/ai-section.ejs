@@ -2,30 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Tools - AK Cell</title>
-   <link rel="stylesheet" href="/css/bootstrap.css">
-  <link rel="stylesheet" href="/css/custom.css">
-<link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper/swiper-bundle.min.css">
+    <link rel="stylesheet" href="/css/bootstrap.css">
+    <link rel="stylesheet" href="/css/custom.css">
+    <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
-    <%- include('partials/header') %>
+<%- include('partials/header') %>
 
-    <div class="hero-section">
-        <h1 class="display-4">AI Tools</h1>
-        <p class="lead col-lg-8 mx-auto">
-            All available AI tools and services in one place.
-        </p>
-    </div>
+<div class="hero-section">
+    <h1 class="display-4">AI Tools</h1>
+    <p class="lead col-lg-8 mx-auto">
+        All available AI tools and services in one place.
+    </p>
+</div>
 
-    <div class="container my-5 ">
+<div class="container my-5">
     <div class="search-bar-container">
-        <form id="searchForm" action="#" method="GET" role="search">
-            <input type="search" id="searchInput" class="search-input" placeholder="Search for any service...">
+        <form id="searchForm">
+            <input
+                type="search"
+                id="searchInput"
+                class="search-input"
+                placeholder="Search for any AI tool..."
+            >
             <button type="submit" class="search-btn">
                 <i class="bi bi-search"></i>
             </button>
@@ -33,134 +39,123 @@
     </div>
 </div>
 
-    <div class="container my-5 py-5">
-        <h2 class="text-center section-title">Select a Service</h2>
-        <div class="row row-cols-2 row-cols-sm-4 row-cols-lg-3 g-4">
+<div class="container my-5 py-5">
 
+    <h2 class="text-center section-title">
+        Select an AI Tool
+    </h2>
 
- <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/perplexity" class="category-card service-card">
-                    <img src="/images/perplexity.png" class="card-img" alt="perplexity">
-                    <div class="card-body">Perplexity AI</div>
-                </a>
-            </div>
+    <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
 
-             <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/chatgpt-section" class="category-card service-card">
-                    <img src="/images/chatgpt.png" class="card-img" alt="ChatGpt">
-                    <div class="card-body">Chatgpt</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/chatgpt-section" class="category-card service-card">
+                <img src="/images/chatgpt.png" class="card-img" alt="ChatGPT">
+                <div class="card-body">ChatGPT</div>
+            </a>
+        </div>
 
- <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/autodesk" class="category-card service-card">
-                    <img src="/images/autodesk.png" class="card-img" alt="autodesk">
-                    <div class="card-body">AUTODESK</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/claude" class="category-card service-card">
+                <img src="/images/Claude.png" class="card-img" alt="Claude">
+                <div class="card-body">Claude</div>
+            </a>
+        </div>
 
-            <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/grammarly" class="category-card service-card">
-                    <img src="/images/grammarly.png" class="card-img" alt="grammarly">
-                    <div class="card-body">Grammarly</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/gemini" class="category-card service-card">
+                <img src="/images/gemini.png" class="card-img" alt="Gemini">
+                <div class="card-body">Gemini Pro</div>
+            </a>
+        </div>
 
-             <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/claude" class="category-card service-card">
-                    <img src="/images/Claude.png" class="card-img" alt="claude">
-                    <div class="card-body">Claude</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/perplexity" class="category-card service-card">
+                <img src="/images/perplexity.png" class="card-img" alt="Perplexity">
+                <div class="card-body">Perplexity AI</div>
+            </a>
+        </div>
 
+        <div class="col">
+            <a href="/openart" class="category-card service-card">
+                <img src="/images/openart.png" class="card-img" alt="OpenArt">
+                <div class="card-body">OpenArt AI</div>
+            </a>
+        </div>
 
-                <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/hailuo" class="category-card service-card">
-                    <img src="/images/hailuo.png" class="card-img" alt="hailuo">
-                    <div class="card-body">Hailuo AI</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/gamma" class="category-card service-card">
+                <img src="/images/gamma.png" class="card-img" alt="Gamma">
+                <div class="card-body">Gamma AI</div>
+            </a>
+        </div>
 
-              <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/lovable" class="category-card service-card">
-                    <img src="/images/lovable.png" class="card-img" alt="lovable">
-                    <div class="card-body">Lovable AI</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/hailuo" class="category-card service-card">
+                <img src="/images/hailuo.png" class="card-img" alt="Hailuo">
+                <div class="card-body">Hailuo AI</div>
+            </a>
+        </div>
 
-              <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/gamma" class="category-card service-card">
-                    <img src="/images/gamma.png" class="card-img" alt="gamma">
-                    <div class="card-body">Gamma AI</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/lovable" class="category-card service-card">
+                <img src="/images/lovable.png" class="card-img" alt="Lovable">
+                <div class="card-body">Lovable AI</div>
+            </a>
+        </div>
 
-             <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/canva-section" class="category-card service-card">
-                    <img src="/images/webp/canvalogo.webp" class="card-img" alt="Canva">
-                    <div class="card-body">Canva</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/grammarly" class="category-card service-card">
+                <img src="/images/grammarly.png" class="card-img" alt="Grammarly">
+                <div class="card-body">Grammarly</div>
+            </a>
+        </div>
 
-            <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/gemini" class="category-card service-card">
-                    <img src="/images/gemini.png" class="card-img" alt="gemini">
-                    <div class="card-body">Gemini Pro</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/canva-section" class="category-card service-card">
+                <img src="/images/webp/canvalogo.webp" class="card-img" alt="Canva">
+                <div class="card-body">Canva</div>
+            </a>
+        </div>
 
-              <div class="col-lg-3 col-md-4 col-sm-6">
-                <a href="/openart" class="category-card service-card">
-                    <img src="/images/openart.png" class="card-img" alt="openart">
-                    <div class="card-body">OpenArt AI</div>
-                </a>
-            </div>
+        <div class="col">
+            <a href="/autodesk" class="category-card service-card">
+                <img src="/images/autodesk.png" class="card-img" alt="Autodesk">
+                <div class="card-body">Autodesk</div>
+            </a>
+        </div>
 
-             <%- include('partials/footer') %>
-
-                     </div>
     </div>
 
+</div>
 
-    <script>
-document.addEventListener("DOMContentLoaded", function () {
-  console.log("✅ Search script loaded!");
+<%- include('partials/footer') %>
 
-  const searchInput = document.getElementById("searchInput");
-  if (!searchInput) return;
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 
-  const searchForm = document.getElementById("searchForm");
-  if (searchForm) {
-    searchForm.addEventListener("submit", e => e.preventDefault());
-  }
+    const input = document.getElementById("searchInput");
 
-  searchInput.addEventListener("input", function () {
-    const query = this.value.toLowerCase();
+    input.addEventListener("input", function(){
 
-    // تأكد من وجود الكروت من هذا الكلاس
-    const cards = document.querySelectorAll(".category-card");
+        const value = this.value.toLowerCase();
 
-    cards.forEach(card => {
-      const title = card.textContent?.toLowerCase() || "";
+        document.querySelectorAll(".category-card").forEach(card=>{
 
-      const cardWrapper = card.closest("div[class^='col']");
- // ضروري تحتوي الكرت
+            const wrapper = card.closest(".col");
+            const title = card.innerText.toLowerCase();
 
-      if (cardWrapper) {
-        if (title.includes(query)) {
-          cardWrapper.style.display = "";
-        } else {
-          cardWrapper.style.display = "none";
-        }
-      }
+            wrapper.style.display =
+                title.includes(value) ? "" : "none";
+
+        });
+
     });
-  });
+
 });
 </script>
-    
-   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    <script src="/main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/main.js"></script>
+
 </body>
 </html>
