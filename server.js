@@ -1308,15 +1308,19 @@ app.get('/ibo', (req, res) => {
 
 app.get('/openart', (req, res) => {
   const sql = `
-    SELECT * FROM products
-    WHERE sub_category = 'OpenArt AI'
+    SELECT *
+    FROM products
+    WHERE main_category = 'AI Tools'
+      AND sub_category = 'OpenArt AI'
     ORDER BY sort_order ASC, id ASC
   `;
+
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("❌ Database error (openart):", err.message || err);
       return res.status(500).send("Server error");
     }
+
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
@@ -1342,35 +1346,23 @@ app.get('/office365', (req, res) => {
   });
 });
 
+
+
 app.get('/hailuo', (req, res) => {
   const sql = `
-    SELECT * FROM products
-    WHERE sub_category = 'Hailuo AI'
+    SELECT *
+    FROM products
+    WHERE main_category = 'AI Tools'
+      AND sub_category = 'Hailuo AI'
     ORDER BY sort_order ASC, id ASC
   `;
+
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("❌ Database error (hailuo):", err.message || err);
       return res.status(500).send("Server error");
     }
-    const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('hailuo', { user, products: finalProducts });
-  });
-});
-
-app.get('/hailuo', (req, res) => {
-  const sql = `
-    SELECT * FROM products
-    WHERE sub_category = 'Hailuo AI'
-    ORDER BY sort_order ASC, id ASC
-  `;
-  db.query(sql, [], (err, products) => {
-    if (err) {
-      console.error("❌ Database error (hailuo):", err.message || err);
-      return res.status(500).send("Server error");
-    }
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
@@ -1380,15 +1372,19 @@ app.get('/hailuo', (req, res) => {
 
 app.get('/lovable', (req, res) => {
   const sql = `
-    SELECT * FROM products
-    WHERE sub_category = 'Lovable AI'
+    SELECT *
+    FROM products
+    WHERE main_category = 'AI Tools'
+      AND sub_category = 'Lovable AI'
     ORDER BY sort_order ASC, id ASC
   `;
+
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("❌ Database error (lovable):", err.message || err);
       return res.status(500).send("Server error");
     }
+
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
@@ -1398,15 +1394,19 @@ app.get('/lovable', (req, res) => {
 
 app.get('/gamma', (req, res) => {
   const sql = `
-    SELECT * FROM products
-    WHERE sub_category = 'Gamma AI'
+    SELECT *
+    FROM products
+    WHERE main_category = 'AI Tools'
+      AND sub_category = 'Gamma AI'
     ORDER BY sort_order ASC, id ASC
   `;
+
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("❌ Database error (gamma):", err.message || err);
       return res.status(500).send("Server error");
     }
+
     const user = req.session.user || null;
     const finalProducts = applyUserDiscountToProducts(products, user);
 
@@ -6902,7 +6902,7 @@ app.get('/youtube-section', (req, res) => {
 app.get('/gemini', (req, res) => {
   const sql = `
     SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'Gemini Pro'
+    WHERE main_category = 'AI Tools' AND sub_category = 'Gemini Pro'
     ORDER BY sort_order ASC, id ASC
   `;
   db.query(sql, [], (err, products) => {
@@ -6975,7 +6975,7 @@ app.get('/starzplay', (req, res) => {
 app.get('/grammarly', (req, res) => {
   const sql = `
     SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'Grammarly'
+    WHERE main_category = 'AI Tools' AND sub_category = 'Grammarly'
     ORDER BY sort_order ASC, id ASC
   `;
   db.query(sql, [], (err, products) => {
@@ -7011,7 +7011,7 @@ app.get('/hbo', (req, res) => {
 app.get('/perplexity', (req, res) => {
   const sql = `
     SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'Perplexity AI'
+    WHERE main_category = 'AI Tools' AND sub_category = 'Perplexity AI'
     ORDER BY sort_order ASC, id ASC
   `;
   db.query(sql, [], (err, products) => {
@@ -7047,7 +7047,7 @@ app.get('/crunchyroll-section', (req, res) => {
 app.get('/Claude', (req, res) => {
   const sql = `
     SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'Claude'
+    WHERE main_category = 'AI Tools' AND sub_category = 'Claude'
     ORDER BY sort_order ASC, id ASC
   `;
   db.query(sql, [], (err, products) => {
@@ -7084,7 +7084,7 @@ app.get('/capcut-section', (req, res) => {
 app.get('/canva-section', (req, res) => {
   const sql = `
     SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'Canva'
+    WHERE main_category = 'AI Tools' AND sub_category = 'Canva'
     ORDER BY sort_order ASC, id ASC
   `;
   db.query(sql, [], (err, products) => {
@@ -7120,7 +7120,7 @@ app.get('/appletv', (req, res) => {
 app.get('/autodesk', (req, res) => {
   const sql = `
     SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'AUTODESK'
+    WHERE main_category = 'AI Tools' AND sub_category = 'AUTODESK'
     ORDER BY sort_order ASC, id ASC
   `;
   db.query(sql, [], (err, products) => {
