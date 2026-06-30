@@ -862,6 +862,9 @@ app.get('/accounts', (req, res) => {
     res.render('accounts', { user: req.session.user || null });
 });
 
+app.get('/ai-section', (req, res) => {
+    res.render('ai-section', { user: req.session.user || null });
+});
 
 
 
