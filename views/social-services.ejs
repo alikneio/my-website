@@ -2,603 +2,912 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+
   <title><%= categoryName %> – Social Media Services</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  />
 
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
-  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link
+    rel="stylesheet"
+    href="/css/bootstrap-icons/font/bootstrap-icons.css"
+  />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap"
+    rel="stylesheet"
+  />
 
   <style>
     body {
-      font-family: "Cairo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f3f4f8;
+      font-family:
+        "Cairo",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      background: linear-gradient(
+        135deg,
+        #f5f7fa,
+        #c3cfe2
+      );
+
+      background-attachment: fixed;
+      color: #212529;
     }
 
-    .smc-shell { max-width: 1180px; }
-
-    /* ===== HEADER ===== */
-    .smc-header {
-      padding: 12px 0 8px;
-      margin-bottom: 10px;
-      border-bottom: 1px solid rgba(148,163,184,.25);
+    .services-shell {
+      max-width: 1320px;
     }
-    .smc-title-row {
+
+    /* =========================
+       PAGE HEADER
+       ========================= */
+
+    .services-header {
+      padding: 2rem 0 1.25rem;
+    }
+
+    .services-header-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      gap: 1rem;
       flex-wrap: wrap;
     }
-    .smc-left {
+
+    .services-header-left {
       display: flex;
       align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      gap: 1rem;
+      min-width: 0;
     }
 
-    .smc-back-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,.5);
-      font-size: 0.8rem;
-      color: #4b5563;
-      text-decoration: none;
-      background: #ffffff;
-    }
-    .smc-back-btn i {
-      font-size: 0.9rem;
-    }
-    .smc-back-btn:hover {
-      color: #111827;
-      border-color: rgba(30,64,175,.8);
-      background: #eef2ff;
-      text-decoration: none;
-    }
-
-    .smc-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      background: #111827;
+    .back-button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-    .smc-title {
-      font-size: 1.3rem;
-      font-weight: 800;
-      margin: 0;
-      color: #0f172a;
-    }
-    .smc-sub {
-      margin: 2px 0 0;
-      font-size: .8rem;
-      color: #6b7280;
-    }
-    .smc-actions {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
-    }
-    .smc-pill-counter {
-      font-size: .75rem;
+      gap: 0.35rem;
+      padding: 0.5rem 0.9rem;
+      border: 1px solid #ced4da;
       border-radius: 999px;
-      padding: 5px 10px;
-      background: #e5edff;
-      color: #1d4ed8;
-      border: 1px solid rgba(37,99,235,.25);
+      background: #fff;
+      color: #495057;
+      text-decoration: none;
+      white-space: nowrap;
+      transition:
+        color 0.2s ease,
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    }
+
+    .back-button:hover {
+      color: #0d6efd;
+      border-color: #0d6efd;
+      background: #f8fbff;
+    }
+
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: #212529;
+      color: #fff;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 1.3rem;
+    }
+
+    .services-title {
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: #111827;
+      margin: 0;
+      line-height: 1.35;
+    }
+
+    .services-subtitle {
+      color: #6c757d;
+      margin: 0.25rem 0 0;
+      font-size: 0.9rem;
+    }
+
+    .services-counter {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid rgba(13, 110, 253, 0.25);
+      background: #eaf2ff;
+      color: #0d6efd;
+      border-radius: 999px;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.85rem;
       white-space: nowrap;
     }
 
-    /* ===== FILTER BAR ===== */
-    .smc-filter {
-      margin: 10px 0 16px;
-      border-radius: 12px;
-      border: 1px solid rgba(148,163,184,.25);
-      background: #ffffff;
-      padding: 10px 12px;
-    }
-    .smc-filter label {
-      font-size: .78rem;
-      color: #6b7280;
-      margin-bottom: 2px;
+    /* =========================
+       FILTER BAR
+       ========================= */
+
+    .services-filter {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #dee2e6;
+      border-radius: 16px;
+      padding: 1rem;
+      margin-bottom: 1.75rem;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
     }
 
-    /* Search pill */
-    .smc-search-pill {
+    .filter-label {
+      display: block;
+      font-size: 0.78rem;
+      color: #6c757d;
+      margin-bottom: 0.35rem;
+    }
+
+    .service-search {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 0.65rem;
+      border: 1px solid #ced4da;
       border-radius: 999px;
-      background: #f9fafb;
-      border: 1px solid rgba(148, 163, 184, 0.6);
-      padding: 6px 10px;
+      padding: 0.55rem 1rem;
+      background: #f8f9fa;
+      transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background-color 0.2s ease;
     }
-    .smc-search-pill-icon {
-      font-size: 0.9rem;
-      color: #6b7280;
+
+    .service-search:focus-within {
+      border-color: #0d6efd;
+      background: #fff;
+      box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12);
     }
-    .smc-search-pill input {
-      border: none;
-      background: transparent;
+
+    .service-search i {
+      color: #6c757d;
+    }
+
+    .service-search input {
       width: 100%;
-      font-size: 0.9rem;
-      padding: 4px 0;
-      outline: none;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      box-shadow: none;
+      font-size: 0.95rem;
+    }
+
+    .service-search input:focus {
       box-shadow: none;
     }
-    .smc-search-pill input:focus {
-      box-shadow: none;
+
+    .sort-select {
+      min-width: 200px;
     }
 
-    .smc-sort-select {
-      min-width: 170px;
-    }
-    .smc-count {
-      font-size: 0.8rem;
-      color: #6b7280;
+    .visible-counter {
+      color: #6c757d;
+      font-size: 0.85rem;
+      white-space: nowrap;
     }
 
-    /* ===== CARDS ===== */
-    .smc-card-wrap { display: flex; height: 100%; }
+    /* =========================
+       SERVICE CARDS
+       ========================= */
 
-    .smc-card {
+    .service-column {
+      display: flex;
+    }
+
+    .social-service-card {
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 12px;
+      overflow: hidden;
+      text-align: center;
+      text-decoration: none;
+      color: #212529;
+      display: flex;
+      flex-direction: column;
       position: relative;
-      background: #ffffff;
-      border-radius: 16px;
-      padding: 12px 12px 10px 16px;
-      border: 1px solid rgba(148, 163, 184, 0.28);
-      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
-      transition: all .22s ease;
-      flex: 1 1 auto;
+
+      transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease,
+        border-color 0.3s ease;
+    }
+
+    .social-service-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+      border-color: rgba(13, 110, 253, 0.4);
+      color: #0d6efd;
+    }
+
+    .service-image-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      background: #f8f9fa;
       overflow: hidden;
     }
-    .smc-card::before {
-      content: "";
+
+    .service-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+
+      transition:
+        transform 0.35s ease,
+        opacity 0.3s ease;
+    }
+
+    .social-service-card:hover .service-image {
+      transform: scale(1.035);
+    }
+
+    .service-id {
       position: absolute;
-      left: 0;
-      top: 6px;
-      bottom: 6px;
-      width: 3px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, #3b82f6, #6366f1);
-      opacity: .9;
-    }
-    .smc-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 14px 32px rgba(15,23,42,.16);
-      border-color: rgba(59,130,246,.6);
-    }
+      top: 10px;
+      right: 10px;
+      z-index: 3;
 
-    .smc-card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 4px;
-    }
-    .smc-type-badge {
-      font-size: .7rem;
+      padding: 0.25rem 0.55rem;
       border-radius: 999px;
-      padding: 3px 9px;
-      background: #eef2ff;
-      color: #4338ca;
+
+      color: #fff;
+      background: rgba(17, 24, 39, 0.78);
+      backdrop-filter: blur(5px);
+
+      font-size: 0.7rem;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
-    .smc-id {
-      font-size: .72rem;
-      color: #9ca3af;
     }
 
-    .smc-name {
-      margin: 0;
-      font-size: .96rem;
-      font-weight: 700;
-      color: #0f172a;
-    }
-    .smc-provider {
-      font-size: .78rem;
-      color: #6b7280;
-      margin-top: 2px;
-    }
+    .service-badges {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      right: 10px;
+      z-index: 3;
 
-    .smc-tags {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 6px;
-      margin-bottom: 4px;
+      gap: 0.35rem;
     }
-    .smc-tag {
-      font-size: .7rem;
-      padding: 3px 8px;
+
+    .service-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+
+      padding: 0.28rem 0.55rem;
       border-radius: 999px;
-      background: #f3f4ff;
+
+      font-size: 0.67rem;
+      font-weight: 700;
+
+      background: rgba(255, 255, 255, 0.94);
       color: #4338ca;
+
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.13);
+      backdrop-filter: blur(6px);
     }
-    .smc-tag.refill {
-      background: #ecfeff;
-      color: #0f766e;
+
+    .service-badge.refill {
+      color: #047857;
     }
-    .smc-tag.no-refill {
-      background: #fef2f2;
+
+    .service-badge.no-refill {
       color: #b91c1c;
     }
-    .smc-tag.low {
-      background: #fef3c7;
+
+    .service-badge.low-quality {
       color: #b45309;
     }
 
-    .smc-meta-grid {
-      margin-top: 8px;
-      padding: 7px 9px;
-      border-radius: 12px;
-      background: #f9fafb;
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap: 4px 8px;
-    }
-    .smc-meta-label {
-      font-size: .75rem;
-      color: #6b7280;
-    }
-    .smc-meta-value {
-      font-size: .88rem;
-      font-weight: 700;
-      color: #111827;
-    }
+    .service-card-body {
+      flex: 1;
+      min-height: 108px;
+      padding: 1.2rem 1rem;
 
-    .smc-footer {
-      margin-top: 8px;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: .78rem;
-      color: #6b7280;
+      justify-content: center;
     }
-    .smc-footer strong { color: #111827; }
 
-    .smc-btn {
-      border-radius: 999px;
-      padding: 6px 14px;
-      font-size: .82rem;
-      font-weight: 600;
+    .service-card-title {
+      margin: 0;
+      color: #111827;
+      font-size: 0.98rem;
+      font-weight: 700;
+      line-height: 1.45;
+
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+
+      transition: color 0.2s ease;
+    }
+
+    .social-service-card:hover .service-card-title {
+      color: #0d6efd;
+    }
+
+    .service-card-hint {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 0.3rem;
+      margin-top: 0.65rem;
+      color: #6c757d;
+      font-size: 0.75rem;
     }
 
-    .smc-empty {
+    .social-service-card:hover .service-card-hint {
+      color: #0d6efd;
+    }
+
+    .service-card-hidden {
+      display: none !important;
+    }
+
+    /* =========================
+       EMPTY STATE
+       ========================= */
+
+    .empty-state {
+      text-align: center;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px dashed #adb5bd;
       border-radius: 16px;
-      background: #f9fafb;
-      padding: 20px;
-      border: 1px dashed #cbd5f5;
+      padding: 4rem 1rem;
+      color: #6c757d;
     }
 
-    .smm-card-hidden { display: none !important; }
+    .empty-state i {
+      display: block;
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      color: #adb5bd;
+    }
 
-    /* ===== Mobile ===== */
+    /* =========================
+       RESPONSIVE
+       ========================= */
+
+    @media (max-width: 767.98px) {
+      .services-header {
+        padding-top: 1.3rem;
+      }
+
+      .services-header-row {
+        align-items: flex-start;
+      }
+
+      .services-header-left {
+        align-items: flex-start;
+      }
+
+      .services-title {
+        font-size: 1.25rem;
+      }
+
+      .services-subtitle {
+        font-size: 0.8rem;
+      }
+
+      .header-icon {
+        width: 42px;
+        height: 42px;
+      }
+
+      .sort-select {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .visible-counter {
+        width: 100%;
+      }
+
+      .service-card-body {
+        min-height: 95px;
+        padding: 1rem 0.75rem;
+      }
+
+      .service-card-title {
+        font-size: 0.88rem;
+      }
+    }
+
     @media (max-width: 575.98px) {
-      .smc-header {
-        padding-top: 8px;
-        padding-bottom: 6px;
-      }
-      .smc-title {
-        font-size: 1.1rem;
-      }
-      .smc-sub {
-        font-size: .76rem;
-      }
-      .smc-icon {
-        width: 34px;
-        height: 34px;
-        font-size: 16px;
-      }
-      .smc-filter {
-        padding: 8px 10px;
-      }
-      .smc-card {
-        padding: 10px 11px 9px 14px;
-      }
-      .smc-meta-grid {
-        padding: 6px 8px;
+      .back-button span {
+        display: none;
       }
 
-      .smc-filter {
-        padding: 8px 10px;
-        margin-bottom: 10px;
+      .back-button {
+        width: 42px;
+        height: 42px;
+        padding: 0;
       }
-      .smc-search-pill {
-        padding: 5px 9px;
-      }
-      .smc-search-pill input {
-        font-size: 0.84rem;
-      }
-      .smc-sort-select {
+
+      .services-counter {
         width: 100%;
+        justify-content: center;
       }
-      .smc-count {
-        width: 100%;
-        text-align: left;
-        margin-top: 4px;
+
+      .services-filter {
+        padding: 0.85rem;
+      }
+
+      .service-id {
+        top: 7px;
+        right: 7px;
+      }
+
+      .service-badges {
+        left: 7px;
+        right: 7px;
+        bottom: 7px;
+      }
+
+      .service-badge {
+        padding: 0.22rem 0.42rem;
+        font-size: 0.59rem;
+      }
+
+      .service-card-body {
+        min-height: 88px;
+        padding: 0.8rem 0.55rem;
+      }
+
+      .service-card-title {
+        font-size: 0.79rem;
+        line-height: 1.4;
+        -webkit-line-clamp: 3;
+      }
+
+      .service-card-hint {
+        display: none;
       }
     }
   </style>
 </head>
+
 <body>
-  <!-- Same header with Menu button -->
+
   <%- include('partials/header', { user }) %>
 
   <main class="py-3">
-    <div class="container smc-shell">
+    <div class="container services-shell">
 
-      <!-- HEADER -->
-      <header class="smc-header">
-        <div class="smc-title-row">
-          <div class="smc-left">
-            <a href="/social-media" class="smc-back-btn">
+      <!-- PAGE HEADER -->
+      <header class="services-header">
+        <div class="services-header-row">
+
+          <div class="services-header-left">
+
+            <a href="/social-media" class="back-button">
               <i class="bi bi-arrow-left"></i>
               <span>Back</span>
             </a>
 
-            <div class="smc-icon">
+            <div class="header-icon">
               <i class="bi bi-broadcast-pin"></i>
             </div>
+
             <div>
-              <h1 class="smc-title"><%= categoryName %></h1>
-              <p class="smc-sub">
-                Choose the service you like, then enter your link and quantity from the checkout page.
+              <h1 class="services-title">
+                <%= categoryName %>
+              </h1>
+
+              <p class="services-subtitle">
+                Choose a service to continue to the checkout page.
               </p>
             </div>
+
           </div>
 
-          <div class="smc-actions">
-            <span class="smc-pill-counter">
-              <i class="bi bi-lightning-charge-fill"></i>
-              <span><strong><%= services.length %></strong> service(s)</span>
+          <div class="services-counter">
+            <i class="bi bi-lightning-charge-fill"></i>
+
+            <span>
+              <strong><%= Array.isArray(services) ? services.length : 0 %></strong>
+              service(s)
             </span>
           </div>
+
         </div>
       </header>
 
       <!-- FILTER BAR -->
-      <section class="smc-filter">
-        <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
-          <div class="flex-grow-1">
-            <label class="form-label mb-1">Search in this category</label>
-            <div class="smc-search-pill">
-              <span class="smc-search-pill-icon">
-                <i class="bi bi-search"></i>
-              </span>
+      <section class="services-filter">
+        <div class="row g-3 align-items-end">
+
+          <div class="col-md">
+            <label class="filter-label" for="serviceSearch">
+              Search in this category
+            </label>
+
+            <div class="service-search">
+              <i class="bi bi-search"></i>
+
               <input
-                type="text"
+                type="search"
                 id="serviceSearch"
-                class="form-control p-0 border-0 bg-transparent"
-                placeholder="Search by name, keyword, refill, global..."
+                placeholder="Search by service name or badge..."
+                autocomplete="off"
               />
             </div>
           </div>
 
-          <div class="d-flex flex-column flex-md-row align-items-md-center gap-2">
-            <div>
-              <label class="form-label mb-1">Sort</label>
-              <select id="sortSelect" class="form-select form-select-sm smc-sort-select">
-                <option value="default">Recommended</option>
-                <option value="price-asc">Price: Low to high</option>
-                <option value="price-desc">Price: High to low</option>
-                <option value="min-asc">Min quantity: Low first</option>
-                <option value="min-desc">Min quantity: High first</option>
-              </select>
-            </div>
+          <div class="col-md-auto">
+            <label class="filter-label" for="sortSelect">
+              Sort
+            </label>
 
-            <div class="smc-count ms-md-3">
-              Showing <strong><%= services.length %></strong> services.
+            <select
+              id="sortSelect"
+              class="form-select sort-select"
+            >
+              <option value="default">
+                Recommended
+              </option>
+
+              <option value="name-asc">
+                Name: A to Z
+              </option>
+
+              <option value="name-desc">
+                Name: Z to A
+              </option>
+            </select>
+          </div>
+
+          <div class="col-md-auto">
+            <div class="visible-counter pb-md-2">
+              Showing
+              <strong id="visibleServicesCount">
+                <%= Array.isArray(services) ? services.length : 0 %>
+              </strong>
+              services.
             </div>
           </div>
+
         </div>
       </section>
 
-      <!-- GRID -->
-      <% if (!services || !services.length) { %>
-        <div class="smc-empty text-center">
-          <h6 class="mb-1">No services available in this category yet.</h6>
-          <p class="small text-muted mb-0">
-            Try another category from the <a href="/social-media">social media services page</a>.
+      <%
+        const serviceList = Array.isArray(services)
+          ? services
+          : [];
+      %>
+
+      <% if (!serviceList.length) { %>
+
+        <section class="empty-state">
+          <i class="bi bi-collection"></i>
+
+          <h4>No services available</h4>
+
+          <p class="mb-0">
+            Try another category from the
+            <a href="/social-media">
+              social media services page
+            </a>.
           </p>
-        </div>
+        </section>
+
       <% } else { %>
 
-        <div id="servicesGrid" class="row g-3">
-          <% services.forEach(function(s) {
-               const minCost   = (Number(s.rate || 0) * Number(s.min_qty || 0)) / 1000;
-               const nameLower = (s.name || '').toLowerCase();
+        <div
+          id="servicesGrid"
+          class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-4"
+        >
 
-               // هل في flags محفوظة فعلياً؟
-               const hasManualFlags =
-                 s.best_price  != null ||
-                 s.fast_start  != null ||
-                 s.refill      != null ||
-                 s.no_refill   != null ||
-                 s.low_quality != null;
+          <% serviceList.forEach(function(service) {
+            const serviceName =
+              String(service.name || 'Social Media Service').trim();
 
-               // نبدأ من قيم الداتابيس
-               let showBest   = (s.best_price  == 1);
-               let showFast   = (s.fast_start  == 1);
-               let showRefill = (s.refill      == 1);
-               let showNoRef  = (s.no_refill   == 1);
-               let showLow    = (s.low_quality == 1);
+            const serviceNameLower =
+              serviceName.toLowerCase();
 
-               // إذا ما في ولا flag → نستنتج من الاسم متل قبل
-               if (!hasManualFlags) {
-                 if (nameLower.includes('refill'))        showRefill = true;
-                 if (nameLower.includes('no refill') ||
-                     nameLower.includes('no-refill')) {
-                   showNoRef  = true;
-                   showRefill = false;
-                 }
-                 if (nameLower.includes('low quality'))   showLow = true;
-                 // ممكن تضيف كلمات تانية هون لو حابب
-               }
+            const serviceImage =
+              service.image && String(service.image).trim()
+                ? String(service.image).trim()
+                : '/images/default-category.png';
 
-               // نص للبحث (name + tags)
-               const tagsArr = [];
-               if (showBest)   tagsArr.push('best price');
-               if (showFast)   tagsArr.push('fast start');
-               if (showRefill) tagsArr.push('refill');
-               if (showNoRef)  tagsArr.push('no refill');
-               if (showLow)    tagsArr.push('low quality', 'low');
-               const tagsString = tagsArr.join(' ').toLowerCase();
+            /*
+             * دعم أسماء الأعمدة الموجودة عندك:
+             * بعض أجزاء السيرفر تستعمل badge_best_price
+             * والصفحة القديمة كانت تستعمل best_price.
+             */
+            const showBest =
+              Number(
+                service.badge_best_price ??
+                service.best_price ??
+                0
+              ) === 1;
+
+            const showFast =
+              Number(
+                service.badge_fast_start ??
+                service.fast_start ??
+                0
+              ) === 1;
+
+            const showRefill =
+              Number(
+                service.badge_refill ??
+                service.refill ??
+                0
+              ) === 1;
+
+            const showNoRefill =
+              Number(
+                service.badge_no_refill ??
+                service.no_refill ??
+                0
+              ) === 1;
+
+            const showLowQuality =
+              Number(
+                service.badge_low_quality ??
+                service.low_quality ??
+                0
+              ) === 1;
+
+            const searchBadges = [
+              showBest ? 'best price' : '',
+              showFast ? 'fast start' : '',
+              showRefill ? 'refill' : '',
+              showNoRefill ? 'no refill' : '',
+              showLowQuality ? 'low quality' : ''
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase();
+
+            const searchValue =
+              `${serviceNameLower} ${searchBadges}`.trim();
           %>
+
             <div
-              class="col-12 col-md-6 col-xl-4 service-card-wrapper"
-              data-name="<%= nameLower %> <%= tagsString %>"
-              data-rate="<%= Number(s.rate || 0) %>"
-              data-min="<%= Number(s.min_qty || 0) %>">
+              class="col service-column"
+              data-service-card
+              data-original-index="<%= serviceList.indexOf(service) %>"
+              data-name="<%= serviceNameLower %>"
+              data-search="<%= searchValue %>"
+            >
 
-              <div class="smc-card">
-                <div class="smc-card-top">
-                  <span class="smc-type-badge">
-                    <%= (s.type || 'Default').toString().toUpperCase() %>
+              <a
+                href="/social-checkout/<%= service.id %>"
+                class="social-service-card"
+                aria-label="Open <%= serviceName %>"
+              >
+
+                <div class="service-image-wrapper">
+
+                  <img
+                    src="<%= serviceImage %>"
+                    class="service-image"
+                    alt="<%= serviceName %>"
+                    loading="lazy"
+                    onerror="this.onerror=null;this.src='/images/default-category.png';"
+                  />
+
+                  <span class="service-id">
+                    #<%= service.id %>
                   </span>
-                  <span class="smc-id">#<%= s.id %></span>
-                </div>
 
-                <h2 class="smc-name"><%= s.name %></h2>
-                <p class="smc-provider">
-                  <i class="bi bi-globe2 me-1"></i> Social media service
-                </p>
+                  <% if (
+                    showBest ||
+                    showFast ||
+                    showRefill ||
+                    showNoRefill ||
+                    showLowQuality
+                  ) { %>
 
-                <div class="smc-tags">
-                  <% if (showBest) { %>
-                    <span class="smc-tag">
-                      <i class="bi bi-graph-up-arrow me-1"></i> Best price
-                    </span>
-                  <% } %>
+                    <div class="service-badges">
 
-                  <% if (showFast) { %>
-                    <span class="smc-tag">
-                      <i class="bi bi-speedometer2 me-1"></i> Fast start
-                    </span>
-                  <% } %>
+                      <% if (showBest) { %>
+                        <span class="service-badge">
+                          <i class="bi bi-graph-up-arrow"></i>
+                          Best price
+                        </span>
+                      <% } %>
 
-                  <% if (showRefill) { %>
-                    <span class="smc-tag refill">
-                      <i class="bi bi-shield-check me-1"></i> Refill
-                    </span>
-                  <% } %>
+                      <% if (showFast) { %>
+                        <span class="service-badge">
+                          <i class="bi bi-lightning-charge"></i>
+                          Fast start
+                        </span>
+                      <% } %>
 
-                  <% if (showNoRef) { %>
-                    <span class="smc-tag no-refill">
-                      <i class="bi bi-slash-circle me-1"></i> No refill
-                    </span>
-                  <% } %>
+                      <% if (showRefill) { %>
+                        <span class="service-badge refill">
+                          <i class="bi bi-shield-check"></i>
+                          Refill
+                        </span>
+                      <% } %>
 
-                  <% if (showLow) { %>
-                    <span class="smc-tag low">
-                      <i class="bi bi-exclamation-triangle me-1"></i> Low quality
-                    </span>
-                  <% } %>
-                </div>
+                      <% if (showNoRefill) { %>
+                        <span class="service-badge no-refill">
+                          <i class="bi bi-slash-circle"></i>
+                          No refill
+                        </span>
+                      <% } %>
 
-                <div class="smc-meta-grid">
-                  <div>
-                    <div class="smc-meta-label">Rate</div>
-                    <div class="smc-meta-value text-primary">
-                      $<%= Number(s.rate || 0).toFixed(4) %>
+                      <% if (showLowQuality) { %>
+                        <span class="service-badge low-quality">
+                          <i class="bi bi-exclamation-triangle"></i>
+                          Low quality
+                        </span>
+                      <% } %>
+
                     </div>
-                  </div>
-                  <div>
-                    <div class="smc-meta-label">Min</div>
-                    <div class="smc-meta-value"><%= s.min_qty %></div>
-                  </div>
-                  <div>
-                    <div class="smc-meta-label">Max</div>
-                    <div class="smc-meta-value"><%= s.max_qty %></div>
-                  </div>
+
+                  <% } %>
+
                 </div>
 
-                <div class="smc-footer">
-                  <div>
-                    Approx. minimum price:
-                    <strong>$<%= isNaN(minCost) ? '0.0000' : minCost.toFixed(4) %></strong>
-                  </div>
-                  <a href="/social-checkout/<%= s.id %>" class="btn btn-primary smc-btn">
-                    <i class="bi bi-cart-plus"></i> Order
-                  </a>
+                <div class="service-card-body">
+
+                  <h2 class="service-card-title">
+                    <%= serviceName %>
+                  </h2>
+
+                  <span class="service-card-hint">
+                    Continue to checkout
+                    <i class="bi bi-arrow-right"></i>
+                  </span>
+
                 </div>
-              </div>
+
+              </a>
+
             </div>
+
           <% }); %>
+
         </div>
+
+        <!-- يظهر فقط عندما البحث لا يجد نتائج -->
+        <section
+          id="noSearchResults"
+          class="empty-state mt-4 d-none"
+        >
+          <i class="bi bi-search"></i>
+
+          <h5>No matching services found</h5>
+
+          <p class="mb-0">
+            Try using another search term.
+          </p>
+        </section>
+
       <% } %>
+
     </div>
   </main>
 
-  <!-- Bootstrap JS so Menu button works -->
+  <%- include('partials/footer') %>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    (function () {
-      const searchInput  = document.getElementById('serviceSearch');
-      const sortSelect   = document.getElementById('sortSelect');
-      const cards        = Array.from(document.querySelectorAll('.service-card-wrapper'));
+    document.addEventListener('DOMContentLoaded', function () {
+      const searchInput =
+        document.getElementById('serviceSearch');
 
-      // Search
+      const sortSelect =
+        document.getElementById('sortSelect');
+
+      const servicesGrid =
+        document.getElementById('servicesGrid');
+
+      const visibleCount =
+        document.getElementById('visibleServicesCount');
+
+      const noResults =
+        document.getElementById('noSearchResults');
+
+      if (!servicesGrid) return;
+
+      const cards = Array.from(
+        servicesGrid.querySelectorAll('[data-service-card]')
+      );
+
+      function updateVisibleCount() {
+        const count = cards.filter(function (card) {
+          return !card.classList.contains('service-card-hidden');
+        }).length;
+
+        if (visibleCount) {
+          visibleCount.textContent = String(count);
+        }
+
+        if (noResults) {
+          noResults.classList.toggle('d-none', count !== 0);
+        }
+      }
+
+      function applySearch() {
+        const term = searchInput
+          ? searchInput.value.toLowerCase().trim()
+          : '';
+
+        cards.forEach(function (card) {
+          const searchable =
+            card.dataset.search || '';
+
+          const shouldShow =
+            !term || searchable.includes(term);
+
+          card.classList.toggle(
+            'service-card-hidden',
+            !shouldShow
+          );
+        });
+
+        updateVisibleCount();
+      }
+
+      function applySort() {
+        if (!sortSelect) return;
+
+        const mode = sortSelect.value;
+
+        const sortedCards = [...cards].sort(function (a, b) {
+          const nameA = a.dataset.name || '';
+          const nameB = b.dataset.name || '';
+
+          const indexA =
+            Number(a.dataset.originalIndex || 0);
+
+          const indexB =
+            Number(b.dataset.originalIndex || 0);
+
+          if (mode === 'name-asc') {
+            return nameA.localeCompare(nameB);
+          }
+
+          if (mode === 'name-desc') {
+            return nameB.localeCompare(nameA);
+          }
+
+          return indexA - indexB;
+        });
+
+        sortedCards.forEach(function (card) {
+          servicesGrid.appendChild(card);
+        });
+      }
+
       if (searchInput) {
-        searchInput.addEventListener('input', function () {
-          const term = this.value.toLowerCase().trim();
-          cards.forEach(card => {
-            const name = card.getAttribute('data-name') || '';
-            if (!term || name.includes(term)) {
-              card.classList.remove('smm-card-hidden');
-            } else {
-              card.classList.add('smm-card-hidden');
-            }
-          });
-        });
+        searchInput.addEventListener('input', applySearch);
       }
 
-      // Sort
       if (sortSelect) {
-        sortSelect.addEventListener('change', function () {
-          const mode = this.value;
-          const grid = document.getElementById('servicesGrid');
-          if (!grid) return;
-
-          const sorted = [...cards].sort((a, b) => {
-            const rateA = Number(a.getAttribute('data-rate') || 0);
-            const rateB = Number(b.getAttribute('data-rate') || 0);
-            const minA  = Number(a.getAttribute('data-min')  || 0);
-            const minB  = Number(b.getAttribute('data-min')  || 0);
-
-            switch (mode) {
-              case 'price-asc':  return rateA - rateB;
-              case 'price-desc': return rateB - rateA;
-              case 'min-asc':    return minA - minB;
-              case 'min-desc':   return minB - minA;
-              default:           return 0;
-            }
-          });
-
-          sorted.forEach(card => grid.appendChild(card));
-        });
+        sortSelect.addEventListener('change', applySort);
       }
-    })();
+
+      updateVisibleCount();
+    });
   </script>
+
 </body>
 </html>
