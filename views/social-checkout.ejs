@@ -1387,7 +1387,7 @@
     </div>
   </div>
 
-  <script src="/js/bootstrap.bundle.min.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -1420,9 +1420,12 @@
       const confirmPrice = document.getElementById('confirmPrice');
 
       const modalElement = document.getElementById('confirmationModal');
-      const confirmationModal = modalElement
-        ? new bootstrap.Modal(modalElement)
-        : null;
+      const confirmationModal =
+  modalElement &&
+  window.bootstrap &&
+  window.bootstrap.Modal
+    ? new window.bootstrap.Modal(modalElement)
+    : null;
 
       let calculatedTotal = 0;
       let formIsSubmitting = false;
@@ -1715,9 +1718,21 @@
         ensureToken();
         buildConfirmationPreview();
 
-        if (confirmationModal) {
-          confirmationModal.show();
-        }
+      if (confirmationModal) {
+  confirmationModal.show();
+} else {
+  buildConfirmationPreview();
+
+  const approved = window.confirm(
+    `Confirm order?\n\nQuantity: ${formatNumber(Number(qtyInput.value || 0))}\nTotal: $${calculatedTotal.toFixed(4)}`
+  );
+
+  if (approved) {
+    ensureToken();
+    formIsSubmitting = true;
+    form.submit();
+  }
+}
       });
 
       finalSubmitBtn.addEventListener('click', function () {
@@ -1747,9 +1762,21 @@
         ensureToken();
         buildConfirmationPreview();
 
-        if (confirmationModal) {
-          confirmationModal.show();
-        }
+       if (confirmationModal) {
+  confirmationModal.show();
+} else {
+  buildConfirmationPreview();
+
+  const approved = window.confirm(
+    `Confirm order?\n\nQuantity: ${formatNumber(Number(qtyInput.value || 0))}\nTotal: $${calculatedTotal.toFixed(4)}`
+  );
+
+  if (approved) {
+    ensureToken();
+    formIsSubmitting = true;
+    form.submit();
+  }
+}
       });
 
       renderQuickQuantities();
