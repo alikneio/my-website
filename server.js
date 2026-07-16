@@ -2058,6 +2058,7 @@ app.get('/social-media', async (req, res) => {
         c.name,
         c.slug,
         c.sort_order,
+        c.image,
         c.is_active,
         COUNT(s.id) AS service_count
       FROM smm_categories c
@@ -3078,8 +3079,8 @@ app.get('/admin/smm-categories', checkAdmin, async (req, res) => {
 
     const categories = await query(
       `
-      SELECT id, name, slug, sort_order, is_active
-      FROM smm_categories
+      SELECT id, name, slug, image, sort_order, is_active
+FROM smm_categories
       ${where}
       ORDER BY sort_order ASC, name ASC
       LIMIT 500
@@ -3116,8 +3117,10 @@ function slugifyCategory(name) {
 
 app.post('/admin/smm-categories/create', checkAdmin, async (req, res) => {
   try {
-    const rawName   = (req.body.name || '').trim();
-    let sortOrder   = parseInt(req.body.sort_order || '0', 10);
+    const rawName = String(req.body.name || '').trim();
+    const image = String(req.body.image || '').trim();
+
+    let sortOrder = parseInt(req.body.sort_order || '0', 10);
     if (!Number.isFinite(sortOrder)) sortOrder = 0;
 
     if (!rawName) {
@@ -3125,24 +3128,37 @@ app.post('/admin/smm-categories/create', checkAdmin, async (req, res) => {
       return res.redirect('/admin/smm-categories');
     }
 
-    let slug = slugifyCategory(rawName);
+    const slug = slugifyCategory(rawName);
 
     await query(
       `
-      INSERT INTO smm_categories (name, slug, sort_order, is_active)
-      VALUES (?, ?, ?, 1)
+      INSERT INTO smm_categories
+        (name, slug, image, sort_order, is_active)
+      VALUES (?, ?, ?, ?, 1)
+
       ON DUPLICATE KEY UPDATE
         name       = VALUES(name),
+        image      = VALUES(image),
         sort_order = VALUES(sort_order),
         is_active  = VALUES(is_active)
       `,
-      [rawName, slug, sortOrder]
+      [
+        rawName,
+        slug,
+        image || null,
+        sortOrder
+      ]
     );
 
     req.session.adminFlash = 'Category saved successfully.';
     return res.redirect('/admin/smm-categories');
+
   } catch (err) {
-    console.error('❌ /admin/smm-categories/create error:', err.message);
+    console.error(
+      '❌ /admin/smm-categories/create error:',
+      err.message || err
+    );
+
     req.session.adminFlash = 'Error while saving category.';
     return res.redirect('/admin/smm-categories');
   }
@@ -3151,14 +3167,17 @@ app.post('/admin/smm-categories/create', checkAdmin, async (req, res) => {
 
 app.post('/admin/smm-categories/:id/update', checkAdmin, async (req, res) => {
   const catId = parseInt(req.params.id, 10);
-  if (!Number.isFinite(catId)) {
+
+  if (!Number.isFinite(catId) || catId <= 0) {
     return res.status(400).send('Bad request');
   }
 
   try {
-    const rawName  = (req.body.name || '').trim();
-    const rawSlug  = (req.body.slug || '').trim();
-    let sortOrder  = parseInt(req.body.sort_order || '0', 10);
+    const rawName = String(req.body.name || '').trim();
+    const rawSlug = String(req.body.slug || '').trim();
+    const image = String(req.body.image || '').trim();
+
+    let sortOrder = parseInt(req.body.sort_order || '0', 10);
     if (!Number.isFinite(sortOrder)) sortOrder = 0;
 
     if (!rawName) {
@@ -3171,17 +3190,32 @@ app.post('/admin/smm-categories/:id/update', checkAdmin, async (req, res) => {
     await query(
       `
       UPDATE smm_categories
-      SET name = ?, slug = ?, sort_order = ?
+      SET
+        name = ?,
+        slug = ?,
+        image = ?,
+        sort_order = ?
       WHERE id = ?
       LIMIT 1
       `,
-      [rawName, slug, sortOrder, catId]
+      [
+        rawName,
+        slug,
+        image || null,
+        sortOrder,
+        catId
+      ]
     );
 
     req.session.adminFlash = 'Category updated.';
     return res.redirect('/admin/smm-categories');
+
   } catch (err) {
-    console.error('❌ /admin/smm-categories/:id/update error:', err.message);
+    console.error(
+      '❌ /admin/smm-categories/:id/update error:',
+      err.message || err
+    );
+
     req.session.adminFlash = 'Update error.';
     return res.redirect('/admin/smm-categories');
   }
