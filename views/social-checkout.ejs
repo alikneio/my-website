@@ -779,98 +779,326 @@
       }
     }
 
-    @media (max-width: 767.98px) {
-      .checkout-topbar {
-        padding-top: 0.9rem;
-      }
+  /* =========================================
+   MOBILE CHECKOUT — COMPACT VERSION
+   ========================================= */
 
-      .service-hero {
-        grid-template-columns: 120px minmax(0, 1fr);
-        gap: 1rem;
-        padding: 1rem;
-      }
+@media (max-width: 767.98px) {
+  main {
+    padding-top: 0 !important;
+    padding-bottom: 2rem !important;
+  }
 
-      .service-title {
-        font-size: 1.08rem;
-      }
+  .checkout-shell {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 
-      .service-helper {
-        font-size: 0.78rem;
-      }
+  /* Top bar */
+  .checkout-topbar {
+    padding: 10px 0;
+  }
 
-      .checkout-panel-body {
-        padding: 1.15rem;
-      }
+  .checkout-brand-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
 
-      .summary-header,
-      .summary-content {
-        padding-left: 1.15rem;
-        padding-right: 1.15rem;
-      }
-    }
+  .checkout-brand {
+    font-size: 0.95rem;
+  }
 
-    @media (max-width: 575.98px) {
-      main {
-        padding-top: 0 !important;
-      }
+  .checkout-back {
+    min-height: 38px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+  }
 
-      .checkout-shell {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
-      }
+  /* Service header */
+  .service-hero {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 16px;
+  }
 
-      .checkout-brand span {
-        display: none;
-      }
+  .service-image-box {
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+  }
 
-      .checkout-back span {
-        display: none;
-      }
+  .service-title {
+    font-size: 0.94rem;
+    line-height: 1.4;
 
-      .checkout-back {
-        width: 42px;
-        padding: 0;
-      }
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 
-      .service-hero {
-        display: block;
-      }
+  .service-helper {
+    display: none;
+  }
 
-      .service-image-box {
-        aspect-ratio: 16 / 8.7;
-        margin-bottom: 1rem;
-      }
+  .service-eyebrow {
+    gap: 4px;
+    margin-bottom: 5px;
+  }
 
-      .service-eyebrow {
-        margin-bottom: 0.5rem;
-      }
+  .service-category-badge,
+  .service-feature-badge {
+    padding: 3px 7px;
+    font-size: 0.6rem;
+  }
 
-      .service-title {
-        font-size: 1rem;
-      }
+  /* Main layout */
+  .checkout-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
 
-      .checkout-panel,
-      .service-hero {
-        border-radius: 18px;
-      }
+  .checkout-panel {
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.07);
+  }
 
-      .section-heading {
-        gap: 0.65rem;
-      }
+  .checkout-panel-body {
+    padding: 16px;
+  }
 
-      .checkout-input {
-        min-height: 54px;
-        font-size: 0.91rem;
-      }
+  .checkout-section + .checkout-section {
+    margin-top: 18px;
+    padding-top: 18px;
+  }
 
-      .quick-quantity {
-        flex: 1 1 calc(50% - 0.55rem);
-      }
+  /* Step heading */
+  .section-heading {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
 
-      .summary-price-value {
-        font-size: 1.75rem;
-      }
-    }
+  .section-number {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    font-size: 0.9rem;
+  }
+
+  .section-title {
+    font-size: 0.98rem;
+  }
+
+  .section-subtitle {
+    font-size: 0.74rem;
+    line-height: 1.5;
+  }
+
+  /* Inputs */
+  .field-label {
+    font-size: 0.82rem;
+  }
+
+  .checkout-input {
+    min-height: 52px;
+    padding: 10px 12px 10px 42px;
+    border-radius: 12px;
+    font-size: 0.88rem;
+  }
+
+  .field-icon {
+    left: 14px;
+  }
+
+  .field-message {
+    font-size: 0.72rem;
+    line-height: 1.45;
+  }
+
+  /* Quantity limits */
+  .quantity-limits {
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+
+  .limit-pill {
+    padding: 4px 8px;
+    font-size: 0.65rem;
+  }
+
+  /* Quick quantities become horizontal */
+  .quick-quantities {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-top: 10px;
+    padding-bottom: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .quick-quantities::-webkit-scrollbar {
+    display: none;
+  }
+
+  .quick-quantity {
+    flex: 0 0 auto;
+    min-width: 88px;
+    min-height: 40px;
+    padding: 7px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+  }
+
+  /* Small notice */
+  .simple-notice {
+    padding: 10px 12px;
+    margin-top: 16px;
+    font-size: 0.7rem;
+    line-height: 1.55;
+  }
+
+  /* Summary */
+  .order-summary {
+    position: static;
+  }
+
+  .summary-header {
+    padding: 16px 16px 0;
+  }
+
+  .summary-content {
+    padding: 14px 16px 16px;
+  }
+
+  .summary-title {
+    font-size: 1rem;
+  }
+
+  .summary-subtitle {
+    font-size: 0.7rem;
+  }
+
+  .summary-price {
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    border-radius: 14px;
+  }
+
+  .summary-price-label {
+    font-size: 0.7rem;
+  }
+
+  .summary-price-value {
+    font-size: 1.65rem;
+  }
+
+  .summary-price-note {
+    font-size: 0.64rem;
+  }
+
+  .summary-rows {
+    gap: 9px;
+  }
+
+  .summary-row {
+    font-size: 0.76rem;
+  }
+
+  .summary-divider {
+    margin: 13px 0;
+  }
+
+  /* Balance */
+  .balance-card {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .balance-label {
+    font-size: 0.66rem;
+  }
+
+  .balance-value {
+    font-size: 0.92rem;
+  }
+
+  .balance-status {
+    min-height: 0;
+    padding: 8px 10px;
+    font-size: 0.68rem;
+    line-height: 1.45;
+  }
+
+  /* Confirm button */
+  .confirm-button {
+    min-height: 50px;
+    margin-top: 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+  }
+
+  .secure-note {
+    font-size: 0.62rem;
+  }
+
+  /* Confirmation modal */
+  .confirmation-modal .modal-dialog {
+    margin: 12px;
+  }
+
+  .confirmation-modal .modal-content {
+    border-radius: 18px;
+  }
+
+  .confirmation-modal .modal-body {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .checkout-brand span {
+    display: none;
+  }
+
+  .checkout-back span {
+    display: none;
+  }
+
+  .checkout-back {
+    width: 38px;
+    padding: 0;
+  }
+
+  .service-hero {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .service-category-badge,
+  .service-feature-badge {
+    font-size: 0.55rem;
+  }
+
+  .checkout-panel-body {
+    padding: 14px;
+  }
+
+  .summary-content {
+    padding: 12px 14px 14px;
+  }
+
+  .summary-price-value {
+    font-size: 1.5rem;
+  }
+  .summary-secondary-row {
+  display: none;
+}
+}
   </style>
 </head>
 
@@ -1237,7 +1465,7 @@
                   <strong id="summaryQuantity">—</strong>
                 </div>
 
-                <div class="summary-row">
+                <div class="summary-row summary-secondary-row">
                   <span>Service rate</span>
                   <strong>
                     $<%= Number(service.rate || 0).toFixed(4) %>
@@ -1247,7 +1475,7 @@
                 </div>
 
                 <% if (service.average_time) { %>
-                  <div class="summary-row">
+                  <div class="summary-row summary-secondary-row">
                     <span>Estimated time</span>
                     <strong><%= service.average_time %></strong>
                   </div>
