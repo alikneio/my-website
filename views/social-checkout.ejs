@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
 
-  <title>Order <%= service.name %> | Social Media Services</title>
+  <title>Order <%= service.name %> | AK Cell</title>
 
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
   />
 
   <link rel="stylesheet" href="/css/bootstrap.css" />
@@ -24,24 +24,34 @@
 
   <style>
     :root {
-      --smm-primary: #1266f1;
-      --smm-primary-dark: #0755d9;
-      --smm-primary-soft: #eef5ff;
-      --smm-dark: #101828;
-      --smm-muted: #667085;
-      --smm-border: #e4e7ec;
-      --smm-success: #079455;
-      --smm-danger: #d92d20;
-      --smm-warning: #dc6803;
-      --smm-bg: #f3f6fc;
-      --smm-radius: 22px;
+      --checkout-primary: #1769ff;
+      --checkout-secondary: #6847f5;
+      --checkout-dark: #101828;
+      --checkout-text: #344054;
+      --checkout-muted: #667085;
+      --checkout-border: #e4e7ec;
+      --checkout-bg: #f2f5fb;
+      --checkout-success: #079455;
+      --checkout-danger: #d92d20;
+      --checkout-warning: #dc6803;
+      --checkout-radius: 18px;
+      --checkout-shadow: 0 14px 40px rgba(16, 24, 40, 0.08);
     }
 
     * {
       box-sizing: border-box;
     }
 
+    html,
     body {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    body {
+      min-height: 100vh;
       font-family:
         "Cairo",
         system-ui,
@@ -50,1055 +60,847 @@
         "Segoe UI",
         sans-serif;
 
+      color: var(--checkout-dark);
+
       background:
         radial-gradient(
-          circle at 10% 0%,
-          rgba(18, 102, 241, 0.12),
-          transparent 34%
+          circle at 0 0,
+          rgba(23, 105, 255, 0.13),
+          transparent 35%
         ),
         radial-gradient(
-          circle at 100% 20%,
-          rgba(124, 58, 237, 0.08),
+          circle at 100% 15%,
+          rgba(104, 71, 245, 0.1),
           transparent 30%
         ),
-        var(--smm-bg);
-
-      background-attachment: fixed;
-      color: var(--smm-dark);
-      min-height: 100vh;
+        var(--checkout-bg);
     }
 
     button,
     input {
-      font-family: inherit;
+      font: inherit;
     }
 
-    .checkout-shell {
+    .smm-checkout-page {
       width: 100%;
-      max-width: 1180px;
-      margin: 0 auto;
+      padding: 12px 0 36px;
     }
 
-    /* ==============================
-       TOP NAVIGATION
-       ============================== */
+    .smm-checkout-container {
+      width: min(100% - 24px, 1160px);
+      margin-inline: auto;
+    }
 
-    .checkout-topbar {
+    /* =====================================
+       TOP BAR
+       ===================================== */
+
+    .smm-topbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
-      padding: 1.2rem 0;
+      gap: 12px;
+      min-width: 0;
+      margin-bottom: 12px;
     }
 
-    .checkout-brand {
-      display: inline-flex;
+    .smm-topbar-brand {
+      display: flex;
       align-items: center;
-      gap: 0.65rem;
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--smm-dark);
+      gap: 9px;
+      min-width: 0;
+      color: var(--checkout-dark);
+      font-size: 14px;
+      font-weight: 800;
     }
 
-    .checkout-brand-icon {
-      width: 42px;
-      height: 42px;
+    .smm-topbar-icon {
+      width: 40px;
+      height: 40px;
+      flex: 0 0 40px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      border-radius: 13px;
       color: #fff;
-      background:
-        linear-gradient(
-          135deg,
-          var(--smm-primary),
-          #7047eb
-        );
-      box-shadow: 0 10px 24px rgba(18, 102, 241, 0.24);
+      background: linear-gradient(
+        135deg,
+        var(--checkout-primary),
+        var(--checkout-secondary)
+      );
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(23, 105, 255, 0.25);
     }
 
-    .checkout-back {
+    .smm-back-btn {
+      min-height: 40px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.4rem;
-      min-height: 42px;
-      padding: 0.5rem 0.9rem;
+      gap: 5px;
+      padding: 7px 13px;
       color: #475467;
-      background: rgba(255, 255, 255, 0.82);
-      border: 1px solid var(--smm-border);
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--checkout-border);
       border-radius: 999px;
       text-decoration: none;
-      backdrop-filter: blur(8px);
-      transition: 0.2s ease;
+      white-space: nowrap;
     }
 
-    .checkout-back:hover {
-      color: var(--smm-primary);
-      border-color: rgba(18, 102, 241, 0.5);
-      background: #fff;
-      transform: translateX(-2px);
+    .smm-back-btn:hover {
+      color: var(--checkout-primary);
+      border-color: rgba(23, 105, 255, 0.5);
     }
 
-    /* ==============================
-       SERVICE HERO
-       ============================== */
+    /* =====================================
+       ALERT
+       ===================================== */
 
-    .service-hero {
-      position: relative;
-      overflow: hidden;
-      display: grid;
-      grid-template-columns: 190px minmax(0, 1fr);
-      gap: 1.5rem;
-      align-items: center;
-      padding: 1.25rem;
-      margin-bottom: 1.25rem;
-      background: rgba(255, 255, 255, 0.92);
-      border: 1px solid rgba(228, 231, 236, 0.9);
-      border-radius: var(--smm-radius);
-      box-shadow: 0 18px 50px rgba(16, 24, 40, 0.08);
-      backdrop-filter: blur(14px);
-    }
-
-    .service-hero::after {
-      content: "";
-      position: absolute;
-      width: 220px;
-      height: 220px;
-      right: -90px;
-      top: -100px;
-      border-radius: 50%;
-      background:
-        radial-gradient(
-          circle,
-          rgba(18, 102, 241, 0.14),
-          transparent 70%
-        );
-      pointer-events: none;
-    }
-
-    .service-image-box {
+    .smm-error-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
       width: 100%;
-      aspect-ratio: 16 / 10;
-      border-radius: 16px;
+      margin-bottom: 12px;
+      padding: 13px;
+      color: #912018;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      border-radius: 15px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .smm-error-icon {
+      width: 32px;
+      height: 32px;
+      flex: 0 0 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      background: var(--checkout-danger);
+      border-radius: 50%;
+    }
+
+    .smm-error-alert strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* =====================================
+       SERVICE HEADER
+       ===================================== */
+
+    .smm-service-hero {
+      width: 100%;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid var(--checkout-border);
+      border-radius: var(--checkout-radius);
+      box-shadow: var(--checkout-shadow);
+    }
+
+    .smm-service-image {
+      width: 86px;
+      height: 86px;
       overflow: hidden;
       background: #f2f4f7;
-      border: 1px solid var(--smm-border);
+      border: 1px solid var(--checkout-border);
+      border-radius: 14px;
     }
 
-    .service-image-box img {
+    .smm-service-image img {
       display: block;
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    .service-hero-content {
-      position: relative;
-      z-index: 1;
+    .smm-service-info {
       min-width: 0;
     }
 
-    .service-eyebrow {
+    .smm-service-badges {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
-      gap: 0.45rem;
-      margin-bottom: 0.65rem;
+      gap: 4px;
+      margin-bottom: 6px;
     }
 
-    .service-category-badge,
-    .service-feature-badge {
+    .smm-badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.3rem;
-      padding: 0.3rem 0.65rem;
+      gap: 3px;
+      max-width: 100%;
+      padding: 3px 7px;
       border-radius: 999px;
-      font-size: 0.72rem;
+      font-size: 9px;
       font-weight: 700;
+      line-height: 1.3;
     }
 
-    .service-category-badge {
-      color: var(--smm-primary);
-      background: var(--smm-primary-soft);
-      border: 1px solid rgba(18, 102, 241, 0.16);
+    .smm-badge.category {
+      color: #175cd3;
+      background: #eff8ff;
+      border: 1px solid #b2ddff;
     }
 
-    .service-feature-badge {
+    .smm-badge.default {
       color: #344054;
       background: #f2f4f7;
       border: 1px solid #eaecf0;
     }
 
-    .service-feature-badge.success {
+    .smm-badge.success {
       color: #067647;
       background: #ecfdf3;
-      border-color: #abefc6;
+      border: 1px solid #abefc6;
     }
 
-    .service-feature-badge.warning {
+    .smm-badge.warning {
       color: #b54708;
       background: #fffaeb;
-      border-color: #fedf89;
+      border: 1px solid #fedf89;
     }
 
-    .service-feature-badge.danger {
+    .smm-badge.danger {
       color: #b42318;
       background: #fef3f2;
-      border-color: #fecdca;
+      border: 1px solid #fecdca;
     }
 
-    .service-title {
+    .smm-service-title {
+      display: -webkit-box;
       margin: 0;
-      max-width: 850px;
-      font-size: clamp(1.25rem, 2vw, 1.75rem);
+      overflow: hidden;
+      color: var(--checkout-dark);
+      font-size: 14px;
       font-weight: 800;
       line-height: 1.45;
-      color: var(--smm-dark);
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow-wrap: anywhere;
     }
 
-    .service-helper {
-      margin: 0.5rem 0 0;
-      color: var(--smm-muted);
-      font-size: 0.91rem;
-    }
+    /* =====================================
+       MAIN LAYOUT — MOBILE FIRST
+       ===================================== */
 
-    /* ==============================
-       ERROR ALERT
-       ============================== */
-
-    .checkout-alert {
+    .smm-checkout-layout {
+      width: 100%;
+      min-width: 0;
       display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-      padding: 1rem;
-      margin-bottom: 1.25rem;
-      color: #912018;
-      background: #fef3f2;
-      border: 1px solid #fecdca;
-      border-radius: 16px;
+      flex-direction: column;
+      gap: 12px;
     }
 
-    .checkout-alert-icon {
-      flex: 0 0 auto;
-      width: 34px;
-      height: 34px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      background: var(--smm-danger);
-      border-radius: 50%;
-    }
-
-    .checkout-alert strong {
-      display: block;
-      margin-bottom: 0.15rem;
-    }
-
-    /* ==============================
-       MAIN LAYOUT
-       ============================== */
-
-    .checkout-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 370px;
-      gap: 1.25rem;
-      align-items: start;
-    }
-
-    .checkout-panel {
-      background: rgba(255, 255, 255, 0.95);
-      border: 1px solid rgba(228, 231, 236, 0.95);
-      border-radius: var(--smm-radius);
-      box-shadow: 0 18px 50px rgba(16, 24, 40, 0.07);
+    .smm-panel {
+      width: 100%;
+      min-width: 0;
       overflow: hidden;
+      background: rgba(255, 255, 255, 0.97);
+      border: 1px solid var(--checkout-border);
+      border-radius: var(--checkout-radius);
+      box-shadow: var(--checkout-shadow);
     }
 
-    .checkout-panel-body {
-      padding: 1.5rem;
+    .smm-form-panel {
+      padding: 16px;
     }
 
-    .checkout-section {
-      position: relative;
-    }
-
-    .checkout-section + .checkout-section {
-      margin-top: 1.5rem;
-      padding-top: 1.5rem;
+    .smm-step + .smm-step {
+      margin-top: 20px;
+      padding-top: 20px;
       border-top: 1px solid #eaecf0;
     }
 
-    .section-heading {
+    .smm-step-heading {
       display: flex;
       align-items: flex-start;
-      gap: 0.8rem;
-      margin-bottom: 1rem;
+      gap: 10px;
+      margin-bottom: 14px;
     }
 
-    .section-number {
-      flex: 0 0 auto;
-      width: 34px;
-      height: 34px;
+    .smm-step-number {
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       color: #fff;
-      background:
-        linear-gradient(
-          135deg,
-          var(--smm-primary),
-          #7047eb
-        );
-      border-radius: 11px;
-      font-size: 0.9rem;
+      background: linear-gradient(
+        135deg,
+        var(--checkout-primary),
+        var(--checkout-secondary)
+      );
+      border-radius: 12px;
+      font-size: 15px;
       font-weight: 800;
-      box-shadow: 0 8px 20px rgba(18, 102, 241, 0.2);
+      box-shadow: 0 8px 20px rgba(23, 105, 255, 0.22);
     }
 
-    .section-title {
+    .smm-step-title {
       margin: 0;
-      font-size: 1rem;
+      color: var(--checkout-dark);
+      font-size: 15px;
       font-weight: 800;
-      color: var(--smm-dark);
     }
 
-    .section-subtitle {
-      margin: 0.2rem 0 0;
-      font-size: 0.8rem;
-      color: var(--smm-muted);
+    .smm-step-description {
+      margin: 2px 0 0;
+      color: var(--checkout-muted);
+      font-size: 11px;
+      line-height: 1.5;
     }
 
-    .field-label {
+    /* =====================================
+       FIELDS
+       ===================================== */
+
+    .smm-label {
       display: block;
-      margin-bottom: 0.45rem;
-      color: #344054;
-      font-size: 0.88rem;
-      font-weight: 700;
+      margin-bottom: 7px;
+      color: var(--checkout-text);
+      font-size: 12px;
+      font-weight: 800;
     }
 
-    .field-shell {
+    .smm-input-wrap {
       position: relative;
+      width: 100%;
+      min-width: 0;
     }
 
-    .field-icon {
+    .smm-input-icon {
       position: absolute;
       top: 50%;
-      left: 1rem;
+      left: 15px;
       z-index: 2;
       transform: translateY(-50%);
       color: #98a2b3;
       pointer-events: none;
     }
 
-    .checkout-input {
+    .smm-input {
       width: 100%;
-      min-height: 58px;
-      padding: 0.75rem 1rem 0.75rem 3rem;
-      color: var(--smm-dark);
+      min-width: 0;
+      height: 54px;
+      padding: 10px 13px 10px 43px;
+      color: var(--checkout-dark);
       background: #fff;
       border: 1.5px solid #d0d5dd;
-      border-radius: 14px;
+      border-radius: 13px;
       outline: none;
       box-shadow: none;
-      font-size: 1rem;
-      transition: 0.18s ease;
+      font-size: 14px;
+      transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
     }
 
-    .checkout-input:hover {
-      border-color: #98a2b3;
+    .smm-input::placeholder {
+      color: #98a2b3;
     }
 
-    .checkout-input:focus {
-      border-color: var(--smm-primary);
-      box-shadow: 0 0 0 4px rgba(18, 102, 241, 0.11);
+    .smm-input:focus {
+      border-color: var(--checkout-primary);
+      box-shadow: 0 0 0 4px rgba(23, 105, 255, 0.1);
     }
 
-    .checkout-input.is-valid-custom {
+    .smm-input.valid {
       border-color: #12b76a;
       box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.09);
     }
 
-    .checkout-input.is-invalid-custom {
+    .smm-input.invalid {
       border-color: #f04438;
       box-shadow: 0 0 0 4px rgba(240, 68, 56, 0.08);
     }
 
-    .field-message {
-      min-height: 20px;
-      margin-top: 0.4rem;
-      font-size: 0.78rem;
-      color: var(--smm-muted);
+    .smm-field-message {
+      min-height: 18px;
+      margin-top: 6px;
+      color: var(--checkout-muted);
+      font-size: 10px;
+      line-height: 1.5;
     }
 
-    .field-message.success {
-      color: var(--smm-success);
+    .smm-field-message.success {
+      color: var(--checkout-success);
     }
 
-    .field-message.error {
-      color: var(--smm-danger);
+    .smm-field-message.error {
+      color: var(--checkout-danger);
     }
 
-    .quantity-limits {
+    /* =====================================
+       QUANTITY
+       ===================================== */
+
+    .smm-limits {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.65rem;
+      gap: 5px;
+      margin-bottom: 11px;
     }
 
-    .limit-pill {
+    .smm-limit {
       display: inline-flex;
       align-items: center;
-      gap: 0.3rem;
-      padding: 0.3rem 0.65rem;
+      gap: 4px;
+      padding: 4px 8px;
       color: #475467;
       background: #f9fafb;
       border: 1px solid #eaecf0;
       border-radius: 999px;
-      font-size: 0.75rem;
+      font-size: 9px;
+      line-height: 1.4;
     }
 
-    .quick-quantities {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.55rem;
-      margin-top: 0.8rem;
+    .smm-limit strong {
+      color: var(--checkout-text);
     }
 
-    .quick-quantity {
-      min-height: 38px;
-      padding: 0.4rem 0.8rem;
+    .smm-quick-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+      width: 100%;
+      margin-top: 11px;
+    }
+
+    .smm-quick-btn {
+      width: 100%;
+      min-width: 0;
+      height: 42px;
+      padding: 5px;
       color: #344054;
       background: #fff;
       border: 1px solid #d0d5dd;
       border-radius: 10px;
-      font-size: 0.8rem;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 800;
       transition: 0.18s ease;
     }
 
-    .quick-quantity:hover {
-      color: var(--smm-primary);
-      background: var(--smm-primary-soft);
-      border-color: rgba(18, 102, 241, 0.45);
-      transform: translateY(-1px);
+    .smm-quick-btn:hover {
+      color: var(--checkout-primary);
+      background: #eff6ff;
+      border-color: rgba(23, 105, 255, 0.45);
     }
 
-    .quick-quantity.active {
+    .smm-quick-btn.active {
       color: #fff;
-      background: var(--smm-primary);
-      border-color: var(--smm-primary);
+      background: var(--checkout-primary);
+      border-color: var(--checkout-primary);
     }
 
-    .simple-notice {
+    .smm-order-notice {
       display: flex;
       align-items: flex-start;
-      gap: 0.65rem;
-      padding: 0.9rem 1rem;
-      margin-top: 1.25rem;
+      gap: 8px;
+      width: 100%;
+      margin-top: 17px;
+      padding: 10px;
       color: #475467;
       background: #f9fafb;
       border: 1px solid #eaecf0;
-      border-radius: 14px;
-      font-size: 0.8rem;
-      line-height: 1.65;
+      border-radius: 12px;
+      font-size: 10px;
+      line-height: 1.55;
     }
 
-    .simple-notice i {
-      margin-top: 0.15rem;
-      color: var(--smm-primary);
+    .smm-order-notice i {
+      margin-top: 1px;
+      color: var(--checkout-primary);
     }
 
-    /* ==============================
-       SUMMARY
-       ============================== */
+    /* =====================================
+       SUMMARY — FULL WIDTH ON MOBILE
+       ===================================== */
 
-    .order-summary {
-      position: sticky;
-      top: 90px;
+    .smm-summary-panel {
+      width: 100%;
+      min-width: 0;
+      padding: 16px;
     }
 
-    .summary-header {
-      padding: 1.25rem 1.25rem 0;
+    .smm-summary-heading {
+      margin-bottom: 13px;
     }
 
-    .summary-title {
+    .smm-summary-title {
       margin: 0;
-      font-size: 1.05rem;
+      color: var(--checkout-dark);
+      font-size: 16px;
       font-weight: 800;
     }
 
-    .summary-subtitle {
-      margin: 0.25rem 0 0;
-      color: var(--smm-muted);
-      font-size: 0.78rem;
+    .smm-summary-subtitle {
+      margin: 2px 0 0;
+      color: var(--checkout-muted);
+      font-size: 10px;
     }
 
-    .summary-content {
-      padding: 1.25rem;
-    }
-
-    .summary-price {
-      padding: 1.1rem;
-      margin-bottom: 1rem;
+    .smm-total-box {
+      width: 100%;
+      min-width: 0;
+      padding: 16px;
       color: #fff;
-      background:
-        linear-gradient(
-          135deg,
-          #1266f1,
-          #7047eb
-        );
-      border-radius: 17px;
-      box-shadow: 0 15px 30px rgba(18, 102, 241, 0.22);
+      background: linear-gradient(
+        135deg,
+        var(--checkout-primary),
+        var(--checkout-secondary)
+      );
+      border-radius: 15px;
+      box-shadow: 0 13px 27px rgba(23, 105, 255, 0.22);
     }
 
-    .summary-price-label {
-      margin-bottom: 0.2rem;
-      font-size: 0.76rem;
+    .smm-total-label {
+      font-size: 10px;
       opacity: 0.82;
     }
 
-    .summary-price-value {
+    .smm-total-price {
       display: flex;
+      flex-wrap: wrap;
       align-items: baseline;
-      gap: 0.25rem;
-      font-size: 2rem;
+      gap: 3px;
+      margin-top: 3px;
+      font-size: 28px;
       font-weight: 800;
-      letter-spacing: -0.04em;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
     }
 
-    .summary-price-value small {
-      font-size: 0.85rem;
-      font-weight: 600;
-      opacity: 0.78;
+    .smm-total-price small {
+      font-size: 10px;
+      font-weight: 700;
+      opacity: 0.8;
     }
 
-    .summary-price-note {
-      margin-top: 0.25rem;
-      font-size: 0.7rem;
-      opacity: 0.76;
+    .smm-total-note {
+      margin-top: 5px;
+      font-size: 9px;
+      opacity: 0.75;
     }
 
-    .summary-rows {
+    .smm-summary-data {
       display: grid;
-      gap: 0.85rem;
+      gap: 9px;
+      margin-top: 14px;
     }
 
-    .summary-row {
+    .smm-summary-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
+      gap: 14px;
+      min-width: 0;
       color: #475467;
-      font-size: 0.84rem;
+      font-size: 11px;
     }
 
-    .summary-row strong {
-      max-width: 58%;
-      color: var(--smm-dark);
+    .smm-summary-row strong {
+      min-width: 0;
+      color: var(--checkout-dark);
       text-align: right;
       overflow-wrap: anywhere;
     }
 
-    .summary-divider {
+    .smm-summary-separator {
       height: 1px;
-      margin: 1rem 0;
+      margin: 14px 0;
       background: #eaecf0;
     }
 
-    .balance-card {
-      padding: 0.9rem 1rem;
+    .smm-balance-box {
+      width: 100%;
+      padding: 12px;
       background: #f9fafb;
       border: 1px solid #eaecf0;
-      border-radius: 14px;
+      border-radius: 13px;
     }
 
-    .balance-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
+    .smm-balance-values {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
     }
 
-    .balance-label {
-      color: var(--smm-muted);
-      font-size: 0.75rem;
+    .smm-balance-item:last-child {
+      text-align: right;
     }
 
-    .balance-value {
-      color: var(--smm-dark);
-      font-size: 1rem;
+    .smm-balance-label {
+      color: var(--checkout-muted);
+      font-size: 9px;
+    }
+
+    .smm-balance-value {
+      margin-top: 2px;
+      color: var(--checkout-dark);
+      font-size: 15px;
       font-weight: 800;
     }
 
-    .balance-after {
-      margin-top: 0.35rem;
-      color: var(--smm-muted);
-      font-size: 0.75rem;
-    }
-
-    .balance-status {
+    .smm-balance-status {
       display: flex;
       align-items: center;
-      gap: 0.4rem;
-      min-height: 38px;
-      padding: 0.6rem 0.75rem;
-      margin-top: 0.75rem;
+      gap: 6px;
+      width: 100%;
+      min-height: 42px;
+      margin-top: 10px;
+      padding: 9px 10px;
       border-radius: 10px;
-      font-size: 0.76rem;
+      font-size: 10px;
+      line-height: 1.45;
     }
 
-    .balance-status.waiting {
+    .smm-balance-status.waiting {
       color: #475467;
       background: #f2f4f7;
     }
 
-    .balance-status.success {
+    .smm-balance-status.success {
       color: #067647;
       background: #ecfdf3;
     }
 
-    .balance-status.error {
+    .smm-balance-status.error {
       color: #b42318;
       background: #fef3f2;
     }
 
-    .confirm-button {
+    .smm-confirm-btn {
       width: 100%;
-      min-height: 56px;
+      min-width: 0;
+      min-height: 52px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.55rem;
-      margin-top: 1rem;
+      gap: 7px;
+      margin-top: 12px;
+      padding: 10px 14px;
       color: #fff;
-      background:
-        linear-gradient(
-          135deg,
-          var(--smm-primary),
-          #7047eb
-        );
+      background: linear-gradient(
+        135deg,
+        var(--checkout-primary),
+        var(--checkout-secondary)
+      );
       border: 0;
-      border-radius: 14px;
-      font-size: 0.98rem;
+      border-radius: 13px;
+      font-size: 13px;
       font-weight: 800;
-      box-shadow: 0 13px 28px rgba(18, 102, 241, 0.24);
-      transition: 0.2s ease;
+      box-shadow: 0 12px 26px rgba(23, 105, 255, 0.22);
     }
 
-    .confirm-button:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 17px 34px rgba(18, 102, 241, 0.3);
-    }
-
-    .confirm-button:disabled {
+    .smm-confirm-btn:disabled {
       cursor: not-allowed;
-      opacity: 0.48;
+      opacity: 0.45;
       box-shadow: none;
     }
 
-    .secure-note {
+    .smm-secure-note {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.35rem;
-      margin-top: 0.75rem;
-      color: var(--smm-muted);
-      font-size: 0.7rem;
+      gap: 4px;
+      margin-top: 9px;
+      color: var(--checkout-muted);
+      font-size: 9px;
       text-align: center;
     }
 
-    /* ==============================
-       CONFIRM MODAL
-       ============================== */
+    /* =====================================
+       MODAL
+       ===================================== */
 
-    .confirmation-modal .modal-content {
+    .smm-confirm-modal .modal-dialog {
+      margin: 12px;
+    }
+
+    .smm-confirm-modal .modal-content {
       overflow: hidden;
       border: 0;
-      border-radius: 22px;
-      box-shadow: 0 26px 80px rgba(16, 24, 40, 0.24);
+      border-radius: 19px;
+      box-shadow: 0 26px 80px rgba(16, 24, 40, 0.26);
     }
 
-    .confirmation-modal .modal-body {
-      padding: 1.5rem;
+    .smm-confirm-modal .modal-body {
+      padding: 18px;
     }
 
-    .modal-check-icon {
-      width: 54px;
-      height: 54px;
+    .smm-modal-icon {
+      width: 50px;
+      height: 50px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 1rem;
-      color: var(--smm-primary);
-      background: var(--smm-primary-soft);
-      border-radius: 16px;
-      font-size: 1.5rem;
+      margin-bottom: 11px;
+      color: var(--checkout-primary);
+      background: #eff6ff;
+      border-radius: 15px;
+      font-size: 22px;
     }
 
-    .confirm-preview {
+    .smm-modal-preview {
       display: grid;
-      gap: 0.65rem;
-      padding: 1rem;
-      margin: 1rem 0;
+      gap: 8px;
+      padding: 12px;
+      margin: 14px 0;
       background: #f9fafb;
       border: 1px solid #eaecf0;
-      border-radius: 14px;
+      border-radius: 13px;
     }
 
-    .confirm-preview-row {
+    .smm-modal-row {
       display: flex;
       justify-content: space-between;
-      gap: 1rem;
-      color: var(--smm-muted);
-      font-size: 0.8rem;
+      gap: 12px;
+      min-width: 0;
+      color: var(--checkout-muted);
+      font-size: 11px;
     }
 
-    .confirm-preview-row strong {
-      max-width: 65%;
-      color: var(--smm-dark);
+    .smm-modal-row strong {
+      max-width: 68%;
+      color: var(--checkout-dark);
       text-align: right;
       overflow-wrap: anywhere;
     }
 
-    /* ==============================
-       RESPONSIVE
-       ============================== */
+    /* =====================================
+       DESKTOP ONLY
+       ===================================== */
 
-    @media (max-width: 991.98px) {
-      .checkout-layout {
-        grid-template-columns: 1fr;
+    @media (min-width: 768px) {
+      .smm-checkout-page {
+        padding-top: 20px;
       }
 
-      .order-summary {
-        position: static;
+      .smm-service-hero {
+        grid-template-columns: 150px minmax(0, 1fr);
+        gap: 18px;
+        padding: 16px;
       }
 
-      .service-hero {
-        grid-template-columns: 160px minmax(0, 1fr);
+      .smm-service-image {
+        width: 150px;
+        height: 100px;
+      }
+
+      .smm-service-title {
+        font-size: 19px;
+        -webkit-line-clamp: 2;
+      }
+
+      .smm-badge {
+        padding: 4px 9px;
+        font-size: 10px;
+      }
+
+      .smm-checkout-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .smm-form-panel,
+      .smm-summary-panel {
+        padding: 22px;
+      }
+
+      .smm-step-title {
+        font-size: 17px;
+      }
+
+      .smm-step-description {
+        font-size: 12px;
+      }
+
+      .smm-label {
+        font-size: 13px;
+      }
+
+      .smm-input {
+        height: 58px;
+        font-size: 15px;
+      }
+
+      .smm-field-message {
+        font-size: 11px;
+      }
+
+      .smm-limit {
+        font-size: 10px;
+      }
+
+      .smm-quick-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .smm-quick-btn {
+        height: 44px;
+        font-size: 12px;
+      }
+
+      .smm-order-notice {
+        font-size: 11px;
+      }
+
+      .smm-summary-panel {
+        position: sticky;
+        top: 85px;
+      }
+
+      .smm-summary-title {
+        font-size: 18px;
+      }
+
+      .smm-summary-subtitle {
+        font-size: 11px;
+      }
+
+      .smm-total-price {
+        font-size: 33px;
+      }
+
+      .smm-summary-row {
+        font-size: 12px;
+      }
+
+      .smm-balance-label {
+        font-size: 10px;
+      }
+
+      .smm-balance-value {
+        font-size: 17px;
+      }
+
+      .smm-balance-status {
+        font-size: 11px;
+      }
+
+      .smm-confirm-btn {
+        min-height: 55px;
+        font-size: 14px;
       }
     }
 
-  /* =========================================
-   MOBILE CHECKOUT — COMPACT VERSION
-   ========================================= */
-
-@media (max-width: 767.98px) {
-  main {
-    padding-top: 0 !important;
-    padding-bottom: 2rem !important;
-  }
-
-  .checkout-shell {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
-  /* Top bar */
-  .checkout-topbar {
-    padding: 10px 0;
-  }
-
-  .checkout-brand-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 11px;
-  }
-
-  .checkout-brand {
-    font-size: 0.95rem;
-  }
-
-  .checkout-back {
-    min-height: 38px;
-    padding: 6px 12px;
-    font-size: 0.82rem;
-  }
-
-  /* Service header */
-  .service-hero {
-    display: grid;
-    grid-template-columns: 88px minmax(0, 1fr);
-    gap: 12px;
-    padding: 12px;
-    margin-bottom: 12px;
-    border-radius: 16px;
-  }
-
-  .service-image-box {
-    aspect-ratio: 1 / 1;
-    border-radius: 12px;
-  }
-
-  .service-title {
-    font-size: 0.94rem;
-    line-height: 1.4;
-
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .service-helper {
-    display: none;
-  }
-
-  .service-eyebrow {
-    gap: 4px;
-    margin-bottom: 5px;
-  }
-
-  .service-category-badge,
-  .service-feature-badge {
-    padding: 3px 7px;
-    font-size: 0.6rem;
-  }
-
-  /* Main layout */
-  .checkout-layout {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .checkout-panel {
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.07);
-  }
-
-  .checkout-panel-body {
-    padding: 16px;
-  }
-
-  .checkout-section + .checkout-section {
-    margin-top: 18px;
-    padding-top: 18px;
-  }
-
-  /* Step heading */
-  .section-heading {
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-
-  .section-number {
-    width: 36px;
-    height: 36px;
-    border-radius: 11px;
-    font-size: 0.9rem;
-  }
-
-  .section-title {
-    font-size: 0.98rem;
-  }
-
-  .section-subtitle {
-    font-size: 0.74rem;
-    line-height: 1.5;
-  }
-
-  /* Inputs */
-  .field-label {
-    font-size: 0.82rem;
-  }
-
-  .checkout-input {
-    min-height: 52px;
-    padding: 10px 12px 10px 42px;
-    border-radius: 12px;
-    font-size: 0.88rem;
-  }
-
-  .field-icon {
-    left: 14px;
-  }
-
-  .field-message {
-    font-size: 0.72rem;
-    line-height: 1.45;
-  }
-
-  /* Quantity limits */
-  .quantity-limits {
-    gap: 5px;
-    margin-bottom: 10px;
-  }
-
-  .limit-pill {
-    padding: 4px 8px;
-    font-size: 0.65rem;
-  }
-
-  /* Quick quantities become horizontal */
-  .quick-quantities {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 8px;
-    margin-top: 10px;
-    padding-bottom: 5px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .quick-quantities::-webkit-scrollbar {
-    display: none;
-  }
-
-  .quick-quantity {
-    flex: 0 0 auto;
-    min-width: 88px;
-    min-height: 40px;
-    padding: 7px 14px;
-    border-radius: 10px;
-    font-size: 0.8rem;
-  }
-
-  /* Small notice */
-  .simple-notice {
-    padding: 10px 12px;
-    margin-top: 16px;
-    font-size: 0.7rem;
-    line-height: 1.55;
-  }
-
-  /* Summary */
-  .order-summary {
-    position: static;
-  }
-
-  .summary-header {
-    padding: 16px 16px 0;
-  }
-
-  .summary-content {
-    padding: 14px 16px 16px;
-  }
-
-  .summary-title {
-    font-size: 1rem;
-  }
-
-  .summary-subtitle {
-    font-size: 0.7rem;
-  }
-
-  .summary-price {
-    padding: 14px 16px;
-    margin-bottom: 14px;
-    border-radius: 14px;
-  }
-
-  .summary-price-label {
-    font-size: 0.7rem;
-  }
-
-  .summary-price-value {
-    font-size: 1.65rem;
-  }
-
-  .summary-price-note {
-    font-size: 0.64rem;
-  }
-
-  .summary-rows {
-    gap: 9px;
-  }
-
-  .summary-row {
-    font-size: 0.76rem;
-  }
-
-  .summary-divider {
-    margin: 13px 0;
-  }
-
-  /* Balance */
-  .balance-card {
-    padding: 12px;
-    border-radius: 12px;
-  }
-
-  .balance-label {
-    font-size: 0.66rem;
-  }
-
-  .balance-value {
-    font-size: 0.92rem;
-  }
-
-  .balance-status {
-    min-height: 0;
-    padding: 8px 10px;
-    font-size: 0.68rem;
-    line-height: 1.45;
-  }
-
-  /* Confirm button */
-  .confirm-button {
-    min-height: 50px;
-    margin-top: 12px;
-    border-radius: 12px;
-    font-size: 0.9rem;
-  }
-
-  .secure-note {
-    font-size: 0.62rem;
-  }
-
-  /* Confirmation modal */
-  .confirmation-modal .modal-dialog {
-    margin: 12px;
-  }
-
-  .confirmation-modal .modal-content {
-    border-radius: 18px;
-  }
-
-  .confirmation-modal .modal-body {
-    padding: 18px;
-  }
-}
-
-@media (max-width: 420px) {
-  .checkout-brand span {
-    display: none;
-  }
-
-  .checkout-back span {
-    display: none;
-  }
-
-  .checkout-back {
-    width: 38px;
-    padding: 0;
-  }
-
-  .service-hero {
-    grid-template-columns: 76px minmax(0, 1fr);
-  }
-
-  .service-category-badge,
-  .service-feature-badge {
-    font-size: 0.55rem;
-  }
-
-  .checkout-panel-body {
-    padding: 14px;
-  }
-
-  .summary-content {
-    padding: 12px 14px 14px;
-  }
-
-  .summary-price-value {
-    font-size: 1.5rem;
-  }
-  .summary-secondary-row {
-  display: none;
-}
-}
+    @media (min-width: 1100px) {
+      .smm-checkout-layout {
+        grid-template-columns: minmax(0, 1fr) 390px;
+      }
+    }
   </style>
 </head>
 
@@ -1111,6 +913,7 @@
     const minQtySafe = Number(service.min_qty || 1);
     const maxQtySafe = Number(service.max_qty || minQtySafe);
     const userBalanceSafe = Number(balance || 0);
+
     const serviceImage =
       service.image && String(service.image).trim()
         ? String(service.image).trim()
@@ -1132,13 +935,13 @@
       Number(service.badge_low_quality ?? service.low_quality ?? 0) === 1;
   %>
 
-  <main class="py-3 pb-5">
-    <div class="container checkout-shell">
+  <main class="smm-checkout-page">
+    <div class="smm-checkout-container">
 
       <!-- TOP BAR -->
-      <div class="checkout-topbar">
-        <div class="checkout-brand">
-          <span class="checkout-brand-icon">
+      <div class="smm-topbar">
+        <div class="smm-topbar-brand">
+          <span class="smm-topbar-icon">
             <i class="bi bi-stars"></i>
           </span>
 
@@ -1146,75 +949,59 @@
         </div>
 
         <a
-          href="/social-media/<%= service.category_slug || '' %>"
-          class="checkout-back"
-          onclick="if (!'<%= service.category_slug || '' %>') this.href='/social-media';"
+          href="javascript:history.back()"
+          class="smm-back-btn"
         >
           <i class="bi bi-arrow-left"></i>
           <span>Back</span>
         </a>
       </div>
 
-      <!-- ERROR -->
+      <!-- ERROR MESSAGE -->
       <% if (error) { %>
-        <div class="checkout-alert">
-          <span class="checkout-alert-icon">
+        <div class="smm-error-alert">
+          <span class="smm-error-icon">
             <i class="bi bi-exclamation-triangle-fill"></i>
           </span>
 
           <div>
             <% if (error === 'provider') { %>
               <strong>We could not submit this order.</strong>
-
-              <div>
-                Please verify that the link is correct, public when required,
-                and matches the selected service.
-              </div>
-
-              <% if (errorMessage) { %>
-                <div class="small mt-1">
-                  Details: <%= errorMessage %>
-                </div>
-              <% } %>
+              Check that the link is correct, public when required,
+              and matches the selected service.
 
             <% } else if (error === 'missing_fields') { %>
               <strong>Please complete all required fields.</strong>
-              <div>Enter the link and quantity, then try again.</div>
+              Enter the link and quantity, then try again.
 
             <% } else if (error === 'invalid_quantity') { %>
               <strong>The quantity is not valid.</strong>
-              <div>Please enter a whole number.</div>
+              Please enter a whole number.
 
             <% } else if (error === 'range') { %>
               <strong>The quantity is outside the allowed range.</strong>
-              <div>
-                Choose a quantity between
-                <%= rangeMin %> and <%= rangeMax %>.
-              </div>
+              Choose a quantity between
+              <%= rangeMin %> and <%= rangeMax %>.
 
             <% } else if (error === 'balance') { %>
               <strong>Your balance is not enough.</strong>
-              <div>Reduce the quantity or recharge your balance.</div>
+              Reduce the quantity or recharge your balance.
 
             <% } else if (error === 'missing_idem') { %>
               <strong>Your checkout session expired.</strong>
-              <div>Refresh this page and submit the order again.</div>
-
-            <% } else if (error === 'service_not_found') { %>
-              <strong>This service is not available.</strong>
-              <div>Please choose another active service.</div>
+              Reload the page and try again.
 
             <% } else { %>
               <strong>Something went wrong.</strong>
-              <div>Please check your information and try again.</div>
+              Please verify your information and try again.
             <% } %>
           </div>
         </div>
       <% } %>
 
-      <!-- SERVICE HERO -->
-      <section class="service-hero">
-        <div class="service-image-box">
+      <!-- SERVICE -->
+      <section class="smm-service-hero">
+        <div class="smm-service-image">
           <img
             src="<%= serviceImage %>"
             alt="<%= service.name %>"
@@ -1222,46 +1009,46 @@
           />
         </div>
 
-        <div class="service-hero-content">
-          <div class="service-eyebrow">
+        <div class="smm-service-info">
+          <div class="smm-service-badges">
 
             <% if (service.category_name) { %>
-              <span class="service-category-badge">
+              <span class="smm-badge category">
                 <i class="bi bi-grid"></i>
                 <%= service.category_name %>
               </span>
             <% } %>
 
             <% if (showBest) { %>
-              <span class="service-feature-badge">
+              <span class="smm-badge default">
                 <i class="bi bi-graph-up-arrow"></i>
                 Best price
               </span>
             <% } %>
 
             <% if (showFast) { %>
-              <span class="service-feature-badge">
+              <span class="smm-badge default">
                 <i class="bi bi-lightning-charge-fill"></i>
                 Fast start
               </span>
             <% } %>
 
             <% if (showRefill) { %>
-              <span class="service-feature-badge success">
+              <span class="smm-badge success">
                 <i class="bi bi-shield-check"></i>
                 Refill
               </span>
             <% } %>
 
             <% if (showNoRefill) { %>
-              <span class="service-feature-badge danger">
+              <span class="smm-badge danger">
                 <i class="bi bi-slash-circle"></i>
                 No refill
               </span>
             <% } %>
 
             <% if (showLowQuality) { %>
-              <span class="service-feature-badge warning">
+              <span class="smm-badge warning">
                 <i class="bi bi-exclamation-triangle"></i>
                 Low quality
               </span>
@@ -1269,13 +1056,9 @@
 
           </div>
 
-          <h1 class="service-title">
+          <h1 class="smm-service-title">
             <%= service.name %>
           </h1>
-
-          <p class="service-helper">
-            Add your link and choose the quantity. The final price is calculated instantly.
-          </p>
         </div>
       </section>
 
@@ -1298,242 +1081,237 @@
           value="<%= (idemKey || '').toString() %>"
         />
 
-        <div class="checkout-layout">
+        <div class="smm-checkout-layout">
 
-          <!-- LEFT SIDE -->
-          <section class="checkout-panel">
-            <div class="checkout-panel-body">
+          <!-- FORM -->
+          <section class="smm-panel smm-form-panel">
 
-              <!-- STEP 1 -->
-              <div class="checkout-section">
-                <div class="section-heading">
-                  <span class="section-number">1</span>
-
-                  <div>
-                    <h2 class="section-title">
-                      Add the correct link
-                    </h2>
-
-                    <p class="section-subtitle">
-                      Paste the profile, post, reel or video link required by this service.
-                    </p>
-                  </div>
-                </div>
-
-                <label for="linkInput" class="field-label">
-                  Profile, post or video link
-                </label>
-
-                <div class="field-shell">
-                  <i class="bi bi-link-45deg field-icon"></i>
-
-                  <input
-                    type="text"
-                    name="link"
-                    id="linkInput"
-                    class="checkout-input"
-                    placeholder="Paste the link here"
-                    value="<%= formLink || '' %>"
-                    autocomplete="off"
-                    required
-                  />
-                </div>
-
-                <div id="linkMessage" class="field-message">
-                  Make sure the account or post is public when required.
-                </div>
-              </div>
-
-              <!-- STEP 2 -->
-              <div class="checkout-section">
-                <div class="section-heading">
-                  <span class="section-number">2</span>
-
-                  <div>
-                    <h2 class="section-title">
-                      Choose the quantity
-                    </h2>
-
-                    <p class="section-subtitle">
-                      The total price updates automatically while you type.
-                    </p>
-                  </div>
-                </div>
-
-                <div class="quantity-limits">
-                  <span class="limit-pill">
-                    <i class="bi bi-arrow-down"></i>
-                    Minimum:
-                    <strong><%= minQtySafe.toLocaleString() %></strong>
-                  </span>
-
-                  <span class="limit-pill">
-                    <i class="bi bi-arrow-up"></i>
-                    Maximum:
-                    <strong><%= maxQtySafe.toLocaleString() %></strong>
-                  </span>
-
-                  <% if (service.average_time) { %>
-                    <span class="limit-pill">
-                      <i class="bi bi-clock"></i>
-                      <%= service.average_time %>
-                    </span>
-                  <% } %>
-                </div>
-
-                <label for="qtyInput" class="field-label">
-                  Quantity
-                </label>
-
-                <div class="field-shell">
-                  <i class="bi bi-hash field-icon"></i>
-
-                  <input
-                    type="number"
-                    name="quantity"
-                    id="qtyInput"
-                    class="checkout-input"
-                    min="<%= minQtySafe %>"
-                    max="<%= maxQtySafe %>"
-                    step="1"
-                    placeholder="Enter quantity"
-                    value="<%= formQty || '' %>"
-                    inputmode="numeric"
-                    required
-                  />
-                </div>
-
-                <div id="qtyMessage" class="field-message">
-                  Enter a value between
-                  <%= minQtySafe.toLocaleString() %>
-                  and
-                  <%= maxQtySafe.toLocaleString() %>.
-                </div>
-
-                <div
-                  id="quickQuantities"
-                  class="quick-quantities"
-                  aria-label="Quick quantity options"
-                ></div>
-              </div>
-
-              <div class="simple-notice">
-                <i class="bi bi-info-circle-fill"></i>
+            <!-- LINK -->
+            <div class="smm-step">
+              <div class="smm-step-heading">
+                <span class="smm-step-number">1</span>
 
                 <div>
-                  Review the link carefully before confirming. Some social media
-                  orders cannot be cancelled after submission.
+                  <h2 class="smm-step-title">
+                    Add the correct link
+                  </h2>
+
+                  <p class="smm-step-description">
+                    Paste the profile, post, reel or video link required by this service.
+                  </p>
                 </div>
               </div>
 
+              <label class="smm-label" for="linkInput">
+                Profile, post or video link
+              </label>
+
+              <div class="smm-input-wrap">
+                <i class="bi bi-link-45deg smm-input-icon"></i>
+
+                <input
+                  type="text"
+                  id="linkInput"
+                  name="link"
+                  class="smm-input"
+                  placeholder="Paste the link here"
+                  value="<%= formLink || '' %>"
+                  autocomplete="off"
+                  required
+                />
+              </div>
+
+              <div id="linkMessage" class="smm-field-message">
+                Make sure the account or post is public when required.
+              </div>
             </div>
+
+            <!-- QUANTITY -->
+            <div class="smm-step">
+              <div class="smm-step-heading">
+                <span class="smm-step-number">2</span>
+
+                <div>
+                  <h2 class="smm-step-title">
+                    Choose the quantity
+                  </h2>
+
+                  <p class="smm-step-description">
+                    Your total price updates automatically.
+                  </p>
+                </div>
+              </div>
+
+              <div class="smm-limits">
+                <span class="smm-limit">
+                  <i class="bi bi-arrow-down"></i>
+                  Minimum:
+                  <strong><%= minQtySafe.toLocaleString() %></strong>
+                </span>
+
+                <span class="smm-limit">
+                  <i class="bi bi-arrow-up"></i>
+                  Maximum:
+                  <strong><%= maxQtySafe.toLocaleString() %></strong>
+                </span>
+
+                <% if (service.average_time) { %>
+                  <span class="smm-limit">
+                    <i class="bi bi-clock"></i>
+                    <%= service.average_time %>
+                  </span>
+                <% } %>
+              </div>
+
+              <label class="smm-label" for="qtyInput">
+                Quantity
+              </label>
+
+              <div class="smm-input-wrap">
+                <i class="bi bi-hash smm-input-icon"></i>
+
+                <input
+                  type="number"
+                  id="qtyInput"
+                  name="quantity"
+                  class="smm-input"
+                  min="<%= minQtySafe %>"
+                  max="<%= maxQtySafe %>"
+                  step="1"
+                  placeholder="Enter quantity"
+                  value="<%= formQty || '' %>"
+                  inputmode="numeric"
+                  required
+                />
+              </div>
+
+              <div id="qtyMessage" class="smm-field-message">
+                Enter a value between
+                <%= minQtySafe.toLocaleString() %>
+                and
+                <%= maxQtySafe.toLocaleString() %>.
+              </div>
+
+              <div
+                id="quickQuantities"
+                class="smm-quick-grid"
+              ></div>
+            </div>
+
+            <div class="smm-order-notice">
+              <i class="bi bi-info-circle-fill"></i>
+
+              <span>
+                Verify the link before confirming. Some social media orders
+                cannot be cancelled after submission.
+              </span>
+            </div>
+
           </section>
 
-          <!-- RIGHT SIDE -->
-          <aside class="checkout-panel order-summary">
-            <div class="summary-header">
-              <h2 class="summary-title">
+          <!-- SUMMARY -->
+          <aside class="smm-panel smm-summary-panel">
+            <div class="smm-summary-heading">
+              <h2 class="smm-summary-title">
                 Order summary
               </h2>
 
-              <p class="summary-subtitle">
+              <p class="smm-summary-subtitle">
                 Review your order before confirming.
               </p>
             </div>
 
-            <div class="summary-content">
-
-              <div class="summary-price">
-                <div class="summary-price-label">
-                  Total price
-                </div>
-
-                <div class="summary-price-value">
-                  <span>$</span>
-                  <span id="estimatedPrice">0.0000</span>
-                  <small>USD</small>
-                </div>
-
-                <div class="summary-price-note">
-                  Calculated from the quantity you choose.
-                </div>
+            <div class="smm-total-box">
+              <div class="smm-total-label">
+                Total price
               </div>
 
-              <div class="summary-rows">
-                <div class="summary-row">
-                  <span>Quantity</span>
-                  <strong id="summaryQuantity">—</strong>
-                </div>
-
-                <div class="summary-row summary-secondary-row">
-                  <span>Service rate</span>
-                  <strong>
-                    $<%= Number(service.rate || 0).toFixed(4) %>
-                    /
-                    <%= ratePer.toLocaleString() %>
-                  </strong>
-                </div>
-
-                <% if (service.average_time) { %>
-                  <div class="summary-row summary-secondary-row">
-                    <span>Estimated time</span>
-                    <strong><%= service.average_time %></strong>
-                  </div>
-                <% } %>
+              <div class="smm-total-price">
+                <span>$</span>
+                <span id="estimatedPrice">0.0000</span>
+                <small>USD</small>
               </div>
 
-              <div class="summary-divider"></div>
+              <div class="smm-total-note">
+                Calculated from your selected quantity.
+              </div>
+            </div>
 
-              <div class="balance-card">
-                <div class="balance-top">
-                  <div>
-                    <div class="balance-label">
-                      Current balance
-                    </div>
+            <div class="smm-summary-data">
+              <div class="smm-summary-row">
+                <span>Quantity</span>
+                <strong id="summaryQuantity">—</strong>
+              </div>
 
-                    <div class="balance-value">
-                      $<%= userBalanceSafe.toFixed(2) %>
-                    </div>
+              <!-- يظهر على الكمبيوتر فقط عبر JavaScript/CSS عند الحاجة -->
+              <div class="smm-summary-row d-none d-md-flex">
+                <span>Service rate</span>
+
+                <strong>
+                  $<%= Number(service.rate || 0).toFixed(4) %>
+                  /
+                  <%= ratePer.toLocaleString() %>
+                </strong>
+              </div>
+
+              <% if (service.average_time) { %>
+                <div class="smm-summary-row d-none d-md-flex">
+                  <span>Estimated time</span>
+                  <strong><%= service.average_time %></strong>
+                </div>
+              <% } %>
+            </div>
+
+            <div class="smm-summary-separator"></div>
+
+            <div class="smm-balance-box">
+              <div class="smm-balance-values">
+                <div class="smm-balance-item">
+                  <div class="smm-balance-label">
+                    Current balance
                   </div>
 
-                  <div class="text-end">
-                    <div class="balance-label">
-                      Balance after order
-                    </div>
-
-                    <div
-                      id="balanceAfter"
-                      class="balance-value"
-                    >
-                      $<%= userBalanceSafe.toFixed(2) %>
-                    </div>
+                  <div class="smm-balance-value">
+                    $<%= userBalanceSafe.toFixed(2) %>
                   </div>
                 </div>
 
-                <div
-                  id="balanceStatus"
-                  class="balance-status waiting"
-                >
-                  <i class="bi bi-hourglass-split"></i>
-                  Enter the link and quantity to continue.
+                <div class="smm-balance-item">
+                  <div class="smm-balance-label">
+                    Balance after order
+                  </div>
+
+                  <div
+                    id="balanceAfter"
+                    class="smm-balance-value"
+                  >
+                    $<%= userBalanceSafe.toFixed(2) %>
+                  </div>
                 </div>
               </div>
 
-              <button
-                id="confirmBtn"
-                type="button"
-                class="confirm-button"
-                disabled
+              <div
+                id="balanceStatus"
+                class="smm-balance-status waiting"
               >
-                <i class="bi bi-check2-circle"></i>
-                Review and confirm
-              </button>
-
-              <div class="secure-note">
-                <i class="bi bi-shield-lock"></i>
-                Your order will only be submitted once.
+                <i class="bi bi-hourglass-split"></i>
+                Enter the link and quantity to continue.
               </div>
+            </div>
 
+            <button
+              id="confirmBtn"
+              type="button"
+              class="smm-confirm-btn"
+              disabled
+            >
+              <i class="bi bi-check2-circle"></i>
+              Review and confirm
+            </button>
+
+            <div class="smm-secure-note">
+              <i class="bi bi-shield-lock"></i>
+              Your order will only be submitted once.
             </div>
           </aside>
 
@@ -1544,43 +1322,39 @@
 
   <!-- CONFIRMATION MODAL -->
   <div
-    class="modal fade confirmation-modal"
+    class="modal fade smm-confirm-modal"
     id="confirmationModal"
     tabindex="-1"
-    aria-labelledby="confirmationModalLabel"
     aria-hidden="true"
   >
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
-
         <div class="modal-body">
-          <div class="modal-check-icon">
+
+          <div class="smm-modal-icon">
             <i class="bi bi-check2-circle"></i>
           </div>
 
-          <h2
-            id="confirmationModalLabel"
-            class="h5 fw-bold mb-2"
-          >
+          <h2 class="h5 fw-bold mb-1">
             Confirm your order
           </h2>
 
           <p class="text-muted small mb-0">
-            Check the information one last time before submission.
+            Check the information one last time.
           </p>
 
-          <div class="confirm-preview">
-            <div class="confirm-preview-row">
+          <div class="smm-modal-preview">
+            <div class="smm-modal-row">
               <span>Link</span>
               <strong id="confirmLink">—</strong>
             </div>
 
-            <div class="confirm-preview-row">
+            <div class="smm-modal-row">
               <span>Quantity</span>
               <strong id="confirmQuantity">—</strong>
             </div>
 
-            <div class="confirm-preview-row">
+            <div class="smm-modal-row">
               <span>Total</span>
               <strong id="confirmPrice">$0.0000</strong>
             </div>
@@ -1588,7 +1362,7 @@
 
           <div class="alert alert-warning small py-2 mb-3">
             <i class="bi bi-exclamation-triangle me-1"></i>
-            Do not change the username or link while the order is processing.
+            Do not change the username or link while processing.
           </div>
 
           <div class="d-flex gap-2">
@@ -1606,16 +1380,17 @@
               class="btn btn-primary flex-grow-1 fw-bold"
             >
               <i class="bi bi-cart-check me-1"></i>
-              Submit order
+              Submit
             </button>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   </div>
 
- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Bootstrap must load before checkout JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -1632,7 +1407,6 @@
 
       const linkMessage = document.getElementById('linkMessage');
       const qtyMessage = document.getElementById('qtyMessage');
-
       const quickQuantities = document.getElementById('quickQuantities');
 
       const estimatedPrice = document.getElementById('estimatedPrice');
@@ -1647,23 +1421,28 @@
       const confirmQuantity = document.getElementById('confirmQuantity');
       const confirmPrice = document.getElementById('confirmPrice');
 
-      const modalElement = document.getElementById('confirmationModal');
+      const modalElement =
+        document.getElementById('confirmationModal');
+
       const confirmationModal =
-  modalElement &&
-  window.bootstrap &&
-  window.bootstrap.Modal
-    ? new window.bootstrap.Modal(modalElement)
-    : null;
+        modalElement &&
+        window.bootstrap &&
+        window.bootstrap.Modal
+          ? new window.bootstrap.Modal(modalElement)
+          : null;
 
       let calculatedTotal = 0;
-      let formIsSubmitting = false;
+      let submitting = false;
 
       function formatNumber(value) {
         return Number(value || 0).toLocaleString('en-US');
       }
 
       function generateToken() {
-        if (window.crypto && window.crypto.randomUUID) {
+        if (
+          window.crypto &&
+          typeof window.crypto.randomUUID === 'function'
+        ) {
           return window.crypto.randomUUID();
         }
 
@@ -1683,10 +1462,11 @@
         }
       }
 
-      function normalizeQuickOptions() {
-        const candidates = [
+      function buildQuickQuantityValues() {
+        const values = [
           minQty,
           100,
+          200,
           250,
           500,
           1000,
@@ -1698,7 +1478,7 @@
           maxQty
         ];
 
-        return [...new Set(candidates)]
+        return [...new Set(values)]
           .filter(function (value) {
             return (
               Number.isFinite(value) &&
@@ -1715,21 +1495,19 @@
       function renderQuickQuantities() {
         if (!quickQuantities) return;
 
-        const values = normalizeQuickOptions();
-
         quickQuantities.innerHTML = '';
 
-        values.forEach(function (value) {
+        buildQuickQuantityValues().forEach(function (value) {
           const button = document.createElement('button');
 
           button.type = 'button';
-          button.className = 'quick-quantity';
+          button.className = 'smm-quick-btn';
           button.dataset.quantity = String(value);
           button.textContent = formatNumber(value);
 
           button.addEventListener('click', function () {
             qtyInput.value = String(value);
-            validateCheckout();
+            validateAll();
             qtyInput.focus();
           });
 
@@ -1740,35 +1518,36 @@
       function validateLink() {
         const link = String(linkInput.value || '').trim();
 
-        linkInput.classList.remove(
-          'is-valid-custom',
-          'is-invalid-custom'
-        );
+        linkInput.classList.remove('valid', 'invalid');
 
         if (!link) {
           linkMessage.textContent =
             'Paste the link required by this service.';
 
-          linkMessage.className = 'field-message';
+          linkMessage.className = 'smm-field-message';
+
           return false;
         }
 
         if (link.length < 3) {
-          linkInput.classList.add('is-invalid-custom');
+          linkInput.classList.add('invalid');
 
           linkMessage.textContent =
             'Please enter a valid link or username.';
 
-          linkMessage.className = 'field-message error';
+          linkMessage.className =
+            'smm-field-message error';
+
           return false;
         }
 
-        linkInput.classList.add('is-valid-custom');
+        linkInput.classList.add('valid');
 
         linkMessage.textContent =
           'Link added. Make sure it is correct and public if required.';
 
-        linkMessage.className = 'field-message success';
+        linkMessage.className =
+          'smm-field-message success';
 
         return true;
       }
@@ -1776,54 +1555,64 @@
       function validateQuantity() {
         const quantity = Number(qtyInput.value || 0);
 
-        qtyInput.classList.remove(
-          'is-valid-custom',
-          'is-invalid-custom'
-        );
+        qtyInput.classList.remove('valid', 'invalid');
 
-        if (!Number.isFinite(quantity) || quantity <= 0) {
+        if (
+          !Number.isFinite(quantity) ||
+          quantity <= 0
+        ) {
           qtyMessage.textContent =
             `Enter a value between ${formatNumber(minQty)} and ${formatNumber(maxQty)}.`;
 
-          qtyMessage.className = 'field-message';
+          qtyMessage.className =
+            'smm-field-message';
+
           return false;
         }
 
         if (!Number.isInteger(quantity)) {
-          qtyInput.classList.add('is-invalid-custom');
+          qtyInput.classList.add('invalid');
 
           qtyMessage.textContent =
             'Quantity must be a whole number.';
 
-          qtyMessage.className = 'field-message error';
+          qtyMessage.className =
+            'smm-field-message error';
+
           return false;
         }
 
-        if (quantity < minQty || quantity > maxQty) {
-          qtyInput.classList.add('is-invalid-custom');
+        if (
+          quantity < minQty ||
+          quantity > maxQty
+        ) {
+          qtyInput.classList.add('invalid');
 
           qtyMessage.textContent =
             `Allowed quantity is between ${formatNumber(minQty)} and ${formatNumber(maxQty)}.`;
 
-          qtyMessage.className = 'field-message error';
+          qtyMessage.className =
+            'smm-field-message error';
+
           return false;
         }
 
-        qtyInput.classList.add('is-valid-custom');
+        qtyInput.classList.add('valid');
 
         qtyMessage.textContent =
           'Quantity is within the allowed range.';
 
-        qtyMessage.className = 'field-message success';
+        qtyMessage.className =
+          'smm-field-message success';
 
         return true;
       }
 
-      function updateQuickQuantityState() {
+      function updateQuickButtons() {
         const quantity = Number(qtyInput.value || 0);
 
         document
-          .querySelectorAll('.quick-quantity')
+          .querySelectorAll('.smm-quick-btn')
           .forEach(function (button) {
             button.classList.toggle(
               'active',
@@ -1832,9 +1621,13 @@
           });
       }
 
-      function updateSummary(quantity) {
+      function updatePrice() {
+        const quantity = Number(qtyInput.value || 0);
+
         calculatedTotal =
-          quantity > 0 && rate > 0 && ratePer > 0
+          quantity > 0 &&
+          rate > 0 &&
+          ratePer > 0
             ? (quantity * rate) / ratePer
             : 0;
 
@@ -1846,25 +1639,26 @@
             ? formatNumber(quantity)
             : '—';
 
-        const remainingBalance =
+        const remaining =
           userBalance - calculatedTotal;
 
         balanceAfter.textContent =
-          '$' + Math.max(0, remainingBalance).toFixed(2);
+          '$' + Math.max(0, remaining).toFixed(2);
       }
 
-      function updateBalanceStatus(
-        hasValidLink,
-        hasValidQuantity
+      function updateStatus(
+        validLink,
+        validQuantity
       ) {
-        balanceStatus.className = 'balance-status';
+        balanceStatus.className =
+          'smm-balance-status';
 
-        if (!hasValidLink || !hasValidQuantity) {
+        if (!validLink || !validQuantity) {
           balanceStatus.classList.add('waiting');
 
           balanceStatus.innerHTML =
             '<i class="bi bi-hourglass-split"></i>' +
-            ' Enter the link and a valid quantity to continue.';
+            '<span>Enter the link and a valid quantity to continue.</span>';
 
           return false;
         }
@@ -1877,7 +1671,7 @@
 
           balanceStatus.innerHTML =
             '<i class="bi bi-exclamation-circle"></i>' +
-            ' We could not calculate the order price.';
+            '<span>Unable to calculate the order price.</span>';
 
           return false;
         }
@@ -1887,7 +1681,7 @@
 
           balanceStatus.innerHTML =
             '<i class="bi bi-wallet2"></i>' +
-            ' Your balance is not enough for this quantity.';
+            '<span>Your balance is not enough for this quantity.</span>';
 
           return false;
         }
@@ -1896,120 +1690,113 @@
 
         balanceStatus.innerHTML =
           '<i class="bi bi-check-circle-fill"></i>' +
-          ' Everything looks good. You can continue.';
+          '<span>Everything is ready. You can continue.</span>';
 
         return true;
       }
 
-      function validateCheckout() {
-        const quantity = Number(qtyInput.value || 0);
+      function validateAll() {
+        const validLink = validateLink();
+        const validQuantity = validateQuantity();
 
-        const hasValidLink = validateLink();
-        const hasValidQuantity = validateQuantity();
+        updatePrice();
+        updateQuickButtons();
 
-        updateSummary(quantity);
-        updateQuickQuantityState();
+        const validBalance =
+          updateStatus(validLink, validQuantity);
 
-        const canAfford = updateBalanceStatus(
-          hasValidLink,
-          hasValidQuantity
-        );
+        const ready =
+          validLink &&
+          validQuantity &&
+          validBalance;
 
-        confirmBtn.disabled = !(
-          hasValidLink &&
-          hasValidQuantity &&
-          canAfford
-        );
+        confirmBtn.disabled = !ready;
 
-        return !confirmBtn.disabled;
+        return ready;
       }
 
-      function buildConfirmationPreview() {
-        const link = String(linkInput.value || '').trim();
-        const quantity = Number(qtyInput.value || 0);
+      function fillConfirmation() {
+        const link =
+          String(linkInput.value || '').trim();
+
+        const quantity =
+          Number(qtyInput.value || 0);
 
         confirmLink.textContent = link;
-        confirmQuantity.textContent = formatNumber(quantity);
+        confirmQuantity.textContent =
+          formatNumber(quantity);
+
         confirmPrice.textContent =
           '$' + calculatedTotal.toFixed(4);
       }
 
-      linkInput.addEventListener('input', validateCheckout);
-      linkInput.addEventListener('blur', validateCheckout);
-
-      qtyInput.addEventListener('input', validateCheckout);
-      qtyInput.addEventListener('blur', validateCheckout);
-
-      confirmBtn.addEventListener('click', function () {
-        if (!validateCheckout()) return;
+      function openConfirmation() {
+        if (!validateAll()) return;
 
         ensureToken();
-        buildConfirmationPreview();
+        fillConfirmation();
 
-      if (confirmationModal) {
-  confirmationModal.show();
-} else {
-  buildConfirmationPreview();
+        if (confirmationModal) {
+          confirmationModal.show();
+          return;
+        }
 
-  const approved = window.confirm(
-    `Confirm order?\n\nQuantity: ${formatNumber(Number(qtyInput.value || 0))}\nTotal: $${calculatedTotal.toFixed(4)}`
-  );
+        const approved = window.confirm(
+          'Confirm this order?\n\n' +
+          'Quantity: ' +
+          formatNumber(Number(qtyInput.value || 0)) +
+          '\nTotal: $' +
+          calculatedTotal.toFixed(4)
+        );
 
-  if (approved) {
-    ensureToken();
-    formIsSubmitting = true;
-    form.submit();
-  }
-}
-      });
+        if (approved) {
+          submitOrder();
+        }
+      }
 
-      finalSubmitBtn.addEventListener('click', function () {
-        if (formIsSubmitting) return;
-        if (!validateCheckout()) return;
+      function submitOrder() {
+        if (submitting) return;
+        if (!validateAll()) return;
 
-        formIsSubmitting = true;
+        submitting = true;
         ensureToken();
 
-        finalSubmitBtn.disabled = true;
         confirmBtn.disabled = true;
+        finalSubmitBtn.disabled = true;
 
         finalSubmitBtn.innerHTML =
-          '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' +
+          '<span class="spinner-border spinner-border-sm me-2"></span>' +
           'Submitting...';
 
         form.submit();
-      });
+      }
+
+      linkInput.addEventListener('input', validateAll);
+      linkInput.addEventListener('blur', validateAll);
+
+      qtyInput.addEventListener('input', validateAll);
+      qtyInput.addEventListener('blur', validateAll);
+
+      confirmBtn.addEventListener(
+        'click',
+        openConfirmation
+      );
+
+      finalSubmitBtn.addEventListener(
+        'click',
+        submitOrder
+      );
 
       form.addEventListener('submit', function (event) {
-        if (formIsSubmitting) return;
+        if (submitting) return;
 
         event.preventDefault();
-
-        if (!validateCheckout()) return;
-
-        ensureToken();
-        buildConfirmationPreview();
-
-       if (confirmationModal) {
-  confirmationModal.show();
-} else {
-  buildConfirmationPreview();
-
-  const approved = window.confirm(
-    `Confirm order?\n\nQuantity: ${formatNumber(Number(qtyInput.value || 0))}\nTotal: $${calculatedTotal.toFixed(4)}`
-  );
-
-  if (approved) {
-    ensureToken();
-    formIsSubmitting = true;
-    form.submit();
-  }
-}
+        openConfirmation();
       });
 
       renderQuickQuantities();
       ensureToken();
-      validateCheckout();
+      validateAll();
     });
   </script>
 
