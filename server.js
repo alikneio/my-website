@@ -3658,12 +3658,14 @@ app.post('/admin/smm-services/:id/save', checkAdmin, (req, res) => {
 
 app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
   const serviceId = parseInt(req.params.id, 10);
-  if (!Number.isFinite(serviceId)) {
+
+  if (!Number.isFinite(serviceId) || serviceId <= 0) {
     return res.status(400).send('Bad request');
   }
 
   const {
     name,
+    image,
     category_id,
     rate,
     rate_per,
@@ -3673,54 +3675,65 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
     average_time,
     notes,
 
-    // ✅ badges
     badge_best_price,
     badge_fast_start,
     badge_refill,
     badge_no_refill,
-    badge_low_quality,     // 👈 الجديد
+    badge_low_quality,
   } = req.body;
 
-  const catId = category_id && category_id !== 'none'
-    ? parseInt(category_id, 10)
-    : null;
+  const catId =
+    category_id && category_id !== 'none'
+      ? parseInt(category_id, 10)
+      : null;
 
-  const numericRate    = Number(rate || 0);
+  const numericRate = Number(rate || 0);
   const numericRatePer = Number(rate_per || 1000) || 1000;
-  const minQ           = parseInt(min_qty || '0', 10) || 0;
-  const maxQ           = parseInt(max_qty || '0', 10) || 0;
-  const activeFlag     = is_active === '1' ? 1 : 0;
-  const avgTime        = (average_time || '').trim();
-  const cleanNotes     = (notes || '').trim();
-  const cleanName      = (name || '').trim();
 
-  // flags
+  const minQ = parseInt(min_qty || '0', 10) || 0;
+  const maxQ = parseInt(max_qty || '0', 10) || 0;
+
+  const activeFlag = is_active === '1' ? 1 : 0;
+
+  const cleanName = String(name || '').trim();
+  const cleanImage = String(image || '').trim();
+  const avgTime = String(average_time || '').trim();
+  const cleanNotes = String(notes || '').trim();
+
   const bestPriceFlag = badge_best_price ? 1 : 0;
   const fastStartFlag = badge_fast_start ? 1 : 0;
-  const refillFlag    = badge_refill ? 1 : 0;
-  const noRefillFlag  = badge_no_refill ? 1 : 0;
-  const lowQualityFlag= badge_low_quality ? 1 : 0;   // 👈 الجديد
+  const refillFlag = badge_refill ? 1 : 0;
+  const noRefillFlag = badge_no_refill ? 1 : 0;
+  const lowQualityFlag = badge_low_quality ? 1 : 0;
 
-  if (!cleanName || !Number.isFinite(numericRate) || numericRate <= 0) {
-    return res.redirect(`/admin/smm-services/${serviceId}/edit?msg=invalid`);
+  if (
+    !cleanName ||
+    !Number.isFinite(numericRate) ||
+    numericRate <= 0
+  ) {
+    return res.redirect(
+      `/admin/smm-services/${serviceId}/edit?msg=invalid`
+    );
   }
 
   const sql = `
     UPDATE smm_services
-    SET name             = ?,
-        category_id      = ?,
-        rate             = ?,
-        rate_per         = ?,
-        min_qty          = ?,
-        max_qty          = ?,
-        average_time     = ?,
-        notes            = ?,
-        is_active        = ?,
-        badge_best_price = ?,
-        badge_fast_start = ?,
-        badge_refill     = ?,
-        badge_no_refill  = ?,
-        badge_low_quality= ?      -- 👈 الجديد
+    SET
+      name              = ?,
+      image             = ?,
+      category_id       = ?,
+      rate              = ?,
+      rate_per          = ?,
+      min_qty           = ?,
+      max_qty           = ?,
+      average_time      = ?,
+      notes             = ?,
+      is_active         = ?,
+      badge_best_price  = ?,
+      badge_fast_start  = ?,
+      badge_refill      = ?,
+      badge_no_refill   = ?,
+      badge_low_quality = ?
     WHERE id = ?
     LIMIT 1
   `;
@@ -3729,6 +3742,7 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
     sql,
     [
       cleanName,
+      cleanImage || null,
       catId,
       numericRate,
       numericRatePer,
@@ -3746,15 +3760,20 @@ app.post('/admin/smm-services/:id/edit', checkAdmin, (req, res) => {
     ],
     err => {
       if (err) {
-        console.error('❌ update smm service:', err.message);
+        console.error(
+          '❌ update smm service:',
+          err.message || err
+        );
+
         return res.status(500).send('DB error');
       }
 
-      return res.redirect(`/admin/smm-services/${serviceId}/edit?msg=updated`);
+      return res.redirect(
+        `/admin/smm-services/${serviceId}/edit?msg=updated`
+      );
     }
   );
 });
-
 
 
 app.get('/free-fire-section', async (req, res) => {
