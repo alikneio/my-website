@@ -2,378 +2,1761 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Social Media Checkout - <%= service.name %></title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Order <%= service.name %> | Social Media Services</title>
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  />
 
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
-  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
+  <link
+    rel="stylesheet"
+    href="/css/bootstrap-icons/font/bootstrap-icons.css"
+  />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
 
   <style>
-    .checkout-card {
-      border: 0;
-      border-radius: 18px;
+    :root {
+      --smm-primary: #1266f1;
+      --smm-primary-dark: #0755d9;
+      --smm-primary-soft: #eef5ff;
+      --smm-dark: #101828;
+      --smm-muted: #667085;
+      --smm-border: #e4e7ec;
+      --smm-success: #079455;
+      --smm-danger: #d92d20;
+      --smm-warning: #dc6803;
+      --smm-bg: #f3f6fc;
+      --smm-radius: 22px;
     }
-    .info-chip {
-      border: 1px solid #e9ecef;
-      border-radius: 14px;
-      padding: 14px 16px;
-      height: 100%;
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family:
+        "Cairo",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      background:
+        radial-gradient(
+          circle at 10% 0%,
+          rgba(18, 102, 241, 0.12),
+          transparent 34%
+        ),
+        radial-gradient(
+          circle at 100% 20%,
+          rgba(124, 58, 237, 0.08),
+          transparent 30%
+        ),
+        var(--smm-bg);
+
+      background-attachment: fixed;
+      color: var(--smm-dark);
+      min-height: 100vh;
+    }
+
+    button,
+    input {
+      font-family: inherit;
+    }
+
+    .checkout-shell {
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    /* ==============================
+       TOP NAVIGATION
+       ============================== */
+
+    .checkout-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1.2rem 0;
+    }
+
+    .checkout-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--smm-dark);
+    }
+
+    .checkout-brand-icon {
+      width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 13px;
+      color: #fff;
+      background:
+        linear-gradient(
+          135deg,
+          var(--smm-primary),
+          #7047eb
+        );
+      box-shadow: 0 10px 24px rgba(18, 102, 241, 0.24);
+    }
+
+    .checkout-back {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      min-height: 42px;
+      padding: 0.5rem 0.9rem;
+      color: #475467;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid var(--smm-border);
+      border-radius: 999px;
+      text-decoration: none;
+      backdrop-filter: blur(8px);
+      transition: 0.2s ease;
+    }
+
+    .checkout-back:hover {
+      color: var(--smm-primary);
+      border-color: rgba(18, 102, 241, 0.5);
       background: #fff;
+      transform: translateX(-2px);
     }
-    .summary-box {
+
+    /* ==============================
+       SERVICE HERO
+       ============================== */
+
+    .service-hero {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      gap: 1.5rem;
+      align-items: center;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(228, 231, 236, 0.9);
+      border-radius: var(--smm-radius);
+      box-shadow: 0 18px 50px rgba(16, 24, 40, 0.08);
+      backdrop-filter: blur(14px);
+    }
+
+    .service-hero::after {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      right: -90px;
+      top: -100px;
+      border-radius: 50%;
+      background:
+        radial-gradient(
+          circle,
+          rgba(18, 102, 241, 0.14),
+          transparent 70%
+        );
+      pointer-events: none;
+    }
+
+    .service-image-box {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #f2f4f7;
+      border: 1px solid var(--smm-border);
+    }
+
+    .service-image-box img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .service-hero-content {
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+    }
+
+    .service-eyebrow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem;
+      margin-bottom: 0.65rem;
+    }
+
+    .service-category-badge,
+    .service-feature-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .service-category-badge {
+      color: var(--smm-primary);
+      background: var(--smm-primary-soft);
+      border: 1px solid rgba(18, 102, 241, 0.16);
+    }
+
+    .service-feature-badge {
+      color: #344054;
+      background: #f2f4f7;
+      border: 1px solid #eaecf0;
+    }
+
+    .service-feature-badge.success {
+      color: #067647;
+      background: #ecfdf3;
+      border-color: #abefc6;
+    }
+
+    .service-feature-badge.warning {
+      color: #b54708;
+      background: #fffaeb;
+      border-color: #fedf89;
+    }
+
+    .service-feature-badge.danger {
+      color: #b42318;
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
+
+    .service-title {
+      margin: 0;
+      max-width: 850px;
+      font-size: clamp(1.25rem, 2vw, 1.75rem);
+      font-weight: 800;
+      line-height: 1.45;
+      color: var(--smm-dark);
+    }
+
+    .service-helper {
+      margin: 0.5rem 0 0;
+      color: var(--smm-muted);
+      font-size: 0.91rem;
+    }
+
+    /* ==============================
+       ERROR ALERT
+       ============================== */
+
+    .checkout-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+      color: #912018;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
       border-radius: 16px;
     }
-    .sticky-side {
+
+    .checkout-alert-icon {
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      background: var(--smm-danger);
+      border-radius: 50%;
+    }
+
+    .checkout-alert strong {
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+
+    /* ==============================
+       MAIN LAYOUT
+       ============================== */
+
+    .checkout-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 370px;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    .checkout-panel {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(228, 231, 236, 0.95);
+      border-radius: var(--smm-radius);
+      box-shadow: 0 18px 50px rgba(16, 24, 40, 0.07);
+      overflow: hidden;
+    }
+
+    .checkout-panel-body {
+      padding: 1.5rem;
+    }
+
+    .checkout-section {
+      position: relative;
+    }
+
+    .checkout-section + .checkout-section {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #eaecf0;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.8rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-number {
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      background:
+        linear-gradient(
+          135deg,
+          var(--smm-primary),
+          #7047eb
+        );
+      border-radius: 11px;
+      font-size: 0.9rem;
+      font-weight: 800;
+      box-shadow: 0 8px 20px rgba(18, 102, 241, 0.2);
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--smm-dark);
+    }
+
+    .section-subtitle {
+      margin: 0.2rem 0 0;
+      font-size: 0.8rem;
+      color: var(--smm-muted);
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 0.45rem;
+      color: #344054;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .field-shell {
+      position: relative;
+    }
+
+    .field-icon {
+      position: absolute;
+      top: 50%;
+      left: 1rem;
+      z-index: 2;
+      transform: translateY(-50%);
+      color: #98a2b3;
+      pointer-events: none;
+    }
+
+    .checkout-input {
+      width: 100%;
+      min-height: 58px;
+      padding: 0.75rem 1rem 0.75rem 3rem;
+      color: var(--smm-dark);
+      background: #fff;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 14px;
+      outline: none;
+      box-shadow: none;
+      font-size: 1rem;
+      transition: 0.18s ease;
+    }
+
+    .checkout-input:hover {
+      border-color: #98a2b3;
+    }
+
+    .checkout-input:focus {
+      border-color: var(--smm-primary);
+      box-shadow: 0 0 0 4px rgba(18, 102, 241, 0.11);
+    }
+
+    .checkout-input.is-valid-custom {
+      border-color: #12b76a;
+      box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.09);
+    }
+
+    .checkout-input.is-invalid-custom {
+      border-color: #f04438;
+      box-shadow: 0 0 0 4px rgba(240, 68, 56, 0.08);
+    }
+
+    .field-message {
+      min-height: 20px;
+      margin-top: 0.4rem;
+      font-size: 0.78rem;
+      color: var(--smm-muted);
+    }
+
+    .field-message.success {
+      color: var(--smm-success);
+    }
+
+    .field-message.error {
+      color: var(--smm-danger);
+    }
+
+    .quantity-limits {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.65rem;
+    }
+
+    .limit-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.3rem 0.65rem;
+      color: #475467;
+      background: #f9fafb;
+      border: 1px solid #eaecf0;
+      border-radius: 999px;
+      font-size: 0.75rem;
+    }
+
+    .quick-quantities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-top: 0.8rem;
+    }
+
+    .quick-quantity {
+      min-height: 38px;
+      padding: 0.4rem 0.8rem;
+      color: #344054;
+      background: #fff;
+      border: 1px solid #d0d5dd;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      transition: 0.18s ease;
+    }
+
+    .quick-quantity:hover {
+      color: var(--smm-primary);
+      background: var(--smm-primary-soft);
+      border-color: rgba(18, 102, 241, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .quick-quantity.active {
+      color: #fff;
+      background: var(--smm-primary);
+      border-color: var(--smm-primary);
+    }
+
+    .simple-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      padding: 0.9rem 1rem;
+      margin-top: 1.25rem;
+      color: #475467;
+      background: #f9fafb;
+      border: 1px solid #eaecf0;
+      border-radius: 14px;
+      font-size: 0.8rem;
+      line-height: 1.65;
+    }
+
+    .simple-notice i {
+      margin-top: 0.15rem;
+      color: var(--smm-primary);
+    }
+
+    /* ==============================
+       SUMMARY
+       ============================== */
+
+    .order-summary {
       position: sticky;
       top: 90px;
     }
-    .muted-note {
-      font-size: 0.92rem;
+
+    .summary-header {
+      padding: 1.25rem 1.25rem 0;
     }
-    .price-big {
-      letter-spacing: -0.5px;
+
+    .summary-title {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
+    .summary-subtitle {
+      margin: 0.25rem 0 0;
+      color: var(--smm-muted);
+      font-size: 0.78rem;
+    }
+
+    .summary-content {
+      padding: 1.25rem;
+    }
+
+    .summary-price {
+      padding: 1.1rem;
+      margin-bottom: 1rem;
+      color: #fff;
+      background:
+        linear-gradient(
+          135deg,
+          #1266f1,
+          #7047eb
+        );
+      border-radius: 17px;
+      box-shadow: 0 15px 30px rgba(18, 102, 241, 0.22);
+    }
+
+    .summary-price-label {
+      margin-bottom: 0.2rem;
+      font-size: 0.76rem;
+      opacity: 0.82;
+    }
+
+    .summary-price-value {
+      display: flex;
+      align-items: baseline;
+      gap: 0.25rem;
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    .summary-price-value small {
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0.78;
+    }
+
+    .summary-price-note {
+      margin-top: 0.25rem;
+      font-size: 0.7rem;
+      opacity: 0.76;
+    }
+
+    .summary-rows {
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .summary-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      color: #475467;
+      font-size: 0.84rem;
+    }
+
+    .summary-row strong {
+      max-width: 58%;
+      color: var(--smm-dark);
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .summary-divider {
+      height: 1px;
+      margin: 1rem 0;
+      background: #eaecf0;
+    }
+
+    .balance-card {
+      padding: 0.9rem 1rem;
+      background: #f9fafb;
+      border: 1px solid #eaecf0;
+      border-radius: 14px;
+    }
+
+    .balance-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .balance-label {
+      color: var(--smm-muted);
+      font-size: 0.75rem;
+    }
+
+    .balance-value {
+      color: var(--smm-dark);
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .balance-after {
+      margin-top: 0.35rem;
+      color: var(--smm-muted);
+      font-size: 0.75rem;
+    }
+
+    .balance-status {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      min-height: 38px;
+      padding: 0.6rem 0.75rem;
+      margin-top: 0.75rem;
+      border-radius: 10px;
+      font-size: 0.76rem;
+    }
+
+    .balance-status.waiting {
+      color: #475467;
+      background: #f2f4f7;
+    }
+
+    .balance-status.success {
+      color: #067647;
+      background: #ecfdf3;
+    }
+
+    .balance-status.error {
+      color: #b42318;
+      background: #fef3f2;
+    }
+
+    .confirm-button {
+      width: 100%;
+      min-height: 56px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      margin-top: 1rem;
+      color: #fff;
+      background:
+        linear-gradient(
+          135deg,
+          var(--smm-primary),
+          #7047eb
+        );
+      border: 0;
+      border-radius: 14px;
+      font-size: 0.98rem;
+      font-weight: 800;
+      box-shadow: 0 13px 28px rgba(18, 102, 241, 0.24);
+      transition: 0.2s ease;
+    }
+
+    .confirm-button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 17px 34px rgba(18, 102, 241, 0.3);
+    }
+
+    .confirm-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+      box-shadow: none;
+    }
+
+    .secure-note {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      margin-top: 0.75rem;
+      color: var(--smm-muted);
+      font-size: 0.7rem;
+      text-align: center;
+    }
+
+    /* ==============================
+       CONFIRM MODAL
+       ============================== */
+
+    .confirmation-modal .modal-content {
+      overflow: hidden;
+      border: 0;
+      border-radius: 22px;
+      box-shadow: 0 26px 80px rgba(16, 24, 40, 0.24);
+    }
+
+    .confirmation-modal .modal-body {
+      padding: 1.5rem;
+    }
+
+    .modal-check-icon {
+      width: 54px;
+      height: 54px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      color: var(--smm-primary);
+      background: var(--smm-primary-soft);
+      border-radius: 16px;
+      font-size: 1.5rem;
+    }
+
+    .confirm-preview {
+      display: grid;
+      gap: 0.65rem;
+      padding: 1rem;
+      margin: 1rem 0;
+      background: #f9fafb;
+      border: 1px solid #eaecf0;
+      border-radius: 14px;
+    }
+
+    .confirm-preview-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      color: var(--smm-muted);
+      font-size: 0.8rem;
+    }
+
+    .confirm-preview-row strong {
+      max-width: 65%;
+      color: var(--smm-dark);
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    /* ==============================
+       RESPONSIVE
+       ============================== */
+
+    @media (max-width: 991.98px) {
+      .checkout-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .order-summary {
+        position: static;
+      }
+
+      .service-hero {
+        grid-template-columns: 160px minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 767.98px) {
+      .checkout-topbar {
+        padding-top: 0.9rem;
+      }
+
+      .service-hero {
+        grid-template-columns: 120px minmax(0, 1fr);
+        gap: 1rem;
+        padding: 1rem;
+      }
+
+      .service-title {
+        font-size: 1.08rem;
+      }
+
+      .service-helper {
+        font-size: 0.78rem;
+      }
+
+      .checkout-panel-body {
+        padding: 1.15rem;
+      }
+
+      .summary-header,
+      .summary-content {
+        padding-left: 1.15rem;
+        padding-right: 1.15rem;
+      }
+    }
+
+    @media (max-width: 575.98px) {
+      main {
+        padding-top: 0 !important;
+      }
+
+      .checkout-shell {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+      }
+
+      .checkout-brand span {
+        display: none;
+      }
+
+      .checkout-back span {
+        display: none;
+      }
+
+      .checkout-back {
+        width: 42px;
+        padding: 0;
+      }
+
+      .service-hero {
+        display: block;
+      }
+
+      .service-image-box {
+        aspect-ratio: 16 / 8.7;
+        margin-bottom: 1rem;
+      }
+
+      .service-eyebrow {
+        margin-bottom: 0.5rem;
+      }
+
+      .service-title {
+        font-size: 1rem;
+      }
+
+      .checkout-panel,
+      .service-hero {
+        border-radius: 18px;
+      }
+
+      .section-heading {
+        gap: 0.65rem;
+      }
+
+      .checkout-input {
+        min-height: 54px;
+        font-size: 0.91rem;
+      }
+
+      .quick-quantity {
+        flex: 1 1 calc(50% - 0.55rem);
+      }
+
+      .summary-price-value {
+        font-size: 1.75rem;
+      }
     }
   </style>
 </head>
+
 <body>
+
   <%- include('partials/header', { user: user }) %>
 
-  <main class="bg-light py-4">
-    <div class="container" style="max-width: 1100px;">
+  <%
+    const ratePer = Number(service.rate_per || 1000) || 1000;
+    const minQtySafe = Number(service.min_qty || 1);
+    const maxQtySafe = Number(service.max_qty || minQtySafe);
+    const userBalanceSafe = Number(balance || 0);
+    const serviceImage =
+      service.image && String(service.image).trim()
+        ? String(service.image).trim()
+        : '/images/default-category.png';
 
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">
-          <i class="bi bi-instagram"></i>
-          Social Media Services
-        </h1>
+    const showBest =
+      Number(service.badge_best_price ?? service.best_price ?? 0) === 1;
 
-        <a href="/social-media" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-arrow-left"></i> Back
+    const showFast =
+      Number(service.badge_fast_start ?? service.fast_start ?? 0) === 1;
+
+    const showRefill =
+      Number(service.badge_refill ?? service.refill ?? 0) === 1;
+
+    const showNoRefill =
+      Number(service.badge_no_refill ?? service.no_refill ?? 0) === 1;
+
+    const showLowQuality =
+      Number(service.badge_low_quality ?? service.low_quality ?? 0) === 1;
+  %>
+
+  <main class="py-3 pb-5">
+    <div class="container checkout-shell">
+
+      <!-- TOP BAR -->
+      <div class="checkout-topbar">
+        <div class="checkout-brand">
+          <span class="checkout-brand-icon">
+            <i class="bi bi-stars"></i>
+          </span>
+
+          <span>Social Media Checkout</span>
+        </div>
+
+        <a
+          href="/social-media/<%= service.category_slug || '' %>"
+          class="checkout-back"
+          onclick="if (!'<%= service.category_slug || '' %>') this.href='/social-media';"
+        >
+          <i class="bi bi-arrow-left"></i>
+          <span>Back</span>
         </a>
       </div>
 
+      <!-- ERROR -->
       <% if (error) { %>
-        <div class="alert alert-danger d-flex align-items-start gap-2 mb-3">
-          <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+        <div class="checkout-alert">
+          <span class="checkout-alert-icon">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+          </span>
+
           <div>
             <% if (error === 'provider') { %>
-              <strong>Provider rejected the order.</strong><br />
+              <strong>We could not submit this order.</strong>
+
+              <div>
+                Please verify that the link is correct, public when required,
+                and matches the selected service.
+              </div>
+
               <% if (errorMessage) { %>
-                Provider message: <code><%= errorMessage %></code><br />
+                <div class="small mt-1">
+                  Details: <%= errorMessage %>
+                </div>
               <% } %>
-              Please make sure:
-              <ul class="mb-0">
-                <li>The URL is complete and starts with <code>http://</code> or <code>https://</code>.</li>
-                <li>The account / post is public, when required by the service.</li>
-                <li>The link matches the service type.</li>
-              </ul>
+
             <% } else if (error === 'missing_fields') { %>
-              <strong>Missing data.</strong> Please fill the link and quantity.
+              <strong>Please complete all required fields.</strong>
+              <div>Enter the link and quantity, then try again.</div>
+
             <% } else if (error === 'invalid_quantity') { %>
-              <strong>Invalid quantity.</strong> Please enter a valid number.
+              <strong>The quantity is not valid.</strong>
+              <div>Please enter a whole number.</div>
+
             <% } else if (error === 'range') { %>
-              <strong>Quantity is out of allowed range.</strong><br />
-              Min: <%= rangeMin %> – Max: <%= rangeMax %>.
+              <strong>The quantity is outside the allowed range.</strong>
+              <div>
+                Choose a quantity between
+                <%= rangeMin %> and <%= rangeMax %>.
+              </div>
+
             <% } else if (error === 'balance') { %>
-              <strong>Insufficient balance.</strong> Please recharge and try again.
-            <% } else if (error === 'pricing') { %>
-              <strong>Pricing error.</strong> Please try again later.
-            <% } else if (error === 'no_provider_id') { %>
-              <strong>No order ID returned from provider.</strong> Please try again.
-            <% } else if (error === 'service_not_found') { %>
-              <strong>Service not found or disabled.</strong>
-            <% } else if (error === 'server') { %>
-              <strong>Internal server error.</strong> Please try again later.
+              <strong>Your balance is not enough.</strong>
+              <div>Reduce the quantity or recharge your balance.</div>
+
             <% } else if (error === 'missing_idem') { %>
-              <strong>Session expired.</strong> Please refresh the page and try again.
+              <strong>Your checkout session expired.</strong>
+              <div>Refresh this page and submit the order again.</div>
+
+            <% } else if (error === 'service_not_found') { %>
+              <strong>This service is not available.</strong>
+              <div>Please choose another active service.</div>
+
             <% } else { %>
-              <strong>Unable to complete the order.</strong> Please try again.
+              <strong>Something went wrong.</strong>
+              <div>Please check your information and try again.</div>
             <% } %>
           </div>
         </div>
       <% } %>
 
-      <div class="card shadow-sm checkout-card mb-4">
-        <div class="card-body p-4">
+      <!-- SERVICE HERO -->
+      <section class="service-hero">
+        <div class="service-image-box">
+          <img
+            src="<%= serviceImage %>"
+            alt="<%= service.name %>"
+            onerror="this.onerror=null;this.src='/images/default-category.png';"
+          />
+        </div>
 
-          <% const ratePer = Number(service.rate_per || 1000) || 1000; %>
-          <% const avgTime = service.average_time || ''; %>
-          <% const minQtySafe = Number(service.min_qty || 1); %>
-          <% const maxQtySafe = Number(service.max_qty || minQtySafe); %>
-          <% const userBalanceSafe = Number(balance || 0); %>
+        <div class="service-hero-content">
+          <div class="service-eyebrow">
 
-          <div class="mb-3">
-            <h2 class="h5 mb-1"><%= service.name %></h2>
             <% if (service.category_name) { %>
-              <p class="text-muted mb-0">
-                Category:
-                <strong><%= service.category_name %></strong>
-              </p>
+              <span class="service-category-badge">
+                <i class="bi bi-grid"></i>
+                <%= service.category_name %>
+              </span>
             <% } %>
+
+            <% if (showBest) { %>
+              <span class="service-feature-badge">
+                <i class="bi bi-graph-up-arrow"></i>
+                Best price
+              </span>
+            <% } %>
+
+            <% if (showFast) { %>
+              <span class="service-feature-badge">
+                <i class="bi bi-lightning-charge-fill"></i>
+                Fast start
+              </span>
+            <% } %>
+
+            <% if (showRefill) { %>
+              <span class="service-feature-badge success">
+                <i class="bi bi-shield-check"></i>
+                Refill
+              </span>
+            <% } %>
+
+            <% if (showNoRefill) { %>
+              <span class="service-feature-badge danger">
+                <i class="bi bi-slash-circle"></i>
+                No refill
+              </span>
+            <% } %>
+
+            <% if (showLowQuality) { %>
+              <span class="service-feature-badge warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                Low quality
+              </span>
+            <% } %>
+
           </div>
 
-          <div class="row g-2 mb-4">
-            <div class="col-6 col-md-3">
-              <div class="info-chip">
-                <div class="small text-muted text-uppercase">Rate / <%= ratePer.toLocaleString() %></div>
-                <div class="fw-bold text-primary">$<%= Number(service.rate).toFixed(4) %></div>
-              </div>
-            </div>
+          <h1 class="service-title">
+            <%= service.name %>
+          </h1>
 
-            <div class="col-6 col-md-3">
-              <div class="info-chip">
-                <div class="small text-muted text-uppercase">Min quantity</div>
-                <div class="fw-bold"><%= service.min_qty %></div>
-              </div>
-            </div>
+          <p class="service-helper">
+            Add your link and choose the quantity. The final price is calculated instantly.
+          </p>
+        </div>
+      </section>
 
-            <div class="col-6 col-md-3">
-              <div class="info-chip">
-                <div class="small text-muted text-uppercase">Max quantity</div>
-                <div class="fw-bold"><%= service.max_qty %></div>
-              </div>
-            </div>
+      <form
+        id="buySocialForm"
+        method="POST"
+        action="/buy-social"
+        novalidate
+      >
+        <input
+          type="hidden"
+          name="service_id"
+          value="<%= service.id %>"
+        />
 
-            <div class="col-6 col-md-3">
-              <div class="info-chip">
-                <div class="small text-muted text-uppercase">Average time</div>
-                <div class="fw-semibold">
-                  <%= avgTime || 'Varies depending on provider load' %>
+        <input
+          type="hidden"
+          name="idempotency_key"
+          id="idemKeyInput"
+          value="<%= (idemKey || '').toString() %>"
+        />
+
+        <div class="checkout-layout">
+
+          <!-- LEFT SIDE -->
+          <section class="checkout-panel">
+            <div class="checkout-panel-body">
+
+              <!-- STEP 1 -->
+              <div class="checkout-section">
+                <div class="section-heading">
+                  <span class="section-number">1</span>
+
+                  <div>
+                    <h2 class="section-title">
+                      Add the correct link
+                    </h2>
+
+                    <p class="section-subtitle">
+                      Paste the profile, post, reel or video link required by this service.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          <div class="row g-4">
-            <div class="col-lg-7">
-              <form id="buySocialForm" method="POST" action="/buy-social" novalidate>
-                <input type="hidden" name="service_id" value="<%= service.id %>" />
-                <input type="hidden" name="idempotency_key" id="idemKeyInput" value="<%= (idemKey || '').toString() %>" />
+                <label for="linkInput" class="field-label">
+                  Profile, post or video link
+                </label>
 
-                <div class="mb-3">
-                  <label class="form-label fw-semibold">Link (URL or username)</label>
+                <div class="field-shell">
+                  <i class="bi bi-link-45deg field-icon"></i>
+
                   <input
                     type="text"
                     name="link"
                     id="linkInput"
-                    class="form-control form-control-lg"
-                    placeholder="Paste the profile / post / reel / video link here"
+                    class="checkout-input"
+                    placeholder="Paste the link here"
                     value="<%= formLink || '' %>"
                     autocomplete="off"
                     required
                   />
-                  <div class="form-text">
-                    Paste the exact link required by the selected service.
+                </div>
+
+                <div id="linkMessage" class="field-message">
+                  Make sure the account or post is public when required.
+                </div>
+              </div>
+
+              <!-- STEP 2 -->
+              <div class="checkout-section">
+                <div class="section-heading">
+                  <span class="section-number">2</span>
+
+                  <div>
+                    <h2 class="section-title">
+                      Choose the quantity
+                    </h2>
+
+                    <p class="section-subtitle">
+                      The total price updates automatically while you type.
+                    </p>
                   </div>
                 </div>
 
-                <div class="mb-3">
-                  <label class="form-label fw-semibold">
-                    Quantity
-                    <small class="text-muted">
-                      (Min <%= service.min_qty %>, Max <%= service.max_qty %>)
-                    </small>
-                  </label>
+                <div class="quantity-limits">
+                  <span class="limit-pill">
+                    <i class="bi bi-arrow-down"></i>
+                    Minimum:
+                    <strong><%= minQtySafe.toLocaleString() %></strong>
+                  </span>
+
+                  <span class="limit-pill">
+                    <i class="bi bi-arrow-up"></i>
+                    Maximum:
+                    <strong><%= maxQtySafe.toLocaleString() %></strong>
+                  </span>
+
+                  <% if (service.average_time) { %>
+                    <span class="limit-pill">
+                      <i class="bi bi-clock"></i>
+                      <%= service.average_time %>
+                    </span>
+                  <% } %>
+                </div>
+
+                <label for="qtyInput" class="field-label">
+                  Quantity
+                </label>
+
+                <div class="field-shell">
+                  <i class="bi bi-hash field-icon"></i>
+
                   <input
                     type="number"
                     name="quantity"
                     id="qtyInput"
-                    class="form-control form-control-lg"
-                    min="<%= service.min_qty %>"
-                    max="<%= service.max_qty %>"
+                    class="checkout-input"
+                    min="<%= minQtySafe %>"
+                    max="<%= maxQtySafe %>"
+                    step="1"
+                    placeholder="Enter quantity"
                     value="<%= formQty || '' %>"
+                    inputmode="numeric"
                     required
                   />
-                  <div id="qtyHelp" class="form-text">
-                    Enter a quantity within the allowed range.
-                  </div>
                 </div>
 
-                <div class="card bg-light border-0 summary-box mb-3">
-                  <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                      <div>
-                        <div class="small text-muted text-uppercase mb-1">Estimated price</div>
-                        <div class="fw-bold fs-3 price-big mb-1">
-                          $<span id="estimated-price">0.0000</span>
-                        </div>
-                        <div class="small text-muted">
-                          Rate: $<%= Number(service.rate).toFixed(4) %> /
-                          <%= ratePer.toLocaleString() %> units
-                        </div>
-                      </div>
-
-                      <div class="text-end">
-                        <div class="small text-muted text-uppercase mb-1">Your balance</div>
-                        <div class="fw-bold fs-5">
-                          $<span id="user-balance"><%= userBalanceSafe.toFixed(2) %></span>
-                        </div>
-                        <div id="balanceStatus" class="small mt-1 text-muted">
-                          Waiting for quantity...
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div id="qtyMessage" class="field-message">
+                  Enter a value between
+                  <%= minQtySafe.toLocaleString() %>
+                  and
+                  <%= maxQtySafe.toLocaleString() %>.
                 </div>
 
-                <div class="d-grid gap-2">
-                  <button id="confirmBtn" type="submit" class="btn btn-primary btn-lg fw-semibold">
-                    Confirm Order
-                  </button>
+                <div
+                  id="quickQuantities"
+                  class="quick-quantities"
+                  aria-label="Quick quantity options"
+                ></div>
+              </div>
 
-                  <button id="refreshBtn" type="button" class="btn btn-outline-secondary">
-                    Refresh checkout token
-                  </button>
-                </div>
+              <div class="simple-notice">
+                <i class="bi bi-info-circle-fill"></i>
 
-                <div class="text-muted small mt-3">
-                  By submitting, your request will be sent once. Do not press back or refresh while processing.
-                </div>
-              </form>
-            </div>
-
-            <div class="col-lg-5">
-              <div class="sticky-side">
-                <div class="card bg-light border-0 h-100 summary-box">
-                  <div class="card-body">
-                    <h5 class="h6 mb-3">
-                      <i class="bi bi-info-circle"></i>
-                      Important notes
-                    </h5>
-
-                    <%
-                      const rawNotes = (service.notes || '').trim();
-                      const notesLines = rawNotes
-                        ? rawNotes.split(/\r?\n/).map(n => n.trim()).filter(Boolean)
-                        : [];
-                    %>
-
-                    <ul class="small mb-3">
-                      <% if (notesLines.length) { %>
-                        <% notesLines.forEach(function (line) { %>
-                          <li><%= line %></li>
-                        <% }) %>
-                      <% } else { %>
-                        <li>Make sure the link is correct and public if required.</li>
-                        <li>Do not change username or link until the order is fully completed.</li>
-                        <li>Delivery time depends on provider speed and queue.</li>
-                        <li>Quantity must stay inside the allowed range.</li>
-                      <% } %>
-                    </ul>
-
-                    <div class="border-top pt-3">
-                      <div class="small text-muted mb-1">Current checkout token</div>
-                      <code id="idemPreview" class="small"><%= (idemKey || '').toString() || 'missing' %></code>
-                    </div>
-                  </div>
+                <div>
+                  Review the link carefully before confirming. Some social media
+                  orders cannot be cancelled after submission.
                 </div>
               </div>
+
             </div>
-          </div><!-- /row -->
+          </section>
+
+          <!-- RIGHT SIDE -->
+          <aside class="checkout-panel order-summary">
+            <div class="summary-header">
+              <h2 class="summary-title">
+                Order summary
+              </h2>
+
+              <p class="summary-subtitle">
+                Review your order before confirming.
+              </p>
+            </div>
+
+            <div class="summary-content">
+
+              <div class="summary-price">
+                <div class="summary-price-label">
+                  Total price
+                </div>
+
+                <div class="summary-price-value">
+                  <span>$</span>
+                  <span id="estimatedPrice">0.0000</span>
+                  <small>USD</small>
+                </div>
+
+                <div class="summary-price-note">
+                  Calculated from the quantity you choose.
+                </div>
+              </div>
+
+              <div class="summary-rows">
+                <div class="summary-row">
+                  <span>Quantity</span>
+                  <strong id="summaryQuantity">—</strong>
+                </div>
+
+                <div class="summary-row">
+                  <span>Service rate</span>
+                  <strong>
+                    $<%= Number(service.rate || 0).toFixed(4) %>
+                    /
+                    <%= ratePer.toLocaleString() %>
+                  </strong>
+                </div>
+
+                <% if (service.average_time) { %>
+                  <div class="summary-row">
+                    <span>Estimated time</span>
+                    <strong><%= service.average_time %></strong>
+                  </div>
+                <% } %>
+              </div>
+
+              <div class="summary-divider"></div>
+
+              <div class="balance-card">
+                <div class="balance-top">
+                  <div>
+                    <div class="balance-label">
+                      Current balance
+                    </div>
+
+                    <div class="balance-value">
+                      $<%= userBalanceSafe.toFixed(2) %>
+                    </div>
+                  </div>
+
+                  <div class="text-end">
+                    <div class="balance-label">
+                      Balance after order
+                    </div>
+
+                    <div
+                      id="balanceAfter"
+                      class="balance-value"
+                    >
+                      $<%= userBalanceSafe.toFixed(2) %>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  id="balanceStatus"
+                  class="balance-status waiting"
+                >
+                  <i class="bi bi-hourglass-split"></i>
+                  Enter the link and quantity to continue.
+                </div>
+              </div>
+
+              <button
+                id="confirmBtn"
+                type="button"
+                class="confirm-button"
+                disabled
+              >
+                <i class="bi bi-check2-circle"></i>
+                Review and confirm
+              </button>
+
+              <div class="secure-note">
+                <i class="bi bi-shield-lock"></i>
+                Your order will only be submitted once.
+              </div>
+
+            </div>
+          </aside>
+
         </div>
-      </div>
+      </form>
     </div>
   </main>
 
+  <!-- CONFIRMATION MODAL -->
+  <div
+    class="modal fade confirmation-modal"
+    id="confirmationModal"
+    tabindex="-1"
+    aria-labelledby="confirmationModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+
+        <div class="modal-body">
+          <div class="modal-check-icon">
+            <i class="bi bi-check2-circle"></i>
+          </div>
+
+          <h2
+            id="confirmationModalLabel"
+            class="h5 fw-bold mb-2"
+          >
+            Confirm your order
+          </h2>
+
+          <p class="text-muted small mb-0">
+            Check the information one last time before submission.
+          </p>
+
+          <div class="confirm-preview">
+            <div class="confirm-preview-row">
+              <span>Link</span>
+              <strong id="confirmLink">—</strong>
+            </div>
+
+            <div class="confirm-preview-row">
+              <span>Quantity</span>
+              <strong id="confirmQuantity">—</strong>
+            </div>
+
+            <div class="confirm-preview-row">
+              <span>Total</span>
+              <strong id="confirmPrice">$0.0000</strong>
+            </div>
+          </div>
+
+          <div class="alert alert-warning small py-2 mb-3">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Do not change the username or link while the order is processing.
+          </div>
+
+          <div class="d-flex gap-2">
+            <button
+              type="button"
+              class="btn btn-outline-secondary flex-grow-1"
+              data-bs-dismiss="modal"
+            >
+              Go back
+            </button>
+
+            <button
+              type="button"
+              id="finalSubmitBtn"
+              class="btn btn-primary flex-grow-1 fw-bold"
+            >
+              <i class="bi bi-cart-check me-1"></i>
+              Submit order
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/bootstrap.bundle.min.js"></script>
+
   <script>
-    (function () {
-      const rate = <%= Number(service.rate || 0) %>;
-      const ratePer = <%= Number(service.rate_per || 1000) || 1000 %>;
-      const minQty = <%= minQtySafe %>;
-      const maxQty = <%= maxQtySafe %>;
-      const userBalance = <%= userBalanceSafe %>;
-
-      const qtyInput = document.getElementById('qtyInput');
-      const linkInput = document.getElementById('linkInput');
-      const priceSpan = document.getElementById('estimated-price');
-      const balanceStatus = document.getElementById('balanceStatus');
-      const qtyHelp = document.getElementById('qtyHelp');
-      const confirmBtn = document.getElementById('confirmBtn');
-
-      function updateEst() {
-        const q = Number(qtyInput?.value || 0);
-
-        if (!q || !rate || !ratePer) {
-          priceSpan.textContent = '0.0000';
-          balanceStatus.textContent = 'Waiting for quantity...';
-          balanceStatus.className = 'small mt-1 text-muted';
-          confirmBtn.disabled = false;
-          return;
-        }
-
-        const total = (q * rate) / ratePer;
-        priceSpan.textContent = total.toFixed(4);
-
-        if (q < minQty || q > maxQty) {
-          qtyHelp.textContent = `Allowed quantity is between ${minQty} and ${maxQty}.`;
-          qtyHelp.className = 'form-text text-danger';
-          confirmBtn.disabled = true;
-          balanceStatus.textContent = 'Invalid quantity range.';
-          balanceStatus.className = 'small mt-1 text-danger';
-          return;
-        }
-
-        qtyHelp.textContent = `Allowed quantity is between ${minQty} and ${maxQty}.`;
-        qtyHelp.className = 'form-text text-muted';
-
-        if (userBalance >= total) {
-          balanceStatus.textContent = 'Balance is enough for this order.';
-          balanceStatus.className = 'small mt-1 text-success';
-          confirmBtn.disabled = false;
-        } else {
-          balanceStatus.textContent = 'Insufficient balance for this quantity.';
-          balanceStatus.className = 'small mt-1 text-danger';
-          confirmBtn.disabled = false;
-        }
-      }
-
-      qtyInput?.addEventListener('input', updateEst);
-      updateEst();
+    document.addEventListener('DOMContentLoaded', function () {
+      const rate = Number(<%= Number(service.rate || 0) %>);
+      const ratePer = Number(<%= ratePer %>);
+      const minQty = Number(<%= minQtySafe %>);
+      const maxQty = Number(<%= maxQtySafe %>);
+      const userBalance = Number(<%= userBalanceSafe %>);
 
       const form = document.getElementById('buySocialForm');
-      const refreshBtn = document.getElementById('refreshBtn');
+      const linkInput = document.getElementById('linkInput');
+      const qtyInput = document.getElementById('qtyInput');
       const idemInput = document.getElementById('idemKeyInput');
-      const idemPreview = document.getElementById('idemPreview');
 
-      function generateClientToken() {
+      const linkMessage = document.getElementById('linkMessage');
+      const qtyMessage = document.getElementById('qtyMessage');
+
+      const quickQuantities = document.getElementById('quickQuantities');
+
+      const estimatedPrice = document.getElementById('estimatedPrice');
+      const summaryQuantity = document.getElementById('summaryQuantity');
+      const balanceAfter = document.getElementById('balanceAfter');
+      const balanceStatus = document.getElementById('balanceStatus');
+
+      const confirmBtn = document.getElementById('confirmBtn');
+      const finalSubmitBtn = document.getElementById('finalSubmitBtn');
+
+      const confirmLink = document.getElementById('confirmLink');
+      const confirmQuantity = document.getElementById('confirmQuantity');
+      const confirmPrice = document.getElementById('confirmPrice');
+
+      const modalElement = document.getElementById('confirmationModal');
+      const confirmationModal = modalElement
+        ? new bootstrap.Modal(modalElement)
+        : null;
+
+      let calculatedTotal = 0;
+      let formIsSubmitting = false;
+
+      function formatNumber(value) {
+        return Number(value || 0).toLocaleString('en-US');
+      }
+
+      function generateToken() {
         if (window.crypto && window.crypto.randomUUID) {
           return window.crypto.randomUUID();
         }
 
-        return 'fallback-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+        return (
+          'checkout-' +
+          Date.now() +
+          '-' +
+          Math.random().toString(16).slice(2)
+        );
       }
 
-      function refreshClientToken() {
-        const newToken = generateClientToken();
-        idemInput.value = newToken;
-        idemPreview.textContent = newToken;
+      function ensureToken() {
+        if (!idemInput) return;
+
+        if (!String(idemInput.value || '').trim()) {
+          idemInput.value = generateToken();
+        }
       }
 
-      refreshBtn?.addEventListener('click', function () {
-        refreshClientToken();
+      function normalizeQuickOptions() {
+        const candidates = [
+          minQty,
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          25000,
+          50000,
+          maxQty
+        ];
+
+        return [...new Set(candidates)]
+          .filter(function (value) {
+            return (
+              Number.isFinite(value) &&
+              value >= minQty &&
+              value <= maxQty
+            );
+          })
+          .sort(function (a, b) {
+            return a - b;
+          })
+          .slice(0, 6);
+      }
+
+      function renderQuickQuantities() {
+        if (!quickQuantities) return;
+
+        const values = normalizeQuickOptions();
+
+        quickQuantities.innerHTML = '';
+
+        values.forEach(function (value) {
+          const button = document.createElement('button');
+
+          button.type = 'button';
+          button.className = 'quick-quantity';
+          button.dataset.quantity = String(value);
+          button.textContent = formatNumber(value);
+
+          button.addEventListener('click', function () {
+            qtyInput.value = String(value);
+            validateCheckout();
+            qtyInput.focus();
+          });
+
+          quickQuantities.appendChild(button);
+        });
+      }
+
+      function validateLink() {
+        const link = String(linkInput.value || '').trim();
+
+        linkInput.classList.remove(
+          'is-valid-custom',
+          'is-invalid-custom'
+        );
+
+        if (!link) {
+          linkMessage.textContent =
+            'Paste the link required by this service.';
+
+          linkMessage.className = 'field-message';
+          return false;
+        }
+
+        if (link.length < 3) {
+          linkInput.classList.add('is-invalid-custom');
+
+          linkMessage.textContent =
+            'Please enter a valid link or username.';
+
+          linkMessage.className = 'field-message error';
+          return false;
+        }
+
+        linkInput.classList.add('is-valid-custom');
+
+        linkMessage.textContent =
+          'Link added. Make sure it is correct and public if required.';
+
+        linkMessage.className = 'field-message success';
+
+        return true;
+      }
+
+      function validateQuantity() {
+        const quantity = Number(qtyInput.value || 0);
+
+        qtyInput.classList.remove(
+          'is-valid-custom',
+          'is-invalid-custom'
+        );
+
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          qtyMessage.textContent =
+            `Enter a value between ${formatNumber(minQty)} and ${formatNumber(maxQty)}.`;
+
+          qtyMessage.className = 'field-message';
+          return false;
+        }
+
+        if (!Number.isInteger(quantity)) {
+          qtyInput.classList.add('is-invalid-custom');
+
+          qtyMessage.textContent =
+            'Quantity must be a whole number.';
+
+          qtyMessage.className = 'field-message error';
+          return false;
+        }
+
+        if (quantity < minQty || quantity > maxQty) {
+          qtyInput.classList.add('is-invalid-custom');
+
+          qtyMessage.textContent =
+            `Allowed quantity is between ${formatNumber(minQty)} and ${formatNumber(maxQty)}.`;
+
+          qtyMessage.className = 'field-message error';
+          return false;
+        }
+
+        qtyInput.classList.add('is-valid-custom');
+
+        qtyMessage.textContent =
+          'Quantity is within the allowed range.';
+
+        qtyMessage.className = 'field-message success';
+
+        return true;
+      }
+
+      function updateQuickQuantityState() {
+        const quantity = Number(qtyInput.value || 0);
+
+        document
+          .querySelectorAll('.quick-quantity')
+          .forEach(function (button) {
+            button.classList.toggle(
+              'active',
+              Number(button.dataset.quantity) === quantity
+            );
+          });
+      }
+
+      function updateSummary(quantity) {
+        calculatedTotal =
+          quantity > 0 && rate > 0 && ratePer > 0
+            ? (quantity * rate) / ratePer
+            : 0;
+
+        estimatedPrice.textContent =
+          calculatedTotal.toFixed(4);
+
+        summaryQuantity.textContent =
+          quantity > 0
+            ? formatNumber(quantity)
+            : '—';
+
+        const remainingBalance =
+          userBalance - calculatedTotal;
+
+        balanceAfter.textContent =
+          '$' + Math.max(0, remainingBalance).toFixed(2);
+      }
+
+      function updateBalanceStatus(
+        hasValidLink,
+        hasValidQuantity
+      ) {
+        balanceStatus.className = 'balance-status';
+
+        if (!hasValidLink || !hasValidQuantity) {
+          balanceStatus.classList.add('waiting');
+
+          balanceStatus.innerHTML =
+            '<i class="bi bi-hourglass-split"></i>' +
+            ' Enter the link and a valid quantity to continue.';
+
+          return false;
+        }
+
+        if (
+          !Number.isFinite(calculatedTotal) ||
+          calculatedTotal <= 0
+        ) {
+          balanceStatus.classList.add('error');
+
+          balanceStatus.innerHTML =
+            '<i class="bi bi-exclamation-circle"></i>' +
+            ' We could not calculate the order price.';
+
+          return false;
+        }
+
+        if (userBalance < calculatedTotal) {
+          balanceStatus.classList.add('error');
+
+          balanceStatus.innerHTML =
+            '<i class="bi bi-wallet2"></i>' +
+            ' Your balance is not enough for this quantity.';
+
+          return false;
+        }
+
+        balanceStatus.classList.add('success');
+
+        balanceStatus.innerHTML =
+          '<i class="bi bi-check-circle-fill"></i>' +
+          ' Everything looks good. You can continue.';
+
+        return true;
+      }
+
+      function validateCheckout() {
+        const quantity = Number(qtyInput.value || 0);
+
+        const hasValidLink = validateLink();
+        const hasValidQuantity = validateQuantity();
+
+        updateSummary(quantity);
+        updateQuickQuantityState();
+
+        const canAfford = updateBalanceStatus(
+          hasValidLink,
+          hasValidQuantity
+        );
+
+        confirmBtn.disabled = !(
+          hasValidLink &&
+          hasValidQuantity &&
+          canAfford
+        );
+
+        return !confirmBtn.disabled;
+      }
+
+      function buildConfirmationPreview() {
+        const link = String(linkInput.value || '').trim();
+        const quantity = Number(qtyInput.value || 0);
+
+        confirmLink.textContent = link;
+        confirmQuantity.textContent = formatNumber(quantity);
+        confirmPrice.textContent =
+          '$' + calculatedTotal.toFixed(4);
+      }
+
+      linkInput.addEventListener('input', validateCheckout);
+      linkInput.addEventListener('blur', validateCheckout);
+
+      qtyInput.addEventListener('input', validateCheckout);
+      qtyInput.addEventListener('blur', validateCheckout);
+
+      confirmBtn.addEventListener('click', function () {
+        if (!validateCheckout()) return;
+
+        ensureToken();
+        buildConfirmationPreview();
+
+        if (confirmationModal) {
+          confirmationModal.show();
+        }
       });
 
-      form?.addEventListener('submit', function (e) {
-        const q = Number(qtyInput?.value || 0);
-        const link = String(linkInput?.value || '').trim();
+      finalSubmitBtn.addEventListener('click', function () {
+        if (formIsSubmitting) return;
+        if (!validateCheckout()) return;
 
-        if (!link || !q || q < minQty || q > maxQty) {
-          e.preventDefault();
-          updateEst();
-          return;
-        }
+        formIsSubmitting = true;
+        ensureToken();
 
-        if (!idemInput.value || idemInput.value.trim() === '') {
-          refreshClientToken();
-        }
-
+        finalSubmitBtn.disabled = true;
         confirmBtn.disabled = true;
-        confirmBtn.innerHTML = 'Processing...';
+
+        finalSubmitBtn.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' +
+          'Submitting...';
+
+        form.submit();
       });
-    })();
+
+      form.addEventListener('submit', function (event) {
+        if (formIsSubmitting) return;
+
+        event.preventDefault();
+
+        if (!validateCheckout()) return;
+
+        ensureToken();
+        buildConfirmationPreview();
+
+        if (confirmationModal) {
+          confirmationModal.show();
+        }
+      });
+
+      renderQuickQuantities();
+      ensureToken();
+      validateCheckout();
+    });
   </script>
 
-  <script src="/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
