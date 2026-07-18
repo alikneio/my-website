@@ -6952,6 +6952,42 @@ app.get('/youtube-section', (req, res) => {
   });
 });
 
+app.get('/leonardo', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'AI Tools' AND sub_category = 'Leonardo AI'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('leonardo', { user, products: finalProducts });
+  });
+});
+
+app.get('/snapchat', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Accounts' AND sub_category = 'Snapchat'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('snapchat', { user, products: finalProducts });
+  });
+});
+
 app.get('/gemini', (req, res) => {
   const sql = `
     SELECT * FROM products
