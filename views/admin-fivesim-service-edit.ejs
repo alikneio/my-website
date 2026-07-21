@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Edit Virtual Number Service - AK Cell</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="/css/bootstrap.css" />
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
+
+  <style>
+    body { background:#f6f7fb; color:#111827; }
+    .page-wrap { max-width:1180px; }
+    .page-title { font-weight:900; letter-spacing:.2px; }
+    .card-soft {
+      border:0;
+      border-radius:18px;
+      box-shadow:0 10px 30px rgba(15,23,42,.08);
+    }
+    .summary-card {
+      background:linear-gradient(135deg,#111827,#1e3a8a);
+      color:#fff;
+      overflow:hidden;
+    }
+    .service-image {
+      width:82px;
+      height:82px;
+      object-fit:cover;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.18);
+      background:#fff;
+    }
+    .country-image {
+      width:28px;
+      height:20px;
+      object-fit:cover;
+      border-radius:4px;
+      border:1px solid rgba(255,255,255,.25);
+    }
+    .metric-box {
+      height:100%;
+      padding:14px;
+      background:#f8fafc;
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+    }
+    .metric-label {
+      color:#6b7280;
+      font-size:.75rem;
+      font-weight:700;
+      text-transform:uppercase;
+    }
+    .metric-value {
+      margin-top:4px;
+      font-size:1.05rem;
+      font-weight:900;
+      font-variant-numeric:tabular-nums;
+    }
+    .form-label { font-weight:800; }
+    .form-control,.form-select,.input-group-text {
+      min-height:46px;
+      border-radius:12px;
+    }
+    .input-group > .input-group-text:first-child {
+      border-top-right-radius:0;
+      border-bottom-right-radius:0;
+    }
+    .input-group > .form-control:last-child {
+      border-top-left-radius:0;
+      border-bottom-left-radius:0;
+    }
+    textarea.form-control { min-height:120px; resize:vertical; }
+    .image-preview {
+      width:150px;
+      height:150px;
+      object-fit:cover;
+      border-radius:18px;
+      border:1px dashed #cbd5e1;
+      background:#fff;
+    }
+    .section-title {
+      font-weight:900;
+      font-size:1rem;
+      margin-bottom:18px;
+      padding-bottom:12px;
+      border-bottom:1px solid #e5e7eb;
+    }
+    .btn-round { border-radius:12px; }
+    .sticky-actions {
+      position:sticky;
+      bottom:14px;
+      z-index:5;
+      border:1px solid rgba(148,163,184,.25);
+      backdrop-filter:blur(12px);
+      background:rgba(255,255,255,.94);
+    }
+    .profit-positive { color:#15803d; }
+    .profit-negative { color:#dc2626; }
+    .help-text { color:#6b7280; font-size:.78rem; }
+
+    @media (max-width:767px) {
+      .service-image { width:68px; height:68px; }
+      .image-preview { width:100%; height:220px; }
+      .sticky-actions { position:static; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="d-flex">
+  <%- include('partials/admin-sidebar', { user: user }) %>
+
+  <main class="container-fluid p-4 p-lg-5">
+    <div class="page-wrap mx-auto">
+      <%
+        const providerPrice = Number(item.cheapest_provider_price || 0);
+        const sellPrice = Number(item.sell_price || 0);
+        const profit = sellPrice - providerPrice;
+        const isLoss = sellPrice > 0 && providerPrice > sellPrice;
+
+        const serviceName =
+          item.store_custom_name ||
+          item.service_custom_name ||
+          item.provider_name ||
+          item.product_code ||
+          'Virtual Number';
+
+        const visibleImage =
+          item.store_image ||
+          item.service_image ||
+          '/images/placeholder.png';
+      %>
+
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-pencil-square fs-2 text-primary"></i>
+            <h1 class="page-title mb-0">Edit Virtual Number</h1>
+          </div>
+          <div class="text-muted small mt-1">
+            Update price, visibility, checkout content and provider selection settings.
+          </div>
+        </div>
+
+        <a href="<%= returnTo %>" class="btn btn-outline-secondary btn-round">
+          <i class="bi bi-arrow-left me-1"></i>
+          Back to Services
+        </a>
+      </div>
+
+      <section class="card card-soft summary-card mb-4">
+        <div class="card-body p-4">
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            <img
+              src="<%= visibleImage %>"
+              alt="<%= serviceName %>"
+              class="service-image"
+              onerror="this.src='/images/placeholder.png'"
+            />
+
+            <div class="flex-grow-1">
+              <h2 class="h4 fw-bold mb-1"><%= serviceName %></h2>
+
+              <div class="d-flex flex-wrap align-items-center gap-2 text-white-50 small">
+                <% if (item.country_image) { %>
+                  <img src="<%= item.country_image %>" class="country-image" alt="" />
+                <% } %>
+
+                <span><%= item.country_name || item.country_code %></span>
+
+                <% if (item.country_iso) { %>
+                  <span>· <%= String(item.country_iso).toUpperCase() %></span>
+                <% } %>
+
+                <% if (item.country_prefix) { %>
+                  <span>· <%= item.country_prefix %></span>
+                <% } %>
+
+                <span>· <%= item.product_code %></span>
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+              <span class="badge rounded-pill <%= Number(item.is_active) === 1 ? 'bg-success' : 'bg-secondary' %>">
+                <i class="bi <%= Number(item.is_active) === 1 ? 'bi-eye' : 'bi-eye-slash' %> me-1"></i>
+                <%= Number(item.is_active) === 1 ? 'Active' : 'Hidden' %>
+              </span>
+
+              <% if (Number(item.is_featured) === 1) { %>
+                <span class="badge rounded-pill bg-warning text-dark">
+                  <i class="bi bi-star-fill me-1"></i> Featured
+                </span>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card card-soft mb-4">
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-6 col-lg-3">
+              <div class="metric-box">
+                <div class="metric-label">Provider Cost</div>
+                <div class="metric-value">
+                  <%= providerPrice > 0 ? `$${providerPrice.toFixed(4)}` : 'Unavailable' %>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-6 col-lg-3">
+              <div class="metric-box">
+                <div class="metric-label">Current Sell Price</div>
+                <div class="metric-value">$<%= sellPrice.toFixed(4) %></div>
+              </div>
+            </div>
+
+            <div class="col-6 col-lg-3">
+              <div class="metric-box">
+                <div class="metric-label">Current Profit</div>
+                <div id="profitValue" class="metric-value <%= isLoss ? 'profit-negative' : 'profit-positive' %>">
+                  <%= profit >= 0 ? '+' : '' %>$<%= profit.toFixed(4) %>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-6 col-lg-3">
+              <div class="metric-box">
+                <div class="metric-label">Availability</div>
+                <div class="metric-value">
+                  <%= Number(item.total_available || 0).toLocaleString() %>
+                </div>
+                <div class="small text-muted">
+                  <%= Number(item.available_operators || 0) %> operators
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <form method="post" action="/admin/fivesim-services/save" id="editForm">
+        <input type="hidden" name="country_id" value="<%= item.country_id %>" />
+        <input type="hidden" name="service_id" value="<%= item.service_id %>" />
+        <input type="hidden" name="return_to" value="<%= returnTo %>" />
+
+        <section class="card card-soft mb-4">
+          <div class="card-body p-4">
+            <div class="section-title">
+              <i class="bi bi-cash-stack text-success me-2"></i>
+              Pricing & Public Information
+            </div>
+
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label">Customer Price</label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input
+                    id="sellPriceInput"
+                    type="number"
+                    name="sell_price"
+                    class="form-control"
+                    step="0.0001"
+                    min="0"
+                    max="99999999"
+                    value="<%= Number(item.sell_price || 0).toFixed(4) %>"
+                    required
+                  />
+                </div>
+                <div class="help-text mt-2">Price charged to the customer.</div>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Public Name</label>
+                <input
+                  type="text"
+                  name="custom_name"
+                  class="form-control"
+                  maxlength="150"
+                  placeholder="Optional custom name"
+                  value="<%= item.store_custom_name || '' %>"
+                />
+                <div class="help-text mt-2">
+                  Leave empty to use the main service name.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card card-soft mb-4">
+          <div class="card-body p-4">
+            <div class="section-title">
+              <i class="bi bi-card-image text-primary me-2"></i>
+              Image & Checkout Content
+            </div>
+
+            <div class="row g-4 align-items-center mb-4">
+              <div class="col-md-auto">
+                <img
+                  id="imagePreview"
+                  src="<%= visibleImage %>"
+                  class="image-preview"
+                  alt="Image preview"
+                  onerror="this.src='/images/placeholder.png'"
+                />
+              </div>
+
+              <div class="col">
+                <label class="form-label">Card Image Path</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-image"></i></span>
+                  <input
+                    id="imagePathInput"
+                    type="text"
+                    name="store_image"
+                    class="form-control"
+                    maxlength="255"
+                    placeholder="/images/fivesim/whatsapp.webp"
+                    value="<%= item.store_image || '' %>"
+                  />
+                </div>
+                <div class="help-text mt-2">
+                  The path must begin with <code>/images/</code>. Leave empty to use the main service image.
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-4">
+              <div class="col-12">
+                <label class="form-label d-flex justify-content-between gap-2">
+                  <span>Checkout Description</span>
+                  <span class="small text-muted"><span id="descriptionCount">0</span>/2000</span>
+                </label>
+                <textarea
+                  id="descriptionInput"
+                  name="checkout_description"
+                  class="form-control"
+                  maxlength="2000"
+                  placeholder="Short explanation shown on checkout..."
+                ><%= item.checkout_description || '' %></textarea>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label d-flex justify-content-between gap-2">
+                  <span>Checkout Notes</span>
+                  <span class="small text-muted"><span id="notesCount">0</span>/2000</span>
+                </label>
+                <textarea
+                  id="notesInput"
+                  name="checkout_notes"
+                  class="form-control"
+                  maxlength="2000"
+                  placeholder="Warnings, instructions or important notes..."
+                ><%= item.checkout_notes || '' %></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card card-soft mb-4">
+          <div class="card-body p-4">
+            <div class="section-title">
+              <i class="bi bi-sliders text-primary me-2"></i>
+              Provider Selection Settings
+            </div>
+
+            <div class="row g-4">
+              <div class="col-md-4">
+                <label class="form-label">Selection Mode</label>
+                <select name="selection_mode" class="form-select">
+                  <option value="cheapest" <%= item.selection_mode === 'cheapest' ? 'selected' : '' %>>
+                    Cheapest
+                  </option>
+                  <option value="balanced" <%= !item.selection_mode || item.selection_mode === 'balanced' ? 'selected' : '' %>>
+                    Balanced
+                  </option>
+                  <option value="quality" <%= item.selection_mode === 'quality' ? 'selected' : '' %>>
+                    Best Quality
+                  </option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Minimum Delivery Rate</label>
+                <div class="input-group">
+                  <input
+                    type="number"
+                    name="minimum_rate"
+                    class="form-control"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value="<%= Number(item.minimum_rate || 0).toFixed(2) %>"
+                  />
+                  <span class="input-group-text">%</span>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Maximum Provider Cost</label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input
+                    type="number"
+                    name="maximum_provider_price"
+                    class="form-control"
+                    step="0.0001"
+                    min="0"
+                    max="99999999"
+                    placeholder="No limit"
+                    value="<%= item.maximum_provider_price === null || item.maximum_provider_price === undefined ? '' : Number(item.maximum_provider_price).toFixed(4) %>"
+                  />
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Sort Order</label>
+                <input
+                  type="number"
+                  name="sort_order"
+                  class="form-control"
+                  min="-100000"
+                  max="100000"
+                  value="<%= Number(item.sort_order || 0) %>"
+                />
+              </div>
+
+              <div class="col-md-8 d-flex flex-wrap align-items-center gap-4 pt-md-4">
+                <div class="form-check form-switch">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value="1"
+                    name="is_active"
+                    id="isActive"
+                    <%= Number(item.is_active) === 1 ? 'checked' : '' %>
+                  />
+                  <label class="form-check-label fw-bold" for="isActive">
+                    Active on Store
+                  </label>
+                </div>
+
+                <div class="form-check form-switch">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value="1"
+                    name="is_featured"
+                    id="isFeatured"
+                    <%= Number(item.is_featured) === 1 ? 'checked' : '' %>
+                  />
+                  <label class="form-check-label fw-bold" for="isFeatured">
+                    Featured Service
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card card-soft sticky-actions">
+          <div class="card-body p-3 d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
+            <a href="<%= returnTo %>" class="btn btn-outline-secondary btn-round">
+              Cancel
+            </a>
+
+            <button type="submit" id="saveButton" class="btn btn-primary btn-round px-4">
+              <i class="bi bi-save me-1"></i>
+              Save Changes
+            </button>
+          </div>
+        </section>
+      </form>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const providerPrice = Number(<%- JSON.stringify(providerPrice) %>);
+  const sellPriceInput = document.getElementById('sellPriceInput');
+  const profitValue = document.getElementById('profitValue');
+
+  function updateProfit() {
+    const sellPrice = Number(sellPriceInput.value || 0);
+    const profit = sellPrice - providerPrice;
+
+    profitValue.textContent =
+      `${profit >= 0 ? '+' : ''}$${profit.toFixed(4)}`;
+
+    profitValue.classList.toggle('profit-positive', profit >= 0);
+    profitValue.classList.toggle('profit-negative', profit < 0);
+  }
+
+  sellPriceInput.addEventListener('input', updateProfit);
+  updateProfit();
+
+  const imagePathInput = document.getElementById('imagePathInput');
+  const imagePreview = document.getElementById('imagePreview');
+  const fallbackImage = <%- JSON.stringify(item.service_image || '/images/placeholder.png') %>;
+
+  imagePathInput.addEventListener('input', function () {
+    const value = String(imagePathInput.value || '').trim();
+    imagePreview.src = value || fallbackImage;
+  });
+
+  function bindCounter(inputId, counterId) {
+    const input = document.getElementById(inputId);
+    const counter = document.getElementById(counterId);
+
+    function update() {
+      counter.textContent = String(input.value || '').length;
+    }
+
+    input.addEventListener('input', update);
+    update();
+  }
+
+  bindCounter('descriptionInput', 'descriptionCount');
+  bindCounter('notesInput', 'notesCount');
+
+  document.getElementById('editForm').addEventListener('submit', function () {
+    const button = document.getElementById('saveButton');
+    button.disabled = true;
+    button.innerHTML =
+      '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+  });
+</script>
+</body>
+</html>

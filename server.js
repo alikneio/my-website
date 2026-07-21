@@ -7950,9 +7950,167 @@ app.post('/admin/api-products/sync', checkAdmin, async (req, res) => {
   }
 });
 
-// =============================================
-// 5SIM — Full Store Control
-// =============================================
+
+app.get(
+  '/admin/fivesim-services/edit',
+  checkAdmin,
+  async (req, res) => {
+    const countryId = Number(req.query.country_id);
+    const serviceId = Number(req.query.service_id);
+
+    if (
+      !Number.isInteger(countryId) ||
+      countryId <= 0 ||
+      !Number.isInteger(serviceId) ||
+      serviceId <= 0
+    ) {
+      return res
+        .status(400)
+        .send('Invalid service or country');
+    }
+
+    try {
+      const [[item]] = await promisePool.query(
+        `
+        SELECT
+          /* Country */
+          fc.id AS country_id,
+          fc.code AS country_code,
+          fc.custom_name AS country_custom_name,
+          fc.iso,
+          fc.prefix,
+          fc.image AS country_image,
+
+          /* Service */
+          fs.id AS service_id,
+          fs.product_code,
+          fs.provider_name,
+          fs.custom_name AS service_custom_name,
+          fs.image AS service_image,
+
+          /* Store */
+          fsi.custom_name,
+          fsi.store_image,
+          fsi.checkout_description,
+          fsi.checkout_notes,
+          fsi.sell_price,
+          fsi.selection_mode,
+          fsi.minimum_rate,
+          fsi.maximum_provider_price,
+          fsi.is_active,
+          fsi.is_featured,
+          fsi.sort_order,
+
+          /* Provider */
+          MIN(
+            CASE
+              WHEN fp.available_count > 0
+               AND COALESCE(fp.is_out_of_stock,0)=0
+               AND fp.provider_price > 0
+              THEN fp.provider_price
+            END
+          ) AS cheapest_provider_price,
+
+          SUM(
+            CASE
+              WHEN fp.available_count > 0
+               AND COALESCE(fp.is_out_of_stock,0)=0
+              THEN fp.available_count
+              ELSE 0
+            END
+          ) AS total_available,
+
+          COUNT(
+            DISTINCT CASE
+              WHEN fp.available_count > 0
+               AND COALESCE(fp.is_out_of_stock,0)=0
+              THEN fp.operator_id
+            END
+          ) AS available_operators
+
+        FROM fivesim_prices fp
+
+        INNER JOIN fivesim_countries fc
+          ON fc.id = fp.country_id
+
+        INNER JOIN fivesim_services fs
+          ON fs.id = fp.service_id
+
+        LEFT JOIN fivesim_store_items fsi
+          ON fsi.country_id = fp.country_id
+         AND fsi.service_id = fp.service_id
+
+        WHERE
+          fp.country_id = ?
+          AND fp.service_id = ?
+
+        GROUP BY
+          fc.id,
+          fc.code,
+          fc.custom_name,
+          fc.iso,
+          fc.prefix,
+          fc.image,
+
+          fs.id,
+          fs.product_code,
+          fs.provider_name,
+          fs.custom_name,
+          fs.image,
+
+          fsi.custom_name,
+          fsi.store_image,
+          fsi.checkout_description,
+          fsi.checkout_notes,
+          fsi.sell_price,
+          fsi.selection_mode,
+          fsi.minimum_rate,
+          fsi.maximum_provider_price,
+          fsi.is_active,
+          fsi.is_featured,
+          fsi.sort_order
+        `,
+        [
+          countryId,
+          serviceId
+        ]
+      );
+
+      if (!item) {
+        return res
+          .status(404)
+          .send('Service not found');
+      }
+
+      const returnTo =
+        String(req.query.return_to || '')
+          .startsWith('/admin/fivesim-services')
+          ? req.query.return_to
+          : '/admin/fivesim-services';
+
+      return res.render(
+        'admin-fivesim-service-edit',
+        {
+          user: req.session.user,
+          item,
+          returnTo
+        }
+      );
+
+    } catch (error) {
+      console.error(
+        '❌ GET /admin/fivesim-services/edit:',
+        error
+      );
+
+      return res
+        .status(500)
+        .send(
+          'Failed to load edit page'
+        );
+    }
+  }
+);
 
 // =====================================================
 // Admin: Virtual Numbers Services
