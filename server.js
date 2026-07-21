@@ -265,6 +265,541 @@ function isRetryableFiveSimPurchaseError(error) {
 // 5SIM — Buy Virtual Number
 // =============================================
 
+// ❷ احسب الخصم الفعلي للمستخدم (VIP + Level بنفس الوقت)
+function getUserEffectiveDiscount(user) {
+  if (!user) return 0;
+
+  // (A) أولوية 1: خصم يدوي VIP محفوظ في users.discount_percent
+  const manual = Number(user.discount_percent || 0);
+  if (Number.isFinite(manual) && manual > 0) {
+    return manual;
+  }
+
+  // (B) أولوية 2: خصم حسب LEVEL
+  const level = Number(user.level || 1);
+  let levelDiscount = 0;
+
+  // عدّل الأرقام حسب النظام اللي بدك ياه
+  if (level === 2) levelDiscount = 2;
+  else if (level === 3) levelDiscount = 4;
+  else if (level === 4) levelDiscount = 6;
+  else if (level >= 5) levelDiscount = 10; // مثال: لفل 5 وما فوق 8%
+
+  return levelDiscount;
+}
+
+// ❸ دالة مساعدة لتطبيق خصم المستخدم على سعر واحد (تستعمل في /buy و غيره)
+function applyUserDiscount(rawPrice, user) {
+  const price = Number(rawPrice || 0);
+  if (!Number.isFinite(price) || price <= 0) return 0;
+
+  const discount = getUserEffectiveDiscount(user);
+  if (!discount || discount <= 0) {
+    return Number(price.toFixed(2));
+  }
+
+  const discounted = price - (price * (discount / 100));
+  return Number(discounted.toFixed(2));
+}
+
+// ❹ تطبيق الخصم على List من الـ products (تُستخدم في صفحات المنتجات)
+function applyUserDiscountToProducts(products, user) {
+  const discRaw = getUserEffectiveDiscount(user);
+  const disc = Number(discRaw);
+
+  // دايمًا رجّع Array جديدة (ما ترجع نفس المرجع)
+  if (!Array.isArray(products)) return [];
+
+  // خصم غير صالح أو 0 → رجّع نسخة بدون تعديل
+  if (!Number.isFinite(disc) || disc <= 0) {
+    return products.map(p => ({ ...p }));
+  }
+
+  // clamp: ما نخلي الخصم أكتر من 100
+  const safeDisc = Math.min(Math.max(disc, 0), 100);
+
+  return products.map(p => {
+    // تأكد p object
+    if (!p || typeof p !== 'object') return p;
+
+    const base = Number(
+      p.price ??
+      p.unit_price ??
+      p.custom_price ??
+      0
+    );
+
+    // إذا السعر مش صالح أو <=0 رجّع المنتج بدون ما تغيّر عليه
+    if (!Number.isFinite(base) || base <= 0) {
+      return { ...p };
+    }
+
+    const final = Number(((base * (100 - safeDisc)) / 100).toFixed(2));
+
+    // رجّع object جديد مع الحفاظ على باقي الحقول مثل is_out_of_stock
+    return {
+      ...p,
+      original_price: base,
+      effective_discount: safeDisc,
+      price: final
+    };
+  });
+}
+
+
+
+
+
+
+// ... (باقي الكود مثل app.use و المسارات)
+
+// ... (باقي الكود مثل app.use و المسارات)
+
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(cookieParser());
+
+const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
+
+// ✅ جيب نفس pool تبع مشروعك
+const { pool } = require('./database');
+
+// خلف Proxy (Railway/NGINX) لازم نثق بالـ proxy للـ secure cookies
+app.set('trust proxy', 1);
+
+const isProd = process.env.NODE_ENV === 'production';
+
+// ✅ خلي MySQLStore يستخدم الـ pool بدل ما يعمل اتصالات لحالو
+const sessionStore = new MySQLStore(
+  {
+    clearExpired: true,
+    checkExpirationInterval: 15 * 60 * 1000, // كل 15 دقيقة
+    expiration: 24 * 60 * 60 * 1000,         // يوم
+
+    // إذا جدول sessions موجود وما بدك ينشئه، خليه false (default)
+    // createDatabaseTable: false,
+    // schema: { tableName: 'sessions' },
+  },
+  pool
+);
+
+// تفعيل الجلسات باستخدام MySQLStore
+app.use(
+  session({
+    name: process.env.SESSION_NAME || 'akcell_sid',
+    secret: process.env.SESSION_SECRET,
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+
+    // (اختياري لكنه مفيد لتخفيف writes على DB)
+    // rolling: true,
+
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24, // يوم
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isProd,
+    },
+  })
+);
+
+
+
+
+
+const setTelegramChatId = require('./telegram/setTelegramChatId');
+app.use('/', setTelegramChatId);
+
+
+
+app.use((req, res, next) => {
+  res.locals.user = req.session.user || null;
+
+  // ✅ عداد الإشعارات
+  if (req.session.user) {
+    const userId = req.session.user.id;
+    const sql = "SELECT COUNT(*) AS unreadCount FROM notifications WHERE user_id = ? AND is_read = FALSE";
+
+    db.query(sql, [userId], (err, result) => {
+      if (!err) {
+        res.locals.unreadCount = result[0].unreadCount;
+      } else {
+        res.locals.unreadCount = 0;
+      }
+      next();
+    });
+  } else {
+    res.locals.unreadCount = 0;
+    next();
+  }
+});
+function checkUser(req, res, next) {
+  if (req.session && req.session.user) {
+    next();
+  } else {
+    res.redirect('/login'); // أو أي صفحة تسجيل الدخول عندك
+  }
+}
+
+function withTimeout(promise, ms = 4000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram timeout')), ms))
+  ]);
+}
+
+
+
+
+
+
+// Middlewares
+const checkAuth = (req, res, next) => {
+    if (req.session.user) next();
+    else res.redirect('/login');
+};
+
+const checkAuthJson = (req, res, next) => {
+  if (req.session?.user) return next();
+  return res.status(401).json({ success: false, message: "Session expired. Please log in.", data: null });
+};
+
+
+const checkAdmin = (req, res, next) => {
+    if (req.session.user && req.session.user.role === 'admin') next();
+    else res.status(403).send('Access Denied');
+};
+
+const {
+  getFiveSimProfile,
+  getCountries,
+  getProducts,
+  getPrices,
+
+  buyFiveSimActivation,
+  getFiveSimOrder,
+  finishFiveSimOrder,
+  cancelFiveSimOrder,
+  banFiveSimOrder,
+} = require('./services/fivesim');
+
+// Middleware to refresh user data from DB on every request
+app.use((req, res, next) => {
+    // Check if a user is logged in
+    if (req.session.user) {
+        const sql = "SELECT * FROM users WHERE id = ?";
+        db.query(sql, [req.session.user.id], (err, results) => {
+            if (err) {
+                console.error(err);
+                return next(); // Continue even if there's an error
+            }
+            if (results.length > 0) {
+                // Update the session with the latest data from the database
+                req.session.user = results[0]; 
+            }
+            next(); // Continue to the requested route
+        });
+    } else {
+        next(); // If no user is logged in, just continue
+    }
+});
+
+app.use(async (req, res, next) => {
+  // user متوفر لكل الصفحات
+  res.locals.user = req.session.user || null;
+
+  // defaults (حتى ما يطلع undefined بالـ EJS)
+  res.locals.pendingBalanceRequestsCount = 0;      // للأدمن (كل الموقع)
+  res.locals.pendingBalanceCount = 0;              // للمستخدم (طلباته هو)
+  res.locals.unreadCount = 0;                      // إذا بدك (notifications)
+
+  try {
+    // إذا المستخدم مسجّل دخول
+    if (req.session.user?.id) {
+      const userId = req.session.user.id;
+
+      // ✅ unread notifications للمستخدم + pending balance requests للمستخدم
+      // (إذا ما بدك notifications شيل أول SELECT)
+      const [[rowUser]] = await promisePool.query(
+        `
+        SELECT
+          (SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = FALSE) AS unreadCount,
+          (SELECT COUNT(*) FROM balance_requests WHERE user_id = ? AND status = 'pending') AS pendingBalanceCount
+        `,
+        [userId, userId]
+      );
+
+      res.locals.unreadCount = Number(rowUser?.unreadCount || 0);
+      res.locals.pendingBalanceCount = Number(rowUser?.pendingBalanceCount || 0);
+    }
+
+    // ✅ عداد الأدمن (كل الطلبات pending)
+    if (req.session.user?.role === 'admin') {
+      const [[rowAdmin]] = await promisePool.query(
+        `SELECT COUNT(*) AS cnt FROM balance_requests WHERE status = 'pending'`
+      );
+      res.locals.pendingBalanceRequestsCount = Number(rowAdmin?.cnt || 0);
+    }
+  } catch (err) {
+    console.error("❌ locals middleware error:", err);
+  }
+
+  next();
+});
+
+
+
+const { isMaintenance, MAINT_START, MAINT_END, MAINT_TZ } = require('./utils/maintenance');
+
+// مسارات/طلبات بنستثنيها من الصيانة (صحة، ستاتيك، أدمن اختياري)
+const EXEMPT = [
+  /^\/healthz$/,
+  /^\/css\//, /^\/js\//, /^\/images\//, /^\/assets\//,
+  /^\/favicon\.ico$/,
+  // إذا بدك تسمح للأدمن يفتح دايمًا، فعّل هالسطر:
+   /^\/admin/,
+];
+
+app.use((req, res, next) => {
+  if (EXEMPT.some(rx => rx.test(req.path))) return next();
+
+  if (isMaintenance()) {
+    // لو طلب JSON أو XHR رجّع JSON 503
+    const wantsJSON =
+      req.xhr ||
+      req.headers.accept?.includes('application/json') ||
+      req.path.startsWith('/api');
+
+    if (wantsJSON) {
+      return res.status(503).json({
+        success: false,
+        message: 'Service under scheduled maintenance. Please try again later.',
+        maintenance: { tz: MAINT_TZ, fromHour: MAINT_START, toHour: MAINT_END }
+      });
+    }
+
+    // صفحة صيانة جميلة
+    return res.status(503).render('maintenance', {
+      tz: MAINT_TZ,
+      fromHour: MAINT_START.toString().padStart(2, '0') + ':00',
+      toHour: MAINT_END.toString().padStart(2, '0') + ':00'
+    });
+  }
+
+  next();
+});
+
+function getUserEffectiveDiscount(user) {
+  if (!user) return 0;
+
+  // ✅ VIP manual discount إذا موجود
+  const manual = Number(user.discount_percent || 0);
+  if (Number.isFinite(manual) && manual > 0) return manual;
+
+  // ✅ غير هيك خصم حسب level
+  const level = Number(user.level || 1);
+  if (level === 2) return 2;
+  if (level === 3) return 4;
+  if (level === 4) return 6;
+  if (level >= 5) return 8;
+
+  return 0;
+}
+
+
+
+
+// =============================================
+//                  PAGE ROUTES
+// =============================================
+
+// --- الصفحة الرئيسية ---
+app.get('/', (req, res) => {
+  try {
+    const user = req.session?.user || null;
+
+    // التحقق من إذا تم تسجيل الدخول للتو
+    const justLoggedIn = req.session?.justLoggedIn || false;
+    if (req.session) req.session.justLoggedIn = false;
+
+    // عرض التنبيه فقط إذا تم تسجيل الدخول حديثاً ولا يوجد telegram_chat_id
+    const showTelegramToast = justLoggedIn && user && !user.telegram_chat_id;
+
+    console.log("✅ Rendering home page...");
+    res.render('index', { user, showTelegramToast });
+  } catch (error) {
+    console.error("🔥 Error rendering /:", error);
+    res.status(500).send("Error rendering home page");
+  }
+});
+app.get('/transactions', checkAuth, async (req, res) => {
+  const userId = req.session.user?.id;
+  if (!userId) return res.redirect('/login?error=session');
+
+  const qStr  = (req.query.q || '').toString().trim().slice(0, 60);
+  const typeQ = (req.query.type || '').toString().trim().toLowerCase();
+  const page  = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10) || 20, 10), 100);
+  const offset = (page - 1) * limit;
+
+  try {
+    // 🔎 1) اكتشف الأعمدة الموجودة بجدول transactions
+    const [cols] = await promisePool.query(`SHOW COLUMNS FROM transactions`);
+    const colNames = new Set(cols.map(c => c.Field));
+
+    // user column (user_id أو userId)
+    const userCol = colNames.has('user_id') ? 'user_id' : (colNames.has('userId') ? 'userId' : null);
+    if (!userCol) throw new Error('transactions table missing user_id/userId column');
+
+    // date column (حسب الموجود عندك)
+    const dateCandidates = ['date', 'createdAt', 'created_at', 'time', 'timestamp'];
+    const dateCol = dateCandidates.find(c => colNames.has(c));
+    if (!dateCol) throw new Error('transactions table missing a date column (date/createdAt/...)');
+
+    // 🔎 2) Filters
+    const where = [`${userCol} = ?`];
+    const params = [userId];
+
+    if (typeQ && colNames.has('type') && ['debit', 'credit', 'refund'].includes(typeQ)) {
+      if (typeQ === 'refund') {
+        where.push(`(LOWER(type) = 'refund' OR LOWER(reason) LIKE '%refund%')`);
+      } else {
+        where.push(`LOWER(type) = ?`);
+        params.push(typeQ);
+      }
+    }
+
+    if (qStr && colNames.has('reason')) {
+      where.push(`LOWER(reason) LIKE ?`);
+      params.push(`%${qStr.toLowerCase()}%`);
+    }
+
+    const whereSql = `WHERE ${where.join(' AND ')}`;
+
+    // 🔢 3) Count
+    const [countRows] = await promisePool.query(
+      `SELECT COUNT(*) AS c FROM transactions ${whereSql}`,
+      params
+    );
+    const total = Number(countRows?.[0]?.c || 0);
+    const pages = Math.max(1, Math.ceil(total / limit));
+
+    // 📄 4) List (مهم: alias للتاريخ إلى tx_date)
+    const listSql = `
+      SELECT
+        ${colNames.has('id') ? 'id,' : ''}
+        ${colNames.has('type') ? 'type,' : `'debit' AS type,`}
+        ${colNames.has('amount') ? 'amount,' : '0 AS amount,'}
+        ${colNames.has('reason') ? 'reason,' : "'' AS reason,"}
+        ${dateCol} AS tx_date
+      FROM transactions
+      ${whereSql}
+      ORDER BY ${dateCol} DESC
+      LIMIT ? OFFSET ?
+    `;
+    const [rows] = await promisePool.query(listSql, [...params, limit, offset]);
+
+    return res.render('transactions', {
+      user: req.session.user || null,
+      transactions: rows,
+      meta: { total, page, pages, limit, q: qStr, type: typeQ }
+    });
+
+  } catch (err) {
+    console.error('❌ GET /transactions error:', err);
+    return res.status(500).send(`<pre>${String(err?.message || err)}</pre>`);
+  }
+});
+
+// ✅ My Balance page
+app.get('/my-balance', checkAuth, async (req, res) => {
+  const userId = req.session.user?.id;
+  if (!userId) return res.redirect('/login?error=session');
+
+  try {
+    // ✅ آخر بيانات المستخدم (رصيد/level/discount/total_spent)
+    const [[userRow]] = await promisePool.query(
+      `SELECT id, username, balance, level, discount_percent, total_spent
+       FROM users
+       WHERE id = ?
+       LIMIT 1`,
+      [userId]
+    );
+
+    // ✅ طلبات التعبئة للمستخدم
+    const [requests] = await promisePool.query(
+      `SELECT id, amount, currency, proof_image, status, admin_note, created_at
+       FROM balance_requests
+       WHERE user_id = ?
+       ORDER BY id DESC
+       LIMIT 200`,
+      [userId]
+    );
+
+    // ✅ Stats صغيرة للواجهة
+    const stats = requests.reduce((acc, r) => {
+      const amt = Number(r.amount || 0);
+      acc.total++;
+      acc.byStatus[r.status] = (acc.byStatus[r.status] || 0) + 1;
+      if (r.status === 'approved') acc.approvedSum += amt;
+      if (r.status === 'pending') acc.pendingSum += amt;
+      return acc;
+    }, { total: 0, approvedSum: 0, pendingSum: 0, byStatus: {} });
+
+    return res.render('my-balance', {
+      user: userRow || req.session.user,
+      requests,
+      stats
+    });
+
+  } catch (err) {
+    console.error('❌ GET /my-balance error:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
+app.get('/admin/balance-requests', checkAdmin, async (req, res) => {
+  const status = (req.query.status || '').trim(); // pending / approved / rejected
+
+  try {
+    const params = [];
+    let where = '';
+
+    if (['pending', 'approved', 'rejected'].includes(status)) {
+      where = 'WHERE br.status = ?';
+      params.push(status);
+    }
+
+    const [requests] = await promisePool.query(
+      `
+      SELECT br.*, u.username
+      FROM balance_requests br
+      JOIN users u ON u.id = br.user_id
+      ${where}
+      ORDER BY br.id DESC
+      LIMIT 500
+      `,
+      params
+    );
+
+    res.render('admin-balance-requests', { requests, statusFilter: status });
+  } catch (err) {
+    console.error("GET /admin/balance-requests:", err);
+    res.status(500).send("Server error");
+  }
+});
+
+
+
+app.get('/test', (req, res) => {
+  res.send("Test is working ✅");
+});
+
+
+
 app.post(
   '/virtual-numbers/buy/:id',
   checkAuth,
@@ -890,539 +1425,6 @@ app.post(
     }
   }
 );
-
-// ❷ احسب الخصم الفعلي للمستخدم (VIP + Level بنفس الوقت)
-function getUserEffectiveDiscount(user) {
-  if (!user) return 0;
-
-  // (A) أولوية 1: خصم يدوي VIP محفوظ في users.discount_percent
-  const manual = Number(user.discount_percent || 0);
-  if (Number.isFinite(manual) && manual > 0) {
-    return manual;
-  }
-
-  // (B) أولوية 2: خصم حسب LEVEL
-  const level = Number(user.level || 1);
-  let levelDiscount = 0;
-
-  // عدّل الأرقام حسب النظام اللي بدك ياه
-  if (level === 2) levelDiscount = 2;
-  else if (level === 3) levelDiscount = 4;
-  else if (level === 4) levelDiscount = 6;
-  else if (level >= 5) levelDiscount = 10; // مثال: لفل 5 وما فوق 8%
-
-  return levelDiscount;
-}
-
-// ❸ دالة مساعدة لتطبيق خصم المستخدم على سعر واحد (تستعمل في /buy و غيره)
-function applyUserDiscount(rawPrice, user) {
-  const price = Number(rawPrice || 0);
-  if (!Number.isFinite(price) || price <= 0) return 0;
-
-  const discount = getUserEffectiveDiscount(user);
-  if (!discount || discount <= 0) {
-    return Number(price.toFixed(2));
-  }
-
-  const discounted = price - (price * (discount / 100));
-  return Number(discounted.toFixed(2));
-}
-
-// ❹ تطبيق الخصم على List من الـ products (تُستخدم في صفحات المنتجات)
-function applyUserDiscountToProducts(products, user) {
-  const discRaw = getUserEffectiveDiscount(user);
-  const disc = Number(discRaw);
-
-  // دايمًا رجّع Array جديدة (ما ترجع نفس المرجع)
-  if (!Array.isArray(products)) return [];
-
-  // خصم غير صالح أو 0 → رجّع نسخة بدون تعديل
-  if (!Number.isFinite(disc) || disc <= 0) {
-    return products.map(p => ({ ...p }));
-  }
-
-  // clamp: ما نخلي الخصم أكتر من 100
-  const safeDisc = Math.min(Math.max(disc, 0), 100);
-
-  return products.map(p => {
-    // تأكد p object
-    if (!p || typeof p !== 'object') return p;
-
-    const base = Number(
-      p.price ??
-      p.unit_price ??
-      p.custom_price ??
-      0
-    );
-
-    // إذا السعر مش صالح أو <=0 رجّع المنتج بدون ما تغيّر عليه
-    if (!Number.isFinite(base) || base <= 0) {
-      return { ...p };
-    }
-
-    const final = Number(((base * (100 - safeDisc)) / 100).toFixed(2));
-
-    // رجّع object جديد مع الحفاظ على باقي الحقول مثل is_out_of_stock
-    return {
-      ...p,
-      original_price: base,
-      effective_discount: safeDisc,
-      price: final
-    };
-  });
-}
-
-
-
-
-
-
-// ... (باقي الكود مثل app.use و المسارات)
-
-// ... (باقي الكود مثل app.use و المسارات)
-
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(cookieParser());
-
-const session = require('express-session');
-const MySQLStore = require('express-mysql-session')(session);
-
-// ✅ جيب نفس pool تبع مشروعك
-const { pool } = require('./database');
-
-// خلف Proxy (Railway/NGINX) لازم نثق بالـ proxy للـ secure cookies
-app.set('trust proxy', 1);
-
-const isProd = process.env.NODE_ENV === 'production';
-
-// ✅ خلي MySQLStore يستخدم الـ pool بدل ما يعمل اتصالات لحالو
-const sessionStore = new MySQLStore(
-  {
-    clearExpired: true,
-    checkExpirationInterval: 15 * 60 * 1000, // كل 15 دقيقة
-    expiration: 24 * 60 * 60 * 1000,         // يوم
-
-    // إذا جدول sessions موجود وما بدك ينشئه، خليه false (default)
-    // createDatabaseTable: false,
-    // schema: { tableName: 'sessions' },
-  },
-  pool
-);
-
-// تفعيل الجلسات باستخدام MySQLStore
-app.use(
-  session({
-    name: process.env.SESSION_NAME || 'akcell_sid',
-    secret: process.env.SESSION_SECRET,
-    store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-
-    // (اختياري لكنه مفيد لتخفيف writes على DB)
-    // rolling: true,
-
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24, // يوم
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isProd,
-    },
-  })
-);
-
-
-
-
-
-const setTelegramChatId = require('./telegram/setTelegramChatId');
-app.use('/', setTelegramChatId);
-
-
-
-app.use((req, res, next) => {
-  res.locals.user = req.session.user || null;
-
-  // ✅ عداد الإشعارات
-  if (req.session.user) {
-    const userId = req.session.user.id;
-    const sql = "SELECT COUNT(*) AS unreadCount FROM notifications WHERE user_id = ? AND is_read = FALSE";
-
-    db.query(sql, [userId], (err, result) => {
-      if (!err) {
-        res.locals.unreadCount = result[0].unreadCount;
-      } else {
-        res.locals.unreadCount = 0;
-      }
-      next();
-    });
-  } else {
-    res.locals.unreadCount = 0;
-    next();
-  }
-});
-function checkUser(req, res, next) {
-  if (req.session && req.session.user) {
-    next();
-  } else {
-    res.redirect('/login'); // أو أي صفحة تسجيل الدخول عندك
-  }
-}
-
-function withTimeout(promise, ms = 4000) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram timeout')), ms))
-  ]);
-}
-
-
-
-
-
-
-// Middlewares
-const checkAuth = (req, res, next) => {
-    if (req.session.user) next();
-    else res.redirect('/login');
-};
-
-const checkAuthJson = (req, res, next) => {
-  if (req.session?.user) return next();
-  return res.status(401).json({ success: false, message: "Session expired. Please log in.", data: null });
-};
-
-
-const checkAdmin = (req, res, next) => {
-    if (req.session.user && req.session.user.role === 'admin') next();
-    else res.status(403).send('Access Denied');
-};
-
-const {
-  getFiveSimProfile,
-  getCountries,
-  getProducts,
-  getPrices,
-
-  buyFiveSimActivation,
-  getFiveSimOrder,
-  finishFiveSimOrder,
-  cancelFiveSimOrder,
-  banFiveSimOrder,
-} = require('./services/fivesim');
-
-// Middleware to refresh user data from DB on every request
-app.use((req, res, next) => {
-    // Check if a user is logged in
-    if (req.session.user) {
-        const sql = "SELECT * FROM users WHERE id = ?";
-        db.query(sql, [req.session.user.id], (err, results) => {
-            if (err) {
-                console.error(err);
-                return next(); // Continue even if there's an error
-            }
-            if (results.length > 0) {
-                // Update the session with the latest data from the database
-                req.session.user = results[0]; 
-            }
-            next(); // Continue to the requested route
-        });
-    } else {
-        next(); // If no user is logged in, just continue
-    }
-});
-
-app.use(async (req, res, next) => {
-  // user متوفر لكل الصفحات
-  res.locals.user = req.session.user || null;
-
-  // defaults (حتى ما يطلع undefined بالـ EJS)
-  res.locals.pendingBalanceRequestsCount = 0;      // للأدمن (كل الموقع)
-  res.locals.pendingBalanceCount = 0;              // للمستخدم (طلباته هو)
-  res.locals.unreadCount = 0;                      // إذا بدك (notifications)
-
-  try {
-    // إذا المستخدم مسجّل دخول
-    if (req.session.user?.id) {
-      const userId = req.session.user.id;
-
-      // ✅ unread notifications للمستخدم + pending balance requests للمستخدم
-      // (إذا ما بدك notifications شيل أول SELECT)
-      const [[rowUser]] = await promisePool.query(
-        `
-        SELECT
-          (SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = FALSE) AS unreadCount,
-          (SELECT COUNT(*) FROM balance_requests WHERE user_id = ? AND status = 'pending') AS pendingBalanceCount
-        `,
-        [userId, userId]
-      );
-
-      res.locals.unreadCount = Number(rowUser?.unreadCount || 0);
-      res.locals.pendingBalanceCount = Number(rowUser?.pendingBalanceCount || 0);
-    }
-
-    // ✅ عداد الأدمن (كل الطلبات pending)
-    if (req.session.user?.role === 'admin') {
-      const [[rowAdmin]] = await promisePool.query(
-        `SELECT COUNT(*) AS cnt FROM balance_requests WHERE status = 'pending'`
-      );
-      res.locals.pendingBalanceRequestsCount = Number(rowAdmin?.cnt || 0);
-    }
-  } catch (err) {
-    console.error("❌ locals middleware error:", err);
-  }
-
-  next();
-});
-
-
-
-const { isMaintenance, MAINT_START, MAINT_END, MAINT_TZ } = require('./utils/maintenance');
-
-// مسارات/طلبات بنستثنيها من الصيانة (صحة، ستاتيك، أدمن اختياري)
-const EXEMPT = [
-  /^\/healthz$/,
-  /^\/css\//, /^\/js\//, /^\/images\//, /^\/assets\//,
-  /^\/favicon\.ico$/,
-  // إذا بدك تسمح للأدمن يفتح دايمًا، فعّل هالسطر:
-   /^\/admin/,
-];
-
-app.use((req, res, next) => {
-  if (EXEMPT.some(rx => rx.test(req.path))) return next();
-
-  if (isMaintenance()) {
-    // لو طلب JSON أو XHR رجّع JSON 503
-    const wantsJSON =
-      req.xhr ||
-      req.headers.accept?.includes('application/json') ||
-      req.path.startsWith('/api');
-
-    if (wantsJSON) {
-      return res.status(503).json({
-        success: false,
-        message: 'Service under scheduled maintenance. Please try again later.',
-        maintenance: { tz: MAINT_TZ, fromHour: MAINT_START, toHour: MAINT_END }
-      });
-    }
-
-    // صفحة صيانة جميلة
-    return res.status(503).render('maintenance', {
-      tz: MAINT_TZ,
-      fromHour: MAINT_START.toString().padStart(2, '0') + ':00',
-      toHour: MAINT_END.toString().padStart(2, '0') + ':00'
-    });
-  }
-
-  next();
-});
-
-function getUserEffectiveDiscount(user) {
-  if (!user) return 0;
-
-  // ✅ VIP manual discount إذا موجود
-  const manual = Number(user.discount_percent || 0);
-  if (Number.isFinite(manual) && manual > 0) return manual;
-
-  // ✅ غير هيك خصم حسب level
-  const level = Number(user.level || 1);
-  if (level === 2) return 2;
-  if (level === 3) return 4;
-  if (level === 4) return 6;
-  if (level >= 5) return 8;
-
-  return 0;
-}
-
-
-
-
-// =============================================
-//                  PAGE ROUTES
-// =============================================
-
-// --- الصفحة الرئيسية ---
-app.get('/', (req, res) => {
-  try {
-    const user = req.session?.user || null;
-
-    // التحقق من إذا تم تسجيل الدخول للتو
-    const justLoggedIn = req.session?.justLoggedIn || false;
-    if (req.session) req.session.justLoggedIn = false;
-
-    // عرض التنبيه فقط إذا تم تسجيل الدخول حديثاً ولا يوجد telegram_chat_id
-    const showTelegramToast = justLoggedIn && user && !user.telegram_chat_id;
-
-    console.log("✅ Rendering home page...");
-    res.render('index', { user, showTelegramToast });
-  } catch (error) {
-    console.error("🔥 Error rendering /:", error);
-    res.status(500).send("Error rendering home page");
-  }
-});
-app.get('/transactions', checkAuth, async (req, res) => {
-  const userId = req.session.user?.id;
-  if (!userId) return res.redirect('/login?error=session');
-
-  const qStr  = (req.query.q || '').toString().trim().slice(0, 60);
-  const typeQ = (req.query.type || '').toString().trim().toLowerCase();
-  const page  = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
-  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10) || 20, 10), 100);
-  const offset = (page - 1) * limit;
-
-  try {
-    // 🔎 1) اكتشف الأعمدة الموجودة بجدول transactions
-    const [cols] = await promisePool.query(`SHOW COLUMNS FROM transactions`);
-    const colNames = new Set(cols.map(c => c.Field));
-
-    // user column (user_id أو userId)
-    const userCol = colNames.has('user_id') ? 'user_id' : (colNames.has('userId') ? 'userId' : null);
-    if (!userCol) throw new Error('transactions table missing user_id/userId column');
-
-    // date column (حسب الموجود عندك)
-    const dateCandidates = ['date', 'createdAt', 'created_at', 'time', 'timestamp'];
-    const dateCol = dateCandidates.find(c => colNames.has(c));
-    if (!dateCol) throw new Error('transactions table missing a date column (date/createdAt/...)');
-
-    // 🔎 2) Filters
-    const where = [`${userCol} = ?`];
-    const params = [userId];
-
-    if (typeQ && colNames.has('type') && ['debit', 'credit', 'refund'].includes(typeQ)) {
-      if (typeQ === 'refund') {
-        where.push(`(LOWER(type) = 'refund' OR LOWER(reason) LIKE '%refund%')`);
-      } else {
-        where.push(`LOWER(type) = ?`);
-        params.push(typeQ);
-      }
-    }
-
-    if (qStr && colNames.has('reason')) {
-      where.push(`LOWER(reason) LIKE ?`);
-      params.push(`%${qStr.toLowerCase()}%`);
-    }
-
-    const whereSql = `WHERE ${where.join(' AND ')}`;
-
-    // 🔢 3) Count
-    const [countRows] = await promisePool.query(
-      `SELECT COUNT(*) AS c FROM transactions ${whereSql}`,
-      params
-    );
-    const total = Number(countRows?.[0]?.c || 0);
-    const pages = Math.max(1, Math.ceil(total / limit));
-
-    // 📄 4) List (مهم: alias للتاريخ إلى tx_date)
-    const listSql = `
-      SELECT
-        ${colNames.has('id') ? 'id,' : ''}
-        ${colNames.has('type') ? 'type,' : `'debit' AS type,`}
-        ${colNames.has('amount') ? 'amount,' : '0 AS amount,'}
-        ${colNames.has('reason') ? 'reason,' : "'' AS reason,"}
-        ${dateCol} AS tx_date
-      FROM transactions
-      ${whereSql}
-      ORDER BY ${dateCol} DESC
-      LIMIT ? OFFSET ?
-    `;
-    const [rows] = await promisePool.query(listSql, [...params, limit, offset]);
-
-    return res.render('transactions', {
-      user: req.session.user || null,
-      transactions: rows,
-      meta: { total, page, pages, limit, q: qStr, type: typeQ }
-    });
-
-  } catch (err) {
-    console.error('❌ GET /transactions error:', err);
-    return res.status(500).send(`<pre>${String(err?.message || err)}</pre>`);
-  }
-});
-
-// ✅ My Balance page
-app.get('/my-balance', checkAuth, async (req, res) => {
-  const userId = req.session.user?.id;
-  if (!userId) return res.redirect('/login?error=session');
-
-  try {
-    // ✅ آخر بيانات المستخدم (رصيد/level/discount/total_spent)
-    const [[userRow]] = await promisePool.query(
-      `SELECT id, username, balance, level, discount_percent, total_spent
-       FROM users
-       WHERE id = ?
-       LIMIT 1`,
-      [userId]
-    );
-
-    // ✅ طلبات التعبئة للمستخدم
-    const [requests] = await promisePool.query(
-      `SELECT id, amount, currency, proof_image, status, admin_note, created_at
-       FROM balance_requests
-       WHERE user_id = ?
-       ORDER BY id DESC
-       LIMIT 200`,
-      [userId]
-    );
-
-    // ✅ Stats صغيرة للواجهة
-    const stats = requests.reduce((acc, r) => {
-      const amt = Number(r.amount || 0);
-      acc.total++;
-      acc.byStatus[r.status] = (acc.byStatus[r.status] || 0) + 1;
-      if (r.status === 'approved') acc.approvedSum += amt;
-      if (r.status === 'pending') acc.pendingSum += amt;
-      return acc;
-    }, { total: 0, approvedSum: 0, pendingSum: 0, byStatus: {} });
-
-    return res.render('my-balance', {
-      user: userRow || req.session.user,
-      requests,
-      stats
-    });
-
-  } catch (err) {
-    console.error('❌ GET /my-balance error:', err);
-    return res.status(500).send('Server error');
-  }
-});
-
-app.get('/admin/balance-requests', checkAdmin, async (req, res) => {
-  const status = (req.query.status || '').trim(); // pending / approved / rejected
-
-  try {
-    const params = [];
-    let where = '';
-
-    if (['pending', 'approved', 'rejected'].includes(status)) {
-      where = 'WHERE br.status = ?';
-      params.push(status);
-    }
-
-    const [requests] = await promisePool.query(
-      `
-      SELECT br.*, u.username
-      FROM balance_requests br
-      JOIN users u ON u.id = br.user_id
-      ${where}
-      ORDER BY br.id DESC
-      LIMIT 500
-      `,
-      params
-    );
-
-    res.render('admin-balance-requests', { requests, statusFilter: status });
-  } catch (err) {
-    console.error("GET /admin/balance-requests:", err);
-    res.status(500).send("Server error");
-  }
-});
-
-
-
-app.get('/test', (req, res) => {
-  res.send("Test is working ✅");
-});
 
 
 
