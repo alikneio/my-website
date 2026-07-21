@@ -142,7 +142,10 @@
                 <%
                     function isoToFlag(iso) {
                         const cleanIso = String(iso || '').trim().toUpperCase();
-                        if (!/^[A-Z]{2}$/.test(cleanIso)) return '🌐';
+
+                        if (!/^[A-Z]{2}$/.test(cleanIso)) {
+                            return '🌐';
+                        }
 
                         return cleanIso
                             .split('')
@@ -155,6 +158,12 @@
                     }
 
                     const flag = isoToFlag(country.iso);
+
+                    const countryImage = String(
+                        country.image ||
+                        country.card_image ||
+                        ''
+                    ).trim();
                 %>
 
                 <div class="col">
@@ -162,34 +171,39 @@
                         href="/virtual-numbers/checkout/<%= country.store_item_id %>"
                         class="category-card service-card h-100"
                     >
-                        <% const countryImage = country.card_image || null; %>
+                        <div class="country-card-visual">
 
-<% if (countryImage) { %>
-    <img
-        src="<%= countryImage %>"
-        alt="<%= country.name %>"
-        loading="lazy"
-        onerror="
-            this.style.display='none';
-            this.nextElementSibling.style.display='flex';
-        "
-    >
-<% } %>
+                            <% if (countryImage) { %>
+                                <img
+                                    src="<%= countryImage %>"
+                                    alt="<%= country.name %>"
+                                    loading="lazy"
+                                    onerror="
+                                        this.style.display='none';
+                                        this.nextElementSibling.style.display='flex';
+                                    "
+                                >
+                            <% } %>
 
-<div
-    class="country-fallback"
-    style="<%= countryImage ? 'display:none;' : 'display:flex;' %>"
->
-                                <div class="country-flag"><%= flag %></div>
+                            <div
+                                class="country-fallback"
+                                style="<%= countryImage ? 'display:none;' : 'display:flex;' %>"
+                            >
+                                <div class="country-flag">
+                                    <%= flag %>
+                                </div>
+
                                 <div class="country-name-on-image">
                                     <%= country.name %>
                                 </div>
                             </div>
+
                         </div>
 
                         <div class="card-body text-center">
                             <div>
                                 <%= country.name %>
+
                                 <% if (country.iso) { %>
                                     <span class="small text-muted">
                                         (<%= country.iso.toUpperCase() %>)
@@ -205,12 +219,18 @@
 
                             <div class="country-availability">
                                 <i class="bi bi-check-circle-fill"></i>
-                                <%= Number(country.available_count || 0).toLocaleString() %>
+
+                                <%= Number(
+                                    country.available_count || 0
+                                ).toLocaleString() %>
+
                                 available
                             </div>
 
                             <div class="country-price">
-                                $<%= Number(country.sell_price || 0).toFixed(2) %>
+                                $<%= Number(
+                                    country.sell_price || 0
+                                ).toFixed(2) %>
                             </div>
                         </div>
                     </a>
@@ -230,18 +250,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("searchForm");
 
     if (form) {
-        form.addEventListener("submit", event => event.preventDefault());
+        form.addEventListener("submit", event => {
+            event.preventDefault();
+        });
     }
 
     if (input) {
         input.addEventListener("input", function () {
-            const value = this.value.toLowerCase().trim();
+            const value = this.value
+                .toLowerCase()
+                .trim();
 
-            document.querySelectorAll(".category-card").forEach(card => {
-                const wrapper = card.closest(".col");
-                const title = card.innerText.toLowerCase();
-                wrapper.style.display = title.includes(value) ? "" : "none";
-            });
+            document
+                .querySelectorAll(".category-card")
+                .forEach(card => {
+                    const wrapper = card.closest(".col");
+                    const title = card.innerText.toLowerCase();
+
+                    if (wrapper) {
+                        wrapper.style.display =
+                            title.includes(value)
+                                ? ""
+                                : "none";
+                    }
+                });
         });
     }
 });
