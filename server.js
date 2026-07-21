@@ -312,6 +312,11 @@ const checkAdmin = (req, res, next) => {
     else res.status(403).send('Access Denied');
 };
 
+const {
+  getFiveSimProfile,
+  getFiveSimPrices,
+} = require('./services/fivesim');
+
 // Middleware to refresh user data from DB on every request
 app.use((req, res, next) => {
     // Check if a user is logged in
@@ -2934,6 +2939,38 @@ app.get('/admin/balance-requests', checkAdmin, (req, res) => {
       requests
     });
   });
+});
+
+
+app.get('/admin/fivesim/test', checkAdmin, async (req, res) => {
+  try {
+    const profile = await getFiveSimProfile();
+
+    return res.json({
+      success: true,
+      message: '5SIM connection successful',
+      data: {
+        id: profile.id,
+        vendor: profile.vendor,
+        balance: profile.balance,
+        frozenBalance: profile.frozenBalance,
+        rating: profile.rating,
+        defaultCountry: profile.defaultCountry,
+        defaultOperator: profile.defaultOperator,
+      },
+    });
+  } catch (error) {
+    console.error('❌ 5SIM test error:', {
+      message: error.message,
+      status: error.httpStatus,
+      payload: error.providerPayload,
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 });
 
 
