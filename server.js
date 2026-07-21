@@ -815,23 +815,16 @@ app.get(
       Expires: '0'
     });
 
-    if (
-      !Number.isInteger(storeItemId) ||
-      storeItemId <= 0
-    ) {
-      return res.status(400).send(
-        'Invalid virtual number service.'
-      );
+    if (!Number.isInteger(storeItemId) || storeItemId <= 0) {
+      return res.status(400).send('Invalid virtual number service.');
     }
 
-    if (
-      !Number.isInteger(userId) ||
-      userId <= 0
-    ) {
+    if (!Number.isInteger(userId) || userId <= 0) {
       return res.redirect('/login');
     }
 
     try {
+
       const [[row]] = await promisePool.query(
         `
         SELECT
@@ -869,7 +862,7 @@ app.get(
           SUM(
             CASE
               WHEN fp.available_count > 0
-               AND COALESCE(fp.is_out_of_stock, 0) = 0
+               AND COALESCE(fp.is_out_of_stock,0)=0
                AND fp.provider_price > 0
               THEN fp.available_count
               ELSE 0
@@ -879,7 +872,7 @@ app.get(
           COUNT(
             DISTINCT CASE
               WHEN fp.available_count > 0
-               AND COALESCE(fp.is_out_of_stock, 0) = 0
+               AND COALESCE(fp.is_out_of_stock,0)=0
                AND fp.provider_price > 0
               THEN fp.operator_id
               ELSE NULL
@@ -898,7 +891,8 @@ app.get(
           ON fp.country_id = fsi.country_id
          AND fp.service_id = fsi.service_id
 
-        WHERE fsi.id = ?
+        WHERE
+          fsi.id = ?
           AND fsi.is_active = 1
           AND fsi.sell_price > 0
 
@@ -965,9 +959,21 @@ app.get(
         return res.redirect('/login');
       }
 
+      // =====================================
+      // توليد Idempotency جديد
+      // =====================================
+
+      delete req.session.fiveSimIdemKey;
+      delete req.session.fiveSimStoreItemId;
+
       const idemKey = crypto
         .randomBytes(32)
         .toString('hex');
+
+      req.session.fiveSimIdemKey = idemKey;
+      req.session.fiveSimStoreItemId = storeItemId;
+
+      // =====================================
 
       const item = {
         id: Number(row.id),
@@ -978,9 +984,7 @@ app.get(
           'Virtual Number'
         ).trim(),
 
-        price: Number(
-          row.sell_price || 0
-        ),
+        price: Number(row.sell_price || 0),
 
         serviceImage:
           row.store_image ||
@@ -1012,8 +1016,7 @@ app.get(
           Number(row.minimum_rate || 0),
 
         maximumProviderPrice:
-          row.maximum_provider_price === null ||
-          row.maximum_provider_price === undefined
+          row.maximum_provider_price == null
             ? null
             : Number(row.maximum_provider_price),
 
@@ -1032,12 +1035,21 @@ app.get(
       const errorMessages = {
         unavailable:
           'This virtual number is currently unavailable.',
+
         balance:
           'Your balance is insufficient for this purchase.',
+
         failed:
           'The number could not be reserved. Please try again.',
+
         duplicate:
-          'This purchase request was already submitted.'
+          'This purchase request was already submitted.',
+
+        provider:
+          'The provider could not reserve a number. Please try again.',
+
+        server:
+          'Unexpected server error. Please try again.'
       };
 
       return res.render(
@@ -1045,23 +1057,22 @@ app.get(
         {
           user: {
             ...req.session.user,
-            balance: Number(
-              userRow.balance || 0
-            )
+            balance: Number(userRow.balance || 0)
           },
 
           item,
+
           idemKey,
 
           error:
-            errorMessages[requestedError] ||
-            null
+            errorMessages[requestedError] || null
         }
       );
 
     } catch (error) {
+
       console.error(
-        '❌ GET /virtual-numbers/checkout/:id:',
+        '❌ GET /virtual-numbers/checkout/:id',
         {
           storeItemId,
           userId,
@@ -1077,7 +1088,6 @@ app.get(
     }
   }
 );
-
 
 app.post(
   '/virtual-numbers/buy/:id',
