@@ -801,6 +801,283 @@ app.get('/test', (req, res) => {
   res.send("Test is working ✅");
 });
 
+const crypto = require('crypto');
+
+app.get(
+  '/virtual-numbers/checkout/:id',
+  checkAuth,
+  async (req, res) => {
+    const storeItemId = Number(req.params.id);
+    const userId = Number(req.session.user?.id);
+
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      Pragma: 'no-cache',
+      Expires: '0'
+    });
+
+    if (
+      !Number.isInteger(storeItemId) ||
+      storeItemId <= 0
+    ) {
+      return res.status(400).send(
+        'Invalid virtual number service.'
+      );
+    }
+
+    if (
+      !Number.isInteger(userId) ||
+      userId <= 0
+    ) {
+      return res.redirect('/login');
+    }
+
+    try {
+      const [[row]] = await promisePool.query(
+        `
+        SELECT
+          fsi.id,
+          fsi.country_id,
+          fsi.service_id,
+          fsi.custom_name,
+          fsi.store_image,
+          fsi.checkout_description,
+          fsi.checkout_notes,
+          fsi.sell_price,
+          fsi.selection_mode,
+          fsi.minimum_rate,
+          fsi.maximum_provider_price,
+          fsi.is_active,
+
+          fc.code AS country_code,
+          fc.iso AS country_iso,
+          fc.prefix AS country_prefix,
+
+          COALESCE(
+            NULLIF(TRIM(fc.custom_name), ''),
+            fc.code
+          ) AS country_name,
+
+          fs.product_code,
+
+          COALESCE(
+            NULLIF(TRIM(fsi.custom_name), ''),
+            NULLIF(TRIM(fs.custom_name), ''),
+            NULLIF(TRIM(fs.provider_name), ''),
+            fs.product_code
+          ) AS service_name,
+
+          SUM(
+            CASE
+              WHEN fp.available_count > 0
+               AND COALESCE(fp.is_out_of_stock, 0) = 0
+               AND fp.provider_price > 0
+              THEN fp.available_count
+              ELSE 0
+            END
+          ) AS available_count,
+
+          COUNT(
+            DISTINCT CASE
+              WHEN fp.available_count > 0
+               AND COALESCE(fp.is_out_of_stock, 0) = 0
+               AND fp.provider_price > 0
+              THEN fp.operator_id
+              ELSE NULL
+            END
+          ) AS available_operators
+
+        FROM fivesim_store_items fsi
+
+        INNER JOIN fivesim_countries fc
+          ON fc.id = fsi.country_id
+
+        INNER JOIN fivesim_services fs
+          ON fs.id = fsi.service_id
+
+        LEFT JOIN fivesim_prices fp
+          ON fp.country_id = fsi.country_id
+         AND fp.service_id = fsi.service_id
+
+        WHERE fsi.id = ?
+          AND fsi.is_active = 1
+          AND fsi.sell_price > 0
+
+        GROUP BY
+          fsi.id,
+          fsi.country_id,
+          fsi.service_id,
+          fsi.custom_name,
+          fsi.store_image,
+          fsi.checkout_description,
+          fsi.checkout_notes,
+          fsi.sell_price,
+          fsi.selection_mode,
+          fsi.minimum_rate,
+          fsi.maximum_provider_price,
+          fsi.is_active,
+
+          fc.code,
+          fc.iso,
+          fc.prefix,
+          fc.custom_name,
+
+          fs.product_code,
+          fs.custom_name,
+          fs.provider_name
+
+        LIMIT 1
+        `,
+        [storeItemId]
+      );
+
+      if (!row) {
+        return res.status(404).send(
+          'Virtual number service not found.'
+        );
+      }
+
+      const available = Math.max(
+        0,
+        Number(row.available_count || 0)
+      );
+
+      if (available <= 0) {
+        return res.status(409).send(
+          'This virtual number is currently unavailable.'
+        );
+      }
+
+      const [[userRow]] = await promisePool.query(
+        `
+        SELECT
+          id,
+          username,
+          email,
+          balance
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+        `,
+        [userId]
+      );
+
+      if (!userRow) {
+        return res.redirect('/login');
+      }
+
+      const idemKey = crypto
+        .randomBytes(32)
+        .toString('hex');
+
+      const item = {
+        id: Number(row.id),
+
+        name: String(
+          row.service_name ||
+          row.product_code ||
+          'Virtual Number'
+        ).trim(),
+
+        price: Number(
+          row.sell_price || 0
+        ),
+
+        serviceImage:
+          row.store_image ||
+          '/images/placeholder.png',
+
+        description:
+          row.checkout_description || '',
+
+        notes:
+          row.checkout_notes || '',
+
+        countryName:
+          row.country_name ||
+          row.country_code,
+
+        countryIso:
+          row.country_iso || '',
+
+        countryPrefix:
+          row.country_prefix || '',
+
+        serviceCode:
+          row.product_code || '',
+
+        selectionMode:
+          row.selection_mode || 'balanced',
+
+        minimumRate:
+          Number(row.minimum_rate || 0),
+
+        maximumProviderPrice:
+          row.maximum_provider_price === null ||
+          row.maximum_provider_price === undefined
+            ? null
+            : Number(row.maximum_provider_price),
+
+        available,
+
+        availableOperators: Math.max(
+          0,
+          Number(row.available_operators || 0)
+        )
+      };
+
+      const requestedError = String(
+        req.query.error || ''
+      ).trim();
+
+      const errorMessages = {
+        unavailable:
+          'This virtual number is currently unavailable.',
+        balance:
+          'Your balance is insufficient for this purchase.',
+        failed:
+          'The number could not be reserved. Please try again.',
+        duplicate:
+          'This purchase request was already submitted.'
+      };
+
+      return res.render(
+        'virtual-number-checkout',
+        {
+          user: {
+            ...req.session.user,
+            balance: Number(
+              userRow.balance || 0
+            )
+          },
+
+          item,
+          idemKey,
+
+          error:
+            errorMessages[requestedError] ||
+            null
+        }
+      );
+
+    } catch (error) {
+      console.error(
+        '❌ GET /virtual-numbers/checkout/:id:',
+        {
+          storeItemId,
+          userId,
+          code: error.code,
+          sqlState: error.sqlState,
+          message: error.message || error
+        }
+      );
+
+      return res.status(500).send(
+        'Failed to load virtual number checkout.'
+      );
+    }
+  }
+);
 
 
 app.post(
