@@ -321,6 +321,58 @@
       min-height: 41px;
     }
 
+    .content-editor {
+      margin-top: 16px;
+      padding: 16px;
+      border: 1px solid var(--vn-border);
+      border-radius: 16px;
+      background: #fafbfd;
+    }
+
+    .content-editor-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      font-weight: 800;
+      color: var(--vn-text);
+    }
+
+    .image-editor-row {
+      display: grid;
+      grid-template-columns: 118px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .service-image-preview {
+      width: 118px;
+      height: 118px;
+      border-radius: 16px;
+      object-fit: cover;
+      background: #fff;
+      border: 1px dashed rgba(18,34,51,.18);
+      box-shadow: 0 8px 20px rgba(18,34,51,.06);
+    }
+
+    .checkout-textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .field-help {
+      margin-top: 6px;
+      color: var(--vn-muted);
+      font-size: .76rem;
+    }
+
+    .char-count {
+      float: right;
+      color: var(--vn-muted);
+      font-size: .72rem;
+      font-weight: 700;
+    }
+
     .advanced-box {
       border-top: 1px solid var(--vn-border);
       margin-top: 14px;
@@ -415,6 +467,15 @@
 
       .price-grid {
         grid-template-columns: 1fr;
+      }
+
+      .image-editor-row {
+        grid-template-columns: 1fr;
+      }
+
+      .service-image-preview {
+        width: 100%;
+        height: 210px;
       }
 
       .service-card-head {
@@ -616,9 +677,10 @@
                 <article class="service-card">
                   <div class="service-card-head">
                     <div class="service-main">
-                      <% if (item.service_image) { %>
+                      <% const visibleImage = item.store_image || item.service_image || ''; %>
+                      <% if (visibleImage) { %>
                         <img
-                          src="<%= item.service_image %>"
+                          src="<%= visibleImage %>"
                           alt="<%= item.store_custom_name || item.provider_name || item.product_code %>"
                           class="service-logo"
                           loading="lazy"
@@ -628,7 +690,7 @@
 
                       <span
                         class="service-logo-fallback"
-                        style="<%= item.service_image ? 'display:none;' : 'display:inline-flex;' %>"
+                        style="<%= visibleImage ? 'display:none;' : 'display:inline-flex;' %>"
                       >
                         <i class="bi bi-chat-square-text-fill"></i>
                       </span>
@@ -746,6 +808,82 @@
                           placeholder="Optional custom name"
                           value="<%= item.store_custom_name || '' %>"
                         />
+                      </div>
+                    </div>
+
+                    <div class="content-editor">
+                      <div class="content-editor-title">
+                        <i class="bi bi-card-image text-primary"></i>
+                        Card Image & Checkout Content
+                      </div>
+
+                      <div class="image-editor-row">
+                        <img
+                          class="service-image-preview js-service-image-preview"
+                          src="<%= item.store_image || item.service_image || '/images/placeholder.png' %>"
+                          alt="Service image preview"
+                          onerror="this.src='/images/placeholder.png'"
+                        />
+
+                        <div>
+                          <label class="form-label fw-bold">Card Image Path</label>
+                          <div class="input-group">
+                            <span class="input-group-text">
+                              <i class="bi bi-image"></i>
+                            </span>
+                            <input
+                              type="text"
+                              name="store_image"
+                              class="form-control js-service-image-input"
+                              maxlength="255"
+                              placeholder="/images/fivesim/whatsapp.webp"
+                              value="<%= item.store_image || '' %>"
+                            />
+                          </div>
+                          <div class="field-help">
+                            Put the file inside <code>public/images</code> and enter a path beginning with <code>/images/</code>.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="row g-3 mt-1">
+                        <div class="col-12">
+                          <label class="form-label fw-bold">
+                            <i class="bi bi-journal-text me-1"></i>
+                            Checkout Description
+                            <span class="char-count">
+                              <span class="js-char-current">0</span>/2000
+                            </span>
+                          </label>
+                          <textarea
+                            name="checkout_description"
+                            class="form-control checkout-textarea js-counted-textarea"
+                            maxlength="2000"
+                            placeholder="Short description shown on the checkout page..."
+                          ><%= item.checkout_description || '' %></textarea>
+                          <div class="field-help">
+                            A short explanation of what the customer is purchasing.
+                          </div>
+                        </div>
+
+                        <div class="col-12">
+                          <label class="form-label fw-bold">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Checkout Notes
+                            <span class="char-count">
+                              <span class="js-char-current">0</span>/2000
+                            </span>
+                          </label>
+                          <textarea
+                            name="checkout_notes"
+                            class="form-control checkout-textarea js-counted-textarea"
+                            maxlength="2000"
+                            placeholder="Important warnings, instructions or activation notes..."
+                          ><%= item.checkout_notes || '' %></textarea>
+                          <div class="field-help">
+                            Displayed as an important information box in checkout.
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -980,6 +1118,32 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
+    document.querySelectorAll('.js-service-image-input').forEach(function (input) {
+      const form = input.closest('form');
+      const preview = form?.querySelector('.js-service-image-preview');
+
+      if (!preview) return;
+
+      input.addEventListener('input', function () {
+        const value = String(input.value || '').trim();
+        preview.src = value || '/images/placeholder.png';
+      });
+    });
+
+    document.querySelectorAll('.js-counted-textarea').forEach(function (textarea) {
+      const label = textarea.previousElementSibling;
+      const counter = label?.querySelector('.js-char-current');
+
+      function updateCount() {
+        if (counter) {
+          counter.textContent = String(textarea.value || '').length;
+        }
+      }
+
+      updateCount();
+      textarea.addEventListener('input', updateCount);
+    });
+
     document.querySelectorAll('.advanced-toggle').forEach(function (button) {
       button.addEventListener('click', function () {
         const content = button.nextElementSibling;

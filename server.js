@@ -7842,45 +7842,87 @@ app.post(
   '/admin/fivesim-services/save',
   checkAdmin,
   async (req, res) => {
-    const countryId = Number(req.body.country_id);
-    const serviceId = Number(req.body.service_id);
+    // =====================================================
+    // Helpers
+    // =====================================================
 
-    const customName =
-      String(req.body.custom_name || '')
-        .trim()
-        .slice(0, 150) || null;
+    function cleanText(value, maxLength) {
+      const text = String(value ?? '').trim();
 
-    const sellPrice = Number(req.body.sell_price);
+      if (!text) {
+        return null;
+      }
 
-    const selectionMode = [
-      'cheapest',
-      'balanced',
-      'quality'
-    ].includes(req.body.selection_mode)
-      ? req.body.selection_mode
-      : 'balanced';
+      return text.slice(0, maxLength);
+    }
 
-    const minimumRate = Math.max(
-      0,
-      Number(req.body.minimum_rate || 0)
+    function normalizeImagePath(value) {
+      const path = String(value ?? '').trim();
+
+      if (!path) {
+        return null;
+      }
+
+      /*
+       * نحن نسمح فقط بصور موجودة داخل public/images.
+       *
+       * مثال صحيح:
+       * /images/fivesim/whatsapp.webp
+       */
+      if (!path.startsWith('/images/')) {
+        throw new Error(
+          'Image path must start with /images/'
+        );
+      }
+
+      /*
+       * منع directory traversal أو query/hash غير ضروريين.
+       */
+      if (
+        path.includes('..') ||
+        path.includes('\\') ||
+        path.includes('?') ||
+        path.includes('#') ||
+        path.includes('\0')
+      ) {
+        throw new Error('Invalid image path');
+      }
+
+      if (path.length > 255) {
+        throw new Error(
+          'Image path is too long'
+        );
+      }
+
+      return path;
+    }
+
+    function safeAdminReturnTo(value) {
+      const returnTo = String(value ?? '').trim();
+
+      if (
+        returnTo === '/admin/fivesim-services' ||
+        returnTo.startsWith(
+          '/admin/fivesim-services?'
+        )
+      ) {
+        return returnTo;
+      }
+
+      return '/admin/fivesim-services';
+    }
+
+    // =====================================================
+    // Basic identifiers
+    // =====================================================
+
+    const countryId = Number(
+      req.body.country_id
     );
 
-    const maxProviderPriceRaw =
-      String(req.body.maximum_provider_price || '').trim();
-
-    const maximumProviderPrice =
-      maxProviderPriceRaw === ''
-        ? null
-        : Number(maxProviderPriceRaw);
-
-    const isActive =
-      req.body.is_active === '1' ? 1 : 0;
-
-    const isFeatured =
-      req.body.is_featured === '1' ? 1 : 0;
-
-    const sortOrder =
-      parseInt(req.body.sort_order || '0', 10) || 0;
+    const serviceId = Number(
+      req.body.service_id
+    );
 
     if (
       !Number.isInteger(countryId) ||
@@ -7888,29 +7930,204 @@ app.post(
       !Number.isInteger(serviceId) ||
       serviceId <= 0
     ) {
-      return res.status(400).send('Invalid service or country');
+      return res
+        .status(400)
+        .send('Invalid service or country');
     }
+
+    // =====================================================
+    // Public content
+    // =====================================================
+
+    const customName = cleanText(
+      req.body.custom_name,
+      150
+    );
+
+    const checkoutDescription = cleanText(
+      req.body.checkout_description,
+      2000
+    );
+
+    const checkoutNotes = cleanText(
+      req.body.checkout_notes,
+      2000
+    );
+
+    let storeImage = null;
+
+    try {
+      storeImage = normalizeImagePath(
+        req.body.store_image
+      );
+    } catch (error) {
+      return res
+        .status(400)
+        .send(error.message);
+    }
+
+    // =====================================================
+    // Pricing
+    // =====================================================
+
+    const sellPrice = Number(
+      req.body.sell_price
+    );
 
     if (
       !Number.isFinite(sellPrice) ||
-      sellPrice < 0
+      sellPrice < 0 ||
+      sellPrice > 99999999
     ) {
-      return res.status(400).send('Invalid sell price');
+      return res
+        .status(400)
+        .send('Invalid sell price');
     }
 
+    const minimumRateRaw = Number(
+      req.body.minimum_rate || 0
+    );
+
     if (
-      maximumProviderPrice !== null &&
-      (
-        !Number.isFinite(maximumProviderPrice) ||
-        maximumProviderPrice < 0
-      )
+      !Number.isFinite(minimumRateRaw) ||
+      minimumRateRaw < 0 ||
+      minimumRateRaw > 100
     ) {
-      return res.status(400).send(
-        'Invalid maximum provider price'
+      return res
+        .status(400)
+        .send(
+          'Minimum rate must be between 0 and 100'
+        );
+    }
+
+    const minimumRate = Number(
+      minimumRateRaw.toFixed(2)
+    );
+
+    const maxProviderPriceRaw = String(
+      req.body.maximum_provider_price ?? ''
+    ).trim();
+
+    let maximumProviderPrice = null;
+
+    if (maxProviderPriceRaw !== '') {
+      maximumProviderPrice = Number(
+        maxProviderPriceRaw
+      );
+
+      if (
+        !Number.isFinite(
+          maximumProviderPrice
+        ) ||
+        maximumProviderPrice < 0 ||
+        maximumProviderPrice > 99999999
+      ) {
+        return res
+          .status(400)
+          .send(
+            'Invalid maximum provider price'
+          );
+      }
+
+      maximumProviderPrice = Number(
+        maximumProviderPrice.toFixed(4)
       );
     }
 
+    // =====================================================
+    // Selection settings
+    // =====================================================
+
+    const allowedSelectionModes = new Set([
+      'cheapest',
+      'balanced',
+      'quality'
+    ]);
+
+    const requestedSelectionMode = String(
+      req.body.selection_mode || ''
+    )
+      .trim()
+      .toLowerCase();
+
+    const selectionMode =
+      allowedSelectionModes.has(
+        requestedSelectionMode
+      )
+        ? requestedSelectionMode
+        : 'balanced';
+
+    const isActive =
+      req.body.is_active === '1'
+        ? 1
+        : 0;
+
+    const isFeatured =
+      req.body.is_featured === '1'
+        ? 1
+        : 0;
+
+    const rawSortOrder = Number.parseInt(
+      req.body.sort_order || '0',
+      10
+    );
+
+    const sortOrder = Number.isInteger(
+      rawSortOrder
+    )
+      ? Math.max(
+          -100000,
+          Math.min(100000, rawSortOrder)
+        )
+      : 0;
+
+    const returnTo = safeAdminReturnTo(
+      req.body.return_to
+    );
+
+    // =====================================================
+    // Save
+    // =====================================================
+
     try {
+      /*
+       * تأكد أن الدولة والخدمة موجودتان،
+       * بدل إنشاء store item مرتبط بمعرف خاطئ.
+       */
+      const [[country]] =
+        await promisePool.query(
+          `
+          SELECT id
+          FROM fivesim_countries
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [countryId]
+        );
+
+      if (!country) {
+        return res
+          .status(404)
+          .send('Country not found');
+      }
+
+      const [[service]] =
+        await promisePool.query(
+          `
+          SELECT id
+          FROM fivesim_services
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [serviceId]
+        );
+
+      if (!service) {
+        return res
+          .status(404)
+          .send('Service not found');
+      }
+
       await promisePool.query(
         `
         INSERT INTO fivesim_store_items
@@ -7918,6 +8135,9 @@ app.post(
             country_id,
             service_id,
             custom_name,
+            store_image,
+            checkout_description,
+            checkout_notes,
             sell_price,
             selection_mode,
             minimum_rate,
@@ -7927,52 +8147,96 @@ app.post(
             sort_order
           )
         VALUES
-          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?
+          )
 
         ON DUPLICATE KEY UPDATE
-          custom_name = VALUES(custom_name),
-          sell_price = VALUES(sell_price),
-          selection_mode = VALUES(selection_mode),
-          minimum_rate = VALUES(minimum_rate),
+          custom_name =
+            VALUES(custom_name),
+
+          store_image =
+            VALUES(store_image),
+
+          checkout_description =
+            VALUES(checkout_description),
+
+          checkout_notes =
+            VALUES(checkout_notes),
+
+          sell_price =
+            VALUES(sell_price),
+
+          selection_mode =
+            VALUES(selection_mode),
+
+          minimum_rate =
+            VALUES(minimum_rate),
+
           maximum_provider_price =
             VALUES(maximum_provider_price),
-          is_active = VALUES(is_active),
-          is_featured = VALUES(is_featured),
-          sort_order = VALUES(sort_order),
+
+          is_active =
+            VALUES(is_active),
+
+          is_featured =
+            VALUES(is_featured),
+
+          sort_order =
+            VALUES(sort_order),
+
           updated_at = NOW()
         `,
         [
           countryId,
           serviceId,
           customName,
-          Number(sellPrice.toFixed(4)),
+          storeImage,
+          checkoutDescription,
+          checkoutNotes,
+
+          Number(
+            sellPrice.toFixed(4)
+          ),
+
           selectionMode,
-          Number(minimumRate.toFixed(2)),
-          maximumProviderPrice === null
-            ? null
-            : Number(maximumProviderPrice.toFixed(4)),
+          minimumRate,
+          maximumProviderPrice,
           isActive,
           isFeatured,
           sortOrder
         ]
       );
 
-      const returnTo =
-        String(req.body.return_to || '')
-          .startsWith('/admin/fivesim-services')
-          ? req.body.return_to
-          : '/admin/fivesim-services';
-
       return res.redirect(returnTo);
+
     } catch (error) {
       console.error(
         '❌ POST /admin/fivesim-services/save:',
-        error
+        {
+          countryId,
+          serviceId,
+          code: error.code,
+          message:
+            error.message || error
+        }
       );
 
-      return res.status(500).send(
-        String(error.message || error)
-      );
+      return res
+        .status(500)
+        .send('Failed to save service settings');
     }
   }
 );
