@@ -2,135 +2,356 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title><%= item.name %> – Checkout</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Checkout - <%= item.name %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <link rel="stylesheet" href="/css/bootstrap.css" />
-  <link rel="stylesheet" href="/css/custom.css" />
-  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap"
-    rel="stylesheet"
-  />
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
 
   <style>
     body {
-      font-family: "Cairo", sans-serif;
       background:
-        radial-gradient(circle at top right, rgba(13, 110, 253, 0.09), transparent 34%),
-        #f6f8fb;
+        radial-gradient(1200px 600px at 20% 10%, rgba(25,135,84,.10), transparent 60%),
+        radial-gradient(1000px 500px at 90% 20%, rgba(13,110,253,.08), transparent 55%),
+        #f6f7fb;
     }
 
     .checkout-wrap {
-      max-width: 1050px;
+      min-height: 72vh;
     }
 
     .checkout-card {
       border: 0;
-      border-radius: 22px;
-      box-shadow: 0 18px 55px rgba(25, 40, 70, 0.09);
-      overflow: hidden;
-    }
-
-    .service-image {
-      width: 86px;
-      height: 86px;
-      border-radius: 20px;
-      object-fit: cover;
-      border: 1px solid #e6eaf0;
-      background: #f1f4f8;
-    }
-
-    .country-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 7px 11px;
-      border-radius: 999px;
-      background: #eef4ff;
-      color: #0d6efd;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-
-    .price-box {
-      border: 1px solid #e7ebf2;
-      background: #fbfcfe;
       border-radius: 18px;
-      padding: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 35px rgba(0,0,0,.08);
     }
 
-    .price-value {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: -1px;
+    .checkout-head {
+      background: linear-gradient(135deg, rgba(25,135,84,.12), rgba(13,110,253,.06));
+      border-bottom: 1px solid rgba(0,0,0,.06);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
     }
 
-    .info-box {
-      border-radius: 16px;
-      padding: 15px 16px;
-      background: #fff8e8;
-      border: 1px solid #ffe5a8;
-      color: #7a5900;
+    .checkout-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      font-weight: 900;
+      letter-spacing: .2px;
     }
 
-    .success-box {
-      border-radius: 16px;
-      padding: 14px 16px;
-      background: #edf9f2;
-      border: 1px solid #ccebd9;
-      color: #146c43;
-    }
-
-    .balance-chip {
+    .secure-badge {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(25,135,84,.12);
+      color: #146c43;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .service-visual {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,.06);
+      background:
+        linear-gradient(135deg, rgba(5,10,22,.96), rgba(30,38,55,.94)),
+        url('/images/new banner.png') center/cover no-repeat;
+      position: relative;
+    }
+
+    .service-visual img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .service-fallback {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px;
+      color: #fff;
+      text-align: center;
+    }
+
+    .service-fallback i {
+      font-size: 2.6rem;
+      color: #0d6efd;
+    }
+
+    .service-fallback strong {
+      font-size: .95rem;
+      line-height: 1.2;
+    }
+
+    .price-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       padding: 8px 12px;
       border-radius: 999px;
-      background: #f2f4f7;
-      color: #495057;
-      font-size: 0.9rem;
+      background: rgba(25,135,84,.10);
+      color: #146c43;
+      font-weight: 900;
+      font-size: 15px;
     }
 
-    .buy-btn {
-      min-height: 52px;
+    .summary-row {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
       border-radius: 14px;
-      font-weight: 700;
-      font-size: 1rem;
+      padding: 12px 14px;
     }
 
-    .feature-row {
+    .summary-label {
+      font-size: 12px;
+      color: rgba(0,0,0,.55);
+      margin-bottom: 4px;
+    }
+
+    .summary-name {
+      font-weight: 900;
+      margin: 0;
+      line-height: 1.25;
+    }
+
+    .country-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(13,110,253,.10);
+      color: #0d6efd;
+      font-weight: 800;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .detail-card {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .detail-row {
       display: flex;
-      align-items: flex-start;
-      gap: 11px;
-      padding: 12px 0;
-      border-bottom: 1px solid #edf0f4;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(0,0,0,.06);
     }
 
-    .feature-row:last-child {
+    .detail-row:last-child {
       border-bottom: 0;
     }
 
-    .feature-icon {
-      width: 35px;
-      height: 35px;
+    .detail-label {
+      color: rgba(0,0,0,.58);
+      font-size: 13px;
+    }
+
+    .detail-value {
+      font-weight: 900;
+      text-align: right;
+    }
+
+    .info-card {
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 16px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+
+    .info-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(13,110,253,.09), rgba(25,135,84,.09));
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+
+    .info-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      font-weight: 900;
+    }
+
+    .info-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(13,110,253,.10);
+      color: #0d6efd;
+      font-weight: 900;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .info-body {
+      padding: 14px;
+    }
+
+    .info-point {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+
+    .info-point:last-child {
+      border-bottom: 0;
+    }
+
+    .info-point-icon {
+      width: 34px;
+      height: 34px;
       border-radius: 10px;
+      background: rgba(13,110,253,.09);
+      color: #0d6efd;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: #eef4ff;
-      color: #0d6efd;
       flex: 0 0 auto;
     }
 
-    @media (max-width: 767px) {
-      .checkout-card {
-        border-radius: 16px;
+    .warning-box {
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #fff8e8;
+      border: 1px solid #ffe5a8;
+      color: #7a5900;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .btn-buy {
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 900;
+      box-shadow: 0 10px 18px rgba(25,135,84,.18);
+      transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    }
+
+    .btn-buy:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 22px rgba(25,135,84,.22);
+      filter: brightness(1.02);
+    }
+
+    .btn-buy:disabled {
+      transform: none;
+      box-shadow: none;
+      opacity: .75;
+    }
+
+    .is-loading {
+      position: relative;
+    }
+
+    .is-loading::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 16px;
+      border: 2px solid rgba(25,135,84,.18);
+      animation: pulse 1.2s infinite ease-in-out;
+      pointer-events: none;
+    }
+
+    @keyframes pulse {
+      0% { opacity: .2; transform: scale(.99); }
+      50% { opacity: .7; transform: scale(1.01); }
+      100% { opacity: .2; transform: scale(.99); }
+    }
+
+    .trust-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .trust-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      background: rgba(0,0,0,.04);
+      color: rgba(0,0,0,.70);
+    }
+
+    .muted-note {
+      color: rgba(0,0,0,.55);
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      text-decoration: none;
+      color: rgba(0,0,0,.60);
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    .back-link:hover {
+      color: #0d6efd;
+    }
+
+    @media (max-width: 576px) {
+      .checkout-head {
+        align-items: flex-start;
       }
 
-      .price-value {
-        font-size: 1.6rem;
+      .secure-badge {
+        font-size: 10px;
+      }
+
+      .service-visual {
+        width: 105px;
+        height: 105px;
+      }
+
+      .summary-row {
+        align-items: flex-start !important;
+      }
+
+      .price-chip {
+        font-size: 14px;
       }
     }
   </style>
@@ -139,176 +360,287 @@
 <body>
   <%- include('partials/header') %>
 
-  <main class="container py-5 checkout-wrap">
-    <div class="mb-4">
-      <a href="javascript:history.back()" class="text-decoration-none text-muted">
-        <i class="bi bi-arrow-left me-1"></i>
+  <%
+    const customerBalance = Number((user && user.balance) || 0);
+    const orderPrice = Number(item.price || 0);
+    const hasEnoughBalance = customerBalance >= orderPrice;
+
+    function isoToFlag(iso) {
+      const cleanIso = String(iso || '').trim().toUpperCase();
+      if (!/^[A-Z]{2}$/.test(cleanIso)) return '🌐';
+
+      return cleanIso
+        .split('')
+        .map(letter => String.fromCodePoint(127397 + letter.charCodeAt(0)))
+        .join('');
+    }
+
+    const countryFlag = isoToFlag(item.countryIso);
+  %>
+
+  <div class="container my-5 checkout-wrap">
+    <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5 mx-auto">
+
+      <a href="javascript:history.back()" class="back-link">
+        <i class="bi bi-arrow-left"></i>
         Back
       </a>
-    </div>
 
-    <% if (error) { %>
-      <div class="alert alert-danger border-0 shadow-sm mb-4">
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-        <%= error %>
-      </div>
-    <% } %>
+      <div class="card checkout-card">
 
-    <div class="card checkout-card">
-      <div class="card-body p-4 p-lg-5">
-        <div class="row g-5">
+        <div class="checkout-head">
+          <h5 class="checkout-title">
+            <i class="bi bi-phone-fill"></i>
+            Virtual Number Checkout
+          </h5>
 
-          <div class="col-lg-7">
-            <div class="d-flex align-items-center gap-3 mb-4">
-              <img
-                src="<%= item.serviceImage %>"
-                alt="<%= item.name %>"
-                class="service-image"
-                onerror="this.src='/images/default-product.png'"
-              />
+          <span class="secure-badge">
+            <i class="bi bi-shield-lock-fill"></i>
+            Secure Checkout
+          </span>
+        </div>
 
-              <div>
-                <div class="text-muted small mb-1">Virtual Number</div>
-                <h1 class="h3 fw-bold mb-2"><%= item.name %></h1>
+        <div class="card-body p-4">
 
-                <span class="country-badge">
-                  <i class="bi bi-geo-alt-fill"></i>
-                  <%= item.countryName %>
-                  <% if (item.countryIso) { %>
-                    (<%= item.countryIso.toUpperCase() %>)
-                  <% } %>
-                </span>
-              </div>
-            </div>
-
-            <div class="success-box mb-4">
-              <i class="bi bi-check-circle-fill me-2"></i>
-              The system will automatically select the best available operator.
-            </div>
-
-            <div class="feature-row">
-              <span class="feature-icon">
-                <i class="bi bi-phone"></i>
-              </span>
-              <div>
-                <div class="fw-bold">Temporary phone number</div>
-                <div class="small text-muted">
-                  The number will appear immediately after a successful purchase.
-                </div>
-              </div>
-            </div>
-
-            <div class="feature-row">
-              <span class="feature-icon">
-                <i class="bi bi-chat-dots"></i>
-              </span>
-              <div>
-                <div class="fw-bold">SMS code in My Orders</div>
-                <div class="small text-muted">
-                  Once the message arrives, the code will be displayed in your order details.
-                </div>
-              </div>
-            </div>
-
-            <div class="feature-row">
-              <span class="feature-icon">
-                <i class="bi bi-shield-check"></i>
-              </span>
-              <div>
-                <div class="fw-bold">Automatic provider selection</div>
-                <div class="small text-muted">
-                  Operator names remain hidden and the server chooses the best suitable offer.
-                </div>
-              </div>
-            </div>
-
-            <div class="info-box mt-4">
-              <div class="fw-bold mb-1">
-                <i class="bi bi-info-circle-fill me-1"></i>
-                Important
-              </div>
-              <div class="small">
-                This is a temporary SMS activation number, not a permanent SIM card.
-                Complete the activation before the number expires.
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-5">
-            <div class="price-box">
-              <div class="d-flex align-items-center justify-content-between mb-3">
-                <span class="text-muted">Order total</span>
-                <span class="badge bg-success-subtle text-success border border-success-subtle">
-                  Available
-                </span>
-              </div>
-
-              <div class="price-value mb-1">
-                $<%= Number(item.price || 0).toFixed(2) %>
-              </div>
-
-              <div class="small text-muted mb-4">
-                <%= Number(item.available || 0).toLocaleString() %> numbers currently available
-              </div>
-
-              <div class="d-flex justify-content-between align-items-center mb-4">
-                <span class="text-muted">Your balance</span>
-                <span class="balance-chip">
-                  <i class="bi bi-wallet2"></i>
-                  $<%= Number(user?.balance || 0).toFixed(2) %>
-                </span>
-              </div>
-
-              <form
-                method="post"
-                action="/virtual-numbers/buy/<%= item.id %>"
-                id="buyForm"
-              >
-                <input type="hidden" name="idem_key" value="<%= idemKey %>" />
-
-                <button
-                  type="submit"
-                  class="btn btn-primary w-100 buy-btn"
-                  id="buyButton"
-                  <%= Number(user?.balance || 0) < Number(item.price || 0) ? 'disabled' : '' %>
+          <div class="text-center mb-3">
+            <div class="service-visual">
+              <% if (item.serviceImage) { %>
+                <img
+                  src="<%= item.serviceImage %>"
+                  alt="<%= item.name %>"
+                  loading="lazy"
+                  onerror="
+                    this.style.display='none';
+                    this.nextElementSibling.style.display='flex';
+                  "
                 >
-                  <i class="bi bi-lightning-charge-fill me-2"></i>
-                  Buy Number
-                </button>
-              </form>
-
-              <% if (Number(user?.balance || 0) < Number(item.price || 0)) { %>
-                <div class="alert alert-warning mt-3 mb-0 small">
-                  <i class="bi bi-wallet2 me-1"></i>
-                  Your balance is insufficient for this purchase.
-                </div>
               <% } %>
 
-              <div class="small text-muted text-center mt-3">
-                The final price is read securely from the server.
+              <div
+                class="service-fallback"
+                style="<%= item.serviceImage ? 'display:none;' : 'display:flex;' %>"
+              >
+                <i class="bi bi-chat-square-dots-fill"></i>
+                <strong><%= item.name %></strong>
               </div>
             </div>
           </div>
+
+          <div class="summary-row mb-3 d-flex align-items-center justify-content-between gap-3">
+            <div>
+              <div class="summary-label">Service</div>
+              <p class="summary-name mb-0"><%= item.name %></p>
+
+              <span class="country-chip">
+                <span><%= countryFlag %></span>
+                <%= item.countryName %>
+                <% if (item.countryIso) { %>
+                  (<%= item.countryIso.toUpperCase() %>)
+                <% } %>
+              </span>
+            </div>
+
+            <div class="text-end">
+              <div class="summary-label">Total</div>
+              <div class="price-chip">
+                <i class="bi bi-cash-coin"></i>
+                $<%= orderPrice.toFixed(2) %>
+              </div>
+            </div>
+          </div>
+
+          <% if (error) { %>
+            <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:14px;">
+              <i class="bi bi-exclamation-triangle-fill"></i>
+              <div class="fw-bold"><%= error %></div>
+            </div>
+          <% } %>
+
+          <div class="detail-card mb-3">
+            <div class="detail-row">
+              <span class="detail-label">
+                <i class="bi bi-wallet2 me-1"></i>
+                Your balance
+              </span>
+              <span class="detail-value">$<%= customerBalance.toFixed(2) %></span>
+            </div>
+
+            <div class="detail-row">
+              <span class="detail-label">
+                <i class="bi bi-check-circle me-1"></i>
+                Availability
+              </span>
+              <span class="detail-value text-success">
+                <%= Number(item.available || 0).toLocaleString() %> numbers
+              </span>
+            </div>
+
+            <div class="detail-row">
+              <span class="detail-label">
+                <i class="bi bi-telephone me-1"></i>
+                Country prefix
+              </span>
+              <span class="detail-value">
+                <%= item.countryPrefix || '—' %>
+              </span>
+            </div>
+          </div>
+
+          <div class="info-card mb-4">
+            <div class="info-head">
+              <h6 class="info-title">
+                <i class="bi bi-card-text"></i>
+                Order Details
+              </h6>
+
+              <span class="info-chip">
+                <i class="bi bi-info-circle-fill"></i>
+                Read Before Buying
+              </span>
+            </div>
+
+            <div class="info-body">
+              <div class="info-point">
+                <span class="info-point-icon">
+                  <i class="bi bi-phone"></i>
+                </span>
+                <div>
+                  <div class="fw-bold">Temporary number</div>
+                  <div class="small text-muted">
+                    Your number will appear immediately after the purchase is completed.
+                  </div>
+                </div>
+              </div>
+
+              <div class="info-point">
+                <span class="info-point-icon">
+                  <i class="bi bi-chat-dots"></i>
+                </span>
+                <div>
+                  <div class="fw-bold">SMS code in My Orders</div>
+                  <div class="small text-muted">
+                    Once the message arrives, the code will be shown inside your order details.
+                  </div>
+                </div>
+              </div>
+
+              <div class="info-point">
+                <span class="info-point-icon">
+                  <i class="bi bi-lightning-charge"></i>
+                </span>
+                <div>
+                  <div class="fw-bold">Automatic operator selection</div>
+                  <div class="small text-muted">
+                    The system automatically chooses the best available operator for you.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="warning-box mb-4">
+            <div class="fw-bold mb-1">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>
+              Important
+            </div>
+            This is a temporary SMS activation number, not a permanent SIM card.
+            Use the number and complete the activation before it expires.
+          </div>
+
+          <form
+            id="fiveSimBuyForm"
+            method="POST"
+            action="/virtual-numbers/buy/<%= item.id %>"
+            novalidate
+          >
+            <input type="hidden" name="idem_key" value="<%= idemKey %>">
+
+            <button
+              id="buyBtn"
+              type="submit"
+              class="btn btn-success w-100 btn-buy"
+              <%= hasEnoughBalance ? '' : 'disabled' %>
+            >
+              <span class="btn-text">
+                <i class="bi bi-lightning-charge-fill me-1"></i>
+                Buy Number
+              </span>
+
+              <span
+                class="spinner-border spinner-border-sm ms-2 d-none"
+                role="status"
+                aria-hidden="true"
+              ></span>
+            </button>
+
+            <% if (!hasEnoughBalance) { %>
+              <div class="alert alert-warning mt-3 mb-0" style="border-radius:14px;">
+                <i class="bi bi-wallet2 me-1"></i>
+                Your balance is insufficient for this purchase.
+              </div>
+            <% } %>
+
+            <div class="trust-row">
+              <span class="trust-pill">
+                <i class="bi bi-shield-check"></i>
+                SSL Secured
+              </span>
+
+              <span class="trust-pill">
+                <i class="bi bi-lightning-charge"></i>
+                Instant Number
+              </span>
+
+              <span class="trust-pill">
+                <i class="bi bi-headset"></i>
+                Support Available
+              </span>
+            </div>
+
+            <p class="muted-note small mt-3 mb-0">
+              By clicking “Buy Number”, the amount will be deducted from your balance and the number will appear in My Orders.
+            </p>
+          </form>
 
         </div>
       </div>
-    </div>
-  </main>
 
-  <script src="/js/bootstrap.bundle.min.js"></script>
+    </div>
+  </div>
+
+  <%- include('partials/footer') %>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
     (function () {
-      const form = document.getElementById('buyForm');
-      const button = document.getElementById('buyButton');
+      const form = document.getElementById('fiveSimBuyForm');
+      const buyBtn = document.getElementById('buyBtn');
 
-      if (!form || !button) return;
+      if (!form || !buyBtn) return;
 
-      form.addEventListener('submit', function () {
-        button.disabled = true;
-        button.innerHTML =
-          '<span class="spinner-border spinner-border-sm me-2"></span>' +
-          'Reserving number...';
+      const btnText = buyBtn.querySelector('.btn-text');
+      const spinner = buyBtn.querySelector('.spinner-border');
+      let submitting = false;
+
+      form.addEventListener('submit', function (event) {
+        if (submitting) {
+          event.preventDefault();
+          return;
+        }
+
+        submitting = true;
+        buyBtn.disabled = true;
+        buyBtn.classList.add('is-loading');
+
+        if (spinner) {
+          spinner.classList.remove('d-none');
+        }
+
+        if (btnText) {
+          btnText.innerHTML =
+            '<i class="bi bi-hourglass-split me-1"></i> Reserving Number...';
+        }
       });
     })();
   </script>
