@@ -197,6 +197,24 @@
       color: #7a5900;
     }
 
+    .rejected-panel {
+      border-radius: 14px;
+      padding: 14px;
+      background: rgba(220,53,69,.09);
+      border: 1px solid rgba(220,53,69,.22);
+      color: #9c2430;
+    }
+
+    .refund-panel {
+      margin-top: 10px;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(25,135,84,.10);
+      border: 1px solid rgba(25,135,84,.20);
+      color: #146c43;
+      font-weight: 700;
+    }
+
     .five-meta {
       display: grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -226,7 +244,27 @@
 
   <%
     const isFiveSim = order.provider === 'fivesim' || !!order.fivesim_provider_order_id;
-    const fiveHasSms = !!order.fivesim_sms_code;
+
+    const fiveHasSms = Boolean(
+      String(order.fivesim_sms_code || '').trim() ||
+      String(order.fivesim_sms_text || '').trim()
+    );
+
+    const fiveProviderStatus = String(
+      order.fivesim_provider_status ||
+      order.fivesim_status ||
+      ''
+    ).toLowerCase();
+
+    const fiveRejected =
+      String(order.status || '') === 'Rejected' ||
+      fiveProviderStatus.includes('cancel') ||
+      fiveProviderStatus.includes('banned') ||
+      fiveProviderStatus.includes('timeout') ||
+      fiveProviderStatus.includes('expired') ||
+      fiveProviderStatus.includes('refunded');
+
+    const fiveRefunded = Number(order.fivesim_refunded || 0) === 1;
   %>
 
   <main class="container my-5">
@@ -377,16 +415,15 @@
                     </button>
                   </div>
 
-                  <% if (order.fivesim_sms_text) { %>
-                    <div class="small text-muted mt-2" id="fiveSmsText">
-                      <%= order.fivesim_sms_text %>
-                    </div>
-                  <% } else { %>
-                    <div class="small text-muted mt-2" id="fiveSmsText"></div>
-                  <% } %>
+                  <div class="small text-muted mt-2" id="fiveSmsText">
+                    <%= order.fivesim_sms_text || '' %>
+                  </div>
                 </div>
 
-                <div id="fiveSmsWaiting" class="waiting-panel <%= fiveHasSms ? 'd-none' : '' %>">
+                <div
+                  id="fiveSmsWaiting"
+                  class="waiting-panel <%= fiveHasSms || fiveRejected ? 'd-none' : '' %>"
+                >
                   <div class="fw-bold mb-1">
                     <i class="bi bi-hourglass-split me-1"></i>
                     Waiting for SMS
@@ -394,6 +431,36 @@
 
                   <div class="small">
                     Keep this page open or press Refresh. The code will appear here automatically.
+                  </div>
+                </div>
+
+                <div
+                  id="fiveSmsRejected"
+                  class="rejected-panel <%= fiveRejected && !fiveHasSms ? '' : 'd-none' %>"
+                >
+                  <div class="fw-bold mb-1">
+                    <i class="bi bi-x-circle-fill me-1"></i>
+                    Activation Failed
+                  </div>
+
+                  <div class="small">
+                    No SMS code was received before this activation was canceled or expired.
+                  </div>
+
+                  <div
+                    id="fiveRefundBox"
+                    class="refund-panel <%= fiveRefunded ? '' : 'd-none' %>"
+                  >
+                    <i class="bi bi-wallet2 me-1"></i>
+                    Refunded:
+                    $<span id="fiveRefundAmount"><%= Number(order.fivesim_refund_amount || 0).toFixed(2) %></span>
+                  </div>
+
+                  <div
+                    id="fiveRefundPending"
+                    class="small fw-bold mt-2 <%= fiveRefunded ? 'd-none' : '' %>"
+                  >
+                    Refund is being processed.
                   </div>
                 </div>
               </div>
@@ -557,6 +624,10 @@
       const $fiveSmsText = document.getElementById('fiveSmsText');
       const $fiveSmsReceived = document.getElementById('fiveSmsReceived');
       const $fiveSmsWaiting = document.getElementById('fiveSmsWaiting');
+      const $fiveSmsRejected = document.getElementById('fiveSmsRejected');
+      const $fiveRefundBox = document.getElementById('fiveRefundBox');
+      const $fiveRefundAmount = document.getElementById('fiveRefundAmount');
+      const $fiveRefundPending = document.getElementById('fiveRefundPending');
       const $fiveProviderStatus = document.getElementById('fiveProviderStatus');
       const $fiveExpires = document.getElementById('fiveExpires');
       const $copyPhoneBtn = document.getElementById('copyPhoneBtn');
@@ -639,7 +710,7 @@
         }
       }
 
-      function updateFiveSimUI(five) {
+      function updateFiveSimUI(five, orderStatus) {
         if (!isFiveSim || !five) return;
 
         if ($fivePhone && five.phone_number) {
@@ -650,7 +721,21 @@
           }
         }
 
-        const hasSms = !!five.sms_code;
+        const hasSms = Boolean(five.sms_code || five.sms_text);
+
+        const providerStatus = String(
+          five.provider_status ||
+          five.status ||
+          ''
+        ).toLowerCase();
+
+        const isRejected =
+          orderStatus === 'Rejected' ||
+          providerStatus.includes('cancel') ||
+          providerStatus.includes('banned') ||
+          providerStatus.includes('timeout') ||
+          providerStatus.includes('expired') ||
+          providerStatus.includes('refunded');
 
         if ($fiveSmsCode) {
           $fiveSmsCode.textContent = five.sms_code || '';
@@ -665,7 +750,36 @@
         }
 
         if ($fiveSmsWaiting) {
-          $fiveSmsWaiting.classList.toggle('d-none', hasSms);
+          $fiveSmsWaiting.classList.toggle(
+            'd-none',
+            hasSms || isRejected
+          );
+        }
+
+        if ($fiveSmsRejected) {
+          $fiveSmsRejected.classList.toggle(
+            'd-none',
+            hasSms || !isRejected
+          );
+        }
+
+        if ($fiveRefundBox) {
+          $fiveRefundBox.classList.toggle(
+            'd-none',
+            !five.refunded
+          );
+        }
+
+        if ($fiveRefundPending) {
+          $fiveRefundPending.classList.toggle(
+            'd-none',
+            !!five.refunded
+          );
+        }
+
+        if ($fiveRefundAmount) {
+          $fiveRefundAmount.textContent =
+            Number(five.refund_amount || 0).toFixed(2);
         }
 
         if ($fiveProviderStatus) {
@@ -802,7 +916,7 @@
             }
           }
 
-          updateFiveSimUI(data.fivesim);
+          updateFiveSimUI(data.fivesim, data.status);
 
           if ($last) {
             $last.textContent = new Date().toLocaleTimeString([], {
