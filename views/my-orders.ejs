@@ -16,13 +16,12 @@
     .order-item { border-radius: .75rem; }
     .chip-row { gap: .5rem .5rem; }
 
-    /* فقط أزرار البحث/الريست على الموبايل تكون full-width */
     @media (max-width: 576px) {
       .filters .search-actions .btn { width: 100%; }
     }
 
-    /* حجم الأزرار (الحالات) على الموبايل أصغر */
     .pill.btn { padding: .5rem 1rem; }
+
     @media (max-width: 576px) {
       .pill.btn {
         padding: .35rem .9rem;
@@ -31,21 +30,73 @@
       }
     }
 
-    /* NEW: small helper badges */
-    .badge-soft{
+    .badge-soft {
       border-radius: 999px;
       padding: .45rem .75rem;
       font-weight: 700;
     }
+
+    .virtual-order-box {
+      margin-top: .85rem;
+      padding: .85rem 1rem;
+      border-radius: .85rem;
+      border: 1px solid rgba(13,110,253,.14);
+      background: rgba(13,110,253,.045);
+    }
+
+    .phone-value {
+      font-weight: 800;
+      font-size: 1rem;
+      direction: ltr;
+      display: inline-block;
+    }
+
+    .sms-preview {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      margin-top: .45rem;
+      padding: .4rem .7rem;
+      border-radius: 999px;
+      background: rgba(25,135,84,.12);
+      color: #146c43;
+      font-weight: 800;
+    }
+
+    .waiting-sms {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      margin-top: .45rem;
+      color: #8a6400;
+      font-weight: 700;
+    }
+
+    .provider-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .3rem .55rem;
+      border-radius: 999px;
+      background: rgba(13,110,253,.08);
+      color: #0d6efd;
+      font-size: .78rem;
+      font-weight: 700;
+      margin-left: .4rem;
+    }
+
+    .json-hidden-details {
+      display: none;
+    }
   </style>
 </head>
+
 <body>
   <%- include('partials/header') %>
 
   <div class="container my-5">
     <h1 class="text-center mb-4">My Order History</h1>
 
-    <!-- Filters -->
     <div class="card shadow-sm card-rounded mb-3">
       <div class="card-body filters">
         <form class="row g-3 align-items-end" method="get" action="/my-orders">
@@ -61,89 +112,113 @@
 
           <div class="col-12 col-md-4">
             <label class="form-label">Search (ID or name)</label>
-            <input type="search" class="form-control" name="q" placeholder="e.g. 1542 or Netflix" value="<%= filters?.q || '' %>">
+            <input type="search" class="form-control" name="q" placeholder="e.g. 1542 or WhatsApp" value="<%= filters?.q || '' %>">
           </div>
 
-          <!-- أزرار Search/Reset فقط -->
           <div class="col-12 col-md-8 search-actions">
             <div class="d-flex flex-wrap gap-2">
-              <button class="btn btn-primary"><i class="bi bi-search me-1"></i> Search</button>
+              <button class="btn btn-primary">
+                <i class="bi bi-search me-1"></i> Search
+              </button>
+
               <button type="button" id="resetBtn" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-clockwise me-1"></i> Reset
               </button>
             </div>
           </div>
 
-          <!-- Status chips -->
           <div class="col-12">
             <% const s = (filters?.status || 'all'); %>
             <input type="hidden" name="status" id="statusInput" value="<%= s %>">
+
             <div class="d-flex flex-wrap chip-row">
               <button type="button" data-status="all"
-                class="btn pill btn-sm <%= s==='all' ? 'btn-primary' : 'btn-outline-primary' %>">All</button>
+                class="btn pill btn-sm <%= s==='all' ? 'btn-primary' : 'btn-outline-primary' %>">
+                All
+              </button>
 
               <button type="button" data-status="Accepted"
-                class="btn pill btn-sm <%= s==='Accepted' ? 'btn-success' : 'btn-outline-success' %>">Accepted</button>
+                class="btn pill btn-sm <%= s==='Accepted' ? 'btn-success' : 'btn-outline-success' %>">
+                Accepted
+              </button>
 
               <button type="button" data-status="Waiting"
-                class="btn pill btn-sm <%= s==='Waiting' ? 'btn-warning' : 'btn-outline-warning' %>">Waiting</button>
+                class="btn pill btn-sm <%= s==='Waiting' ? 'btn-warning' : 'btn-outline-warning' %>">
+                Waiting
+              </button>
+
+              <button type="button" data-status="In progress"
+                class="btn pill btn-sm <%= s==='In progress' ? 'btn-info' : 'btn-outline-info' %>">
+                In progress
+              </button>
 
               <button type="button" data-status="Rejected"
-                class="btn pill btn-sm <%= s==='Rejected' ? 'btn-danger' : 'btn-outline-danger' %>">Rejected</button>
-
-              <!-- OPTIONAL: chip إضافي إذا بدك فلترة pending manual كحالة مستقلة
-              <button type="button" data-status="PendingManual"
-                class="btn pill btn-sm <%= s==='PendingManual' ? 'btn-secondary' : 'btn-outline-secondary' %>">
-                Pending manual
+                class="btn pill btn-sm <%= s==='Rejected' ? 'btn-danger' : 'btn-outline-danger' %>">
+                Rejected
               </button>
-              -->
             </div>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Summary -->
     <div class="card shadow-sm card-rounded mb-3">
       <div class="card-body text-center">
-        <div class="fw-semibold">Total: $<%= (Number(total||0)).toFixed(2) %></div>
-        <small class="text-muted"><%= (orders||[]).length %> order(s)</small>
+        <div class="fw-semibold">Total: $<%= Number(total || 0).toFixed(2) %></div>
+        <small class="text-muted"><%= (orders || []).length %> order(s)</small>
       </div>
     </div>
 
-    <!-- Orders -->
     <% if (orders && orders.length > 0) { %>
       <div class="list-group">
-        <% orders.forEach(order => { %>
-          <a href="/order-details/<%= order.id %>"
-             class="list-group-item list-group-item-action shadow-sm mb-3 order-item">
 
-            <div class="d-flex w-100 justify-content-between">
-              <h5 class="mb-1"><%= order.productName %></h5>
-              <small class="text-muted">
-                <%= new Date(order.purchaseDate).toLocaleString('en-US',{year:'numeric',month:'2-digit',day:'2-digit'}) %>
+        <% orders.forEach(order => { %>
+          <a
+            href="/order-details/<%= order.id %>"
+            class="list-group-item list-group-item-action shadow-sm mb-3 order-item"
+          >
+            <div class="d-flex w-100 justify-content-between gap-3">
+              <h5 class="mb-1">
+                <%= order.productName %>
+
+                <% if (order.provider === 'fivesim') { %>
+                  <span class="provider-chip">
+                    <i class="bi bi-phone"></i>
+                    Virtual Number
+                  </span>
+                <% } %>
+              </h5>
+
+              <small class="text-muted text-nowrap">
+                <%= new Date(order.purchaseDate).toLocaleDateString('en-US',{
+                  year:'numeric',
+                  month:'2-digit',
+                  day:'2-digit'
+                }) %>
               </small>
             </div>
 
             <p class="mb-2">
               Price:
-              <span class="fw-bold">$<%= (parseFloat(order.price)||0).toFixed(2) %></span>
+              <span class="fw-bold">$<%= (parseFloat(order.price) || 0).toFixed(2) %></span>
             </p>
 
-            <!-- STATUS BADGE -->
             <div class="small">
               Status:
+
               <%
                 const st = order.displayStatus || order.status || 'Waiting';
-
                 const hasDelivery = !!(order.has_delivery || order.delivery_has_delivery);
                 const pendingManual = !!(order.pending_manual || order.stock_fallback);
-
-                // إذا عندك fulfillment_mode كمان ممكن تستعمله:
-                // const isStock = String(order.fulfillment_mode || '').toLowerCase() === 'stock';
               %>
 
-              <% if (pendingManual && (st === 'Waiting' || st === 'In progress')) { %>
+              <% if (order.provider === 'fivesim' && order.fivesim_sms_code) { %>
+                <span class="badge bg-success">SMS Received</span>
+
+              <% } else if (order.provider === 'fivesim' && st === 'In progress') { %>
+                <span class="badge bg-info text-dark">Waiting for SMS</span>
+
+              <% } else if (pendingManual && (st === 'Waiting' || st === 'In progress')) { %>
                 <span class="badge bg-secondary">Pending manual</span>
 
               <% } else if (hasDelivery && st === 'Accepted') { %>
@@ -167,32 +242,45 @@
               <% } else { %>
                 <span class="badge bg-secondary"><%= st %></span>
               <% } %>
-
-              <% if (pendingManual && !(st === 'Waiting' || st === 'In progress')) { %>
-                <span class="badge bg-secondary ms-2">Manual</span>
-              <% } %>
-
-              <% if (hasDelivery && st !== 'Accepted') { %>
-                <span class="badge bg-success ms-2">Delivered</span>
-              <% } %>
             </div>
 
-            <% if (order.order_details) { %>
+            <% if (order.provider === 'fivesim') { %>
+              <div class="virtual-order-box">
+                <div class="small text-muted mb-1">Temporary number</div>
+
+                <div class="phone-value">
+                  <%= order.fivesim_phone_number || 'Preparing number...' %>
+                </div>
+
+                <% if (order.fivesim_sms_code) { %>
+                  <div class="sms-preview">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    SMS code: <%= order.fivesim_sms_code %>
+                  </div>
+                <% } else if (order.displayStatus !== 'Rejected') { %>
+                  <div class="waiting-sms">
+                    <i class="bi bi-hourglass-split"></i>
+                    Waiting for SMS — open order details to refresh.
+                  </div>
+                <% } %>
+              </div>
+
+            <% } else if (order.order_details) { %>
               <div class="mt-2 text-muted small">
-                <i class="bi bi-info-circle me-1"></i><%= order.order_details %>
+                <i class="bi bi-info-circle me-1"></i>
+                <%= order.order_details %>
               </div>
             <% } %>
 
-            <!-- Optional: hint row -->
             <% if (pendingManual) { %>
               <div class="mt-2 small text-muted">
                 <i class="bi bi-hourglass-split me-1"></i>
                 This order will be processed manually (out of stock).
               </div>
             <% } %>
-
           </a>
         <% }) %>
+
       </div>
     <% } else { %>
       <div class="text-center text-muted py-5">
@@ -206,9 +294,10 @@
   <%- include('partials/footer') %>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
-    // تبديل الحالة + submit
     const statusInput = document.getElementById('statusInput');
+
     document.querySelectorAll('button[data-status]').forEach(btn => {
       btn.addEventListener('click', () => {
         statusInput.value = btn.dataset.status;
@@ -216,13 +305,14 @@
       });
     });
 
-    // Reset: نظّف الحقول ورجع ALL
     document.getElementById('resetBtn')?.addEventListener('click', () => {
       const form = document.querySelector('.filters form');
+
       form.querySelector('input[name="from"]').value = '';
-      form.querySelector('input[name="to"]').value   = '';
-      form.querySelector('input[name="q"]').value    = '';
+      form.querySelector('input[name="to"]').value = '';
+      form.querySelector('input[name="q"]').value = '';
       form.querySelector('input[name="status"]').value = 'all';
+
       form.submit();
     });
   </script>

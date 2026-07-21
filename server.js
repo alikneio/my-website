@@ -2477,109 +2477,257 @@ app.get('/u-share', (req, res) => {
 
 
 app.get('/my-orders', checkAuth, (req, res) => {
-  const userId = req.session.user.id;
+  const userId = Number(req.session.user?.id);
 
-  const from   = (req.query.from || '').trim();
-  const to     = (req.query.to   || '').trim();
-  const q      = (req.query.q    || '').trim();
-  const status = (req.query.status || 'all').trim();
+  const from = String(req.query.from || '').trim();
+  const to = String(req.query.to || '').trim();
+  const q = String(req.query.q || '').trim();
+  const status = String(req.query.status || 'all').trim();
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.redirect('/login');
+  }
 
   const params = [userId];
   let where = 'WHERE o.userId = ?';
 
-  // فلتر التاريخ من/إلى
+  // =====================================
+  // Date filters
+  // =====================================
+
   if (from) {
     where += ' AND o.purchaseDate >= ?';
-    params.push(from + ' 00:00:00');
-  }
-  if (to) {
-    where += ' AND o.purchaseDate <= ?';
-    params.push(to + ' 23:59:59');
+    params.push(`${from} 00:00:00`);
   }
 
-  // بحث بالـ ID أو الاسم
+  if (to) {
+    where += ' AND o.purchaseDate <= ?';
+    params.push(`${to} 23:59:59`);
+  }
+
+  // =====================================
+  // Search by local order ID or product
+  // =====================================
+
   if (q) {
-    where += ' AND (o.id = ? OR o.productName LIKE ?)';
-    params.push(q, `%${q}%`);
+    const numericOrderId = Number(q);
+
+    if (
+      Number.isInteger(numericOrderId) &&
+      numericOrderId > 0
+    ) {
+      where += ' AND (o.id = ? OR o.productName LIKE ?)';
+      params.push(numericOrderId, `%${q}%`);
+    } else {
+      where += ' AND o.productName LIKE ?';
+      params.push(`%${q}%`);
+    }
   }
 
   const sql = `
     SELECT
       o.id,
+      o.userId,
       o.productName,
       o.price,
       o.purchaseDate,
       o.status,
       o.order_details,
+      o.admin_reply,
+      o.product_id,
+      o.is_new,
       o.provider,
       o.provider_order_id,
+      o.source,
+      o.fulfillment_mode,
+      o.stock_fallback,
 
-      so.provider_status,
-      so.delivered_qty,
-      so.remains_qty,
-      so.quantity AS smm_quantity
+      /* =================================
+         SMM fields — SMM orders only
+         ================================= */
+      so.provider_status AS smm_provider_status,
+      so.delivered_qty AS smm_delivered_qty,
+      so.remains_qty AS smm_remains_qty,
+      so.quantity AS smm_quantity,
+
+      /* =================================
+         5SIM fields — 5SIM orders only
+         ================================= */
+      fvo.id AS fivesim_local_id,
+      fvo.provider_order_id AS fivesim_provider_order_id,
+      fvo.phone_number AS fivesim_phone_number,
+      fvo.sms_code AS fivesim_sms_code,
+      fvo.sms_text AS fivesim_sms_text,
+      fvo.country_code AS fivesim_country_code,
+      fvo.service_code AS fivesim_service_code,
+      fvo.status AS fivesim_status,
+      fvo.provider_status AS fivesim_provider_status,
+      fvo.expires_at AS fivesim_expires_at,
+      fvo.refunded AS fivesim_refunded,
+      fvo.refund_amount AS fivesim_refund_amount
+
     FROM orders o
+
     LEFT JOIN smm_orders so
-      ON so.provider_order_id = o.provider_order_id
+      ON o.provider = 'smm'
+     AND so.provider_order_id = o.provider_order_id
+
+    LEFT JOIN fivesim_orders fvo
+      ON o.provider = 'fivesim'
+     AND fvo.order_id = o.id
+
     ${where}
+
     ORDER BY o.id DESC
     LIMIT 300
   `;
 
   db.query(sql, params, (err, rows) => {
     if (err) {
-      console.error('❌ /my-orders error:', err.message);
+      console.error('❌ GET /my-orders error:', {
+        message: err.message,
+        code: err.code
+      });
+
       return res.status(500).send('Server error');
     }
 
-    // نعمل status نهائي لكل طلب
-    const allOrders = rows.map(row => {
+    const allOrders = (rows || []).map((row) => {
       let displayStatus = row.status || 'Waiting';
 
-      // فقط طلبات SMM
-      if (row.provider === 'smm' && row.provider_status) {
-        const ps = String(row.provider_status).toLowerCase();
+      // =====================================
+      // SMM status mapping
+      // =====================================
 
-        if (ps === 'completed' || ps === 'completedpartial') {
+      if (row.provider === 'smm') {
+        const providerStatus = String(
+          row.smm_provider_status || ''
+        )
+          .trim()
+          .toLowerCase();
+
+        if (
+          providerStatus === 'completed' ||
+          providerStatus === 'completedpartial'
+        ) {
           displayStatus = 'Accepted';
-        } else if (ps === 'partial') {
+
+        } else if (providerStatus === 'partial') {
           displayStatus = 'Partial';
-        } else if (ps === 'canceled' || ps === 'cancelled' || ps === 'refunded') {
+
+        } else if (
+          providerStatus === 'canceled' ||
+          providerStatus === 'cancelled' ||
+          providerStatus === 'refunded'
+        ) {
           displayStatus = 'Rejected';
-        } else if (ps === 'processing' || ps === 'in progress' || ps === 'pending') {
+
+        } else if (
+          providerStatus === 'processing' ||
+          providerStatus === 'in progress' ||
+          providerStatus === 'pending'
+        ) {
           displayStatus = 'In progress';
-        } else {
-          displayStatus = 'Waiting';
         }
       }
 
+      // =====================================
+      // 5SIM status mapping
+      // =====================================
+
+      if (row.provider === 'fivesim') {
+        const providerStatus = String(
+          row.fivesim_provider_status ||
+          row.fivesim_status ||
+          ''
+        )
+          .trim()
+          .toLowerCase();
+
+        const hasSmsCode = Boolean(
+          String(row.fivesim_sms_code || '').trim()
+        );
+
+        if (hasSmsCode) {
+          displayStatus = 'Accepted';
+
+        } else if (
+          providerStatus.includes('canceled') ||
+          providerStatus.includes('cancelled') ||
+          providerStatus.includes('banned') ||
+          providerStatus.includes('timeout') ||
+          providerStatus.includes('expired') ||
+          providerStatus.includes('refunded')
+        ) {
+          displayStatus = 'Rejected';
+
+        } else {
+          displayStatus = 'In progress';
+        }
+      }
+
+      /*
+       * الطلبات العادية وDailyCard لا نلمس حالتها.
+       * تبقى معتمدة على orders.status كما كانت سابقًا.
+       */
+
       return {
         ...row,
-        displayStatus
+        displayStatus,
+
+        // أسماء توافق الـEJS الجديد
+        provider_status: row.smm_provider_status,
+        delivered_qty: row.smm_delivered_qty,
+        remains_qty: row.smm_remains_qty
       };
     });
 
-    // فلتر الحالة (بعد ما نحسب displayStatus)
-    const filteredOrders =
-      status === 'all'
-        ? allOrders
-        : allOrders.filter(o => (o.displayStatus || 'Waiting') === status);
+    // =====================================
+    // Status filter after provider mapping
+    // =====================================
 
-    // المجموع
+    const allowedStatuses = new Set([
+      'all',
+      'Waiting',
+      'In progress',
+      'Accepted',
+      'Partial',
+      'Rejected'
+    ]);
+
+    const safeStatus = allowedStatuses.has(status)
+      ? status
+      : 'all';
+
+    const filteredOrders =
+      safeStatus === 'all'
+        ? allOrders
+        : allOrders.filter((order) => {
+            return String(
+              order.displayStatus || 'Waiting'
+            ) === safeStatus;
+          });
+
     const total = filteredOrders.reduce(
-      (sum, o) => sum + (Number(o.price) || 0),
+      (sum, order) => {
+        return sum + (Number(order.price) || 0);
+      },
       0
     );
 
-    res.render('my-orders', {
+    return res.render('my-orders', {
       user: req.session.user,
       orders: filteredOrders,
       total,
-      filters: { from, to, q, status }
+      filters: {
+        from,
+        to,
+        q,
+        status: safeStatus
+      }
     });
   });
 });
-
 
 
 app.get('/checkout/:id', checkAuth, (req, res) => {
@@ -10048,186 +10196,591 @@ app.get('/order-details/:id', checkAuth, (req, res) => {
 });
 
 
-// JSON status for polling من صفحة Order Details (UPDATED: includes delivery summary)
-// JSON status for polling from Order Details
-app.get('/order-details/:id/status.json', checkAuth, (req, res) => {
-  const orderId = Number(req.params.id);
-  const userId  = req.session.user?.id;
+app.get(
+  '/order-details/:id/status.json',
+  checkAuth,
+  async (req, res) => {
+    const orderId = Number(req.params.id);
+    const userId = Number(req.session.user?.id);
 
-  if (!userId || !orderId) {
-    return res.json({ ok: false });
-  }
-
-  // ✅ Get latest delivery only (avoid duplicate join ambiguity)
-  const sql = `
-    SELECT
-      o.*,
-
-      -- ===== SMM fields =====
-      so.status          AS smm_status,
-      so.quantity        AS smm_quantity,
-      so.delivered_qty   AS smm_delivered_qty,
-      so.remains_qty     AS smm_remains_qty,
-      so.refund_amount   AS smm_refund_amount,
-      so.provider_status AS smm_provider_status,
-
-      -- ===== Latest delivery only =====
-      od.created_at      AS delivery_created_at,
-      od.delivery_text   AS delivery_text
-
-    FROM orders o
-
-    LEFT JOIN smm_orders so
-      ON so.provider_order_id = o.provider_order_id
-
-    LEFT JOIN (
-      SELECT d1.*
-      FROM order_deliveries d1
-      INNER JOIN (
-        SELECT order_id, MAX(created_at) AS max_created_at
-        FROM order_deliveries
-        GROUP BY order_id
-      ) d2
-        ON d2.order_id = d1.order_id
-       AND d2.max_created_at = d1.created_at
-    ) od
-      ON od.order_id = o.id
-
-    WHERE o.id = ? AND o.userId = ?
-    LIMIT 1
-  `;
-
-  db.query(sql, [orderId, userId], (err, rows) => {
-    if (err || !rows || !rows.length) {
-      console.error('order-details status.json error:', err?.message || err);
-      return res.json({ ok: false });
-    }
-
-    const row = rows[0];
-
-    // ======================================================
-    // ==================== SMM BLOCK =======================
-    // ======================================================
-    let smmBlock = null;
-
-    if (row.smm_status) {
-      const orderedQty   = Number(row.smm_quantity || 0);
-      const hasDelivered = row.smm_delivered_qty !== null && row.smm_delivered_qty !== undefined;
-      const remainsDB    = Number(row.smm_remains_qty || 0);
-
-      let deliveredQty, remainsQty;
-
-      if (hasDelivered) {
-        deliveredQty = Number(row.smm_delivered_qty || 0);
-        remainsQty   = remainsDB || Math.max(0, orderedQty - deliveredQty);
-      } else {
-        remainsQty   = remainsDB;
-        deliveredQty = Math.max(0, orderedQty - remainsQty);
-      }
-
-      if (deliveredQty < 0) deliveredQty = 0;
-      if (deliveredQty > orderedQty) deliveredQty = orderedQty;
-      if (remainsQty   < 0) remainsQty   = 0;
-
-      smmBlock = {
-        ordered: orderedQty,
-        delivered: deliveredQty,
-        remains: remainsQty,
-        provider_status: row.smm_provider_status || row.smm_status || ''
-      };
-    }
-
-    // ======================================================
-    // ================= DELIVERY PREVIEW ===================
-    // ======================================================
-    const hasDelivery =
-      !!(row.delivery_text && String(row.delivery_text).trim() !== '');
-
-    let preview = '';
-    if (hasDelivery) {
-      const t = String(row.delivery_text).trim();
-      // ✅ keep your original logic, but guard empty/short safely
-      preview = (t.length <= 10)
-        ? 'Delivered'
-        : `${t.slice(0, 3)}***${t.slice(-3)}`;
-    }
-
-    // ======================================================
-    // ============== MANUAL / STOCK CHECK ==================
-    // ======================================================
-    let pendingManual = false;
-
-    // Prefer explicit columns if they exist
     if (
-      Object.prototype.hasOwnProperty.call(row, 'fulfillment_mode') ||
-      Object.prototype.hasOwnProperty.call(row, 'stock_fallback')
+      !Number.isInteger(orderId) ||
+      orderId <= 0 ||
+      !Number.isInteger(userId) ||
+      userId <= 0
     ) {
-      pendingManual =
-        (String(row.fulfillment_mode || '').toLowerCase() === 'stock') &&
-        (Number(row.stock_fallback || 0) === 1);
-    } else {
-      const det = String(row.order_details || '').toLowerCase();
-      pendingManual =
-        det.includes('out of stock') ||
-        det.includes('auto-delivery unavailable');
+      return res.status(400).json({
+        ok: false,
+        message: 'Bad request'
+      });
     }
 
-    // ======================================================
-    // ============== ADMIN REPLY LOGIC =====================
-    // ======================================================
-    const rawAdminReply = (row.admin_reply || '').toString();
+    try {
+      const sql = `
+        SELECT
+          o.*,
 
-    // ✅ If delivery exists -> hide raw admin reply (privacy)
-    const adminReplyForClient = hasDelivery ? '' : rawAdminReply;
+          /* =================================
+             SMM fields — SMM orders only
+             ================================= */
+          so.status AS smm_status,
+          so.quantity AS smm_quantity,
+          so.delivered_qty AS smm_delivered_qty,
+          so.remains_qty AS smm_remains_qty,
+          so.refund_amount AS smm_refund_amount,
+          so.provider_status AS smm_provider_status,
 
-    // ✅ display_reply is the only reliable display field
-    const displayReply = hasDelivery
-      ? (preview || 'Delivered')
-      : (rawAdminReply.trim() ? rawAdminReply : '');
+          /* =================================
+             5SIM fields — 5SIM orders only
+             ================================= */
+          fvo.id AS fivesim_local_id,
+          fvo.provider_order_id AS fivesim_provider_order_id,
+          fvo.phone_number AS fivesim_phone_number,
+          fvo.sms_code AS fivesim_sms_code,
+          fvo.sms_text AS fivesim_sms_text,
+          fvo.country_code AS fivesim_country_code,
+          fvo.service_code AS fivesim_service_code,
+          fvo.status AS fivesim_status,
+          fvo.provider_status AS fivesim_provider_status,
+          fvo.expires_at AS fivesim_expires_at,
+          fvo.refunded AS fivesim_refunded,
+          fvo.refund_amount AS fivesim_refund_amount,
 
-    // ======================================================
-    // ============== SHAHID HELPERS (safe) =================
-    // ======================================================
-    const isShahid = String(row.order_details || '').includes('Shahid API');
-    const isPendingShahid =
-      isShahid &&
-      String(row.status || '') === 'Waiting' &&
-      rawAdminReply.toLowerCase().includes('pending');
+          /* =================================
+             Latest SQL/stock delivery only
+             ================================= */
+          od.created_at AS delivery_created_at,
+          od.delivery_text AS delivery_text
 
-    // Optional normalized status (doesn't replace original)
-    const statusNormalized = String(row.status || '').toLowerCase();
+        FROM orders o
 
-    // ======================================================
-    // ==================== RESPONSE ========================
-    // ======================================================
-    return res.json({
-      ok: true,
-      status: row.status,
-      status_normalized: statusNormalized,
+        LEFT JOIN smm_orders so
+          ON o.provider = 'smm'
+         AND so.provider_order_id = o.provider_order_id
 
-      // legacy (للواجهات القديمة)
-      admin_reply: adminReplyForClient,
+        LEFT JOIN fivesim_orders fvo
+          ON o.provider = 'fivesim'
+         AND fvo.order_id = o.id
 
-      // ✅ الجديد (الواجهة تعتمد عليه)
-      display_reply: displayReply,
+        LEFT JOIN (
+          SELECT d1.*
+          FROM order_deliveries d1
 
-      // SMM (null للطلبات العادية)
-      smm: smmBlock,
+          INNER JOIN (
+            SELECT
+              order_id,
+              MAX(created_at) AS max_created_at
+            FROM order_deliveries
+            GROUP BY order_id
+          ) d2
+            ON d2.order_id = d1.order_id
+           AND d2.max_created_at = d1.created_at
+        ) od
+          ON od.order_id = o.id
 
-      // helpers
-      is_shahid: isShahid,
-      is_pending_shahid: isPendingShahid,
+        WHERE o.id = ?
+          AND o.userId = ?
 
-      delivery_preview: preview,
-      delivery: {
-        has_delivery: hasDelivery,
-        preview,
-        pending_manual: pendingManual,
-        delivery_created_at: row.delivery_created_at || null
+        LIMIT 1
+      `;
+
+      const [rows] = await promisePool.query(
+        sql,
+        [orderId, userId]
+      );
+
+      if (!rows || !rows.length) {
+        return res.status(404).json({
+          ok: false,
+          message: 'Order not found'
+        });
       }
-    });
-  });
-});
+
+      let row = rows[0];
+
+      // ======================================================
+      // ==================== 5SIM SYNC ========================
+      // ======================================================
+
+      if (
+        row.provider === 'fivesim' &&
+        row.fivesim_provider_order_id
+      ) {
+        try {
+          const providerOrder = await getFiveSimOrder(
+            row.fivesim_provider_order_id
+          );
+
+          const providerStatus = String(
+            providerOrder?.status ||
+            row.fivesim_provider_status ||
+            'PENDING'
+          ).trim();
+
+          let smsCode = String(
+            row.fivesim_sms_code || ''
+          ).trim();
+
+          let smsText = String(
+            row.fivesim_sms_text || ''
+          ).trim();
+
+          /*
+           * الشكل المعتاد:
+           * sms: [
+           *   {
+           *     code: "123456",
+           *     text: "Your code is 123456"
+           *   }
+           * ]
+           */
+          const smsList = Array.isArray(providerOrder?.sms)
+            ? providerOrder.sms
+            : [];
+
+          if (smsList.length > 0) {
+            const latestSms =
+              smsList[smsList.length - 1] || {};
+
+            smsCode = String(
+              latestSms.code ||
+              latestSms.sms_code ||
+              smsCode ||
+              ''
+            ).trim();
+
+            smsText = String(
+              latestSms.text ||
+              latestSms.sms_text ||
+              latestSms.message ||
+              smsText ||
+              ''
+            ).trim();
+          }
+
+          const phoneNumber = String(
+            providerOrder?.phone ||
+            row.fivesim_phone_number ||
+            ''
+          ).trim();
+
+          const expiresAt = parseFiveSimDate(
+            providerOrder?.expires ||
+            providerOrder?.expires_at ||
+            providerOrder?.expire ||
+            row.fivesim_expires_at
+          );
+
+          let localFiveStatus = 'pending';
+          let localOrderStatus = row.status || 'In progress';
+
+          const normalizedProviderStatus =
+            providerStatus.toLowerCase();
+
+          if (smsCode) {
+            localFiveStatus = 'received';
+            localOrderStatus = 'Accepted';
+
+          } else if (
+            normalizedProviderStatus.includes('canceled') ||
+            normalizedProviderStatus.includes('cancelled') ||
+            normalizedProviderStatus.includes('banned') ||
+            normalizedProviderStatus.includes('timeout') ||
+            normalizedProviderStatus.includes('expired') ||
+            normalizedProviderStatus.includes('refunded')
+          ) {
+            localFiveStatus = 'failed';
+            localOrderStatus = 'Rejected';
+
+          } else {
+            localFiveStatus = 'pending';
+            localOrderStatus = 'In progress';
+          }
+
+          await promisePool.query(
+            `
+            UPDATE fivesim_orders
+            SET
+              phone_number = ?,
+              sms_code = ?,
+              sms_text = ?,
+              status = ?,
+              provider_status = ?,
+              expires_at = ?,
+              raw_response = ?,
+              updated_at = NOW()
+            WHERE order_id = ?
+              AND user_id = ?
+            `,
+            [
+              phoneNumber || null,
+              smsCode || null,
+              smsText || null,
+              localFiveStatus,
+              providerStatus,
+              expiresAt,
+              JSON.stringify(providerOrder),
+              orderId,
+              userId
+            ]
+          );
+
+          if (localOrderStatus !== row.status) {
+            await promisePool.query(
+              `
+              UPDATE orders
+              SET
+                status = ?,
+                is_new = 1
+              WHERE id = ?
+                AND userId = ?
+                AND provider = 'fivesim'
+              `,
+              [
+                localOrderStatus,
+                orderId,
+                userId
+              ]
+            );
+          }
+
+          row = {
+            ...row,
+            status: localOrderStatus,
+            fivesim_phone_number:
+              phoneNumber || row.fivesim_phone_number,
+            fivesim_sms_code:
+              smsCode || null,
+            fivesim_sms_text:
+              smsText || null,
+            fivesim_status:
+              localFiveStatus,
+            fivesim_provider_status:
+              providerStatus,
+            fivesim_expires_at:
+              expiresAt || row.fivesim_expires_at
+          };
+
+        } catch (fiveSimError) {
+          /*
+           * لا نكسر الصفحة إذا API المزود تعطل.
+           * نرجع آخر بيانات محفوظة محليًا.
+           */
+          console.warn(
+            '⚠️ 5SIM status refresh failed:',
+            {
+              orderId,
+              providerOrderId:
+                row.fivesim_provider_order_id,
+              message:
+                fiveSimError?.providerPayload ||
+                fiveSimError?.message ||
+                fiveSimError
+            }
+          );
+        }
+      }
+
+      // ======================================================
+      // ==================== SMM BLOCK ========================
+      // ======================================================
+
+      let smmBlock = null;
+
+      if (
+        row.provider === 'smm' &&
+        row.smm_status
+      ) {
+        const orderedQty = Number(
+          row.smm_quantity || 0
+        );
+
+        const hasDelivered =
+          row.smm_delivered_qty !== null &&
+          row.smm_delivered_qty !== undefined;
+
+        const remainsDB = Number(
+          row.smm_remains_qty || 0
+        );
+
+        let deliveredQty;
+        let remainsQty;
+
+        if (hasDelivered) {
+          deliveredQty = Number(
+            row.smm_delivered_qty || 0
+          );
+
+          remainsQty =
+            remainsDB ||
+            Math.max(
+              0,
+              orderedQty - deliveredQty
+            );
+        } else {
+          remainsQty = remainsDB;
+
+          deliveredQty = Math.max(
+            0,
+            orderedQty - remainsQty
+          );
+        }
+
+        if (deliveredQty < 0) {
+          deliveredQty = 0;
+        }
+
+        if (deliveredQty > orderedQty) {
+          deliveredQty = orderedQty;
+        }
+
+        if (remainsQty < 0) {
+          remainsQty = 0;
+        }
+
+        smmBlock = {
+          ordered: orderedQty,
+          delivered: deliveredQty,
+          remains: remainsQty,
+          provider_status:
+            row.smm_provider_status ||
+            row.smm_status ||
+            ''
+        };
+      }
+
+      // ======================================================
+      // ==================== 5SIM BLOCK =======================
+      // ======================================================
+
+      let fiveSimBlock = null;
+
+      if (row.provider === 'fivesim') {
+        fiveSimBlock = {
+          phone_number:
+            row.fivesim_phone_number || null,
+
+          sms_code:
+            row.fivesim_sms_code || null,
+
+          sms_text:
+            row.fivesim_sms_text || null,
+
+          country_code:
+            row.fivesim_country_code || null,
+
+          service_code:
+            row.fivesim_service_code || null,
+
+          status:
+            row.fivesim_status || 'pending',
+
+          provider_status:
+            row.fivesim_provider_status || null,
+
+          expires_at:
+            row.fivesim_expires_at || null,
+
+          refunded:
+            Number(
+              row.fivesim_refunded || 0
+            ) === 1,
+
+          refund_amount:
+            Number(
+              row.fivesim_refund_amount || 0
+            )
+        };
+      }
+
+      // ======================================================
+      // ================= DELIVERY PREVIEW ===================
+      // ======================================================
+
+      /*
+       * خاص بالطلبات العادية/SQL فقط.
+       * لا نعتبر 5SIM أو SMM delivery عادي.
+       */
+      const hasDelivery =
+        row.provider !== 'smm' &&
+        row.provider !== 'fivesim' &&
+        Boolean(
+          row.delivery_text &&
+          String(row.delivery_text).trim()
+        );
+
+      let preview = '';
+
+      if (hasDelivery) {
+        const text = String(
+          row.delivery_text
+        ).trim();
+
+        preview =
+          text.length <= 10
+            ? 'Delivered'
+            : `${text.slice(0, 3)}***${text.slice(-3)}`;
+      }
+
+      // ======================================================
+      // ============== MANUAL / STOCK CHECK ==================
+      // ======================================================
+
+      let pendingManual = false;
+
+      /*
+       * فقط الطلبات العادية وDailyCard.
+       * 5SIM وSMM لا يدخلوا بهذا المنطق.
+       */
+      if (
+        row.provider !== 'smm' &&
+        row.provider !== 'fivesim'
+      ) {
+        if (
+          Object.prototype.hasOwnProperty.call(
+            row,
+            'fulfillment_mode'
+          ) ||
+          Object.prototype.hasOwnProperty.call(
+            row,
+            'stock_fallback'
+          )
+        ) {
+          pendingManual =
+            String(
+              row.fulfillment_mode || ''
+            ).toLowerCase() === 'stock' &&
+            Number(
+              row.stock_fallback || 0
+            ) === 1;
+
+        } else {
+          const details = String(
+            row.order_details || ''
+          ).toLowerCase();
+
+          pendingManual =
+            details.includes('out of stock') ||
+            details.includes(
+              'auto-delivery unavailable'
+            );
+        }
+      }
+
+      // ======================================================
+      // ============== ADMIN REPLY LOGIC =====================
+      // ======================================================
+
+      const rawAdminReply = String(
+        row.admin_reply || ''
+      );
+
+      const adminReplyForClient =
+        hasDelivery
+          ? ''
+          : rawAdminReply;
+
+      const displayReply =
+        hasDelivery
+          ? preview || 'Delivered'
+          : rawAdminReply.trim()
+            ? rawAdminReply
+            : '';
+
+      // ======================================================
+      // ============== SHAHID HELPERS ========================
+      // ======================================================
+
+      const isShahid =
+        row.provider !== 'fivesim' &&
+        String(
+          row.order_details || ''
+        ).includes('Shahid API');
+
+      const isPendingShahid =
+        isShahid &&
+        String(row.status || '') === 'Waiting' &&
+        rawAdminReply
+          .toLowerCase()
+          .includes('pending');
+
+      const statusNormalized = String(
+        row.status || ''
+      ).toLowerCase();
+
+      // ======================================================
+      // ==================== RESPONSE ========================
+      // ======================================================
+
+      return res.json({
+        ok: true,
+
+        provider:
+          row.provider || null,
+
+        status:
+          row.status,
+
+        status_normalized:
+          statusNormalized,
+
+        admin_reply:
+          adminReplyForClient,
+
+        display_reply:
+          displayReply,
+
+        // SMM فقط
+        smm:
+          smmBlock,
+
+        // 5SIM فقط
+        fivesim:
+          fiveSimBlock,
+
+        is_shahid:
+          isShahid,
+
+        is_pending_shahid:
+          isPendingShahid,
+
+        delivery_preview:
+          preview,
+
+        delivery: {
+          has_delivery:
+            hasDelivery,
+
+          preview,
+
+          pending_manual:
+            pendingManual,
+
+          delivery_created_at:
+            row.delivery_created_at || null
+        }
+      });
+
+    } catch (error) {
+      console.error(
+        '❌ GET /order-details/:id/status.json:',
+        {
+          orderId,
+          userId,
+          message:
+            error.message || error,
+          code:
+            error.code
+        }
+      );
+
+      return res.status(500).json({
+        ok: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
 
 
 

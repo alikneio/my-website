@@ -4,13 +4,14 @@
   <meta charset="UTF-8" />
   <title>Order Details - #<%= order.id %></title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet"/>
 
   <style>
-    :root{
+    :root {
       --brand: #1266F1;
       --bg-soft: #f4f6fa;
       --title: #1d3557;
@@ -18,152 +19,259 @@
       --muted: #6c757d;
       --purple: #a855f7;
     }
-    body{
+
+    body {
       background: var(--bg-soft);
       font-family: 'Cairo', sans-serif;
       color: var(--text);
     }
-    .order-wrapper{
-      background:#fff;
-      border-radius:16px;
-      padding:1.75rem;
-      box-shadow:0 8px 26px rgba(0,0,0,.06)
-    }
-    .section-title{
-      font-size:2rem;
-      font-weight:800;
-      color:var(--title);
-      letter-spacing:.3px;
-    }
-    .kv-label{
-      font-weight:700;
-      color:#495057;
-      margin-bottom:.35rem
-    }
-    .kv-value{
-      background:#f1f3f5;
-      border-radius:10px;
-      padding:.75rem 1rem;
-      color:#212529;
-      margin-bottom:1rem
-    }
-    .badge{
-      font-size:.95rem;
-      padding:.45rem .9rem
-    }
-    .badge-partial{
-      background: var(--purple);
-      color:#fff;
-    }
-    .btn-brand{
-      background:var(--brand);
-      border-color:var(--brand);
-      color:#fff
-    }
-    .btn-brand:hover{
-      filter:brightness(.95);
-      color:#fff
-    }
-    .btn-ghost{
-      background:#fff;
-      border:1px solid #e6e9ef;
-      color:#222
-    }
-    .actions{ gap:.5rem }
-    .last-updated{
-      color:var(--muted);
-      font-size:.9rem
+
+    .order-wrapper {
+      background: #fff;
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: 0 8px 26px rgba(0,0,0,.06);
     }
 
-    /* Admin reply box */
-    .reply-box{
-      border:1px solid rgba(0,0,0,.08);
-      border-radius: 14px;
-      padding: 12px 14px;
-      background: rgba(18,102,241,.04);
-    }
-    .reply-title{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom: 8px;
-    }
-    .reply-title h6{
-      margin:0;
-      font-weight:800;
+    .section-title {
+      font-size: 2rem;
+      font-weight: 800;
       color: var(--title);
-      display:flex;
-      align-items:center;
-      gap:8px;
+      letter-spacing: .3px;
     }
-    .reply-text{
-      background:#f1f3f5;
-      border-radius:10px;
-      padding:.75rem 1rem;
-      margin:0;
-      white-space: pre-wrap;
+
+    .kv-label {
+      font-weight: 700;
+      color: #495057;
+      margin-bottom: .35rem;
+    }
+
+    .kv-value {
+      background: #f1f3f5;
+      border-radius: 10px;
+      padding: .75rem 1rem;
+      color: #212529;
+      margin-bottom: 1rem;
       word-break: break-word;
     }
-    .btn-mini{
-      border-radius: 10px;
-      display:inline-flex;
-      align-items:center;
-      gap:.4rem;
+
+    .badge {
+      font-size: .95rem;
+      padding: .45rem .9rem;
     }
-    .hidden-note{
+
+    .badge-partial {
+      background: var(--purple);
+      color: #fff;
+    }
+
+    .btn-brand {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+
+    .btn-brand:hover {
+      filter: brightness(.95);
+      color: #fff;
+    }
+
+    .btn-ghost {
+      background: #fff;
+      border: 1px solid #e6e9ef;
+      color: #222;
+    }
+
+    .actions { gap: .5rem; }
+
+    .last-updated {
       color: var(--muted);
       font-size: .9rem;
     }
 
-    /* Refill info */
-    .refill-note{
+    .reply-box {
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(18,102,241,.04);
+    }
+
+    .reply-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .reply-title h6 {
+      margin: 0;
+      font-weight: 800;
+      color: var(--title);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .reply-text {
+      background: #f1f3f5;
+      border-radius: 10px;
+      padding: .75rem 1rem;
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .btn-mini {
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+    }
+
+    .hidden-note {
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .refill-note {
       font-size: .9rem;
       color: var(--muted);
       margin-top: 6px;
     }
 
-    @media (max-width: 768px){
-      .section-title{ font-size:1.6rem }
-      .order-wrapper{ padding:1.25rem }
+    .five-card {
+      border-radius: 16px;
+      border: 1px solid rgba(13,110,253,.13);
+      background: linear-gradient(135deg, rgba(13,110,253,.055), rgba(25,135,84,.04));
+      padding: 16px;
+      margin-bottom: 1rem;
+    }
+
+    .five-title {
+      font-weight: 900;
+      color: var(--title);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .phone-box,
+    .sms-box {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.07);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .phone-number {
+      font-size: 1.35rem;
+      font-weight: 900;
+      direction: ltr;
+      word-break: break-all;
+    }
+
+    .sms-code {
+      font-size: 1.75rem;
+      font-weight: 900;
+      color: #146c43;
+      letter-spacing: 1px;
+      direction: ltr;
+      word-break: break-all;
+    }
+
+    .five-label {
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .waiting-panel {
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff8e8;
+      border: 1px solid #ffe5a8;
+      color: #7a5900;
+    }
+
+    .five-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .five-meta-item {
+      background: rgba(255,255,255,.75);
+      border-radius: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(0,0,0,.05);
+    }
+
+    @media (max-width: 768px) {
+      .section-title { font-size: 1.6rem; }
+      .order-wrapper { padding: 1.25rem; }
+      .five-meta { grid-template-columns: 1fr; }
+      .phone-number { font-size: 1.1rem; }
+      .sms-code { font-size: 1.4rem; }
     }
   </style>
 </head>
-<body>
 
+<body>
   <%- include('partials/header') %>
+
+  <%
+    const isFiveSim = order.provider === 'fivesim' || !!order.fivesim_provider_order_id;
+    const fiveHasSms = !!order.fivesim_sms_code;
+  %>
 
   <main class="container my-5">
     <div class="order-wrapper">
+
       <div class="d-flex align-items-center justify-content-between flex-wrap mb-3">
         <h2 class="section-title mb-3 mb-md-0">Order Details</h2>
 
         <div class="d-flex align-items-center actions">
           <div id="status-badge" class="me-2">
-            <% if (order.status === 'Accepted') { %>
+
+            <% if (isFiveSim && fiveHasSms) { %>
+              <span class="badge bg-success" id="order-status">SMS Received</span>
+
+            <% } else if (order.status === 'Accepted') { %>
               <span class="badge bg-success" id="order-status"><%= order.status %></span>
+
             <% } else if (order.status === 'Rejected') { %>
               <span class="badge bg-danger" id="order-status"><%= order.status %></span>
+
             <% } else if (order.status === 'Partial') { %>
               <span class="badge badge-partial" id="order-status">Partial</span>
+
             <% } else if (order.status === 'In progress') { %>
-              <span class="badge bg-info text-dark" id="order-status">In progress</span>
+              <span class="badge bg-info text-dark" id="order-status">
+                <%= isFiveSim ? 'Waiting for SMS' : 'In progress' %>
+              </span>
+
             <% } else { %>
               <span class="badge bg-warning text-dark" id="order-status"><%= order.status %></span>
             <% } %>
           </div>
 
           <%
-            // ========= Refill gating (FULL) =========
             const isSmmOrder = !!order.smm_status;
             const hasProviderId = !!order.provider_order_id;
             const noRefill = String(order.productName || '').toUpperCase().includes('NO REFILL');
 
-            const providerStatus = String(order.smm_provider_status || order.smm_status || '').toLowerCase();
+            const providerStatus = String(
+              order.smm_provider_status ||
+              order.smm_status ||
+              ''
+            ).toLowerCase();
+
             const remainsNum = Number(order.smm_remains_qty || 0);
-            const deliveredNum = (order.smm_delivered_qty === null || order.smm_delivered_qty === undefined)
-              ? null
-              : Number(order.smm_delivered_qty || 0);
 
             const isCompletedLike =
               providerStatus.includes('completed') ||
@@ -180,7 +288,6 @@
 
             const refillNextAtRaw = order.refill_next_at || null;
 
-            // ========= Shahid detection =========
             const isShahidOrder = String(order.order_details || '').includes('Shahid API');
             const isPendingShahid = isShahidOrder && String(order.status || '') === 'Waiting';
           %>
@@ -188,17 +295,18 @@
           <% if (canShowRefill) { %>
             <div class="d-flex flex-column align-items-end">
               <button id="refillBtn" class="btn btn-outline-primary d-inline-flex align-items-center">
-                <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" id="refillSpinner"></span>
-                <i class="bi bi-life-preserver me-2" aria-hidden="true"></i>
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="refillSpinner"></span>
+                <i class="bi bi-life-preserver me-2"></i>
                 Refill
               </button>
+
               <div class="refill-note d-none" id="refillNote"></div>
             </div>
           <% } %>
 
           <button id="refreshBtn" class="btn btn-brand d-inline-flex align-items-center">
-            <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" id="refreshSpinner"></span>
-            <i class="bi bi-arrow-clockwise me-2" aria-hidden="true"></i>
+            <span class="spinner-border spinner-border-sm me-2 d-none" id="refreshSpinner"></span>
+            <i class="bi bi-arrow-clockwise me-2"></i>
             Refresh
           </button>
         </div>
@@ -213,8 +321,115 @@
 
       <p class="last-updated mb-4">
         Last updated:
-        <span id="lastUpdated"><%= new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) %></span>
+        <span id="lastUpdated"><%= new Date().toLocaleTimeString([], {
+          hour:'2-digit',
+          minute:'2-digit'
+        }) %></span>
       </p>
+
+      <% if (isFiveSim) { %>
+        <div class="five-card" id="fiveSimCard">
+          <div class="five-title">
+            <i class="bi bi-phone-fill"></i>
+            Virtual Number Activation
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <div class="phone-box h-100">
+                <div class="five-label">Temporary Phone Number</div>
+
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                  <div class="phone-number" id="fivePhone">
+                    <%= order.fivesim_phone_number || 'Preparing...' %>
+                  </div>
+
+                  <button
+                    type="button"
+                    id="copyPhoneBtn"
+                    class="btn btn-outline-primary btn-sm btn-mini"
+                    <%= order.fivesim_phone_number ? '' : 'disabled' %>
+                  >
+                    <i class="bi bi-clipboard"></i>
+                    Copy
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <div class="sms-box h-100">
+                <div class="five-label">SMS Code</div>
+
+                <div id="fiveSmsReceived" class="<%= fiveHasSms ? '' : 'd-none' %>">
+                  <div class="d-flex justify-content-between align-items-center gap-2">
+                    <div class="sms-code" id="fiveSmsCode">
+                      <%= order.fivesim_sms_code || '' %>
+                    </div>
+
+                    <button
+                      type="button"
+                      id="copySmsBtn"
+                      class="btn btn-outline-success btn-sm btn-mini"
+                    >
+                      <i class="bi bi-clipboard"></i>
+                      Copy
+                    </button>
+                  </div>
+
+                  <% if (order.fivesim_sms_text) { %>
+                    <div class="small text-muted mt-2" id="fiveSmsText">
+                      <%= order.fivesim_sms_text %>
+                    </div>
+                  <% } else { %>
+                    <div class="small text-muted mt-2" id="fiveSmsText"></div>
+                  <% } %>
+                </div>
+
+                <div id="fiveSmsWaiting" class="waiting-panel <%= fiveHasSms ? 'd-none' : '' %>">
+                  <div class="fw-bold mb-1">
+                    <i class="bi bi-hourglass-split me-1"></i>
+                    Waiting for SMS
+                  </div>
+
+                  <div class="small">
+                    Keep this page open or press Refresh. The code will appear here automatically.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="five-meta">
+            <div class="five-meta-item">
+              <div class="five-label">Country</div>
+              <div id="fiveCountry"><%= order.fivesim_country_code || '—' %></div>
+            </div>
+
+            <div class="five-meta-item">
+              <div class="five-label">Service</div>
+              <div id="fiveService"><%= order.fivesim_service_code || '—' %></div>
+            </div>
+
+            <div class="five-meta-item">
+              <div class="five-label">Provider Status</div>
+              <div id="fiveProviderStatus">
+                <%= order.fivesim_provider_status || order.fivesim_status || 'PENDING' %>
+              </div>
+            </div>
+
+            <div class="five-meta-item">
+              <div class="five-label">Expires At</div>
+              <div id="fiveExpires">
+                <%= order.fivesim_expires_at
+                  ? new Date(order.fivesim_expires_at).toLocaleString()
+                  : '—'
+                %>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% } %>
 
       <div class="row">
         <div class="col-12 col-lg-6">
@@ -232,14 +447,12 @@
           <div class="kv-label">DATE</div>
           <div class="kv-value"><%= new Date(order.purchaseDate).toLocaleString() %></div>
 
-          <% if (order.order_details) { %>
+          <% if (order.order_details && !isFiveSim) { %>
             <div class="kv-label">DETAILS</div>
             <div class="kv-value"><%= order.order_details %></div>
           <% } %>
 
-          <div class="kv-label mt-3 d-flex align-items-center justify-content-between">
-            <span>ADMIN REPLY</span>
-          </div>
+          <div class="kv-label mt-3">ADMIN REPLY</div>
 
           <div class="reply-box mb-3">
             <div class="reply-title">
@@ -249,56 +462,62 @@
               </h6>
 
               <button id="copyReplyBtn" type="button" class="btn btn-outline-secondary btn-sm btn-mini d-none">
-                <i class="bi bi-clipboard"></i> Copy
+                <i class="bi bi-clipboard"></i>
+                Copy
               </button>
             </div>
 
-            <!-- ✅ safe output -->
             <pre class="reply-text user-select-all mb-0" id="adminReplyBox"><%= (order.admin_reply || '').toString() %></pre>
             <div class="hidden-note mt-2 d-none" id="noReplyNote">No admin reply yet.</div>
           </div>
 
           <% if (order.smm_status) { %>
             <div class="kv-label mt-3">SOCIAL MEDIA PROGRESS</div>
+
             <div class="kv-value">
               <%
-                const orderedQty  = Number(order.smm_quantity || 0);
-                const hasDelivered = order.smm_delivered_qty !== null && order.smm_delivered_qty !== undefined;
-                const remainsDB   = Number(order.smm_remains_qty || 0);
+                const orderedQty = Number(order.smm_quantity || 0);
 
-                let deliveredQty, remainsQty;
+                const hasDelivered =
+                  order.smm_delivered_qty !== null &&
+                  order.smm_delivered_qty !== undefined;
+
+                const remainsDB = Number(order.smm_remains_qty || 0);
+
+                let deliveredQty;
+                let remainsQty;
 
                 if (hasDelivered) {
                   deliveredQty = Number(order.smm_delivered_qty || 0);
-                  remainsQty   = remainsDB || Math.max(0, orderedQty - deliveredQty);
+                  remainsQty = remainsDB || Math.max(0, orderedQty - deliveredQty);
                 } else {
-                  remainsQty   = remainsDB;
+                  remainsQty = remainsDB;
                   deliveredQty = Math.max(0, orderedQty - remainsQty);
                 }
 
                 if (deliveredQty < 0) deliveredQty = 0;
                 if (deliveredQty > orderedQty) deliveredQty = orderedQty;
-                if (remainsQty   < 0) remainsQty   = 0;
+                if (remainsQty < 0) remainsQty = 0;
               %>
 
               <ul class="mb-0">
-                <li><strong>Ordered quantity:</strong> <span class="text-dark" id="smm-ordered"><%= orderedQty %></span></li>
-                <li><strong>Delivered quantity:</strong> <span class="text-dark" id="smm-delivered"><%= deliveredQty %></span></li>
-                <li><strong>Not delivered (remaining):</strong> <span class="text-dark" id="smm-remains"><%= remainsQty %></span></li>
+                <li><strong>Ordered quantity:</strong> <span id="smm-ordered"><%= orderedQty %></span></li>
+                <li><strong>Delivered quantity:</strong> <span id="smm-delivered"><%= deliveredQty %></span></li>
+                <li><strong>Not delivered:</strong> <span id="smm-remains"><%= remainsQty %></span></li>
                 <li>
                   <strong>Provider status:</strong>
-                  <span class="text-dark" id="smm-provider-status"><%= (order.smm_provider_status || order.smm_status || '').toString() %></span>
+                  <span id="smm-provider-status"><%= order.smm_provider_status || order.smm_status || '' %></span>
                 </li>
               </ul>
             </div>
           <% } %>
-
         </div>
       </div>
 
       <div class="mt-3">
         <a href="/my-orders" class="btn btn-ghost">
-          <i class="bi bi-arrow-left me-2"></i> Back to Orders
+          <i class="bi bi-arrow-left me-2"></i>
+          Back to Orders
         </a>
       </div>
     </div>
@@ -311,64 +530,159 @@
   <script>
     (function () {
       const orderId = <%- JSON.stringify(order.id) %>;
+      const isFiveSim = <%- JSON.stringify(isFiveSim) %>;
 
       const $status = document.getElementById('order-status');
-      const $last   = document.getElementById('lastUpdated');
-      const $btn    = document.getElementById('refreshBtn');
-      const $spin   = document.getElementById('refreshSpinner');
+      const $last = document.getElementById('lastUpdated');
+      const $btn = document.getElementById('refreshBtn');
+      const $spin = document.getElementById('refreshSpinner');
 
-      const $refillBtn  = document.getElementById('refillBtn');
+      const $refillBtn = document.getElementById('refillBtn');
       const $refillSpin = document.getElementById('refillSpinner');
       const $refillNote = document.getElementById('refillNote');
 
       const refillNextAtRaw = <%- JSON.stringify(order.refill_next_at || null) %>;
 
       const $adminReplyBox = document.getElementById('adminReplyBox');
-      const $copyReplyBtn  = document.getElementById('copyReplyBtn');
-      const $noReplyNote   = document.getElementById('noReplyNote');
+      const $copyReplyBtn = document.getElementById('copyReplyBtn');
+      const $noReplyNote = document.getElementById('noReplyNote');
 
-      const smmOrdered        = document.getElementById('smm-ordered');
-      const smmDelivered      = document.getElementById('smm-delivered');
-      const smmRemains        = document.getElementById('smm-remains');
+      const smmOrdered = document.getElementById('smm-ordered');
+      const smmDelivered = document.getElementById('smm-delivered');
+      const smmRemains = document.getElementById('smm-remains');
       const smmProviderStatus = document.getElementById('smm-provider-status');
 
-      const isShahid = <%- JSON.stringify(String(order.order_details || '').includes('Shahid API')) %>;
+      const $fivePhone = document.getElementById('fivePhone');
+      const $fiveSmsCode = document.getElementById('fiveSmsCode');
+      const $fiveSmsText = document.getElementById('fiveSmsText');
+      const $fiveSmsReceived = document.getElementById('fiveSmsReceived');
+      const $fiveSmsWaiting = document.getElementById('fiveSmsWaiting');
+      const $fiveProviderStatus = document.getElementById('fiveProviderStatus');
+      const $fiveExpires = document.getElementById('fiveExpires');
+      const $copyPhoneBtn = document.getElementById('copyPhoneBtn');
+      const $copySmsBtn = document.getElementById('copySmsBtn');
+
+      const isShahid = <%- JSON.stringify(
+        String(order.order_details || '').includes('Shahid API')
+      ) %>;
 
       let lastStatus = $status ? $status.textContent.trim() : '';
-      let lastReply  = ($adminReplyBox?.textContent || '').trim();
+      let lastReply = ($adminReplyBox?.textContent || '').trim();
 
-      function setLoading(on){
-        if(!$btn || !$spin) return;
-        if(on){
+      function setLoading(on) {
+        if (!$btn || !$spin) return;
+
+        if (on) {
           $spin.classList.remove('d-none');
           $btn.setAttribute('disabled','disabled');
-        }else{
+        } else {
           $spin.classList.add('d-none');
           $btn.removeAttribute('disabled');
         }
       }
 
-      function setRefillLoading(on){
-        if(!$refillBtn || !$refillSpin) return;
-        if(on){
+      function setRefillLoading(on) {
+        if (!$refillBtn || !$refillSpin) return;
+
+        if (on) {
           $refillSpin.classList.remove('d-none');
           $refillBtn.setAttribute('disabled','disabled');
-        }else{
+        } else {
           $refillSpin.classList.add('d-none');
           $refillBtn.removeAttribute('disabled');
         }
       }
 
-      function setReplyUI(text){
+      function setReplyUI(text) {
         const t = (text || '').toString().trim();
-        if ($adminReplyBox) $adminReplyBox.textContent = t;
+
+        if ($adminReplyBox) {
+          $adminReplyBox.textContent = t;
+        }
 
         const has = !!t;
-        if ($copyReplyBtn) $copyReplyBtn.classList.toggle('d-none', !has);
-        if ($noReplyNote)  $noReplyNote.classList.toggle('d-none', has);
+
+        if ($copyReplyBtn) {
+          $copyReplyBtn.classList.toggle('d-none', !has);
+        }
+
+        if ($noReplyNote) {
+          $noReplyNote.classList.toggle('d-none', has);
+        }
       }
 
-      function formatRemaining(ms){
+      function updateStatusBadge(status, fiveHasSms) {
+        if (!$status) return;
+
+        const display =
+          isFiveSim && fiveHasSms
+            ? 'SMS Received'
+            : isFiveSim && status === 'In progress'
+              ? 'Waiting for SMS'
+              : status;
+
+        $status.textContent = display || 'Waiting';
+        $status.className = 'badge';
+
+        if (isFiveSim && fiveHasSms) {
+          $status.classList.add('bg-success');
+        } else if (status === 'Accepted') {
+          $status.classList.add('bg-success');
+        } else if (status === 'Rejected') {
+          $status.classList.add('bg-danger');
+        } else if (status === 'Partial') {
+          $status.classList.add('badge-partial');
+        } else if (status === 'In progress') {
+          $status.classList.add('bg-info', 'text-dark');
+        } else {
+          $status.classList.add('bg-warning', 'text-dark');
+        }
+      }
+
+      function updateFiveSimUI(five) {
+        if (!isFiveSim || !five) return;
+
+        if ($fivePhone && five.phone_number) {
+          $fivePhone.textContent = five.phone_number;
+
+          if ($copyPhoneBtn) {
+            $copyPhoneBtn.disabled = false;
+          }
+        }
+
+        const hasSms = !!five.sms_code;
+
+        if ($fiveSmsCode) {
+          $fiveSmsCode.textContent = five.sms_code || '';
+        }
+
+        if ($fiveSmsText) {
+          $fiveSmsText.textContent = five.sms_text || '';
+        }
+
+        if ($fiveSmsReceived) {
+          $fiveSmsReceived.classList.toggle('d-none', !hasSms);
+        }
+
+        if ($fiveSmsWaiting) {
+          $fiveSmsWaiting.classList.toggle('d-none', hasSms);
+        }
+
+        if ($fiveProviderStatus) {
+          $fiveProviderStatus.textContent =
+            five.provider_status ||
+            five.status ||
+            '';
+        }
+
+        if ($fiveExpires) {
+          $fiveExpires.textContent = five.expires_at
+            ? new Date(five.expires_at).toLocaleString()
+            : '—';
+        }
+      }
+
+      function formatRemaining(ms) {
         const totalSeconds = Math.max(0, Math.floor(ms / 1000));
         const days = Math.floor(totalSeconds / 86400);
         const hours = Math.floor((totalSeconds % 86400) / 3600);
@@ -376,42 +690,46 @@
 
         if (days > 0) return `${days}d ${hours}h`;
         if (hours > 0) return `${hours}h ${mins}m`;
+
         return `${mins}m`;
       }
 
-      function applyRefillLock(nextAt){
-        if(!$refillBtn) return;
+      function applyRefillLock(nextAt) {
+        if (!$refillBtn) return;
 
         if (!nextAt) {
           $refillBtn.removeAttribute('disabled');
-          if ($refillNote) $refillNote.classList.add('d-none');
+
+          if ($refillNote) {
+            $refillNote.classList.add('d-none');
+          }
+
           return;
         }
 
         const t = new Date(nextAt).getTime();
-        if (!t || Number.isNaN(t)) {
-          $refillBtn.removeAttribute('disabled');
-          if ($refillNote) $refillNote.classList.add('d-none');
-          return;
-        }
 
-        const now = Date.now();
-        if (now >= t) {
+        if (!t || Number.isNaN(t) || Date.now() >= t) {
           $refillBtn.removeAttribute('disabled');
-          if ($refillNote) $refillNote.classList.add('d-none');
+
+          if ($refillNote) {
+            $refillNote.classList.add('d-none');
+          }
+
           return;
         }
 
         $refillBtn.setAttribute('disabled','disabled');
-        const remaining = formatRemaining(t - now);
 
         if ($refillNote) {
-          $refillNote.textContent = `Refill available in ${remaining}`;
+          $refillNote.textContent =
+            `Refill available in ${formatRemaining(t - Date.now())}`;
+
           $refillNote.classList.remove('d-none');
         }
       }
 
-      async function copyTextToClipboard(text){
+      async function copyTextToClipboard(text) {
         try {
           if (navigator.clipboard && window.isSecureContext) {
             await navigator.clipboard.writeText(text);
@@ -420,115 +738,142 @@
             ta.value = text;
             ta.style.position = 'fixed';
             ta.style.left = '-9999px';
+
             document.body.appendChild(ta);
-            ta.focus(); ta.select();
+            ta.focus();
+            ta.select();
             document.execCommand('copy');
             ta.remove();
           }
+
           return true;
-        } catch (e) {
+        } catch (_) {
           return false;
         }
       }
 
       async function fetchStatus() {
         try {
-          const res = await fetch(`/order-details/${orderId}/status.json`, { cache: 'no-store' });
+          const res = await fetch(
+            `/order-details/${orderId}/status.json`,
+            { cache: 'no-store' }
+          );
+
           if (!res.ok) return;
+
           const data = await res.json();
+
           if (!data.ok) return;
 
-          if (data.status && data.status !== lastStatus && $status) {
-            lastStatus = data.status;
-            $status.textContent = data.status;
+          updateStatusBadge(
+            data.status,
+            !!data.fivesim?.sms_code
+          );
 
-            $status.className = 'badge';
-            $status.style.backgroundColor = '';
-            $status.style.color = '';
+          lastStatus = data.status || lastStatus;
 
-            if (data.status === 'Accepted') $status.classList.add('bg-success');
-            else if (data.status === 'Rejected') $status.classList.add('bg-danger');
-            else if (data.status === 'Partial') $status.classList.add('badge-partial');
-            else if (data.status === 'In progress') $status.classList.add('bg-info','text-dark');
-            else $status.classList.add('bg-warning','text-dark');
-          }
+          const reply = (
+            data.display_reply ||
+            data.admin_reply ||
+            ''
+          ).toString().trim();
 
-          const reply = (data.admin_reply || '').toString().trim();
           if (reply !== lastReply) {
             lastReply = reply;
             setReplyUI(reply);
           }
 
           if (data.smm) {
-            if (smmOrdered)        smmOrdered.textContent        = data.smm.ordered;
-            if (smmDelivered)      smmDelivered.textContent      = data.smm.delivered;
-            if (smmRemains)        smmRemains.textContent        = data.smm.remains;
-            if (smmProviderStatus) smmProviderStatus.textContent = data.smm.provider_status || '';
+            if (smmOrdered) {
+              smmOrdered.textContent = data.smm.ordered;
+            }
+
+            if (smmDelivered) {
+              smmDelivered.textContent = data.smm.delivered;
+            }
+
+            if (smmRemains) {
+              smmRemains.textContent = data.smm.remains;
+            }
+
+            if (smmProviderStatus) {
+              smmProviderStatus.textContent =
+                data.smm.provider_status || '';
+            }
           }
+
+          updateFiveSimUI(data.fivesim);
 
           if ($last) {
-            const now = new Date();
-            $last.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            $last.textContent = new Date().toLocaleTimeString([], {
+              hour:'2-digit',
+              minute:'2-digit'
+            });
           }
-
-        } catch (e) {
-          console.error('order-details poll error:', e);
+        } catch (error) {
+          console.error('order-details poll error:', error);
         }
       }
 
-      async function requestRefill(){
-        if(!$refillBtn) return;
-        if ($refillBtn.hasAttribute('disabled')) return;
+      async function requestRefill() {
+        if (!$refillBtn || $refillBtn.hasAttribute('disabled')) {
+          return;
+        }
 
-        try{
+        try {
           setRefillLoading(true);
 
-          const res = await fetch(`/order-details/${orderId}/refill.json`, {
-            method: 'POST',
-            cache: 'no-store'
-          });
+          const res = await fetch(
+            `/order-details/${orderId}/refill.json`,
+            {
+              method: 'POST',
+              cache: 'no-store'
+            }
+          );
 
-          const data = await res.json().catch(()=> ({}));
+          const data = await res.json().catch(() => ({}));
 
-          if(!res.ok || !data.ok){
+          if (!res.ok || !data.ok) {
             const msg = data.message || 'Refill failed';
-            setReplyUI(`❌ ${msg}`);
-            lastReply = (`❌ ${msg}`).trim();
 
-            if (data.refill_next_at) applyRefillLock(data.refill_next_at);
+            setReplyUI(`❌ ${msg}`);
+            lastReply = `❌ ${msg}`;
+
+            if (data.refill_next_at) {
+              applyRefillLock(data.refill_next_at);
+            }
+
             return;
           }
 
-          setReplyUI(`✅ Refill requested successfully`);
+          setReplyUI('✅ Refill requested successfully');
           lastReply = '✅ Refill requested successfully';
 
-          if (data.refill_next_at) applyRefillLock(data.refill_next_at);
-          else applyRefillLock(Date.now() + (5 * 24 * 60 * 60 * 1000));
+          if (data.refill_next_at) {
+            applyRefillLock(data.refill_next_at);
+          }
 
-          fetchStatus();
-        }catch(e){
-          setReplyUI(`❌ Refill error: ${e.message}`);
-          lastReply = (`❌ Refill error: ${e.message}`).trim();
-        }finally{
+          await fetchStatus();
+        } catch (error) {
+          setReplyUI(`❌ Refill error: ${error.message}`);
+        } finally {
           setRefillLoading(false);
-          applyRefillLock(refillNextAtRaw);
         }
       }
 
-      // ✅ Refresh button:
-      // If Shahid + Waiting => try manual sync endpoint then refresh status
       document.getElementById('refreshBtn')?.addEventListener('click', async () => {
         try {
           setLoading(true);
 
           const currentStatus = ($status?.textContent || '').trim();
+
           if (isShahid && currentStatus === 'Waiting') {
-            await fetch('/admin/shahid/sync-pending', { cache: 'no-store' });
+            await fetch('/admin/shahid/sync-pending', {
+              cache: 'no-store'
+            });
           }
 
           await fetchStatus();
-        } catch (e) {
-          console.error('refresh error:', e);
         } finally {
           setLoading(false);
         }
@@ -537,35 +882,58 @@
       $refillBtn?.addEventListener('click', requestRefill);
 
       $copyReplyBtn?.addEventListener('click', async () => {
-        const t = ($adminReplyBox?.textContent || '').trim();
-        if (!t) return;
+        const text = ($adminReplyBox?.textContent || '').trim();
 
-        const ok = await copyTextToClipboard(t);
+        if (!text) return;
+
+        const ok = await copyTextToClipboard(text);
+
         if (!ok) return;
 
         const original = $copyReplyBtn.innerHTML;
-        $copyReplyBtn.innerHTML = '<i class="bi bi-check-lg"></i> Copied';
+        $copyReplyBtn.innerHTML =
+          '<i class="bi bi-check-lg"></i> Copied';
+
         setTimeout(() => {
           $copyReplyBtn.innerHTML = original;
         }, 1500);
       });
 
+      $copyPhoneBtn?.addEventListener('click', async () => {
+        const text = ($fivePhone?.textContent || '').trim();
+
+        if (!text || text === 'Preparing...') return;
+
+        await copyTextToClipboard(text);
+      });
+
+      $copySmsBtn?.addEventListener('click', async () => {
+        const text = ($fiveSmsCode?.textContent || '').trim();
+
+        if (!text) return;
+
+        await copyTextToClipboard(text);
+      });
+
       setReplyUI(($adminReplyBox?.textContent || '').trim());
       applyRefillLock(refillNextAtRaw);
 
-      // initial fetch
       fetchStatus();
 
-      // ✅ smart polling: stop when Accepted/Rejected
       let poller = setInterval(async () => {
         await fetchStatus();
-        const st = ($status?.textContent || '').trim();
-        if (st === 'Accepted' || st === 'Rejected') {
+
+        const displayed = ($status?.textContent || '').trim();
+
+        if (
+          displayed === 'Accepted' ||
+          displayed === 'Rejected' ||
+          displayed === 'SMS Received'
+        ) {
           clearInterval(poller);
         }
-      }, 5000);
+      }, isFiveSim ? 5000 : 7000);
     })();
   </script>
-
 </body>
 </html>
