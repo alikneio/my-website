@@ -2,436 +2,151 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin – Virtual Numbers Control</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Virtual Numbers Services - AK Cell</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <link rel="stylesheet" href="/css/bootstrap.css" />
-  <link rel="stylesheet" href="/css/custom.css" />
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
 
   <style>
-    :root {
-      --vn-primary: #1266f1;
-      --vn-primary-dark: #0d47b8;
-      --vn-success: #198754;
-      --vn-danger: #dc3545;
-      --vn-warning: #f59f00;
-      --vn-bg: #f4f7fb;
-      --vn-card: #ffffff;
-      --vn-border: rgba(18, 34, 51, .08);
-      --vn-text: #172033;
-      --vn-muted: #6b778c;
-      --vn-shadow: 0 14px 40px rgba(20, 35, 60, .08);
-    }
-
     body {
-      font-family: "Cairo", sans-serif;
-      background: var(--vn-bg);
-      color: var(--vn-text);
+      background: #f6f7fb;
     }
 
-    .page-wrap {
-      max-width: 1560px;
+    .page-title {
+      font-weight: 900;
+      letter-spacing: .2px;
     }
 
-    .hero-panel {
-      position: relative;
-      overflow: hidden;
-      border-radius: 24px;
-      min-height: 230px;
-      padding: 28px;
+    .card-soft {
+      border: 0;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+    }
+
+    .filter-card {
+      border: 0;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+    }
+
+    .service-header {
+      background: #111827;
       color: #fff;
-      background:
-        linear-gradient(120deg, rgba(4, 15, 38, .98), rgba(16, 76, 170, .94)),
-        url('/images/virtual-numbers-admin-banner.webp') center/cover no-repeat;
-      box-shadow: 0 18px 50px rgba(5, 23, 58, .22);
-    }
-
-    .hero-panel::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at 82% 28%, rgba(255,255,255,.19), transparent 20%),
-        radial-gradient(circle at 72% 76%, rgba(41, 211, 255, .18), transparent 25%);
-      pointer-events: none;
-    }
-
-    .hero-content {
-      position: relative;
-      z-index: 2;
-      max-width: 760px;
-    }
-
-    .hero-kicker {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 12px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.12);
-      border: 1px solid rgba(255,255,255,.18);
-      font-size: .8rem;
-      font-weight: 700;
-      margin-bottom: 14px;
-      backdrop-filter: blur(8px);
-    }
-
-    .hero-title {
-      font-size: clamp(1.7rem, 3vw, 2.65rem);
       font-weight: 800;
-      margin-bottom: 10px;
+      font-size: .92rem;
+      letter-spacing: .3px;
     }
 
-    .hero-text {
-      color: rgba(255,255,255,.78);
-      max-width: 680px;
-      margin-bottom: 22px;
+    .service-header td {
+      padding-top: 13px;
+      padding-bottom: 13px;
     }
 
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
+    .table td,
+    .table th {
+      vertical-align: middle;
     }
 
-    .hero-btn {
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .btn-round {
       border-radius: 12px;
-      font-weight: 700;
-      padding: 10px 16px;
     }
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px;
-      margin-top: -34px;
-      position: relative;
-      z-index: 3;
-      padding-inline: 18px;
-    }
-
-    .stat-card {
-      background: rgba(255,255,255,.96);
-      border: 1px solid var(--vn-border);
-      border-radius: 18px;
-      padding: 18px;
-      box-shadow: var(--vn-shadow);
-      backdrop-filter: blur(12px);
-    }
-
-    .stat-icon {
+    .service-icon,
+    .country-flag {
       width: 44px;
       height: 44px;
-      border-radius: 14px;
+      border-radius: 11px;
+      object-fit: cover;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+    }
+
+    .service-fallback,
+    .country-fallback {
+      width: 44px;
+      height: 44px;
+      border-radius: 11px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 12px;
       font-size: 1.1rem;
+      border: 1px solid #e5e7eb;
     }
 
-    .stat-icon.blue { background: rgba(18,102,241,.10); color: var(--vn-primary); }
-    .stat-icon.green { background: rgba(25,135,84,.10); color: var(--vn-success); }
-    .stat-icon.orange { background: rgba(245,159,0,.12); color: var(--vn-warning); }
-    .stat-icon.purple { background: rgba(132,72,255,.10); color: #7c3aed; }
+    .service-fallback {
+      color: #fff;
+      background: linear-gradient(135deg, #0d6efd, #6f42c1);
+    }
+
+    .country-fallback {
+      color: #475569;
+      background: #f1f5f9;
+    }
+
+    .badge-pill {
+      border-radius: 999px;
+    }
+
+    .availability-cell {
+      min-width: 175px;
+    }
+
+    .price-cell {
+      white-space: nowrap;
+    }
+
+    .action-cell {
+      width: 90px;
+      text-align: center;
+    }
+
+    .edit-btn {
+      width: 38px;
+      height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .stat-box {
+      background: #fff;
+      border: 1px solid #e9edf3;
+      border-radius: 15px;
+      padding: 16px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, .045);
+    }
 
     .stat-label {
-      color: var(--vn-muted);
-      font-size: .78rem;
-      text-transform: uppercase;
+      color: #6b7280;
+      font-size: .76rem;
       font-weight: 700;
+      text-transform: uppercase;
       letter-spacing: .3px;
     }
 
     .stat-value {
-      font-size: 1.5rem;
-      font-weight: 800;
       margin-top: 3px;
-    }
-
-    .panel-card {
-      border: 0;
-      border-radius: 20px;
-      box-shadow: var(--vn-shadow);
-      background: var(--vn-card);
-    }
-
-    .filters-card .form-control,
-    .filters-card .form-select {
-      min-height: 46px;
-      border-radius: 12px;
-    }
-
-    .view-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .service-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 18px;
-    }
-
-    .service-card {
-      border: 1px solid var(--vn-border);
-      border-radius: 20px;
-      background: #fff;
-      box-shadow: 0 10px 28px rgba(18,34,51,.055);
-      overflow: hidden;
-      transition: transform .18s ease, box-shadow .18s ease;
-    }
-
-    .service-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 16px 34px rgba(18,34,51,.09);
-    }
-
-    .service-card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 18px;
-      border-bottom: 1px solid var(--vn-border);
-      background:
-        linear-gradient(135deg, rgba(18,102,241,.055), rgba(25,135,84,.035));
-    }
-
-    .service-main {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      min-width: 0;
-    }
-
-    .service-logo {
-      width: 62px;
-      height: 62px;
-      border-radius: 18px;
-      object-fit: cover;
-      border: 1px solid rgba(0,0,0,.06);
-      background: #f2f5f9;
-      flex: 0 0 auto;
-    }
-
-    .service-logo-fallback {
-      width: 62px;
-      height: 62px;
-      border-radius: 18px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #0d6efd, #6f42c1);
-      color: #fff;
-      font-size: 1.45rem;
-      flex: 0 0 auto;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
-    }
-
-    .service-name {
-      font-size: 1.05rem;
-      font-weight: 800;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .service-sub {
-      color: var(--vn-muted);
-      font-size: .82rem;
-      margin-top: 4px;
-    }
-
-    .badge-soft {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 9px;
-      border-radius: 999px;
-      font-size: .74rem;
-      font-weight: 700;
-    }
-
-    .soft-blue { background: rgba(18,102,241,.10); color: var(--vn-primary); }
-    .soft-green { background: rgba(25,135,84,.10); color: var(--vn-success); }
-    .soft-red { background: rgba(220,53,69,.10); color: var(--vn-danger); }
-    .soft-gray { background: #f1f3f6; color: #667085; }
-    .soft-orange { background: rgba(245,159,0,.12); color: #a66b00; }
-
-    .service-card-body {
-      padding: 18px;
-    }
-
-    .price-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-
-    .price-box {
-      border: 1px solid var(--vn-border);
-      border-radius: 14px;
-      padding: 12px;
-      background: #fafbfd;
-    }
-
-    .mini-label {
-      display: block;
-      margin-bottom: 5px;
-      color: var(--vn-muted);
-      font-size: .7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .3px;
-    }
-
-    .price-value {
-      font-size: 1.05rem;
-      font-weight: 800;
-    }
-
-    .profit-positive { color: var(--vn-success); }
-    .profit-negative { color: var(--vn-danger); }
-
-    .profit-bar {
-      height: 7px;
-      border-radius: 999px;
-      overflow: hidden;
-      background: #edf0f4;
-      margin-top: 8px;
-    }
-
-    .profit-bar > span {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, #198754, #4dd4a0);
-    }
-
-    .card-form .form-control,
-    .card-form .form-select {
-      border-radius: 11px;
-      min-height: 41px;
-    }
-
-    .content-editor {
-      margin-top: 16px;
-      padding: 16px;
-      border: 1px solid var(--vn-border);
-      border-radius: 16px;
-      background: #fafbfd;
-    }
-
-    .content-editor-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
-      font-weight: 800;
-      color: var(--vn-text);
-    }
-
-    .image-editor-row {
-      display: grid;
-      grid-template-columns: 118px minmax(0, 1fr);
-      gap: 14px;
-      align-items: center;
-    }
-
-    .service-image-preview {
-      width: 118px;
-      height: 118px;
-      border-radius: 16px;
-      object-fit: cover;
-      background: #fff;
-      border: 1px dashed rgba(18,34,51,.18);
-      box-shadow: 0 8px 20px rgba(18,34,51,.06);
-    }
-
-    .checkout-textarea {
-      min-height: 100px;
-      resize: vertical;
-    }
-
-    .field-help {
-      margin-top: 6px;
-      color: var(--vn-muted);
-      font-size: .76rem;
-    }
-
-    .char-count {
-      float: right;
-      color: var(--vn-muted);
-      font-size: .72rem;
-      font-weight: 700;
-    }
-
-    .advanced-box {
-      border-top: 1px solid var(--vn-border);
-      margin-top: 14px;
-      padding-top: 14px;
-    }
-
-    .advanced-toggle {
-      width: 100%;
-      border: 0;
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0;
-      color: var(--vn-primary);
-      font-weight: 700;
-    }
-
-    .advanced-content {
-      display: none;
-      margin-top: 14px;
-    }
-
-    .advanced-content.is-open {
-      display: block;
-    }
-
-    .switch-row {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-top: 14px;
-    }
-
-    .save-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-top: 16px;
-    }
-
-    .save-btn {
-      min-width: 110px;
-      border-radius: 11px;
-      font-weight: 700;
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: #111827;
     }
 
     .empty-state {
       padding: 70px 20px;
+      color: #6b7280;
       text-align: center;
-      color: var(--vn-muted);
-    }
-
-    .empty-state i {
-      display: block;
-      font-size: 2.5rem;
-      margin-bottom: 12px;
-      color: #b4bdca;
     }
 
     .pagination .page-link {
@@ -439,746 +154,422 @@
       margin: 0 2px;
     }
 
-    .toast-container {
-      z-index: 9999;
-    }
-
-    @media (max-width: 1199px) {
-      .stats-grid {
-        grid-template-columns: repeat(2, minmax(0,1fr));
-      }
-
-      .service-grid {
-        grid-template-columns: 1fr;
+    @media (max-width: 991px) {
+      .stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 767px) {
-      .hero-panel {
-        min-height: 260px;
-        padding: 22px;
-      }
-
-      .stats-grid {
-        grid-template-columns: 1fr;
-        margin-top: 16px;
-        padding-inline: 0;
-      }
-
-      .price-grid {
+    @media (max-width: 575px) {
+      .stat-grid {
         grid-template-columns: 1fr;
       }
 
-      .image-editor-row {
-        grid-template-columns: 1fr;
-      }
-
-      .service-image-preview {
+      .page-actions {
         width: 100%;
-        height: 210px;
       }
 
-      .service-card-head {
-        align-items: flex-start;
-      }
-
-      .save-row {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .save-btn {
-        width: 100%;
+      .page-actions .btn {
+        flex: 1;
       }
     }
   </style>
 </head>
 
 <body>
+<div class="d-flex">
   <%- include('partials/admin-sidebar', { user: user }) %>
 
-  <main class="main-content">
-    <div class="container-fluid py-4 page-wrap">
+  <div class="container-fluid p-4 p-lg-5">
 
-      <section class="hero-panel mb-4">
-        <div class="hero-content">
-          <div class="hero-kicker">
-            <i class="bi bi-shield-check"></i>
-            AKCELL Control Center
-          </div>
-
-          <h1 class="hero-title">Virtual Numbers Control</h1>
-
-          <p class="hero-text">
-            Manage pricing, availability, visibility and automatic operator selection
-            for all virtual number services from one clean control panel.
-          </p>
-
-          <div class="hero-actions">
-            <a href="/admin/fivesim/sync" class="btn btn-light hero-btn">
-              <i class="bi bi-arrow-repeat me-1"></i>
-              Sync Provider
-            </a>
-
-            <a href="/admin/fivesim-services" class="btn btn-outline-light hero-btn">
-              <i class="bi bi-arrow-clockwise me-1"></i>
-              Refresh Page
-            </a>
-          </div>
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+      <div>
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-phone-vibrate fs-2 text-primary"></i>
+          <h1 class="page-title mb-0">Virtual Numbers Services</h1>
         </div>
-      </section>
-
-      <section class="stats-grid mb-4">
-        <div class="stat-card">
-          <div class="stat-icon blue">
-            <i class="bi bi-grid"></i>
-          </div>
-          <div class="stat-label">Combinations</div>
-          <div class="stat-value"><%= Number(meta?.total || 0).toLocaleString() %></div>
+        <div class="text-muted small mt-1">
+          Manage countries, prices, availability and service visibility.
         </div>
+      </div>
 
-        <div class="stat-card">
-          <div class="stat-icon green">
-            <i class="bi bi-check-circle"></i>
-          </div>
-          <div class="stat-label">Active on this page</div>
-          <div class="stat-value">
-            <%= (items || []).filter(item => Number(item.is_active) === 1).length %>
-          </div>
+      <div class="d-flex gap-2 page-actions">
+        <a href="/admin" class="btn btn-outline-secondary btn-round">
+          <i class="bi bi-arrow-left"></i>
+          Dashboard
+        </a>
+
+        <a href="/admin/fivesim/sync" class="btn btn-primary btn-round">
+          <i class="bi bi-arrow-repeat"></i>
+          Sync 5SIM
+        </a>
+      </div>
+    </div>
+
+    <div class="stat-grid mb-4">
+      <div class="stat-box">
+        <div class="stat-label">Total Combinations</div>
+        <div class="stat-value"><%= Number(meta?.total || 0).toLocaleString() %></div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">Active on Page</div>
+        <div class="stat-value">
+          <%= (items || []).filter(item => Number(item.is_active) === 1).length %>
         </div>
+      </div>
 
-        <div class="stat-card">
-          <div class="stat-icon orange">
-            <i class="bi bi-lightning-charge"></i>
-          </div>
-          <div class="stat-label">Available numbers</div>
-          <div class="stat-value">
-            <%= (items || []).reduce((sum, item) => sum + Number(item.total_available || 0), 0).toLocaleString() %>
-          </div>
+      <div class="stat-box">
+        <div class="stat-label">Available Numbers</div>
+        <div class="stat-value">
+          <%= (items || []).reduce((sum, item) => sum + Number(item.total_available || 0), 0).toLocaleString() %>
         </div>
+      </div>
 
-        <div class="stat-card">
-          <div class="stat-icon purple">
-            <i class="bi bi-globe2"></i>
+      <div class="stat-box">
+        <div class="stat-label">Countries</div>
+        <div class="stat-value"><%= (countries || []).length %></div>
+      </div>
+    </div>
+
+    <div class="card filter-card mb-4">
+      <div class="card-body p-4">
+        <form method="get" action="/admin/fivesim-services" class="row g-3 align-items-end">
+          <div class="col-xl-5 col-lg-5 col-md-6">
+            <label class="form-label fw-bold">Search</label>
+            <input
+              type="text"
+              name="search"
+              class="form-control"
+              placeholder="WhatsApp, Telegram, USA, Germany..."
+              value="<%= filters?.search || '' %>"
+            />
           </div>
-          <div class="stat-label">Countries</div>
-          <div class="stat-value"><%= (countries || []).length %></div>
-        </div>
-      </section>
 
-      <section class="card panel-card filters-card mb-4">
-        <div class="card-body p-4">
-          <form method="get" action="/admin/fivesim-services" class="row g-3 align-items-end">
-            <div class="col-xl-5 col-md-6">
-              <label class="form-label fw-bold small text-uppercase text-muted">Search</label>
-              <input
-                type="text"
-                name="search"
-                class="form-control"
-                placeholder="WhatsApp, Telegram, USA, Germany..."
-                value="<%= filters?.search || '' %>"
-              />
-            </div>
+          <div class="col-xl-3 col-lg-3 col-md-3">
+            <label class="form-label fw-bold">Country</label>
+            <select name="country_id" class="form-select">
+              <option value="all" <%= filters?.country_id === 'all' ? 'selected' : '' %>>
+                All countries
+              </option>
 
-            <div class="col-xl-3 col-md-3">
-              <label class="form-label fw-bold small text-uppercase text-muted">Country</label>
-              <select name="country_id" class="form-select">
-                <option value="all" <%= filters?.country_id === 'all' ? 'selected' : '' %>>
-                  All countries
+              <% (countries || []).forEach(function(country) { %>
+                <option
+                  value="<%= country.id %>"
+                  <%= String(filters?.country_id) === String(country.id) ? 'selected' : '' %>
+                >
+                  <%= country.custom_name || country.code %>
+                  <%= country.iso ? `(${country.iso.toUpperCase()})` : '' %>
                 </option>
-
-                <% (countries || []).forEach(function(country) { %>
-                  <option
-                    value="<%= country.id %>"
-                    <%= String(filters?.country_id) === String(country.id) ? 'selected' : '' %>
-                  >
-                    <%= country.custom_name || country.code %>
-                    <%= country.iso ? `(${country.iso.toUpperCase()})` : '' %>
-                  </option>
-                <% }); %>
-              </select>
-            </div>
-
-            <div class="col-xl-2 col-md-3">
-              <label class="form-label fw-bold small text-uppercase text-muted">Status</label>
-              <select name="status" class="form-select">
-                <option value="all" <%= filters?.status === 'all' ? 'selected' : '' %>>All</option>
-                <option value="active" <%= filters?.status === 'active' ? 'selected' : '' %>>Active</option>
-                <option value="inactive" <%= filters?.status === 'inactive' ? 'selected' : '' %>>Inactive</option>
-              </select>
-            </div>
-
-            <div class="col-xl-2 col-md-12 d-flex gap-2">
-              <button type="submit" class="btn btn-primary flex-grow-1" style="border-radius:12px;">
-                <i class="bi bi-funnel me-1"></i>
-                Apply
-              </button>
-
-              <a
-                href="/admin/fivesim-services"
-                class="btn btn-outline-secondary"
-                style="border-radius:12px;"
-                title="Reset filters"
-              >
-                <i class="bi bi-x-lg"></i>
-              </a>
-            </div>
-          </form>
-        </div>
-      </section>
-
-      <section class="card panel-card">
-        <div class="card-body p-4">
-
-          <div class="view-toolbar mb-4">
-            <div>
-              <h2 class="h5 fw-bold mb-1">Store Services</h2>
-              <div class="small text-muted">
-                Each card represents one service in one country.
-              </div>
-            </div>
-
-            <div class="small text-muted">
-              Page <strong><%= meta?.page || 1 %></strong>
-              of <strong><%= meta?.pages || 1 %></strong>
-            </div>
+              <% }); %>
+            </select>
           </div>
 
-          <% if (!items || !items.length) { %>
-            <div class="empty-state">
-              <i class="bi bi-search"></i>
-              <div class="fw-bold mb-1">No results found</div>
-              <div>Try changing the filters or search term.</div>
-            </div>
+          <div class="col-xl-2 col-lg-2 col-md-3">
+            <label class="form-label fw-bold">Status</label>
+            <select name="status" class="form-select">
+              <option value="all" <%= filters?.status === 'all' ? 'selected' : '' %>>All</option>
+              <option value="active" <%= filters?.status === 'active' ? 'selected' : '' %>>Active</option>
+              <option value="inactive" <%= filters?.status === 'inactive' ? 'selected' : '' %>>Inactive</option>
+            </select>
+          </div>
 
-          <% } else { %>
-            <div class="service-grid">
+          <div class="col-xl-2 col-lg-2 col-md-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-round flex-grow-1">
+              <i class="bi bi-funnel"></i>
+              Filter
+            </button>
+
+            <a
+              href="/admin/fivesim-services"
+              class="btn btn-outline-secondary btn-round"
+              title="Reset filters"
+            >
+              <i class="bi bi-x-lg"></i>
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card card-soft">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th style="width:74px;">Img</th>
+                <th>Country</th>
+                <th style="width:145px;">Provider Cost</th>
+                <th style="width:145px;">Sell Price</th>
+                <th style="width:145px;">Profit</th>
+                <th style="width:190px;">Availability</th>
+                <th style="width:125px;">Status</th>
+                <th style="width:90px;" class="text-center">Edit</th>
+              </tr>
+            </thead>
+
+            <tbody>
+            <%
+              let lastServiceId = null;
+            %>
+
+            <% if (items && items.length > 0) { %>
               <% items.forEach(function(item) { %>
                 <%
+                  const serviceKey = Number(item.service_id || 0);
+                  const serviceName = item.service_custom_name || item.provider_name || item.product_code || 'Service';
+                  const serviceImage = item.service_image || item.store_image || '';
+
                   const providerPrice = Number(item.cheapest_provider_price || 0);
                   const sellPrice = Number(item.sell_price || 0);
-                  const margin = sellPrice > 0 ? sellPrice - providerPrice : 0;
+                  const profit = sellPrice - providerPrice;
                   const isLoss = sellPrice > 0 && providerPrice > sellPrice;
-                  const marginPercent =
-                    sellPrice > 0 && margin > 0
-                      ? Math.min(100, Math.max(0, (margin / sellPrice) * 100))
-                      : 0;
 
-                  const formId = `save-form-${item.country_id}-${item.service_id}`;
-
-                  const returnTo = '/admin/fivesim-services?' + new URLSearchParams({
-                    search: filters?.search || '',
-                    country_id: filters?.country_id || 'all',
-                    status: filters?.status || 'all',
-                    page: String(meta?.page || 1)
+                  const editQuery = new URLSearchParams({
+                    country_id: String(item.country_id || ''),
+                    service_id: String(item.service_id || ''),
+                    return_to: '/admin/fivesim-services?' + new URLSearchParams({
+                      search: filters?.search || '',
+                      country_id: filters?.country_id || 'all',
+                      status: filters?.status || 'all',
+                      page: String(meta?.page || 1)
+                    }).toString()
                   }).toString();
                 %>
 
-                <article class="service-card">
-                  <div class="service-card-head">
-                    <div class="service-main">
-                      <% const visibleImage = item.store_image || item.service_image || ''; %>
-                      <% if (visibleImage) { %>
-                        <img
-                          src="<%= visibleImage %>"
-                          alt="<%= item.store_custom_name || item.provider_name || item.product_code %>"
-                          class="service-logo"
-                          loading="lazy"
-                          onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';"
-                        />
+                <% if (serviceKey !== lastServiceId) { %>
+                  <tr class="service-header">
+                    <td colspan="8">
+                      <div class="d-flex align-items-center justify-content-between gap-3">
+                        <div class="d-flex align-items-center gap-2">
+                          <% if (serviceImage) { %>
+                            <img
+                              src="<%= serviceImage %>"
+                              alt="<%= serviceName %>"
+                              class="service-icon"
+                              onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';"
+                            />
+                          <% } %>
+
+                          <span
+                            class="service-fallback"
+                            style="<%= serviceImage ? 'display:none;' : 'display:inline-flex;' %>"
+                          >
+                            <i class="bi bi-chat-square-text-fill"></i>
+                          </span>
+
+                          <div>
+                            <div><%= serviceName %></div>
+                            <div class="small text-white-50 mono"><%= item.product_code || '' %></div>
+                          </div>
+                        </div>
+
+                        <span class="badge bg-light text-dark badge-pill">
+                          <i class="bi bi-globe2 me-1"></i>
+                          Service countries
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <% lastServiceId = serviceKey; %>
+                <% } %>
+
+                <tr>
+                  <td>
+                    <% if (item.country_image) { %>
+                      <img
+                        src="<%= item.country_image %>"
+                        alt="<%= item.country_name || item.country_code %>"
+                        class="country-flag"
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';"
+                      />
+                    <% } %>
+
+                    <span
+                      class="country-fallback"
+                      style="<%= item.country_image ? 'display:none;' : 'display:inline-flex;' %>"
+                    >
+                      <i class="bi bi-flag-fill"></i>
+                    </span>
+                  </td>
+
+                  <td>
+                    <div class="fw-semibold">
+                      <%= item.country_name || item.country_code %>
+                    </div>
+
+                    <div class="small text-muted">
+                      <% if (item.country_iso) { %>
+                        <span class="mono"><%= item.country_iso.toUpperCase() %></span>
                       <% } %>
 
-                      <span
-                        class="service-logo-fallback"
-                        style="<%= visibleImage ? 'display:none;' : 'display:inline-flex;' %>"
-                      >
-                        <i class="bi bi-chat-square-text-fill"></i>
-                      </span>
-
-                      <div style="min-width:0;">
-                        <div class="service-name">
-                          <%= item.store_custom_name || item.service_custom_name || item.provider_name || item.product_code %>
-                        </div>
-
-                        <div class="service-sub">
-                          <i class="bi bi-geo-alt me-1"></i>
-                          <%= item.country_name || item.country_code %>
-                          <% if (item.country_iso) { %>
-                            · <%= item.country_iso.toUpperCase() %>
-                          <% } %>
-                          <% if (item.country_prefix) { %>
-                            · <%= item.country_prefix %>
-                          <% } %>
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                          <% if (item.store_item_id) { %>
-                            <span class="badge-soft soft-blue">
-                              <i class="bi bi-check2"></i>
-                              Configured
-                            </span>
-                          <% } else { %>
-                            <span class="badge-soft soft-gray">
-                              Not configured
-                            </span>
-                          <% } %>
-
-                          <% if (Number(item.total_available || 0) > 0) { %>
-                            <span class="badge-soft soft-green">
-                              <i class="bi bi-check-circle"></i>
-                              Available
-                            </span>
-                          <% } else { %>
-                            <span class="badge-soft soft-red">
-                              <i class="bi bi-x-circle"></i>
-                              Out of stock
-                            </span>
-                          <% } %>
-                        </div>
-                      </div>
+                      <% if (item.country_prefix) { %>
+                        <span class="ms-1"><%= item.country_prefix %></span>
+                      <% } %>
                     </div>
+                  </td>
 
-                    <span class="badge-soft <%= Number(item.is_active) === 1 ? 'soft-green' : 'soft-gray' %>">
-                      <i class="bi <%= Number(item.is_active) === 1 ? 'bi-eye' : 'bi-eye-slash' %>"></i>
-                      <%= Number(item.is_active) === 1 ? 'Active' : 'Hidden' %>
-                    </span>
-                  </div>
+                  <td class="price-cell mono fw-bold text-secondary">
+                    <%= providerPrice > 0 ? `$${providerPrice.toFixed(4)}` : 'Unavailable' %>
+                  </td>
 
-                  <form
-                    id="<%= formId %>"
-                    method="post"
-                    action="/admin/fivesim-services/save"
-                    class="service-card-body card-form"
-                  >
-                    <input type="hidden" name="country_id" value="<%= item.country_id %>" />
-                    <input type="hidden" name="service_id" value="<%= item.service_id %>" />
-                    <input type="hidden" name="return_to" value="<%= returnTo %>" />
+                  <td class="price-cell mono fw-bold text-primary">
+                    $<%= sellPrice.toFixed(4) %>
+                  </td>
 
-                    <div class="price-grid">
-                      <div class="price-box">
-                        <span class="mini-label">Provider Cost</span>
-                        <div class="price-value">
-                          <%= providerPrice > 0 ? `$${providerPrice.toFixed(4)}` : 'Unavailable' %>
-                        </div>
-                      </div>
+                  <td class="price-cell mono fw-bold <%= isLoss ? 'text-danger' : 'text-success' %>">
+                    <%= profit >= 0 ? '+' : '' %>$<%= profit.toFixed(4) %>
+                  </td>
 
-                      <div class="price-box">
-                        <span class="mini-label">Sell Price</span>
-                        <div class="price-value">
-                          <%= sellPrice > 0 ? `$${sellPrice.toFixed(4)}` : '$0.0000' %>
-                        </div>
-                      </div>
-
-                      <div class="price-box">
-                        <span class="mini-label">Profit</span>
-                        <div class="price-value <%= isLoss ? 'profit-negative' : 'profit-positive' %>">
-                          <%= margin >= 0 ? '+' : '' %>$<%= margin.toFixed(4) %>
-                        </div>
-
-                        <div class="profit-bar">
-                          <span style="width:<%= marginPercent %>%;"></span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="row g-3">
-                      <div class="col-12 col-md-6">
-                        <label class="form-label fw-bold">Customer Price</label>
-                        <div class="input-group">
-                          <span class="input-group-text">$</span>
-                          <input
-                            type="number"
-                            name="sell_price"
-                            class="form-control"
-                            step="0.0001"
-                            min="0"
-                            value="<%= Number(item.sell_price || 0).toFixed(4) %>"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div class="col-12 col-md-6">
-                        <label class="form-label fw-bold">Public Name</label>
-                        <input
-                          type="text"
-                          name="custom_name"
-                          class="form-control"
-                          maxlength="150"
-                          placeholder="Optional custom name"
-                          value="<%= item.store_custom_name || '' %>"
-                        />
-                      </div>
-                    </div>
-
-                    <div class="content-editor">
-                      <div class="content-editor-title">
-                        <i class="bi bi-card-image text-primary"></i>
-                        Card Image & Checkout Content
-                      </div>
-
-                      <div class="image-editor-row">
-                        <img
-                          class="service-image-preview js-service-image-preview"
-                          src="<%= item.store_image || item.service_image || '/images/placeholder.png' %>"
-                          alt="Service image preview"
-                          onerror="this.src='/images/placeholder.png'"
-                        />
-
-                        <div>
-                          <label class="form-label fw-bold">Card Image Path</label>
-                          <div class="input-group">
-                            <span class="input-group-text">
-                              <i class="bi bi-image"></i>
-                            </span>
-                            <input
-                              type="text"
-                              name="store_image"
-                              class="form-control js-service-image-input"
-                              maxlength="255"
-                              placeholder="/images/fivesim/whatsapp.webp"
-                              value="<%= item.store_image || '' %>"
-                            />
-                          </div>
-                          <div class="field-help">
-                            Put the file inside <code>public/images</code> and enter a path beginning with <code>/images/</code>.
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="row g-3 mt-1">
-                        <div class="col-12">
-                          <label class="form-label fw-bold">
-                            <i class="bi bi-journal-text me-1"></i>
-                            Checkout Description
-                            <span class="char-count">
-                              <span class="js-char-current">0</span>/2000
-                            </span>
-                          </label>
-                          <textarea
-                            name="checkout_description"
-                            class="form-control checkout-textarea js-counted-textarea"
-                            maxlength="2000"
-                            placeholder="Short description shown on the checkout page..."
-                          ><%= item.checkout_description || '' %></textarea>
-                          <div class="field-help">
-                            A short explanation of what the customer is purchasing.
-                          </div>
-                        </div>
-
-                        <div class="col-12">
-                          <label class="form-label fw-bold">
-                            <i class="bi bi-exclamation-triangle me-1"></i>
-                            Checkout Notes
-                            <span class="char-count">
-                              <span class="js-char-current">0</span>/2000
-                            </span>
-                          </label>
-                          <textarea
-                            name="checkout_notes"
-                            class="form-control checkout-textarea js-counted-textarea"
-                            maxlength="2000"
-                            placeholder="Important warnings, instructions or activation notes..."
-                          ><%= item.checkout_notes || '' %></textarea>
-                          <div class="field-help">
-                            Displayed as an important information box in checkout.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="advanced-box">
-                      <button
-                        type="button"
-                        class="advanced-toggle"
-                        aria-expanded="false"
-                      >
-                        <span>
-                          <i class="bi bi-sliders me-1"></i>
-                          Advanced Settings
-                        </span>
-
-                        <i class="bi bi-chevron-down"></i>
-                      </button>
-
-                      <div class="advanced-content">
-                        <div class="row g-3">
-                          <div class="col-12">
-                            <label class="form-label fw-bold">Selection Mode</label>
-                            <select name="selection_mode" class="form-select">
-                              <option value="cheapest" <%= item.selection_mode === 'cheapest' ? 'selected' : '' %>>
-                                Cheapest
-                              </option>
-                              <option value="balanced" <%= (!item.selection_mode || item.selection_mode === 'balanced') ? 'selected' : '' %>>
-                                Balanced
-                              </option>
-                              <option value="quality" <%= item.selection_mode === 'quality' ? 'selected' : '' %>>
-                                Best Quality
-                              </option>
-                            </select>
-                          </div>
-
-                          <div class="col-12 col-md-4">
-                            <label class="form-label fw-bold">Minimum Rate</label>
-                            <input
-                              type="number"
-                              name="minimum_rate"
-                              class="form-control"
-                              step="0.01"
-                              min="0"
-                              value="<%= Number(item.minimum_rate || 0).toFixed(2) %>"
-                            />
-                          </div>
-
-                          <div class="col-12 col-md-4">
-                            <label class="form-label fw-bold">Maximum Cost</label>
-                            <input
-                              type="number"
-                              name="maximum_provider_price"
-                              class="form-control"
-                              step="0.0001"
-                              min="0"
-                              placeholder="No limit"
-                              value="<%= item.maximum_provider_price === null || item.maximum_provider_price === undefined ? '' : Number(item.maximum_provider_price).toFixed(4) %>"
-                            />
-                          </div>
-
-                          <div class="col-12 col-md-4">
-                            <label class="form-label fw-bold">Sort Order</label>
-                            <input
-                              type="number"
-                              name="sort_order"
-                              class="form-control"
-                              value="<%= Number(item.sort_order || 0) %>"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="switch-row">
-                      <div class="form-check form-switch">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          value="1"
-                          name="is_active"
-                          id="active-<%= item.country_id %>-<%= item.service_id %>"
-                          <%= Number(item.is_active) === 1 ? 'checked' : '' %>
-                        />
-                        <label
-                          class="form-check-label"
-                          for="active-<%= item.country_id %>-<%= item.service_id %>"
-                        >
-                          Active
-                        </label>
-                      </div>
-
-                      <div class="form-check form-switch">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          value="1"
-                          name="is_featured"
-                          id="featured-<%= item.country_id %>-<%= item.service_id %>"
-                          <%= Number(item.is_featured) === 1 ? 'checked' : '' %>
-                        />
-                        <label
-                          class="form-check-label"
-                          for="featured-<%= item.country_id %>-<%= item.service_id %>"
-                        >
-                          Featured
-                        </label>
-                      </div>
-                    </div>
-
-                    <div class="save-row">
-                      <div class="d-flex flex-wrap gap-2">
-                        <span class="badge-soft soft-blue">
-                          <i class="bi bi-boxes"></i>
+                  <td class="availability-cell">
+                    <div class="d-flex flex-column gap-1">
+                      <% if (Number(item.total_available || 0) > 0) { %>
+                        <span class="badge bg-success badge-pill align-self-start">
+                          <i class="bi bi-check2-circle me-1"></i>
                           <%= Number(item.total_available || 0).toLocaleString() %> available
                         </span>
-
-                        <span class="badge-soft soft-gray">
-                          <i class="bi bi-diagram-3"></i>
-                          <%= Number(item.available_operators || 0) %> operators
+                      <% } else { %>
+                        <span class="badge bg-danger badge-pill align-self-start">
+                          <i class="bi bi-x-circle me-1"></i>
+                          Out of stock
                         </span>
+                      <% } %>
 
-                        <% if (isLoss) { %>
-                          <span class="badge-soft soft-red">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            Selling below cost
-                          </span>
-                        <% } %>
-                      </div>
-
-                      <button type="submit" class="btn btn-primary save-btn">
-                        <i class="bi bi-save me-1"></i>
-                        Save
-                      </button>
+                      <span class="small text-muted">
+                        <%= Number(item.available_operators || 0) %> operators
+                      </span>
                     </div>
-                  </form>
-                </article>
+                  </td>
+
+                  <td>
+                    <% if (Number(item.is_active) === 1) { %>
+                      <span class="badge bg-success badge-pill">
+                        <i class="bi bi-eye-fill me-1"></i>
+                        Active
+                      </span>
+                    <% } else { %>
+                      <span class="badge bg-secondary badge-pill">
+                        <i class="bi bi-eye-slash-fill me-1"></i>
+                        Hidden
+                      </span>
+                    <% } %>
+
+                    <% if (Number(item.is_featured) === 1) { %>
+                      <div class="mt-1">
+                        <span class="badge bg-warning text-dark badge-pill">
+                          <i class="bi bi-star-fill me-1"></i>
+                          Featured
+                        </span>
+                      </div>
+                    <% } %>
+                  </td>
+
+                  <td class="action-cell">
+                    <a
+                      href="/admin/fivesim-services/edit?<%= editQuery %>"
+                      class="btn btn-warning btn-sm btn-round edit-btn"
+                      title="Edit service country"
+                    >
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                  </td>
+                </tr>
               <% }); %>
-            </div>
-          <% } %>
-
-          <% if (meta && meta.pages > 1) { %>
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4 pt-4 border-top">
-              <div class="small text-muted">
-                Showing
-                <strong><%= ((meta.page - 1) * meta.limit) + 1 %></strong>
-                to
-                <strong><%= Math.min(meta.page * meta.limit, meta.total) %></strong>
-                of
-                <strong><%= meta.total %></strong>
-              </div>
-
-              <nav aria-label="Pagination">
-                <ul class="pagination pagination-sm mb-0">
-                  <%
-                    const page = Number(meta.page || 1);
-                    const pages = Number(meta.pages || 1);
-                    const startPage = Math.max(1, page - 2);
-                    const endPage = Math.min(pages, page + 2);
-
-                    function pageUrl(targetPage) {
-                      return '/admin/fivesim-services?' + new URLSearchParams({
-                        search: filters?.search || '',
-                        country_id: filters?.country_id || 'all',
-                        status: filters?.status || 'all',
-                        page: String(targetPage)
-                      }).toString();
-                    }
-                  %>
-
-                  <li class="page-item <%= page <= 1 ? 'disabled' : '' %>">
-                    <a class="page-link" href="<%= page <= 1 ? '#' : pageUrl(page - 1) %>">
-                      <i class="bi bi-chevron-left"></i>
-                    </a>
-                  </li>
-
-                  <% if (startPage > 1) { %>
-                    <li class="page-item">
-                      <a class="page-link" href="<%= pageUrl(1) %>">1</a>
-                    </li>
-
-                    <% if (startPage > 2) { %>
-                      <li class="page-item disabled">
-                        <span class="page-link">…</span>
-                      </li>
-                    <% } %>
-                  <% } %>
-
-                  <% for (let p = startPage; p <= endPage; p += 1) { %>
-                    <li class="page-item <%= p === page ? 'active' : '' %>">
-                      <a class="page-link" href="<%= pageUrl(p) %>"><%= p %></a>
-                    </li>
-                  <% } %>
-
-                  <% if (endPage < pages) { %>
-                    <% if (endPage < pages - 1) { %>
-                      <li class="page-item disabled">
-                        <span class="page-link">…</span>
-                      </li>
-                    <% } %>
-
-                    <li class="page-item">
-                      <a class="page-link" href="<%= pageUrl(pages) %>"><%= pages %></a>
-                    </li>
-                  <% } %>
-
-                  <li class="page-item <%= page >= pages ? 'disabled' : '' %>">
-                    <a class="page-link" href="<%= page >= pages ? '#' : pageUrl(page + 1) %>">
-                      <i class="bi bi-chevron-right"></i>
-                    </a>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-          <% } %>
+            <% } else { %>
+              <tr>
+                <td colspan="8" class="empty-state">
+                  <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                  <div class="fw-bold mb-1">No services found</div>
+                  <div>Try changing the filters or syncing the provider.</div>
+                </td>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
         </div>
-      </section>
+      </div>
     </div>
-  </main>
 
-  <div class="toast-container position-fixed bottom-0 end-0 p-3">
-    <div id="saveToast" class="toast border-0 shadow" role="alert">
-      <div class="toast-header">
-        <i class="bi bi-check-circle-fill text-success me-2"></i>
-        <strong class="me-auto">Virtual Numbers</strong>
-        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+    <% if (meta && meta.pages > 1) { %>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4">
+        <div class="small text-muted">
+          Showing
+          <strong><%= ((meta.page - 1) * meta.limit) + 1 %></strong>
+          to
+          <strong><%= Math.min(meta.page * meta.limit, meta.total) %></strong>
+          of
+          <strong><%= meta.total %></strong>
+        </div>
+
+        <nav aria-label="Pagination">
+          <ul class="pagination pagination-sm mb-0">
+            <%
+              const page = Number(meta.page || 1);
+              const pages = Number(meta.pages || 1);
+              const startPage = Math.max(1, page - 2);
+              const endPage = Math.min(pages, page + 2);
+
+              function pageUrl(targetPage) {
+                return '/admin/fivesim-services?' + new URLSearchParams({
+                  search: filters?.search || '',
+                  country_id: filters?.country_id || 'all',
+                  status: filters?.status || 'all',
+                  page: String(targetPage)
+                }).toString();
+              }
+            %>
+
+            <li class="page-item <%= page <= 1 ? 'disabled' : '' %>">
+              <a class="page-link" href="<%= page <= 1 ? '#' : pageUrl(page - 1) %>">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+            </li>
+
+            <% if (startPage > 1) { %>
+              <li class="page-item">
+                <a class="page-link" href="<%= pageUrl(1) %>">1</a>
+              </li>
+
+              <% if (startPage > 2) { %>
+                <li class="page-item disabled">
+                  <span class="page-link">…</span>
+                </li>
+              <% } %>
+            <% } %>
+
+            <% for (let p = startPage; p <= endPage; p += 1) { %>
+              <li class="page-item <%= p === page ? 'active' : '' %>">
+                <a class="page-link" href="<%= pageUrl(p) %>"><%= p %></a>
+              </li>
+            <% } %>
+
+            <% if (endPage < pages) { %>
+              <% if (endPage < pages - 1) { %>
+                <li class="page-item disabled">
+                  <span class="page-link">…</span>
+                </li>
+              <% } %>
+
+              <li class="page-item">
+                <a class="page-link" href="<%= pageUrl(pages) %>"><%= pages %></a>
+              </li>
+            <% } %>
+
+            <li class="page-item <%= page >= pages ? 'disabled' : '' %>">
+              <a class="page-link" href="<%= page >= pages ? '#' : pageUrl(page + 1) %>">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </li>
+          </ul>
+        </nav>
       </div>
-      <div class="toast-body">
-        Saving changes...
-      </div>
-    </div>
+    <% } %>
+
   </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-  <script>
-    document.querySelectorAll('.js-service-image-input').forEach(function (input) {
-      const form = input.closest('form');
-      const preview = form?.querySelector('.js-service-image-preview');
-
-      if (!preview) return;
-
-      input.addEventListener('input', function () {
-        const value = String(input.value || '').trim();
-        preview.src = value || '/images/placeholder.png';
-      });
-    });
-
-    document.querySelectorAll('.js-counted-textarea').forEach(function (textarea) {
-      const label = textarea.previousElementSibling;
-      const counter = label?.querySelector('.js-char-current');
-
-      function updateCount() {
-        if (counter) {
-          counter.textContent = String(textarea.value || '').length;
-        }
-      }
-
-      updateCount();
-      textarea.addEventListener('input', updateCount);
-    });
-
-    document.querySelectorAll('.advanced-toggle').forEach(function (button) {
-      button.addEventListener('click', function () {
-        const content = button.nextElementSibling;
-        const icon = button.querySelector('.bi-chevron-down, .bi-chevron-up');
-        const isOpen = content.classList.toggle('is-open');
-
-        button.setAttribute('aria-expanded', String(isOpen));
-
-        if (icon) {
-          icon.className = isOpen
-            ? 'bi bi-chevron-up'
-            : 'bi bi-chevron-down';
-        }
-      });
-    });
-
-    document.querySelectorAll('.card-form').forEach(function (form) {
-      form.addEventListener('submit', function () {
-        const button = form.querySelector('button[type="submit"]');
-
-        if (!button) return;
-
-        button.disabled = true;
-        button.innerHTML =
-          '<span class="spinner-border spinner-border-sm me-2"></span>' +
-          'Saving...';
-
-        const toastElement = document.getElementById('saveToast');
-
-        if (toastElement && window.bootstrap) {
-          const toast = bootstrap.Toast.getOrCreateInstance(toastElement);
-          toast.show();
-        }
-      });
-    });
-  </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

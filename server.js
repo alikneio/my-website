@@ -815,16 +815,23 @@ app.get(
       Expires: '0'
     });
 
-    if (!Number.isInteger(storeItemId) || storeItemId <= 0) {
-      return res.status(400).send('Invalid virtual number service.');
+    if (
+      !Number.isInteger(storeItemId) ||
+      storeItemId <= 0
+    ) {
+      return res.status(400).send(
+        'Invalid virtual number service.'
+      );
     }
 
-    if (!Number.isInteger(userId) || userId <= 0) {
+    if (
+      !Number.isInteger(userId) ||
+      userId <= 0
+    ) {
       return res.redirect('/login');
     }
 
     try {
-
       const [[row]] = await promisePool.query(
         `
         SELECT
@@ -862,7 +869,7 @@ app.get(
           SUM(
             CASE
               WHEN fp.available_count > 0
-               AND COALESCE(fp.is_out_of_stock,0)=0
+               AND COALESCE(fp.is_out_of_stock, 0) = 0
                AND fp.provider_price > 0
               THEN fp.available_count
               ELSE 0
@@ -872,7 +879,7 @@ app.get(
           COUNT(
             DISTINCT CASE
               WHEN fp.available_count > 0
-               AND COALESCE(fp.is_out_of_stock,0)=0
+               AND COALESCE(fp.is_out_of_stock, 0) = 0
                AND fp.provider_price > 0
               THEN fp.operator_id
               ELSE NULL
@@ -891,8 +898,7 @@ app.get(
           ON fp.country_id = fsi.country_id
          AND fp.service_id = fsi.service_id
 
-        WHERE
-          fsi.id = ?
+        WHERE fsi.id = ?
           AND fsi.is_active = 1
           AND fsi.sell_price > 0
 
@@ -959,21 +965,9 @@ app.get(
         return res.redirect('/login');
       }
 
-      // =====================================
-      // توليد Idempotency جديد
-      // =====================================
-
-      delete req.session.fiveSimIdemKey;
-      delete req.session.fiveSimStoreItemId;
-
       const idemKey = crypto
         .randomBytes(32)
         .toString('hex');
-
-      req.session.fiveSimIdemKey = idemKey;
-      req.session.fiveSimStoreItemId = storeItemId;
-
-      // =====================================
 
       const item = {
         id: Number(row.id),
@@ -984,7 +978,9 @@ app.get(
           'Virtual Number'
         ).trim(),
 
-        price: Number(row.sell_price || 0),
+        price: Number(
+          row.sell_price || 0
+        ),
 
         serviceImage:
           row.store_image ||
@@ -1016,7 +1012,8 @@ app.get(
           Number(row.minimum_rate || 0),
 
         maximumProviderPrice:
-          row.maximum_provider_price == null
+          row.maximum_provider_price === null ||
+          row.maximum_provider_price === undefined
             ? null
             : Number(row.maximum_provider_price),
 
@@ -1035,21 +1032,12 @@ app.get(
       const errorMessages = {
         unavailable:
           'This virtual number is currently unavailable.',
-
         balance:
           'Your balance is insufficient for this purchase.',
-
         failed:
           'The number could not be reserved. Please try again.',
-
         duplicate:
-          'This purchase request was already submitted.',
-
-        provider:
-          'The provider could not reserve a number. Please try again.',
-
-        server:
-          'Unexpected server error. Please try again.'
+          'This purchase request was already submitted.'
       };
 
       return res.render(
@@ -1057,22 +1045,23 @@ app.get(
         {
           user: {
             ...req.session.user,
-            balance: Number(userRow.balance || 0)
+            balance: Number(
+              userRow.balance || 0
+            )
           },
 
           item,
-
           idemKey,
 
           error:
-            errorMessages[requestedError] || null
+            errorMessages[requestedError] ||
+            null
         }
       );
 
     } catch (error) {
-
       console.error(
-        '❌ GET /virtual-numbers/checkout/:id',
+        '❌ GET /virtual-numbers/checkout/:id:',
         {
           storeItemId,
           userId,
@@ -1088,6 +1077,7 @@ app.get(
     }
   }
 );
+
 
 app.post(
   '/virtual-numbers/buy/:id',
@@ -7967,7 +7957,6 @@ app.post('/admin/api-products/sync', checkAdmin, async (req, res) => {
 // =====================================================
 // Admin: Virtual Numbers Services
 // =====================================================
-
 app.get(
   '/admin/fivesim-services',
   checkAdmin,
@@ -8002,9 +7991,9 @@ app.get(
     const limit = 50;
 
     try {
-      // =================================================
+      // ===============================================
       // Filters
-      // =================================================
+      // ===============================================
 
       const where = [];
       const params = [];
@@ -8042,7 +8031,7 @@ app.get(
       }
 
       if (status === 'active') {
-        where.push('fsi.is_active = 1');
+        where.push('COALESCE(fsi.is_active, 0) = 1');
       } else if (status === 'inactive') {
         where.push(`
           (
@@ -8056,30 +8045,29 @@ app.get(
         ? `WHERE ${where.join(' AND ')}`
         : '';
 
-      // =================================================
-      // Countries Filter
-      // =================================================
+      // ===============================================
+      // Countries filter
+      // ===============================================
 
-      const [countries] = await promisePool.query(
-        `
+      const [countries] = await promisePool.query(`
         SELECT
           id,
           code,
           custom_name,
           iso,
-          prefix
+          prefix,
+          image
         FROM fivesim_countries
         ORDER BY
           COALESCE(
-            NULLIF(custom_name, ''),
+            NULLIF(TRIM(custom_name), ''),
             code
           ) ASC
-        `
-      );
+      `);
 
-      // =================================================
-      // Count
-      // =================================================
+      // ===============================================
+      // Total combinations count
+      // ===============================================
 
       const countSql = `
         SELECT COUNT(*) AS total
@@ -8123,7 +8111,6 @@ app.get(
         Math.ceil(total / limit)
       );
 
-      // يمنع صفحة أكبر من آخر صفحة
       const page = Math.min(
         requestedPage,
         pages
@@ -8131,9 +8118,9 @@ app.get(
 
       const offset = (page - 1) * limit;
 
-      // =================================================
-      // Main List
-      // =================================================
+      // ===============================================
+      // Main grouped list
+      // ===============================================
 
       const listSql = `
         SELECT
@@ -8144,12 +8131,13 @@ app.get(
           fc.code AS country_code,
 
           COALESCE(
-            NULLIF(fc.custom_name, ''),
+            NULLIF(TRIM(fc.custom_name), ''),
             fc.code
           ) AS country_name,
 
           fc.iso AS country_iso,
           fc.prefix AS country_prefix,
+          fc.image AS country_image,
 
           /* Service */
           fs.product_code,
@@ -8160,11 +8148,9 @@ app.get(
           /* Store settings */
           fsi.id AS store_item_id,
           fsi.custom_name AS store_custom_name,
-
           fsi.store_image,
           fsi.checkout_description,
           fsi.checkout_notes,
-
           fsi.sell_price,
           fsi.selection_mode,
           fsi.minimum_rate,
@@ -8178,6 +8164,7 @@ app.get(
             CASE
               WHEN fp.available_count > 0
                AND COALESCE(fp.is_out_of_stock, 0) = 0
+               AND fp.provider_price > 0
               THEN fp.provider_price
               ELSE NULL
             END
@@ -8187,6 +8174,7 @@ app.get(
             CASE
               WHEN fp.available_count > 0
                AND COALESCE(fp.is_out_of_stock, 0) = 0
+               AND fp.provider_price > 0
               THEN fp.available_count
               ELSE 0
             END
@@ -8202,13 +8190,14 @@ app.get(
           ) AS best_rate,
 
           COUNT(
-  DISTINCT CASE
-    WHEN fp.available_count > 0
-     AND COALESCE(fp.is_out_of_stock, 0) = 0
-    THEN fp.operator_id
-    ELSE NULL
-  END
-) AS available_operators
+            DISTINCT CASE
+              WHEN fp.available_count > 0
+               AND COALESCE(fp.is_out_of_stock, 0) = 0
+               AND fp.provider_price > 0
+              THEN fp.operator_id
+              ELSE NULL
+            END
+          ) AS available_operators
 
         FROM fivesim_prices fp
 
@@ -8232,6 +8221,7 @@ app.get(
           fc.custom_name,
           fc.iso,
           fc.prefix,
+          fc.image,
 
           fs.product_code,
           fs.provider_name,
@@ -8252,11 +8242,24 @@ app.get(
           fsi.sort_order
 
         ORDER BY
-          COALESCE(fsi.is_active, 0) DESC,
+          COALESCE(
+            NULLIF(TRIM(fs.custom_name), ''),
+            NULLIF(TRIM(fs.provider_name), ''),
+            fs.product_code
+          ) ASC,
+
+          fp.service_id ASC,
+
           COALESCE(fsi.is_featured, 0) DESC,
+          COALESCE(fsi.is_active, 0) DESC,
           COALESCE(fsi.sort_order, 0) ASC,
-          fs.product_code ASC,
-          fc.code ASC
+
+          COALESCE(
+            NULLIF(TRIM(fc.custom_name), ''),
+            fc.code
+          ) ASC,
+
+          fp.country_id ASC
 
         LIMIT ? OFFSET ?
       `;
@@ -8299,17 +8302,19 @@ app.get(
         '❌ GET /admin/fivesim-services:',
         {
           code: error.code,
+          sqlState: error.sqlState,
           message: error.message || error
         }
       );
 
       return res
         .status(500)
-        .send('Failed to load virtual number services');
+        .send(
+          'Failed to load virtual number services'
+        );
     }
   }
 );
-
 
 // =====================================================
 // Admin: Save Virtual Number Service
