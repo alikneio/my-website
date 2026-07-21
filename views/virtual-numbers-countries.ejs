@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= service.name %> Countries - AK Cell</title>
+
+    <link rel="stylesheet" href="/css/bootstrap.css">
+    <link rel="stylesheet" href="/css/custom.css">
+    <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<%- include('partials/header') %>
+
+<div class="hero-section">
+    <h1 class="display-4"><%= service.name %></h1>
+    <p class="lead col-lg-8 mx-auto">
+        Select an available country to continue to checkout.
+    </p>
+</div>
+
+<div class="container my-5">
+    <div class="search-bar-container">
+        <form id="searchForm">
+            <input
+                type="search"
+                id="searchInput"
+                class="search-input"
+                placeholder="Search for a country..."
+            >
+            <button type="submit" class="search-btn">
+                <i class="bi bi-search"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="container my-5 py-5">
+
+    <h2 class="text-center section-title">
+        Select a Country
+    </h2>
+
+    <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+
+        <% if (!countries || !countries.length) { %>
+            <div class="col-12">
+                <div class="alert alert-warning text-center">
+                    No countries are currently available for this service.
+                </div>
+            </div>
+        <% } else { %>
+
+            <% countries.forEach(function(country) { %>
+                <div class="col">
+                    <a
+                        href="/virtual-numbers/checkout/<%= country.store_item_id %>"
+                        class="category-card service-card"
+                    >
+                        <img
+                            src="<%= country.image || '/images/default-category.png' %>"
+                            class="card-img"
+                            alt="<%= country.name %>"
+                            loading="lazy"
+                            onerror="this.src='/images/default-category.png'"
+                        >
+
+                        <div class="card-body">
+                            <div>
+                                <%= country.name %>
+                                <% if (country.iso) { %>
+                                    <span class="small text-muted">
+                                        (<%= country.iso.toUpperCase() %>)
+                                    </span>
+                                <% } %>
+                            </div>
+
+                            <% if (country.prefix) { %>
+                                <div class="small text-muted mt-1">
+                                    <%= country.prefix %>
+                                </div>
+                            <% } %>
+
+                            <div class="small text-success mt-1">
+                                <i class="bi bi-check-circle"></i>
+                                <%= Number(country.available_count || 0).toLocaleString() %>
+                                available
+                            </div>
+
+                            <div class="text-primary fw-bold mt-2">
+                                $<%= Number(country.sell_price || 0).toFixed(2) %>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            <% }); %>
+
+        <% } %>
+
+    </div>
+
+</div>
+
+<%- include('partials/footer') %>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    const input = document.getElementById("searchInput");
+    const form = document.getElementById("searchForm");
+
+    if (form) {
+        form.addEventListener("submit", event => event.preventDefault());
+    }
+
+    if (input) {
+        input.addEventListener("input", function(){
+
+            const value = this.value.toLowerCase().trim();
+
+            document.querySelectorAll(".category-card").forEach(card => {
+
+                const wrapper = card.closest(".col");
+                const title = card.innerText.toLowerCase();
+
+                wrapper.style.display =
+                    title.includes(value) ? "" : "none";
+            });
+
+        });
+    }
+
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/main.js"></script>
+
+</body>
+</html>

@@ -232,9 +232,120 @@ async function getPrices({
   });
 }
 
+function cleanPathValue(value, fieldName) {
+  const clean = String(value || '')
+    .trim()
+    .toLowerCase();
+
+  if (!clean) {
+    throw new Error(`${fieldName} is required`);
+  }
+
+  return encodeURIComponent(clean);
+}
+
+async function buyFiveSimActivation({
+  country,
+  operator,
+  product
+}) {
+  const cleanCountry = cleanPathValue(
+    country,
+    'country'
+  );
+
+  const cleanOperator = cleanPathValue(
+    operator,
+    'operator'
+  );
+
+  const cleanProduct = cleanPathValue(
+    product,
+    'product'
+  );
+
+  const data = await callFiveSim({
+    url:
+      `/user/buy/activation/${cleanCountry}` +
+      `/${cleanOperator}/${cleanProduct}`,
+    auth: true,
+  });
+
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    !data.id ||
+    !data.phone
+  ) {
+    throw new Error(
+      `Invalid 5SIM purchase response: ${JSON.stringify(data)}`
+    );
+  }
+
+  return data;
+}
+
+async function getFiveSimOrder(orderId) {
+  const id = Number(orderId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('Valid 5SIM order ID is required');
+  }
+
+  return callFiveSim({
+    url: `/user/check/${id}`,
+    auth: true,
+  });
+}
+
+async function finishFiveSimOrder(orderId) {
+  const id = Number(orderId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('Valid 5SIM order ID is required');
+  }
+
+  return callFiveSim({
+    url: `/user/finish/${id}`,
+    auth: true,
+  });
+}
+
+async function cancelFiveSimOrder(orderId) {
+  const id = Number(orderId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('Valid 5SIM order ID is required');
+  }
+
+  return callFiveSim({
+    url: `/user/cancel/${id}`,
+    auth: true,
+  });
+}
+
+async function banFiveSimOrder(orderId) {
+  const id = Number(orderId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('Valid 5SIM order ID is required');
+  }
+
+  return callFiveSim({
+    url: `/user/ban/${id}`,
+    auth: true,
+  });
+}
+
 module.exports = {
   getFiveSimProfile,
   getCountries,
   getProducts,
   getPrices,
+
+  buyFiveSimActivation,
+  getFiveSimOrder,
+  finishFiveSimOrder,
+  cancelFiveSimOrder,
+  banFiveSimOrder,
 };

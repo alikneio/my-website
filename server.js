@@ -108,6 +108,789 @@ async function recalcUserLevel(userId) {
   }
 }
 
+async function chooseBestFiveSimOffer({
+  countryId,
+  serviceId,
+  selectionMode = 'balanced',
+  minimumRate = 0,
+  maximumProviderPrice = null
+}) {
+  const params = [
+    countryId,
+    serviceId,
+    Number(minimumRate || 0)
+  ];
+
+  let maxPriceSql = '';
+
+  if (
+    maximumProviderPrice !== null &&
+    Number.isFinite(Number(maximumProviderPrice))
+  ) {
+    maxPriceSql = 'AND fp.provider_price <= ?';
+    params.push(Number(maximumProviderPrice));
+  }
+
+  let orderSql;
+
+  if (selectionMode === 'cheapest') {
+    orderSql = `
+      fp.provider_price ASC,
+      fp.delivery_rate DESC,
+      fp.available_count DESC
+    `;
+  } else if (selectionMode === 'quality') {
+    orderSql = `
+      fp.delivery_rate DESC,
+      fp.provider_price ASC,
+      fp.available_count DESC
+    `;
+  } else {
+    // Balanced:
+    // نفضّل عرض بجودة منيحة، وبعدها الأرخص
+    orderSql = `
+      CASE
+        WHEN fp.delivery_rate >= 80 THEN 0
+        WHEN fp.delivery_rate >= 60 THEN 1
+        WHEN fp.delivery_rate >= 40 THEN 2
+        ELSE 3
+      END ASC,
+      fp.provider_price ASC,
+      fp.delivery_rate DESC,
+      fp.available_count DESC
+    `;
+  }
+
+  const [rows] = await promisePool.query(
+    `
+    SELECT
+      fp.id AS price_id,
+      fp.provider_price,
+      fp.available_count,
+      fp.delivery_rate,
+
+      fc.code AS country_code,
+      fs.product_code AS service_code,
+      fo.operator_code
+
+    FROM fivesim_prices fp
+
+    JOIN fivesim_countries fc
+      ON fc.id = fp.country_id
+
+    JOIN fivesim_services fs
+      ON fs.id = fp.service_id
+
+    JOIN fivesim_operators fo
+      ON fo.id = fp.operator_id
+
+    WHERE fp.country_id = ?
+      AND fp.service_id = ?
+      AND fp.available_count > 0
+      AND fp.is_out_of_stock = 0
+      AND fp.provider_price > 0
+      AND COALESCE(fp.delivery_rate, 0) >= ?
+      ${maxPriceSql}
+
+    ORDER BY ${orderSql}
+
+    LIMIT 10
+    `,
+    params
+  );
+
+  return rows || [];
+}
+
+function parseFiveSimDate(value) {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  // database.js يستخدم UTC
+  return date
+    .toISOString()
+    .slice(0, 19)
+    .replace('T', ' ');
+}
+
+function extractFiveSimProviderPrice(data, fallback = 0) {
+  const possibleValues = [
+    data?.price,
+    data?.cost,
+    data?.product?.price,
+    fallback,
+  ];
+
+  for (const value of possibleValues) {
+    const number = Number(value);
+
+    if (Number.isFinite(number) && number >= 0) {
+      return number;
+    }
+  }
+
+  return 0;
+}
+
+function isRetryableFiveSimPurchaseError(error) {
+  const message = String(
+    error?.providerPayload?.message ||
+    error?.providerPayload?.error ||
+    error?.message ||
+    ''
+  ).toLowerCase();
+
+  const status = Number(error?.httpStatus || 0);
+
+  return (
+    status === 400 ||
+    status === 404 ||
+    status === 409 ||
+    status === 429 ||
+    message.includes('no free phones') ||
+    message.includes('no phones') ||
+    message.includes('not available') ||
+    message.includes('operator') ||
+    message.includes('limit') ||
+    message.includes('rate')
+  );
+}
+
+// =============================================
+// 5SIM — Buy Virtual Number
+// =============================================
+
+app.post(
+  '/virtual-numbers/buy/:id',
+  checkAuth,
+  async (req, res) => {
+    const storeItemId = Number(req.params.id);
+    const userId = Number(req.session.user?.id);
+
+    const submittedIdemKey = String(
+      req.body.idem_key || ''
+    ).trim();
+
+    const sessionIdemKey = String(
+      req.session.fiveSimIdemKey || ''
+    ).trim();
+
+    const sessionStoreItemId = Number(
+      req.session.fiveSimStoreItemId || 0
+    );
+
+    if (
+      !Number.isInteger(storeItemId) ||
+      storeItemId <= 0 ||
+      !Number.isInteger(userId) ||
+      userId <= 0
+    ) {
+      return res.status(400).send(
+        'Invalid purchase request.'
+      );
+    }
+
+    // منع تبديل ID الخدمة أو إرسال Token قديم
+    if (
+      !submittedIdemKey ||
+      submittedIdemKey !== sessionIdemKey ||
+      sessionStoreItemId !== storeItemId
+    ) {
+      return res.redirect(
+        `/virtual-numbers/checkout/${storeItemId}?error=duplicate`
+      );
+    }
+
+    let providerPurchase = null;
+    let selectedOffer = null;
+    let conn = null;
+
+    try {
+      // -----------------------------------------
+      // 1) منع معالجة نفس Token مرتين
+      // -----------------------------------------
+
+      const [[existingOrder]] = await promisePool.query(
+        `
+        SELECT id
+        FROM orders
+        WHERE client_token = ?
+        LIMIT 1
+        `,
+        [submittedIdemKey]
+      );
+
+      if (existingOrder) {
+        delete req.session.fiveSimIdemKey;
+        delete req.session.fiveSimStoreItemId;
+
+        return res.redirect('/my-orders');
+      }
+
+      // -----------------------------------------
+      // 2) قراءة الخدمة الفعلية من قاعدة البيانات
+      // -----------------------------------------
+
+      const [[storeItem]] = await promisePool.query(
+        `
+        SELECT
+          fsi.id,
+          fsi.country_id,
+          fsi.service_id,
+          fsi.custom_name,
+          fsi.sell_price,
+          fsi.selection_mode,
+          fsi.minimum_rate,
+          fsi.maximum_provider_price,
+          fsi.is_active,
+
+          fc.code AS country_code,
+          fc.custom_name AS country_name,
+          fc.iso AS country_iso,
+
+          fs.product_code AS service_code,
+          fs.provider_name AS service_name,
+          fs.custom_name AS service_custom_name
+
+        FROM fivesim_store_items fsi
+
+        JOIN fivesim_countries fc
+          ON fc.id = fsi.country_id
+
+        JOIN fivesim_services fs
+          ON fs.id = fsi.service_id
+
+        WHERE fsi.id = ?
+          AND fsi.is_active = 1
+
+        LIMIT 1
+        `,
+        [storeItemId]
+      );
+
+      if (!storeItem) {
+        return res.redirect(
+          `/virtual-numbers/checkout/${storeItemId}?error=unavailable`
+        );
+      }
+
+      const customerPrice = Number(
+        storeItem.sell_price || 0
+      );
+
+      if (
+        !Number.isFinite(customerPrice) ||
+        customerPrice <= 0
+      ) {
+        return res.redirect(
+          `/virtual-numbers/checkout/${storeItemId}?error=unavailable`
+        );
+      }
+
+      // -----------------------------------------
+      // 3) فحص أولي للرصيد
+      // الفحص الذري الحقيقي سيحدث داخل Transaction
+      // -----------------------------------------
+
+      const [[userRow]] = await promisePool.query(
+        `
+        SELECT id, balance
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+        `,
+        [userId]
+      );
+
+      if (
+        !userRow ||
+        Number(userRow.balance || 0) < customerPrice
+      ) {
+        return res.redirect(
+          `/virtual-numbers/checkout/${storeItemId}?error=balance`
+        );
+      }
+
+      // -----------------------------------------
+      // 4) اختيار أفضل عروض داخليًا
+      // الزبون لا يرى اسم Operator
+      // -----------------------------------------
+
+      const offers = await chooseBestFiveSimOffer({
+        countryId: Number(storeItem.country_id),
+        serviceId: Number(storeItem.service_id),
+        selectionMode:
+          storeItem.selection_mode || 'balanced',
+        minimumRate: Number(
+          storeItem.minimum_rate || 0
+        ),
+        maximumProviderPrice:
+          storeItem.maximum_provider_price === null
+            ? null
+            : Number(
+                storeItem.maximum_provider_price
+              ),
+      });
+
+      if (!Array.isArray(offers) || !offers.length) {
+        return res.redirect(
+          `/virtual-numbers/checkout/${storeItemId}?error=unavailable`
+        );
+      }
+
+      // -----------------------------------------
+      // 5) تجربة الـOperators حسب الترتيب
+      // -----------------------------------------
+
+      let lastProviderError = null;
+
+      for (const offer of offers) {
+        try {
+          const purchase =
+            await buyFiveSimActivation({
+              country: offer.country_code,
+              operator: offer.operator_code,
+              product: offer.service_code,
+            });
+
+          providerPurchase = purchase;
+          selectedOffer = offer;
+
+          break;
+        } catch (error) {
+          lastProviderError = error;
+
+          console.warn(
+            '⚠️ 5SIM purchase attempt failed:',
+            {
+              country: offer.country_code,
+              service: offer.service_code,
+              operator: offer.operator_code,
+              message:
+                error?.providerPayload ||
+                error?.message ||
+                error,
+            }
+          );
+
+          // أخطاء غير قابلة للمحاولة مع Operator آخر
+          if (!isRetryableFiveSimPurchaseError(error)) {
+            throw error;
+          }
+        }
+      }
+
+      if (!providerPurchase || !selectedOffer) {
+        console.error(
+          '❌ All 5SIM operators failed:',
+          lastProviderError?.providerPayload ||
+          lastProviderError?.message ||
+          lastProviderError
+        );
+
+        return res.redirect(
+          `/virtual-numbers/checkout/${storeItemId}?error=provider`
+        );
+      }
+
+      const providerOrderId = Number(
+        providerPurchase.id
+      );
+
+      const phoneNumber = String(
+        providerPurchase.phone || ''
+      ).trim();
+
+      const providerPrice =
+        extractFiveSimProviderPrice(
+          providerPurchase,
+          selectedOffer.provider_price
+        );
+
+      const providerStatus = String(
+        providerPurchase.status || 'PENDING'
+      ).trim();
+
+      const expiresAt = parseFiveSimDate(
+        providerPurchase.expires ||
+        providerPurchase.expires_at ||
+        providerPurchase.expire
+      );
+
+      if (
+        !Number.isInteger(providerOrderId) ||
+        providerOrderId <= 0 ||
+        !phoneNumber
+      ) {
+        throw new Error(
+          `Invalid 5SIM purchase response: ${JSON.stringify(
+            providerPurchase
+          )}`
+        );
+      }
+
+      /*
+       * حماية من تغيّر سعر المزود لحظة الشراء.
+       * لا نكمل الطلب إذا أصبحت التكلفة أعلى من سعر البيع.
+       */
+      if (
+        providerPrice > 0 &&
+        providerPrice > customerPrice
+      ) {
+        try {
+          await cancelFiveSimOrder(providerOrderId);
+        } catch (cancelError) {
+          console.error(
+            '❌ Failed to cancel unprofitable 5SIM order:',
+            cancelError.message || cancelError
+          );
+        }
+
+        providerPurchase = null;
+
+        return res.redirect(
+          `/virtual-numbers/checkout/${storeItemId}?error=provider`
+        );
+      }
+
+      // -----------------------------------------
+      // 6) Transaction محلية
+      // -----------------------------------------
+
+      conn = await promisePool.getConnection();
+      await conn.beginTransaction();
+
+      /*
+       * فحص الـIdempotency مرة ثانية داخل Transaction.
+       * مهم في حال وصل طلبان بنفس اللحظة.
+       */
+      const [[duplicateInsideTransaction]] =
+        await conn.query(
+          `
+          SELECT id
+          FROM orders
+          WHERE client_token = ?
+          LIMIT 1
+          FOR UPDATE
+          `,
+          [submittedIdemKey]
+        );
+
+      if (duplicateInsideTransaction) {
+        await conn.rollback();
+
+        try {
+          await cancelFiveSimOrder(
+            providerOrderId
+          );
+        } catch (cancelError) {
+          console.error(
+            '❌ Failed to cancel duplicate 5SIM order:',
+            cancelError.message || cancelError
+          );
+        }
+
+        providerPurchase = null;
+
+        delete req.session.fiveSimIdemKey;
+        delete req.session.fiveSimStoreItemId;
+
+        return res.redirect('/my-orders');
+      }
+
+      // خصم ذري: ما بينخصم إذا الرصيد تغير وأصبح غير كافٍ
+      const [balanceUpdate] = await conn.query(
+        `
+        UPDATE users
+        SET
+          balance = balance - ?,
+          total_spent = COALESCE(total_spent, 0) + ?
+        WHERE id = ?
+          AND balance >= ?
+        `,
+        [
+          customerPrice,
+          customerPrice,
+          userId,
+          customerPrice,
+        ]
+      );
+
+      if (balanceUpdate.affectedRows !== 1) {
+        throw Object.assign(
+          new Error('Insufficient balance'),
+          { code: 'FIVESIM_BALANCE' }
+        );
+      }
+
+      const publicServiceName =
+        storeItem.custom_name ||
+        storeItem.service_custom_name ||
+        storeItem.service_name ||
+        storeItem.service_code;
+
+      const publicCountryName =
+        storeItem.country_name ||
+        storeItem.country_code;
+
+      const productName =
+        `${publicServiceName} - ${publicCountryName}`
+          .slice(0, 255);
+
+      const orderDetails = JSON.stringify({
+        type: 'virtual_number',
+        service: storeItem.service_code,
+        country: storeItem.country_code,
+        phone: phoneNumber,
+
+        // Operator لا نعرضه للزبون،
+        // لكنه محفوظ داخليًا في fivesim_orders.
+        waiting_for_sms: true,
+      });
+
+      const [orderInsert] = await conn.query(
+        `
+        INSERT INTO orders
+          (
+            userId,
+            productName,
+            price,
+            purchaseDate,
+            order_details,
+            status,
+            admin_reply,
+            product_id,
+            is_new,
+            provider_order_id,
+            provider,
+            source,
+            client_token,
+            fulfillment_mode,
+            stock_fallback
+          )
+        VALUES
+          (
+            ?, ?, ?, NOW(), ?,
+            'In progress',
+            NULL,
+            NULL,
+            1,
+            ?,
+            'fivesim',
+            'api',
+            ?,
+            'manual',
+            0
+          )
+        `,
+        [
+          userId,
+          productName,
+          Number(customerPrice.toFixed(2)),
+          orderDetails,
+          String(providerOrderId),
+          submittedIdemKey,
+        ]
+      );
+
+      const localOrderId =
+        Number(orderInsert.insertId);
+
+      await conn.query(
+        `
+        INSERT INTO fivesim_orders
+          (
+            order_id,
+            user_id,
+            store_item_id,
+            provider_order_id,
+
+            country_code,
+            service_code,
+            operator_code,
+
+            phone_number,
+            sms_code,
+            sms_text,
+
+            provider_price,
+            customer_price,
+
+            status,
+            provider_status,
+            expires_at,
+
+            refunded,
+            refund_amount,
+            raw_response,
+
+            created_at,
+            updated_at
+          )
+        VALUES
+          (
+            ?, ?, ?, ?,
+            ?, ?, ?,
+            ?, NULL, NULL,
+            ?, ?,
+            'pending',
+            ?,
+            ?,
+            0,
+            0,
+            ?,
+            NOW(),
+            NOW()
+          )
+        `,
+        [
+          localOrderId,
+          userId,
+          storeItemId,
+          providerOrderId,
+
+          storeItem.country_code,
+          storeItem.service_code,
+          selectedOffer.operator_code,
+
+          phoneNumber,
+
+          Number(providerPrice.toFixed(4)),
+          Number(customerPrice.toFixed(4)),
+
+          providerStatus,
+          expiresAt,
+
+          JSON.stringify(providerPurchase),
+        ]
+      );
+
+      await conn.query(
+        `
+        INSERT INTO transactions
+          (
+            user_id,
+            type,
+            amount,
+            reason
+          )
+        VALUES
+          (?, 'debit', ?, ?)
+        `,
+        [
+          userId,
+          customerPrice,
+          `Virtual number order #${localOrderId}`,
+        ]
+      );
+
+      await conn.query(
+        `
+        INSERT INTO notifications
+          (
+            user_id,
+            message,
+            type,
+            created_at
+          )
+        VALUES
+          (?, ?, 'order', NOW())
+        `,
+        [
+          userId,
+          `Your virtual number ${phoneNumber} is ready. Waiting for SMS.`,
+        ]
+      );
+
+      await conn.commit();
+
+      providerPurchase = null;
+
+      delete req.session.fiveSimIdemKey;
+      delete req.session.fiveSimStoreItemId;
+
+      // تحديث المستوى خارج Transaction
+      recalcUserLevel(userId).catch((error) => {
+        console.error(
+          '❌ 5SIM recalcUserLevel error:',
+          error.message || error
+        );
+      });
+
+      return res.redirect('/my-orders');
+    } catch (error) {
+      if (conn) {
+        try {
+          await conn.rollback();
+        } catch (_) {
+          // ignore rollback error
+        }
+      }
+
+      /*
+       * إذا الرقم انحجز لكن فشل الخصم أو التسجيل،
+       * نلغيه فورًا عند المزود.
+       */
+      if (providerPurchase?.id) {
+        try {
+          await cancelFiveSimOrder(
+            providerPurchase.id
+          );
+
+          console.log(
+            `✅ Canceled orphan 5SIM order ${providerPurchase.id}`
+          );
+        } catch (cancelError) {
+          console.error(
+            '❌ Failed to cancel orphan 5SIM order:',
+            {
+              providerOrderId:
+                providerPurchase.id,
+              message:
+                cancelError?.providerPayload ||
+                cancelError?.message ||
+                cancelError,
+            }
+          );
+        }
+      }
+
+      console.error(
+        '❌ POST /virtual-numbers/buy/:id:',
+        {
+          message: error.message,
+          code: error.code,
+          status: error.httpStatus,
+          payload: error.providerPayload,
+        }
+      );
+
+      if (error.code === 'FIVESIM_BALANCE') {
+        return res.redirect(
+          `/virtual-numbers/checkout/${storeItemId}?error=balance`
+        );
+      }
+
+      return res.redirect(
+        `/virtual-numbers/checkout/${storeItemId}?error=server`
+      );
+    } finally {
+      if (conn) {
+        try {
+          conn.release();
+        } catch (_) {
+          // ignore release error
+        }
+      }
+    }
+  }
+);
+
 // ❷ احسب الخصم الفعلي للمستخدم (VIP + Level بنفس الوقت)
 function getUserEffectiveDiscount(user) {
   if (!user) return 0;
@@ -318,7 +1101,15 @@ const checkAdmin = (req, res, next) => {
 
 const {
   getFiveSimProfile,
-  getFiveSimPrices,
+  getCountries,
+  getProducts,
+  getPrices,
+
+  buyFiveSimActivation,
+  getFiveSimOrder,
+  finishFiveSimOrder,
+  cancelFiveSimOrder,
+  banFiveSimOrder,
 } = require('./services/fivesim');
 
 // Middleware to refresh user data from DB on every request
@@ -2816,6 +3607,214 @@ if (existingPayload?.success === true && existingPayload?.redirectUrl) {
   }
 });
 
+// =============================================
+// 5SIM — Virtual Number Checkout
+// =============================================
+
+app.get(
+  '/virtual-numbers/checkout/:id',
+  checkAuth,
+  async (req, res) => {
+    const storeItemId = Number(req.params.id);
+    const errorCode = String(req.query.error || '');
+
+    if (
+      !Number.isInteger(storeItemId) ||
+      storeItemId <= 0
+    ) {
+      return res.status(400).send(
+        'Invalid virtual number service.'
+      );
+    }
+
+    try {
+      const [[item]] = await promisePool.query(
+        `
+        SELECT
+          fsi.id,
+          fsi.sell_price,
+          fsi.custom_name,
+          fsi.selection_mode,
+          fsi.minimum_rate,
+          fsi.maximum_provider_price,
+          fsi.is_active,
+
+          fc.id AS country_id,
+          fc.code AS country_code,
+          fc.custom_name AS country_name,
+          fc.iso AS country_iso,
+          fc.prefix AS country_prefix,
+          fc.image AS country_image,
+
+          fs.id AS service_id,
+          fs.product_code,
+          fs.provider_name,
+          fs.custom_name AS service_custom_name,
+          fs.image AS service_image,
+
+          MIN(
+            CASE
+              WHEN fp.available_count > 0
+               AND fp.is_out_of_stock = 0
+               AND fp.provider_price > 0
+              THEN fp.provider_price
+              ELSE NULL
+            END
+          ) AS cheapest_provider_price,
+
+          SUM(
+            CASE
+              WHEN fp.available_count > 0
+               AND fp.is_out_of_stock = 0
+              THEN fp.available_count
+              ELSE 0
+            END
+          ) AS total_available,
+
+          COUNT(
+            CASE
+              WHEN fp.available_count > 0
+               AND fp.is_out_of_stock = 0
+              THEN 1
+              ELSE NULL
+            END
+          ) AS available_operators
+
+        FROM fivesim_store_items fsi
+
+        JOIN fivesim_countries fc
+          ON fc.id = fsi.country_id
+
+        JOIN fivesim_services fs
+          ON fs.id = fsi.service_id
+
+        LEFT JOIN fivesim_prices fp
+          ON fp.country_id = fsi.country_id
+         AND fp.service_id = fsi.service_id
+
+        WHERE fsi.id = ?
+          AND fsi.is_active = 1
+
+        GROUP BY
+          fsi.id,
+          fsi.sell_price,
+          fsi.custom_name,
+          fsi.selection_mode,
+          fsi.minimum_rate,
+          fsi.maximum_provider_price,
+          fsi.is_active,
+
+          fc.id,
+          fc.code,
+          fc.custom_name,
+          fc.iso,
+          fc.prefix,
+          fc.image,
+
+          fs.id,
+          fs.product_code,
+          fs.provider_name,
+          fs.custom_name,
+          fs.image
+
+        LIMIT 1
+        `,
+        [storeItemId]
+      );
+
+      if (!item) {
+        return res.status(404).send(
+          'This virtual number service is unavailable.'
+        );
+      }
+
+      const sellPrice = Number(item.sell_price || 0);
+      const available = Number(item.total_available || 0);
+
+      if (
+        !Number.isFinite(sellPrice) ||
+        sellPrice <= 0
+      ) {
+        return res.status(403).send(
+          'This service does not have a valid selling price.'
+        );
+      }
+
+      if (available <= 0) {
+        return res.status(403).send(
+          'This service is currently out of stock.'
+        );
+      }
+
+      let errorMessage = '';
+
+      if (errorCode === 'balance') {
+        errorMessage = 'Your balance is insufficient.';
+      } else if (errorCode === 'unavailable') {
+        errorMessage =
+          'No suitable number is currently available. Please try again.';
+      } else if (errorCode === 'provider') {
+        errorMessage =
+          'The provider could not reserve a number. Please try again.';
+      } else if (errorCode === 'server') {
+        errorMessage =
+          'A server error occurred. Your balance was not charged.';
+      } else if (errorCode === 'duplicate') {
+        errorMessage =
+          'This purchase request was already processed.';
+      }
+
+      const idemKey = uuidv4();
+
+      req.session.fiveSimIdemKey = idemKey;
+      req.session.fiveSimStoreItemId = item.id;
+
+      return res.render('fivesim-checkout', {
+        user: req.session.user,
+        item: {
+          id: item.id,
+
+          name:
+            item.custom_name ||
+            item.service_custom_name ||
+            item.provider_name ||
+            item.product_code,
+
+          serviceCode: item.product_code,
+          serviceImage:
+            item.service_image ||
+            '/images/default-product.png',
+
+          countryName:
+            item.country_name ||
+            item.country_code,
+
+          countryCode: item.country_code,
+          countryIso: item.country_iso,
+          countryPrefix: item.country_prefix,
+          countryImage: item.country_image,
+
+          price: sellPrice,
+          available,
+          availableOperators:
+            Number(item.available_operators || 0)
+        },
+
+        idemKey,
+        error: errorMessage
+      });
+    } catch (error) {
+      console.error(
+        '❌ GET /virtual-numbers/checkout/:id:',
+        error
+      );
+
+      return res.status(500).send(
+        'Failed to load checkout.'
+      );
+    }
+  }
+);
 
 
 // =============================================
