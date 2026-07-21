@@ -1427,6 +1427,192 @@ app.post(
 );
 
 
+// =============================================
+// 5SIM — Customer services list
+// =============================================
+
+app.get('/virtual-numbers', async (req, res) => {
+  try {
+    const [services] = await promisePool.query(`
+      SELECT
+        fs.id,
+        fs.product_code,
+
+        COALESCE(
+          fs.custom_name,
+          fs.provider_name,
+          fs.product_code
+        ) AS name,
+
+        fs.image,
+
+        COUNT(DISTINCT fsi.country_id) AS countries_count,
+        MIN(fsi.sell_price) AS starting_price
+
+      FROM fivesim_store_items fsi
+
+      JOIN fivesim_services fs
+        ON fs.id = fsi.service_id
+
+      WHERE fsi.is_active = 1
+        AND fsi.sell_price > 0
+
+        AND EXISTS (
+          SELECT 1
+          FROM fivesim_prices fp
+          WHERE fp.country_id = fsi.country_id
+            AND fp.service_id = fsi.service_id
+            AND fp.available_count > 0
+            AND fp.is_out_of_stock = 0
+            AND fp.provider_price > 0
+        )
+
+      GROUP BY
+        fs.id,
+        fs.product_code,
+        fs.custom_name,
+        fs.provider_name,
+        fs.image
+
+      ORDER BY
+        MIN(fsi.sort_order) ASC,
+        name ASC
+    `);
+
+    return res.render('virtual-numbers-services', {
+      user: req.session.user || null,
+      services
+    });
+  } catch (error) {
+    console.error('❌ GET /virtual-numbers:', error);
+
+    return res.status(500).send(
+      'Failed to load virtual number services.'
+    );
+  }
+});
+
+app.get('/virtual-numbers/:serviceCode', async (req, res) => {
+  const serviceCode = String(
+    req.params.serviceCode || ''
+  ).trim().toLowerCase();
+
+  if (!serviceCode) {
+    return res.status(400).send('Invalid service.');
+  }
+
+  try {
+    const [[service]] = await promisePool.query(
+      `
+      SELECT
+        id,
+        product_code,
+
+        COALESCE(
+          custom_name,
+          provider_name,
+          product_code
+        ) AS name,
+
+        image
+
+      FROM fivesim_services
+
+      WHERE product_code = ?
+
+      LIMIT 1
+      `,
+      [serviceCode]
+    );
+
+    if (!service) {
+      return res.status(404).send(
+        'Service not found.'
+      );
+    }
+
+    const [countries] = await promisePool.query(
+      `
+      SELECT
+        fsi.id AS store_item_id,
+        fsi.sell_price,
+        fsi.is_featured,
+        fsi.sort_order,
+
+        fc.code,
+        fc.iso,
+        fc.prefix,
+        fc.image,
+
+        COALESCE(
+          fc.custom_name,
+          fc.code
+        ) AS name,
+
+        SUM(
+          CASE
+            WHEN fp.available_count > 0
+             AND fp.is_out_of_stock = 0
+             AND fp.provider_price > 0
+            THEN fp.available_count
+            ELSE 0
+          END
+        ) AS available_count
+
+      FROM fivesim_store_items fsi
+
+      JOIN fivesim_countries fc
+        ON fc.id = fsi.country_id
+
+      JOIN fivesim_services fs
+        ON fs.id = fsi.service_id
+
+      LEFT JOIN fivesim_prices fp
+        ON fp.country_id = fsi.country_id
+       AND fp.service_id = fsi.service_id
+
+      WHERE fs.product_code = ?
+        AND fsi.is_active = 1
+        AND fsi.sell_price > 0
+
+      GROUP BY
+        fsi.id,
+        fsi.sell_price,
+        fsi.is_featured,
+        fsi.sort_order,
+        fc.code,
+        fc.iso,
+        fc.prefix,
+        fc.image,
+        fc.custom_name
+
+      HAVING available_count > 0
+
+      ORDER BY
+        fsi.is_featured DESC,
+        fsi.sort_order ASC,
+        name ASC
+      `,
+      [serviceCode]
+    );
+
+    return res.render('virtual-numbers-countries', {
+      user: req.session.user || null,
+      service,
+      countries
+    });
+  } catch (error) {
+    console.error(
+      '❌ GET /virtual-numbers/:serviceCode:',
+      error
+    );
+
+    return res.status(500).send(
+      'Failed to load available countries.'
+    );
+  }
+});
+
 
 app.post('/telegram/link', (req, res) => {
   const userId = req.session?.user?.id;
