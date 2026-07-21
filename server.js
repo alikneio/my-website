@@ -1435,38 +1435,104 @@ app.post(
 // =============================================
 
 app.get('/virtual-numbers', async (req, res) => {
+  // منع عرض بيانات قديمة بعد تعديل الصور أو الأسعار من الأدمن
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+    Pragma: 'no-cache',
+    Expires: '0'
+  });
+
   try {
-    const [services] = await promisePool.query(`
+    const [rows] = await promisePool.query(`
       SELECT
         fs.id,
         fs.product_code,
 
         COALESCE(
-          fs.custom_name,
-          fs.provider_name,
+          NULLIF(TRIM(fs.custom_name), ''),
+          NULLIF(TRIM(fs.provider_name), ''),
           fs.product_code
         ) AS name,
 
-        fs.image,
+        COUNT(
+          DISTINCT fsi.country_id
+        ) AS countries_count,
 
-        COUNT(DISTINCT fsi.country_id) AS countries_count,
-        MIN(fsi.sell_price) AS starting_price
+        MIN(
+          fsi.sell_price
+        ) AS starting_price,
+
+        /*
+         * نجيب صورة واحدة للخدمة من إعدادات المتجر.
+         * الأولوية:
+         * 1) Featured
+         * 2) Sort Order
+         * 3) أول سجل
+         */
+        (
+          SELECT fsi2.store_image
+
+          FROM fivesim_store_items fsi2
+
+          WHERE fsi2.service_id = fs.id
+            AND fsi2.is_active = 1
+            AND fsi2.sell_price > 0
+            AND fsi2.store_image IS NOT NULL
+            AND TRIM(fsi2.store_image) <> ''
+
+            /*
+             * ما ناخد صورة من دولة غير متوفرة حاليًا.
+             */
+            AND EXISTS (
+              SELECT 1
+
+              FROM fivesim_prices fp2
+
+              WHERE fp2.country_id = fsi2.country_id
+                AND fp2.service_id = fsi2.service_id
+                AND fp2.is_active = 1
+                AND fp2.available_count > 0
+                AND COALESCE(fp2.is_out_of_stock, 0) = 0
+                AND fp2.provider_price > 0
+            )
+
+          ORDER BY
+            COALESCE(fsi2.is_featured, 0) DESC,
+            COALESCE(fsi2.sort_order, 0) ASC,
+            fsi2.id ASC
+
+          LIMIT 1
+        ) AS card_image,
+
+        MAX(
+          COALESCE(fsi.is_featured, 0)
+        ) AS is_featured,
+
+        MIN(
+          COALESCE(fsi.sort_order, 0)
+        ) AS service_sort_order
 
       FROM fivesim_store_items fsi
 
-      JOIN fivesim_services fs
+      INNER JOIN fivesim_services fs
         ON fs.id = fsi.service_id
 
       WHERE fsi.is_active = 1
         AND fsi.sell_price > 0
 
+        /*
+         * لازم يكون في عرض متوفر فعليًا من المزود.
+         */
         AND EXISTS (
           SELECT 1
+
           FROM fivesim_prices fp
+
           WHERE fp.country_id = fsi.country_id
             AND fp.service_id = fsi.service_id
+            AND fp.is_active = 1
             AND fp.available_count > 0
-            AND fp.is_out_of_stock = 0
+            AND COALESCE(fp.is_out_of_stock, 0) = 0
             AND fp.provider_price > 0
         )
 
@@ -1474,20 +1540,63 @@ app.get('/virtual-numbers', async (req, res) => {
         fs.id,
         fs.product_code,
         fs.custom_name,
-        fs.provider_name,
-        fs.image
+        fs.provider_name
 
       ORDER BY
-        MIN(fsi.sort_order) ASC,
+        is_featured DESC,
+        service_sort_order ASC,
         name ASC
     `);
+
+    const services = rows.map((row) => ({
+      id: Number(row.id),
+
+      product_code: String(
+        row.product_code || ''
+      ).trim(),
+
+      name: String(
+        row.name ||
+        row.product_code ||
+        'Virtual Number'
+      ).trim(),
+
+      countries_count: Math.max(
+        0,
+        Number(row.countries_count || 0)
+      ),
+
+      starting_price: Math.max(
+        0,
+        Number(row.starting_price || 0)
+      ),
+
+      card_image: row.card_image
+        ? String(row.card_image).trim()
+        : null,
+
+      is_featured:
+        Number(row.is_featured || 0) === 1,
+
+      sort_order: Number(
+        row.service_sort_order || 0
+      )
+    }));
 
     return res.render('virtual-numbers-services', {
       user: req.session.user || null,
       services
     });
+
   } catch (error) {
-    console.error('❌ GET /virtual-numbers:', error);
+    console.error(
+      '❌ GET /virtual-numbers:',
+      {
+        code: error.code,
+        sqlState: error.sqlState,
+        message: error.message || error
+      }
+    );
 
     return res.status(500).send(
       'Failed to load virtual number services.'
@@ -3951,210 +4060,194 @@ if (existingPayload?.success === true && existingPayload?.redirectUrl) {
 // =============================================
 
 app.get(
-  '/virtual-numbers/checkout/:id',
+  '/virtual-numbers',
   checkAuth,
   async (req, res) => {
-    const storeItemId = Number(req.params.id);
-    const errorCode = String(req.query.error || '');
-
-    if (
-      !Number.isInteger(storeItemId) ||
-      storeItemId <= 0
-    ) {
-      return res.status(400).send(
-        'Invalid virtual number service.'
-      );
-    }
+    // منع المتصفح من عرض بيانات قديمة بعد تحديث الخدمات أو الصور
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      Pragma: 'no-cache',
+      Expires: '0'
+    });
 
     try {
-      const [[item]] = await promisePool.query(
+      const [rows] = await promisePool.query(
         `
         SELECT
-          fsi.id,
-          fsi.sell_price,
-          fsi.custom_name,
-          fsi.selection_mode,
-          fsi.minimum_rate,
-          fsi.maximum_provider_price,
-          fsi.is_active,
-
-          fc.id AS country_id,
-          fc.code AS country_code,
-          fc.custom_name AS country_name,
-          fc.iso AS country_iso,
-          fc.prefix AS country_prefix,
-          fc.image AS country_image,
-
-          fs.id AS service_id,
-          fs.product_code,
-          fs.provider_name,
-          fs.custom_name AS service_custom_name,
-          fs.image AS service_image,
-
-          MIN(
-            CASE
-              WHEN fp.available_count > 0
-               AND fp.is_out_of_stock = 0
-               AND fp.provider_price > 0
-              THEN fp.provider_price
-              ELSE NULL
-            END
-          ) AS cheapest_provider_price,
-
-          SUM(
-            CASE
-              WHEN fp.available_count > 0
-               AND fp.is_out_of_stock = 0
-              THEN fp.available_count
-              ELSE 0
-            END
-          ) AS total_available,
-
-          COUNT(
-            CASE
-              WHEN fp.available_count > 0
-               AND fp.is_out_of_stock = 0
-              THEN 1
-              ELSE NULL
-            END
-          ) AS available_operators
-
-        FROM fivesim_store_items fsi
-
-        JOIN fivesim_countries fc
-          ON fc.id = fsi.country_id
-
-        JOIN fivesim_services fs
-          ON fs.id = fsi.service_id
-
-        LEFT JOIN fivesim_prices fp
-          ON fp.country_id = fsi.country_id
-         AND fp.service_id = fsi.service_id
-
-        WHERE fsi.id = ?
-          AND fsi.is_active = 1
-
-        GROUP BY
-          fsi.id,
-          fsi.sell_price,
-          fsi.custom_name,
-          fsi.selection_mode,
-          fsi.minimum_rate,
-          fsi.maximum_provider_price,
-          fsi.is_active,
-
-          fc.id,
-          fc.code,
-          fc.custom_name,
-          fc.iso,
-          fc.prefix,
-          fc.image,
-
           fs.id,
           fs.product_code,
-          fs.provider_name,
-          fs.custom_name,
-          fs.image
 
-        LIMIT 1
-        `,
-        [storeItemId]
+          COALESCE(
+            NULLIF(TRIM(fs.custom_name), ''),
+            NULLIF(TRIM(fs.provider_name), ''),
+            fs.product_code
+          ) AS name,
+
+          COUNT(
+            DISTINCT fsi.country_id
+          ) AS countries_count,
+
+          MIN(
+            fsi.sell_price
+          ) AS starting_price,
+
+          /*
+           * صورة واحدة للخدمة:
+           * نفضّل Featured، ثم Sort Order، ثم أول سجل.
+           */
+          (
+            SELECT fsi_image.store_image
+
+            FROM fivesim_store_items fsi_image
+
+            WHERE fsi_image.service_id = fs.id
+              AND fsi_image.is_active = 1
+              AND fsi_image.sell_price > 0
+              AND fsi_image.store_image IS NOT NULL
+              AND TRIM(fsi_image.store_image) <> ''
+
+              /*
+               * لا نأخذ صورة من تركيبة غير متوفرة.
+               */
+              AND EXISTS (
+                SELECT 1
+
+                FROM fivesim_prices fp_image
+
+                WHERE fp_image.service_id =
+                      fsi_image.service_id
+
+                  AND fp_image.country_id =
+                      fsi_image.country_id
+
+                  AND fp_image.is_active = 1
+
+                  AND fp_image.available_count > 0
+
+                  AND COALESCE(
+                    fp_image.is_out_of_stock,
+                    0
+                  ) = 0
+              )
+
+            ORDER BY
+              fsi_image.is_featured DESC,
+              fsi_image.sort_order ASC,
+              fsi_image.id ASC
+
+            LIMIT 1
+          ) AS card_image,
+
+          MAX(
+            COALESCE(fsi.is_featured, 0)
+          ) AS is_featured,
+
+          MIN(
+            COALESCE(fsi.sort_order, 0)
+          ) AS service_sort_order
+
+        FROM fivesim_services fs
+
+        INNER JOIN fivesim_store_items fsi
+          ON fsi.service_id = fs.id
+         AND fsi.is_active = 1
+         AND fsi.sell_price > 0
+
+        /*
+         * نستعمل EXISTS بدل JOIN مع الأسعار.
+         * لأن كل دولة قد يكون عندها أكثر من Operator،
+         * والـJOIN المباشر يكرر الصفوف.
+         */
+        WHERE EXISTS (
+          SELECT 1
+
+          FROM fivesim_prices fp
+
+          WHERE fp.service_id = fsi.service_id
+            AND fp.country_id = fsi.country_id
+            AND fp.is_active = 1
+            AND fp.available_count > 0
+            AND COALESCE(
+              fp.is_out_of_stock,
+              0
+            ) = 0
+        )
+
+        GROUP BY
+          fs.id,
+          fs.product_code,
+          fs.custom_name,
+          fs.provider_name
+
+        ORDER BY
+          is_featured DESC,
+          service_sort_order ASC,
+          name ASC
+        `
       );
 
-      if (!item) {
-        return res.status(404).send(
-          'This virtual number service is unavailable.'
-        );
-      }
+      const services = rows.map((row) => ({
+        id: Number(row.id),
 
-      const sellPrice = Number(item.sell_price || 0);
-      const available = Number(item.total_available || 0);
+        product_code: String(
+          row.product_code || ''
+        ),
 
-      if (
-        !Number.isFinite(sellPrice) ||
-        sellPrice <= 0
-      ) {
-        return res.status(403).send(
-          'This service does not have a valid selling price.'
-        );
-      }
+        name:
+          String(
+            row.name ||
+            row.product_code ||
+            'Virtual Number'
+          ).trim(),
 
-      if (available <= 0) {
-        return res.status(403).send(
-          'This service is currently out of stock.'
-        );
-      }
+        countries_count: Math.max(
+          0,
+          Number(row.countries_count || 0)
+        ),
 
-      let errorMessage = '';
+        starting_price: Math.max(
+          0,
+          Number(row.starting_price || 0)
+        ),
 
-      if (errorCode === 'balance') {
-        errorMessage = 'Your balance is insufficient.';
-      } else if (errorCode === 'unavailable') {
-        errorMessage =
-          'No suitable number is currently available. Please try again.';
-      } else if (errorCode === 'provider') {
-        errorMessage =
-          'The provider could not reserve a number. Please try again.';
-      } else if (errorCode === 'server') {
-        errorMessage =
-          'A server error occurred. Your balance was not charged.';
-      } else if (errorCode === 'duplicate') {
-        errorMessage =
-          'This purchase request was already processed.';
-      }
+        card_image:
+          row.card_image
+            ? String(row.card_image).trim()
+            : null,
 
-      const idemKey = uuidv4();
+        is_featured:
+          Number(row.is_featured || 0) === 1,
 
-      req.session.fiveSimIdemKey = idemKey;
-      req.session.fiveSimStoreItemId = item.id;
+        sort_order:
+          Number(row.service_sort_order || 0)
+      }));
 
-      return res.render('fivesim-checkout', {
-        user: req.session.user,
-        item: {
-          id: item.id,
+      return res.render(
+        'virtual-numbers',
+        {
+          user: req.session.user,
+          services
+        }
+      );
 
-          name:
-            item.custom_name ||
-            item.service_custom_name ||
-            item.provider_name ||
-            item.product_code,
-
-          serviceCode: item.product_code,
-          serviceImage:
-            item.service_image ||
-            '/images/default-product.png',
-
-          countryName:
-            item.country_name ||
-            item.country_code,
-
-          countryCode: item.country_code,
-          countryIso: item.country_iso,
-          countryPrefix: item.country_prefix,
-          countryImage: item.country_image,
-
-          price: sellPrice,
-          available,
-          availableOperators:
-            Number(item.available_operators || 0)
-        },
-
-        idemKey,
-        error: errorMessage
-      });
     } catch (error) {
       console.error(
-        '❌ GET /virtual-numbers/checkout/:id:',
-        error
+        '❌ GET /virtual-numbers:',
+        {
+          code: error.code,
+          sqlState: error.sqlState,
+          message: error.message || error
+        }
       );
 
-      return res.status(500).send(
-        'Failed to load checkout.'
-      );
+      return res
+        .status(500)
+        .send(
+          'Failed to load virtual number services'
+        );
     }
   }
 );
-
 
 // =============================================
 //                  ACTION ROUTES
@@ -7613,238 +7706,364 @@ app.post('/admin/api-products/sync', checkAdmin, async (req, res) => {
 // 5SIM — Full Store Control
 // =============================================
 
-app.get('/admin/fivesim-services', checkAdmin, async (req, res) => {
-  const search = String(req.query.search || '').trim().slice(0, 100);
-  const countryId = String(req.query.country_id || 'all');
-  const status = String(req.query.status || 'all');
+// =====================================================
+// Admin: Virtual Numbers Services
+// =====================================================
 
-  const page = Math.max(
-    parseInt(req.query.page || '1', 10) || 1,
-    1
-  );
+app.get(
+  '/admin/fivesim-services',
+  checkAdmin,
+  async (req, res) => {
+    const search = String(req.query.search || '')
+      .trim()
+      .slice(0, 100);
 
-  const limit = 50;
-  const offset = (page - 1) * limit;
+    const countryId = String(
+      req.query.country_id || 'all'
+    ).trim();
 
-  try {
-    const where = [];
-    const params = [];
+    const requestedStatus = String(
+      req.query.status || 'all'
+    )
+      .trim()
+      .toLowerCase();
 
-    if (search) {
-      where.push(`
-        (
-          LOWER(fs.product_code) LIKE ?
-          OR LOWER(fs.provider_name) LIKE ?
-          OR LOWER(fs.custom_name) LIKE ?
-          OR LOWER(fc.code) LIKE ?
-          OR LOWER(fc.custom_name) LIKE ?
-        )
-      `);
+    const status = [
+      'all',
+      'active',
+      'inactive'
+    ].includes(requestedStatus)
+      ? requestedStatus
+      : 'all';
 
-      const term = `%${search.toLowerCase()}%`;
+    const requestedPage = Math.max(
+      Number.parseInt(req.query.page || '1', 10) || 1,
+      1
+    );
 
-      params.push(
-        term,
-        term,
-        term,
-        term,
-        term
+    const limit = 50;
+
+    try {
+      // =================================================
+      // Filters
+      // =================================================
+
+      const where = [];
+      const params = [];
+
+      if (search) {
+        const term = `%${search.toLowerCase()}%`;
+
+        where.push(`
+          (
+            LOWER(COALESCE(fs.product_code, '')) LIKE ?
+            OR LOWER(COALESCE(fs.provider_name, '')) LIKE ?
+            OR LOWER(COALESCE(fs.custom_name, '')) LIKE ?
+            OR LOWER(COALESCE(fsi.custom_name, '')) LIKE ?
+            OR LOWER(COALESCE(fc.code, '')) LIKE ?
+            OR LOWER(COALESCE(fc.custom_name, '')) LIKE ?
+          )
+        `);
+
+        params.push(
+          term,
+          term,
+          term,
+          term,
+          term,
+          term
+        );
+      }
+
+      if (
+        countryId !== 'all' &&
+        /^\d+$/.test(countryId)
+      ) {
+        where.push('fc.id = ?');
+        params.push(Number(countryId));
+      }
+
+      if (status === 'active') {
+        where.push('fsi.is_active = 1');
+      } else if (status === 'inactive') {
+        where.push(`
+          (
+            fsi.id IS NULL
+            OR COALESCE(fsi.is_active, 0) = 0
+          )
+        `);
+      }
+
+      const whereSql = where.length
+        ? `WHERE ${where.join(' AND ')}`
+        : '';
+
+      // =================================================
+      // Countries Filter
+      // =================================================
+
+      const [countries] = await promisePool.query(
+        `
+        SELECT
+          id,
+          code,
+          custom_name,
+          iso,
+          prefix
+        FROM fivesim_countries
+        ORDER BY
+          COALESCE(
+            NULLIF(custom_name, ''),
+            code
+          ) ASC
+        `
       );
-    }
 
-    if (countryId !== 'all' && /^\d+$/.test(countryId)) {
-      where.push('fc.id = ?');
-      params.push(Number(countryId));
-    }
+      // =================================================
+      // Count
+      // =================================================
 
-    if (status === 'active') {
-      where.push('fsi.is_active = 1');
-    } else if (status === 'inactive') {
-      where.push('(fsi.id IS NULL OR fsi.is_active = 0)');
-    }
+      const countSql = `
+        SELECT COUNT(*) AS total
+        FROM (
+          SELECT
+            fp.country_id,
+            fp.service_id
 
-    const whereSql = where.length
-      ? `WHERE ${where.join(' AND ')}`
-      : '';
+          FROM fivesim_prices fp
 
-    const [countries] = await promisePool.query(`
-      SELECT
-        id,
-        code,
-        custom_name,
-        iso
-      FROM fivesim_countries
-      ORDER BY
-        COALESCE(custom_name, code) ASC
-    `);
+          INNER JOIN fivesim_countries fc
+            ON fc.id = fp.country_id
 
-    const countSql = `
-      SELECT COUNT(*) AS total
-      FROM (
+          INNER JOIN fivesim_services fs
+            ON fs.id = fp.service_id
+
+          LEFT JOIN fivesim_store_items fsi
+            ON fsi.country_id = fp.country_id
+           AND fsi.service_id = fp.service_id
+
+          ${whereSql}
+
+          GROUP BY
+            fp.country_id,
+            fp.service_id
+        ) AS grouped_items
+      `;
+
+      const [[countRow]] =
+        await promisePool.query(
+          countSql,
+          params
+        );
+
+      const total = Number(
+        countRow?.total || 0
+      );
+
+      const pages = Math.max(
+        1,
+        Math.ceil(total / limit)
+      );
+
+      // يمنع صفحة أكبر من آخر صفحة
+      const page = Math.min(
+        requestedPage,
+        pages
+      );
+
+      const offset = (page - 1) * limit;
+
+      // =================================================
+      // Main List
+      // =================================================
+
+      const listSql = `
         SELECT
           fp.country_id,
-          fp.service_id
+          fp.service_id,
+
+          /* Country */
+          fc.code AS country_code,
+
+          COALESCE(
+            NULLIF(fc.custom_name, ''),
+            fc.code
+          ) AS country_name,
+
+          fc.iso AS country_iso,
+          fc.prefix AS country_prefix,
+
+          /* Service */
+          fs.product_code,
+          fs.provider_name,
+          fs.custom_name AS service_custom_name,
+          fs.image AS service_image,
+
+          /* Store settings */
+          fsi.id AS store_item_id,
+          fsi.custom_name AS store_custom_name,
+
+          fsi.store_image,
+          fsi.checkout_description,
+          fsi.checkout_notes,
+
+          fsi.sell_price,
+          fsi.selection_mode,
+          fsi.minimum_rate,
+          fsi.maximum_provider_price,
+          fsi.is_active,
+          fsi.is_featured,
+          fsi.sort_order,
+
+          /* Provider data */
+          MIN(
+            CASE
+              WHEN fp.available_count > 0
+               AND COALESCE(fp.is_out_of_stock, 0) = 0
+              THEN fp.provider_price
+              ELSE NULL
+            END
+          ) AS cheapest_provider_price,
+
+          SUM(
+            CASE
+              WHEN fp.available_count > 0
+               AND COALESCE(fp.is_out_of_stock, 0) = 0
+              THEN fp.available_count
+              ELSE 0
+            END
+          ) AS total_available,
+
+          MAX(
+            CASE
+              WHEN fp.available_count > 0
+               AND COALESCE(fp.is_out_of_stock, 0) = 0
+              THEN fp.delivery_rate
+              ELSE NULL
+            END
+          ) AS best_rate,
+
+          COUNT(
+  DISTINCT CASE
+    WHEN fp.available_count > 0
+     AND COALESCE(fp.is_out_of_stock, 0) = 0
+    THEN fp.operator_id
+    ELSE NULL
+  END
+) AS available_operators
+
         FROM fivesim_prices fp
-        JOIN fivesim_countries fc
+
+        INNER JOIN fivesim_countries fc
           ON fc.id = fp.country_id
-        JOIN fivesim_services fs
+
+        INNER JOIN fivesim_services fs
           ON fs.id = fp.service_id
+
         LEFT JOIN fivesim_store_items fsi
           ON fsi.country_id = fp.country_id
          AND fsi.service_id = fp.service_id
+
         ${whereSql}
+
         GROUP BY
           fp.country_id,
-          fp.service_id
-      ) grouped_items
-    `;
+          fp.service_id,
 
-    const [[countRow]] = await promisePool.query(
-      countSql,
-      params
-    );
+          fc.code,
+          fc.custom_name,
+          fc.iso,
+          fc.prefix,
 
-    const total = Number(countRow?.total || 0);
-    const pages = Math.max(1, Math.ceil(total / limit));
+          fs.product_code,
+          fs.provider_name,
+          fs.custom_name,
+          fs.image,
 
-    const listSql = `
-      SELECT
-        fp.country_id,
-        fp.service_id,
+          fsi.id,
+          fsi.custom_name,
+          fsi.store_image,
+          fsi.checkout_description,
+          fsi.checkout_notes,
+          fsi.sell_price,
+          fsi.selection_mode,
+          fsi.minimum_rate,
+          fsi.maximum_provider_price,
+          fsi.is_active,
+          fsi.is_featured,
+          fsi.sort_order
 
-        fc.code AS country_code,
-        fc.custom_name AS country_name,
-        fc.iso AS country_iso,
-        fc.prefix AS country_prefix,
+        ORDER BY
+          COALESCE(fsi.is_active, 0) DESC,
+          COALESCE(fsi.is_featured, 0) DESC,
+          COALESCE(fsi.sort_order, 0) ASC,
+          fs.product_code ASC,
+          fc.code ASC
 
-        fs.product_code,
-        fs.provider_name,
-        fs.custom_name AS service_custom_name,
-        fs.image AS service_image,
+        LIMIT ? OFFSET ?
+      `;
 
-        fsi.id AS store_item_id,
-        fsi.custom_name AS store_custom_name,
-        fsi.sell_price,
-        fsi.selection_mode,
-        fsi.minimum_rate,
-        fsi.maximum_provider_price,
-        fsi.is_active,
-        fsi.is_featured,
-        fsi.sort_order,
+      const [items] =
+        await promisePool.query(
+          listSql,
+          [
+            ...params,
+            limit,
+            offset
+          ]
+        );
 
-        MIN(
-          CASE
-            WHEN fp.available_count > 0
-             AND fp.is_out_of_stock = 0
-            THEN fp.provider_price
-            ELSE NULL
-          END
-        ) AS cheapest_provider_price,
+      return res.render(
+        'admin-fivesim-services',
+        {
+          user: req.session.user,
 
-        SUM(
-          CASE
-            WHEN fp.available_count > 0
-             AND fp.is_out_of_stock = 0
-            THEN fp.available_count
-            ELSE 0
-          END
-        ) AS total_available,
+          items,
+          countries,
 
-        MAX(fp.delivery_rate) AS best_rate,
+          filters: {
+            search,
+            country_id: countryId,
+            status
+          },
 
-        COUNT(
-          CASE
-            WHEN fp.available_count > 0
-             AND fp.is_out_of_stock = 0
-            THEN 1
-            ELSE NULL
-          END
-        ) AS available_operators
+          meta: {
+            total,
+            page,
+            pages,
+            limit
+          }
+        }
+      );
 
-      FROM fivesim_prices fp
+    } catch (error) {
+      console.error(
+        '❌ GET /admin/fivesim-services:',
+        {
+          code: error.code,
+          message: error.message || error
+        }
+      );
 
-      JOIN fivesim_countries fc
-        ON fc.id = fp.country_id
-
-      JOIN fivesim_services fs
-        ON fs.id = fp.service_id
-
-      LEFT JOIN fivesim_store_items fsi
-        ON fsi.country_id = fp.country_id
-       AND fsi.service_id = fp.service_id
-
-      ${whereSql}
-
-      GROUP BY
-        fp.country_id,
-        fp.service_id,
-        fc.code,
-        fc.custom_name,
-        fc.iso,
-        fc.prefix,
-        fs.product_code,
-        fs.provider_name,
-        fs.custom_name,
-        fs.image,
-        fsi.id,
-        fsi.custom_name,
-        fsi.sell_price,
-        fsi.selection_mode,
-        fsi.minimum_rate,
-        fsi.maximum_provider_price,
-        fsi.is_active,
-        fsi.is_featured,
-        fsi.sort_order
-
-      ORDER BY
-        fsi.is_active DESC,
-        fsi.sort_order ASC,
-        fs.product_code ASC,
-        fc.code ASC
-
-      LIMIT ? OFFSET ?
-    `;
-
-    const [items] = await promisePool.query(
-      listSql,
-      [...params, limit, offset]
-    );
-
-    return res.render('admin-fivesim-services', {
-      user: req.session.user,
-      items,
-      countries,
-      filters: {
-        search,
-        country_id: countryId,
-        status
-      },
-      meta: {
-        total,
-        page,
-        pages,
-        limit
-      }
-    });
-  } catch (error) {
-    console.error(
-      '❌ GET /admin/fivesim-services:',
-      error
-    );
-
-    return res.status(500).send(
-      String(error.message || error)
-    );
+      return res
+        .status(500)
+        .send('Failed to load virtual number services');
+    }
   }
-});
+);
+
+
+// =====================================================
+// Admin: Save Virtual Number Service
+// =====================================================
 
 app.post(
   '/admin/fivesim-services/save',
   checkAdmin,
   async (req, res) => {
-    // =====================================================
+    // =================================================
     // Helpers
-    // =====================================================
+    // =================================================
 
     function cleanText(value, maxLength) {
       const text = String(value ?? '').trim();
@@ -7857,44 +8076,35 @@ app.post(
     }
 
     function normalizeImagePath(value) {
-      const path = String(value ?? '').trim();
+      const imagePath = String(value ?? '').trim();
 
-      if (!path) {
+      if (!imagePath) {
         return null;
       }
 
-      /*
-       * نحن نسمح فقط بصور موجودة داخل public/images.
-       *
-       * مثال صحيح:
-       * /images/fivesim/whatsapp.webp
-       */
-      if (!path.startsWith('/images/')) {
+      if (!imagePath.startsWith('/images/')) {
         throw new Error(
           'Image path must start with /images/'
         );
       }
 
-      /*
-       * منع directory traversal أو query/hash غير ضروريين.
-       */
       if (
-        path.includes('..') ||
-        path.includes('\\') ||
-        path.includes('?') ||
-        path.includes('#') ||
-        path.includes('\0')
+        imagePath.includes('..') ||
+        imagePath.includes('\\') ||
+        imagePath.includes('?') ||
+        imagePath.includes('#') ||
+        imagePath.includes('\0')
       ) {
         throw new Error('Invalid image path');
       }
 
-      if (path.length > 255) {
+      if (imagePath.length > 255) {
         throw new Error(
           'Image path is too long'
         );
       }
 
-      return path;
+      return imagePath;
     }
 
     function safeAdminReturnTo(value) {
@@ -7912,9 +8122,9 @@ app.post(
       return '/admin/fivesim-services';
     }
 
-    // =====================================================
-    // Basic identifiers
-    // =====================================================
+    // =================================================
+    // Identifiers
+    // =================================================
 
     const countryId = Number(
       req.body.country_id
@@ -7935,9 +8145,9 @@ app.post(
         .send('Invalid service or country');
     }
 
-    // =====================================================
-    // Public content
-    // =====================================================
+    // =================================================
+    // Store Content
+    // =================================================
 
     const customName = cleanText(
       req.body.custom_name,
@@ -7954,7 +8164,7 @@ app.post(
       2000
     );
 
-    let storeImage = null;
+    let storeImage;
 
     try {
       storeImage = normalizeImagePath(
@@ -7966,9 +8176,9 @@ app.post(
         .send(error.message);
     }
 
-    // =====================================================
+    // =================================================
     // Pricing
-    // =====================================================
+    // =================================================
 
     const sellPrice = Number(
       req.body.sell_price
@@ -7983,6 +8193,10 @@ app.post(
         .status(400)
         .send('Invalid sell price');
     }
+
+    const roundedSellPrice = Number(
+      sellPrice.toFixed(4)
+    );
 
     const minimumRateRaw = Number(
       req.body.minimum_rate || 0
@@ -8004,23 +8218,23 @@ app.post(
       minimumRateRaw.toFixed(2)
     );
 
-    const maxProviderPriceRaw = String(
-      req.body.maximum_provider_price ?? ''
-    ).trim();
+    const maximumProviderPriceText =
+      String(
+        req.body.maximum_provider_price ?? ''
+      ).trim();
 
     let maximumProviderPrice = null;
 
-    if (maxProviderPriceRaw !== '') {
-      maximumProviderPrice = Number(
-        maxProviderPriceRaw
-      );
+    if (maximumProviderPriceText !== '') {
+      const parsedMaximumProviderPrice =
+        Number(maximumProviderPriceText);
 
       if (
         !Number.isFinite(
-          maximumProviderPrice
+          parsedMaximumProviderPrice
         ) ||
-        maximumProviderPrice < 0 ||
-        maximumProviderPrice > 99999999
+        parsedMaximumProviderPrice < 0 ||
+        parsedMaximumProviderPrice > 99999999
       ) {
         return res
           .status(400)
@@ -8030,25 +8244,27 @@ app.post(
       }
 
       maximumProviderPrice = Number(
-        maximumProviderPrice.toFixed(4)
+        parsedMaximumProviderPrice.toFixed(4)
       );
     }
 
-    // =====================================================
-    // Selection settings
-    // =====================================================
+    // =================================================
+    // Settings
+    // =================================================
 
-    const allowedSelectionModes = new Set([
-      'cheapest',
-      'balanced',
-      'quality'
-    ]);
+    const allowedSelectionModes =
+      new Set([
+        'cheapest',
+        'balanced',
+        'quality'
+      ]);
 
-    const requestedSelectionMode = String(
-      req.body.selection_mode || ''
-    )
-      .trim()
-      .toLowerCase();
+    const requestedSelectionMode =
+      String(
+        req.body.selection_mode || ''
+      )
+        .trim()
+        .toLowerCase();
 
     const selectionMode =
       allowedSelectionModes.has(
@@ -8067,65 +8283,88 @@ app.post(
         ? 1
         : 0;
 
-    const rawSortOrder = Number.parseInt(
-      req.body.sort_order || '0',
-      10
-    );
+    const parsedSortOrder =
+      Number.parseInt(
+        req.body.sort_order || '0',
+        10
+      );
 
-    const sortOrder = Number.isInteger(
-      rawSortOrder
-    )
-      ? Math.max(
-          -100000,
-          Math.min(100000, rawSortOrder)
-        )
-      : 0;
+    const sortOrder =
+      Number.isInteger(parsedSortOrder)
+        ? Math.max(
+            -100000,
+            Math.min(
+              100000,
+              parsedSortOrder
+            )
+          )
+        : 0;
 
-    const returnTo = safeAdminReturnTo(
-      req.body.return_to
-    );
+    const returnTo =
+      safeAdminReturnTo(
+        req.body.return_to
+      );
 
-    // =====================================================
-    // Save
-    // =====================================================
+    // =================================================
+    // Database
+    // =================================================
 
     try {
-      /*
-       * تأكد أن الدولة والخدمة موجودتان،
-       * بدل إنشاء store item مرتبط بمعرف خاطئ.
-       */
-      const [[country]] =
+      const [[combination]] =
         await promisePool.query(
           `
-          SELECT id
-          FROM fivesim_countries
-          WHERE id = ?
+          SELECT
+            fc.id AS country_id,
+            fs.id AS service_id
+
+          FROM fivesim_countries fc
+
+          CROSS JOIN fivesim_services fs
+
+          WHERE fc.id = ?
+            AND fs.id = ?
+
           LIMIT 1
           `,
-          [countryId]
+          [
+            countryId,
+            serviceId
+          ]
         );
 
-      if (!country) {
+      if (!combination) {
         return res
           .status(404)
-          .send('Country not found');
+          .send(
+            'Country or service not found'
+          );
       }
 
-      const [[service]] =
+      /*
+       * نتأكد كمان أن هالتركيبة موجودة فعلًا
+       * عند المزود ضمن جدول الأسعار.
+       */
+      const [[providerCombination]] =
         await promisePool.query(
           `
-          SELECT id
-          FROM fivesim_services
-          WHERE id = ?
+          SELECT 1 AS found
+          FROM fivesim_prices
+          WHERE country_id = ?
+            AND service_id = ?
           LIMIT 1
           `,
-          [serviceId]
+          [
+            countryId,
+            serviceId
+          ]
         );
 
-      if (!service) {
+      if (!providerCombination) {
         return res
           .status(404)
-          .send('Service not found');
+          .send(
+            'This provider combination is unavailable'
+          );
       }
 
       await promisePool.query(
@@ -8206,11 +8445,7 @@ app.post(
           storeImage,
           checkoutDescription,
           checkoutNotes,
-
-          Number(
-            sellPrice.toFixed(4)
-          ),
-
+          roundedSellPrice,
           selectionMode,
           minimumRate,
           maximumProviderPrice,
@@ -8229,18 +8464,18 @@ app.post(
           countryId,
           serviceId,
           code: error.code,
-          message:
-            error.message || error
+          message: error.message || error
         }
       );
 
       return res
         .status(500)
-        .send('Failed to save service settings');
+        .send(
+          'Failed to save virtual number service'
+        );
     }
   }
 );
-
 
 app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
   // ✅ منع كاش المتصفح لهاي الصفحة (Dev only)

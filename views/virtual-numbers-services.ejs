@@ -134,22 +134,24 @@
                         class="category-card service-card h-100"
                     >
                         <div class="vn-card-image">
-                            <% if (service.image) { %>
-                                <img
-                                    src="<%= service.image %>"
-                                    alt="<%= service.name %>"
-                                    loading="lazy"
-                                    onerror="
-                                        this.style.display='none';
-                                        this.nextElementSibling.style.display='flex';
-                                    "
-                                >
-                            <% } %>
+<% const serviceImage = service.card_image || null; %>
 
-                            <div
-                                class="vn-card-fallback"
-                                style="<%= service.image ? 'display:none;' : 'display:flex;' %>"
-                            >
+<% if (serviceImage) { %>
+    <img
+        src="<%= serviceImage %>"
+        alt="<%= service.name %>"
+        loading="lazy"
+        onerror="
+            this.style.display='none';
+            this.nextElementSibling.style.display='flex';
+        "
+    >
+<% } %>
+
+<div
+    class="vn-card-fallback"
+    style="<%= serviceImage ? 'display:none;' : 'display:flex;' %>"
+>
                                 <i class="bi bi-chat-square-dots-fill"></i>
                                 <strong><%= service.name %></strong>
                             </div>

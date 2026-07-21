@@ -162,23 +162,24 @@
                         href="/virtual-numbers/checkout/<%= country.store_item_id %>"
                         class="category-card service-card h-100"
                     >
-                        <div class="country-card-visual">
-                            <% if (country.image) { %>
-                                <img
-                                    src="<%= country.image %>"
-                                    alt="<%= country.name %>"
-                                    loading="lazy"
-                                    onerror="
-                                        this.style.display='none';
-                                        this.nextElementSibling.style.display='flex';
-                                    "
-                                >
-                            <% } %>
+                        <% const countryImage = country.card_image || null; %>
 
-                            <div
-                                class="country-fallback"
-                                style="<%= country.image ? 'display:none;' : 'display:flex;' %>"
-                            >
+<% if (countryImage) { %>
+    <img
+        src="<%= countryImage %>"
+        alt="<%= country.name %>"
+        loading="lazy"
+        onerror="
+            this.style.display='none';
+            this.nextElementSibling.style.display='flex';
+        "
+    >
+<% } %>
+
+<div
+    class="country-fallback"
+    style="<%= countryImage ? 'display:none;' : 'display:flex;' %>"
+>
                                 <div class="country-flag"><%= flag %></div>
                                 <div class="country-name-on-image">
                                     <%= country.name %>
