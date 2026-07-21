@@ -1435,7 +1435,6 @@ app.post(
 // =============================================
 
 app.get('/virtual-numbers', async (req, res) => {
-  // منع عرض بيانات قديمة بعد تعديل الصور أو الأسعار من الأدمن
   res.set({
     'Cache-Control': 'no-store, no-cache, must-revalidate, private',
     Pragma: 'no-cache',
@@ -1462,13 +1461,6 @@ app.get('/virtual-numbers', async (req, res) => {
           fsi.sell_price
         ) AS starting_price,
 
-        /*
-         * نجيب صورة واحدة للخدمة من إعدادات المتجر.
-         * الأولوية:
-         * 1) Featured
-         * 2) Sort Order
-         * 3) أول سجل
-         */
         (
           SELECT fsi2.store_image
 
@@ -1479,22 +1471,6 @@ app.get('/virtual-numbers', async (req, res) => {
             AND fsi2.sell_price > 0
             AND fsi2.store_image IS NOT NULL
             AND TRIM(fsi2.store_image) <> ''
-
-            /*
-             * ما ناخد صورة من دولة غير متوفرة حاليًا.
-             */
-            AND EXISTS (
-              SELECT 1
-
-              FROM fivesim_prices fp2
-
-              WHERE fp2.country_id = fsi2.country_id
-                AND fp2.service_id = fsi2.service_id
-                AND fp2.is_active = 1
-                AND fp2.available_count > 0
-                AND COALESCE(fp2.is_out_of_stock, 0) = 0
-                AND fp2.provider_price > 0
-            )
 
           ORDER BY
             COALESCE(fsi2.is_featured, 0) DESC,
@@ -1520,9 +1496,6 @@ app.get('/virtual-numbers', async (req, res) => {
       WHERE fsi.is_active = 1
         AND fsi.sell_price > 0
 
-        /*
-         * لازم يكون في عرض متوفر فعليًا من المزود.
-         */
         AND EXISTS (
           SELECT 1
 
@@ -1530,7 +1503,6 @@ app.get('/virtual-numbers', async (req, res) => {
 
           WHERE fp.country_id = fsi.country_id
             AND fp.service_id = fsi.service_id
-            AND fp.is_active = 1
             AND fp.available_count > 0
             AND COALESCE(fp.is_out_of_stock, 0) = 0
             AND fp.provider_price > 0
@@ -1548,7 +1520,7 @@ app.get('/virtual-numbers', async (req, res) => {
         name ASC
     `);
 
-    const services = rows.map((row) => ({
+    const services = rows.map(row => ({
       id: Number(row.id),
 
       product_code: String(
