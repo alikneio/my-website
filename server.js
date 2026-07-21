@@ -2973,6 +2973,25 @@ app.get('/admin/fivesim/test', checkAdmin, async (req, res) => {
   }
 });
 
+app.get("/admin/fivesim/debug", checkAdmin, async (req, res) => {
+
+    const {
+        getCountries,
+        getProducts,
+        getPrices
+    } = require("./services/fivesim");
+
+    res.json({
+
+        countries: await getCountries(),
+
+        products: await getProducts(),
+
+        prices: await getPrices()
+
+    });
+
+});
 
 
 const fetch = require('node-fetch');

@@ -114,6 +114,27 @@ async function callFiveSim({
   }
 }
 
+async function getCountries() {
+  return callFiveSim({
+    url: "/guest/countries",
+    auth: false,
+  });
+}
+
+async function getProducts() {
+  return callFiveSim({
+    url: "/guest/products",
+    auth: false,
+  });
+}
+
+async function getPrices() {
+  return callFiveSim({
+    url: "/guest/prices",
+    auth: false,
+  });
+}
+
 // =====================================
 // User
 // =====================================
@@ -174,6 +195,10 @@ async function getFiveSimPrices({
 }
 
 module.exports = {
-  getFiveSimProfile,
-  getFiveSimPrices,
+    getFiveSimProfile,
+    getFiveSimPrices,
+
+    getCountries,
+    getProducts,
+    getPrices
 };
