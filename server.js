@@ -6271,6 +6271,374 @@ app.post('/admin/api-products/sync', checkAdmin, async (req, res) => {
   }
 });
 
+// =============================================
+// 5SIM — Full Store Control
+// =============================================
+
+app.get('/admin/fivesim-services', checkAdmin, async (req, res) => {
+  const search = String(req.query.search || '').trim().slice(0, 100);
+  const countryId = String(req.query.country_id || 'all');
+  const status = String(req.query.status || 'all');
+
+  const page = Math.max(
+    parseInt(req.query.page || '1', 10) || 1,
+    1
+  );
+
+  const limit = 50;
+  const offset = (page - 1) * limit;
+
+  try {
+    const where = [];
+    const params = [];
+
+    if (search) {
+      where.push(`
+        (
+          LOWER(fs.product_code) LIKE ?
+          OR LOWER(fs.provider_name) LIKE ?
+          OR LOWER(fs.custom_name) LIKE ?
+          OR LOWER(fc.code) LIKE ?
+          OR LOWER(fc.custom_name) LIKE ?
+        )
+      `);
+
+      const term = `%${search.toLowerCase()}%`;
+
+      params.push(
+        term,
+        term,
+        term,
+        term,
+        term
+      );
+    }
+
+    if (countryId !== 'all' && /^\d+$/.test(countryId)) {
+      where.push('fc.id = ?');
+      params.push(Number(countryId));
+    }
+
+    if (status === 'active') {
+      where.push('fsi.is_active = 1');
+    } else if (status === 'inactive') {
+      where.push('(fsi.id IS NULL OR fsi.is_active = 0)');
+    }
+
+    const whereSql = where.length
+      ? `WHERE ${where.join(' AND ')}`
+      : '';
+
+    const [countries] = await promisePool.query(`
+      SELECT
+        id,
+        code,
+        custom_name,
+        iso
+      FROM fivesim_countries
+      ORDER BY
+        COALESCE(custom_name, code) ASC
+    `);
+
+    const countSql = `
+      SELECT COUNT(*) AS total
+      FROM (
+        SELECT
+          fp.country_id,
+          fp.service_id
+        FROM fivesim_prices fp
+        JOIN fivesim_countries fc
+          ON fc.id = fp.country_id
+        JOIN fivesim_services fs
+          ON fs.id = fp.service_id
+        LEFT JOIN fivesim_store_items fsi
+          ON fsi.country_id = fp.country_id
+         AND fsi.service_id = fp.service_id
+        ${whereSql}
+        GROUP BY
+          fp.country_id,
+          fp.service_id
+      ) grouped_items
+    `;
+
+    const [[countRow]] = await promisePool.query(
+      countSql,
+      params
+    );
+
+    const total = Number(countRow?.total || 0);
+    const pages = Math.max(1, Math.ceil(total / limit));
+
+    const listSql = `
+      SELECT
+        fp.country_id,
+        fp.service_id,
+
+        fc.code AS country_code,
+        fc.custom_name AS country_name,
+        fc.iso AS country_iso,
+        fc.prefix AS country_prefix,
+
+        fs.product_code,
+        fs.provider_name,
+        fs.custom_name AS service_custom_name,
+        fs.image AS service_image,
+
+        fsi.id AS store_item_id,
+        fsi.custom_name AS store_custom_name,
+        fsi.sell_price,
+        fsi.selection_mode,
+        fsi.minimum_rate,
+        fsi.maximum_provider_price,
+        fsi.is_active,
+        fsi.is_featured,
+        fsi.sort_order,
+
+        MIN(
+          CASE
+            WHEN fp.available_count > 0
+             AND fp.is_out_of_stock = 0
+            THEN fp.provider_price
+            ELSE NULL
+          END
+        ) AS cheapest_provider_price,
+
+        SUM(
+          CASE
+            WHEN fp.available_count > 0
+             AND fp.is_out_of_stock = 0
+            THEN fp.available_count
+            ELSE 0
+          END
+        ) AS total_available,
+
+        MAX(fp.delivery_rate) AS best_rate,
+
+        COUNT(
+          CASE
+            WHEN fp.available_count > 0
+             AND fp.is_out_of_stock = 0
+            THEN 1
+            ELSE NULL
+          END
+        ) AS available_operators
+
+      FROM fivesim_prices fp
+
+      JOIN fivesim_countries fc
+        ON fc.id = fp.country_id
+
+      JOIN fivesim_services fs
+        ON fs.id = fp.service_id
+
+      LEFT JOIN fivesim_store_items fsi
+        ON fsi.country_id = fp.country_id
+       AND fsi.service_id = fp.service_id
+
+      ${whereSql}
+
+      GROUP BY
+        fp.country_id,
+        fp.service_id,
+        fc.code,
+        fc.custom_name,
+        fc.iso,
+        fc.prefix,
+        fs.product_code,
+        fs.provider_name,
+        fs.custom_name,
+        fs.image,
+        fsi.id,
+        fsi.custom_name,
+        fsi.sell_price,
+        fsi.selection_mode,
+        fsi.minimum_rate,
+        fsi.maximum_provider_price,
+        fsi.is_active,
+        fsi.is_featured,
+        fsi.sort_order
+
+      ORDER BY
+        fsi.is_active DESC,
+        fsi.sort_order ASC,
+        fs.product_code ASC,
+        fc.code ASC
+
+      LIMIT ? OFFSET ?
+    `;
+
+    const [items] = await promisePool.query(
+      listSql,
+      [...params, limit, offset]
+    );
+
+    return res.render('admin-fivesim-services', {
+      user: req.session.user,
+      items,
+      countries,
+      filters: {
+        search,
+        country_id: countryId,
+        status
+      },
+      meta: {
+        total,
+        page,
+        pages,
+        limit
+      }
+    });
+  } catch (error) {
+    console.error(
+      '❌ GET /admin/fivesim-services:',
+      error
+    );
+
+    return res.status(500).send(
+      String(error.message || error)
+    );
+  }
+});
+
+app.post(
+  '/admin/fivesim-services/save',
+  checkAdmin,
+  async (req, res) => {
+    const countryId = Number(req.body.country_id);
+    const serviceId = Number(req.body.service_id);
+
+    const customName =
+      String(req.body.custom_name || '')
+        .trim()
+        .slice(0, 150) || null;
+
+    const sellPrice = Number(req.body.sell_price);
+
+    const selectionMode = [
+      'cheapest',
+      'balanced',
+      'quality'
+    ].includes(req.body.selection_mode)
+      ? req.body.selection_mode
+      : 'balanced';
+
+    const minimumRate = Math.max(
+      0,
+      Number(req.body.minimum_rate || 0)
+    );
+
+    const maxProviderPriceRaw =
+      String(req.body.maximum_provider_price || '').trim();
+
+    const maximumProviderPrice =
+      maxProviderPriceRaw === ''
+        ? null
+        : Number(maxProviderPriceRaw);
+
+    const isActive =
+      req.body.is_active === '1' ? 1 : 0;
+
+    const isFeatured =
+      req.body.is_featured === '1' ? 1 : 0;
+
+    const sortOrder =
+      parseInt(req.body.sort_order || '0', 10) || 0;
+
+    if (
+      !Number.isInteger(countryId) ||
+      countryId <= 0 ||
+      !Number.isInteger(serviceId) ||
+      serviceId <= 0
+    ) {
+      return res.status(400).send('Invalid service or country');
+    }
+
+    if (
+      !Number.isFinite(sellPrice) ||
+      sellPrice < 0
+    ) {
+      return res.status(400).send('Invalid sell price');
+    }
+
+    if (
+      maximumProviderPrice !== null &&
+      (
+        !Number.isFinite(maximumProviderPrice) ||
+        maximumProviderPrice < 0
+      )
+    ) {
+      return res.status(400).send(
+        'Invalid maximum provider price'
+      );
+    }
+
+    try {
+      await promisePool.query(
+        `
+        INSERT INTO fivesim_store_items
+          (
+            country_id,
+            service_id,
+            custom_name,
+            sell_price,
+            selection_mode,
+            minimum_rate,
+            maximum_provider_price,
+            is_active,
+            is_featured,
+            sort_order
+          )
+        VALUES
+          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+        ON DUPLICATE KEY UPDATE
+          custom_name = VALUES(custom_name),
+          sell_price = VALUES(sell_price),
+          selection_mode = VALUES(selection_mode),
+          minimum_rate = VALUES(minimum_rate),
+          maximum_provider_price =
+            VALUES(maximum_provider_price),
+          is_active = VALUES(is_active),
+          is_featured = VALUES(is_featured),
+          sort_order = VALUES(sort_order),
+          updated_at = NOW()
+        `,
+        [
+          countryId,
+          serviceId,
+          customName,
+          Number(sellPrice.toFixed(4)),
+          selectionMode,
+          Number(minimumRate.toFixed(2)),
+          maximumProviderPrice === null
+            ? null
+            : Number(maximumProviderPrice.toFixed(4)),
+          isActive,
+          isFeatured,
+          sortOrder
+        ]
+      );
+
+      const returnTo =
+        String(req.body.return_to || '')
+          .startsWith('/admin/fivesim-services')
+          ? req.body.return_to
+          : '/admin/fivesim-services';
+
+      return res.redirect(returnTo);
+    } catch (error) {
+      console.error(
+        '❌ POST /admin/fivesim-services/save:',
+        error
+      );
+
+      return res.status(500).send(
+        String(error.message || error)
+      );
+    }
+  }
+);
+
 
 app.get('/admin/dev/find-product/:id', checkAdmin, async (req, res) => {
   // ✅ منع كاش المتصفح لهاي الصفحة (Dev only)

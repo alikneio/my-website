@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – Virtual Numbers Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet" href="/css/bootstrap.css" />
+  <link rel="stylesheet" href="/css/custom.css" />
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    body { font-family: "Cairo", sans-serif; background: #f6f8fb; }
+    .page-wrap { max-width: 1550px; }
+    .control-card { border: 0; border-radius: 18px; box-shadow: 0 10px 30px rgba(22,34,51,.07); }
+    .top-title { font-weight: 700; letter-spacing: -.4px; }
+    .stat-chip { display:inline-flex; align-items:center; gap:7px; padding:7px 11px; border:1px solid #e5e9f2; border-radius:999px; background:#fff; color:#667085; font-size:.85rem; }
+    .service-cell { min-width:220px; }
+    .country-cell { min-width:165px; }
+    .price-cell { min-width:135px; }
+    .settings-cell { min-width:260px; }
+    .status-cell { min-width:155px; }
+    .operator-cell { min-width:170px; }
+    .table thead th { font-size:.78rem; text-transform:uppercase; color:#667085; white-space:nowrap; border-bottom-width:1px; }
+    .table tbody td { vertical-align:middle; }
+    .service-logo { width:42px; height:42px; border-radius:12px; object-fit:cover; background:#f1f4f8; border:1px solid #e6eaf0; }
+    .service-logo-placeholder { width:42px; height:42px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background:#eef4ff; color:#0d6efd; border:1px solid #dce8ff; font-size:1.1rem; }
+    .soft-badge { display:inline-flex; align-items:center; gap:5px; padding:5px 8px; border-radius:999px; font-size:.75rem; font-weight:600; }
+    .soft-green { background:#eaf8f0; color:#198754; }
+    .soft-red { background:#fff0f0; color:#dc3545; }
+    .soft-blue { background:#eef4ff; color:#0d6efd; }
+    .soft-gray { background:#f2f4f7; color:#667085; }
+    .quick-form { display:grid; gap:10px; }
+    .quick-form .form-control, .quick-form .form-select { min-height:38px; }
+    .mini-label { display:block; margin-bottom:4px; font-size:.72rem; color:#7a8494; text-transform:uppercase; font-weight:700; }
+    .danger-price { color:#dc3545; font-weight:700; }
+    .safe-price { color:#198754; font-weight:700; }
+    .sticky-actions { position:sticky; right:0; background:#fff; z-index:2; box-shadow:-10px 0 18px rgba(35,45,60,.04); }
+    .table thead .sticky-actions { background:#f8f9fa; z-index:3; }
+    .form-switch .form-check-input { cursor:pointer; }
+    .pagination .page-link { border-radius:10px; margin:0 2px; }
+    .empty-state { padding:60px 20px; text-align:center; color:#7a8494; }
+    .empty-state i { font-size:2.4rem; margin-bottom:12px; display:block; color:#b5bdca; }
+    @media (max-width:991px) { .sticky-actions { position:static; box-shadow:none; } }
+  </style>
+</head>
+<body>
+  <%- include('partials/admin-sidebar', { user: user }) %>
+
+  <main class="main-content">
+    <div class="container-fluid py-4 page-wrap">
+
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+          <h1 class="h4 mb-1 top-title">
+            <i class="bi bi-phone me-2"></i>
+            Virtual Numbers Control
+          </h1>
+          <div class="text-muted small">
+            Manage country + service pricing. Operators are selected automatically by the system.
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+          <span class="stat-chip">
+            <i class="bi bi-grid"></i>
+            <strong><%= Number(meta?.total || 0).toLocaleString() %></strong>
+            combinations
+          </span>
+
+          <a href="/admin/fivesim/sync" class="btn btn-primary">
+            <i class="bi bi-arrow-repeat me-1"></i>
+            Sync Provider
+          </a>
+        </div>
+      </div>
+
+      <div class="card control-card mb-4">
+        <div class="card-body p-4">
+          <form method="get" action="/admin/fivesim-services" class="row g-3 align-items-end">
+            <div class="col-xl-5 col-md-6">
+              <label class="form-label small text-uppercase text-muted fw-bold">Search</label>
+              <input type="text" name="search" class="form-control" placeholder="Telegram, WhatsApp, USA, Germany..." value="<%= filters?.search || '' %>" />
+            </div>
+
+            <div class="col-xl-3 col-md-3">
+              <label class="form-label small text-uppercase text-muted fw-bold">Country</label>
+              <select name="country_id" class="form-select">
+                <option value="all" <%= filters?.country_id === 'all' ? 'selected' : '' %>>All countries</option>
+                <% (countries || []).forEach(function(country) { %>
+                  <option value="<%= country.id %>" <%= String(filters?.country_id) === String(country.id) ? 'selected' : '' %>>
+                    <%= country.custom_name || country.code %>
+                    <%= country.iso ? `(${country.iso.toUpperCase()})` : '' %>
+                  </option>
+                <% }); %>
+              </select>
+            </div>
+
+            <div class="col-xl-2 col-md-3">
+              <label class="form-label small text-uppercase text-muted fw-bold">Status</label>
+              <select name="status" class="form-select">
+                <option value="all" <%= filters?.status === 'all' ? 'selected' : '' %>>All</option>
+                <option value="active" <%= filters?.status === 'active' ? 'selected' : '' %>>Active</option>
+                <option value="inactive" <%= filters?.status === 'inactive' ? 'selected' : '' %>>Inactive</option>
+              </select>
+            </div>
+
+            <div class="col-xl-2 col-md-12 d-flex gap-2">
+              <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-funnel me-1"></i>Apply</button>
+              <a href="/admin/fivesim-services" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card control-card">
+        <div class="card-body p-0">
+          <div class="d-flex justify-content-between align-items-center px-4 py-3 border-bottom">
+            <div>
+              <div class="fw-bold">Store combinations</div>
+              <div class="small text-muted">Each row represents one service in one country.</div>
+            </div>
+            <div class="small text-muted">Page <strong><%= meta?.page || 1 %></strong> of <strong><%= meta?.pages || 1 %></strong></div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Service</th>
+                  <th>Country</th>
+                  <th>Provider data</th>
+                  <th>Sell price</th>
+                  <th>Selection</th>
+                  <th>Status</th>
+                  <th class="text-end sticky-actions">Save</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <% if (!items || !items.length) { %>
+                  <tr>
+                    <td colspan="7">
+                      <div class="empty-state">
+                        <i class="bi bi-search"></i>
+                        <div class="fw-bold mb-1">No results found</div>
+                        <div>Try changing the filters or search term.</div>
+                      </div>
+                    </td>
+                  </tr>
+                <% } else { %>
+                  <% items.forEach(function(item) { %>
+                    <%
+                      const providerPrice = Number(item.cheapest_provider_price || 0);
+                      const sellPrice = Number(item.sell_price || 0);
+                      const margin = sellPrice > 0 ? sellPrice - providerPrice : 0;
+                      const isLoss = sellPrice > 0 && providerPrice > sellPrice;
+                      const returnTo = '/admin/fivesim-services?' + new URLSearchParams({
+                        search: filters?.search || '',
+                        country_id: filters?.country_id || 'all',
+                        status: filters?.status || 'all',
+                        page: String(meta?.page || 1)
+                      }).toString();
+                    %>
+
+                    <tr>
+                      <td class="service-cell">
+                        <div class="d-flex align-items-center gap-3">
+                          <% if (item.service_image) { %>
+                            <img src="<%= item.service_image %>" alt="" class="service-logo" />
+                          <% } else { %>
+                            <span class="service-logo-placeholder"><i class="bi bi-chat-square-text"></i></span>
+                          <% } %>
+
+                          <div>
+                            <div class="fw-bold"><%= item.store_custom_name || item.service_custom_name || item.provider_name || item.product_code %></div>
+                            <div class="small text-muted">Code: <code><%= item.product_code %></code></div>
+                            <% if (item.store_item_id) { %>
+                              <span class="soft-badge soft-blue mt-1"><i class="bi bi-check2"></i>Configured</span>
+                            <% } else { %>
+                              <span class="soft-badge soft-gray mt-1">Not configured</span>
+                            <% } %>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td class="country-cell">
+                        <div class="fw-bold"><%= item.country_name || item.country_code %></div>
+                        <div class="small text-muted">
+                          <% if (item.country_iso) { %><%= item.country_iso.toUpperCase() %><% } %>
+                          <% if (item.country_prefix) { %> · <%= item.country_prefix %><% } %>
+                        </div>
+                      </td>
+
+                      <td class="operator-cell">
+                        <div class="mb-1">
+                          <span class="mini-label">Cheapest cost</span>
+                          <% if (providerPrice > 0) { %>
+                            <span class="<%= isLoss ? 'danger-price' : '' %>">$<%= providerPrice.toFixed(4) %></span>
+                          <% } else { %>
+                            <span class="text-muted">Unavailable</span>
+                          <% } %>
+                        </div>
+                        <div class="small mb-1"><span class="text-muted">Available:</span> <strong><%= Number(item.total_available || 0).toLocaleString() %></strong></div>
+                        <div class="small mb-1"><span class="text-muted">Operators:</span> <strong><%= Number(item.available_operators || 0) %></strong></div>
+                        <div class="small"><span class="text-muted">Best rate:</span> <strong><%= Number(item.best_rate || 0).toFixed(2) %></strong></div>
+                      </td>
+
+                      <td class="price-cell">
+                        <form id="save-form-<%= item.country_id %>-<%= item.service_id %>" method="post" action="/admin/fivesim-services/save" class="quick-form">
+                          <input type="hidden" name="country_id" value="<%= item.country_id %>" />
+                          <input type="hidden" name="service_id" value="<%= item.service_id %>" />
+                          <input type="hidden" name="return_to" value="<%= returnTo %>" />
+
+                          <div>
+                            <label class="mini-label">Customer price</label>
+                            <div class="input-group input-group-sm">
+                              <span class="input-group-text">$</span>
+                              <input type="number" name="sell_price" class="form-control" step="0.0001" min="0" value="<%= Number(item.sell_price || 0).toFixed(4) %>" required />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label class="mini-label">Public name</label>
+                            <input type="text" name="custom_name" class="form-control form-control-sm" maxlength="150" placeholder="Optional custom name" value="<%= item.store_custom_name || '' %>" />
+                          </div>
+
+                          <% if (sellPrice > 0) { %>
+                            <div class="small">Margin: <span class="<%= isLoss ? 'danger-price' : 'safe-price' %>"><%= margin >= 0 ? '+' : '' %>$<%= margin.toFixed(4) %></span></div>
+                          <% } %>
+                        </form>
+                      </td>
+
+                      <td class="settings-cell">
+                        <div class="quick-form">
+                          <div>
+                            <label class="mini-label">Selection mode</label>
+                            <select name="selection_mode" class="form-select form-select-sm" form="save-form-<%= item.country_id %>-<%= item.service_id %>">
+                              <option value="cheapest" <%= item.selection_mode === 'cheapest' ? 'selected' : '' %>>Cheapest</option>
+                              <option value="balanced" <%= (!item.selection_mode || item.selection_mode === 'balanced') ? 'selected' : '' %>>Balanced</option>
+                              <option value="quality" <%= item.selection_mode === 'quality' ? 'selected' : '' %>>Best quality</option>
+                            </select>
+                          </div>
+
+                          <div class="row g-2">
+                            <div class="col-6">
+                              <label class="mini-label">Minimum rate</label>
+                              <input type="number" name="minimum_rate" class="form-control form-control-sm" step="0.01" min="0" value="<%= Number(item.minimum_rate || 0).toFixed(2) %>" form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
+                            </div>
+                            <div class="col-6">
+                              <label class="mini-label">Max cost</label>
+                              <input type="number" name="maximum_provider_price" class="form-control form-control-sm" step="0.0001" min="0" placeholder="No limit" value="<%= item.maximum_provider_price === null || item.maximum_provider_price === undefined ? '' : Number(item.maximum_provider_price).toFixed(4) %>" form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label class="mini-label">Sort order</label>
+                            <input type="number" name="sort_order" class="form-control form-control-sm" value="<%= Number(item.sort_order || 0) %>" form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
+                          </div>
+                        </div>
+                      </td>
+
+                      <td class="status-cell">
+                        <div class="d-grid gap-2">
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" value="1" name="is_active" id="active-<%= item.country_id %>-<%= item.service_id %>" <%= Number(item.is_active) === 1 ? 'checked' : '' %> form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
+                            <label class="form-check-label" for="active-<%= item.country_id %>-<%= item.service_id %>">Active</label>
+                          </div>
+
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" value="1" name="is_featured" id="featured-<%= item.country_id %>-<%= item.service_id %>" <%= Number(item.is_featured) === 1 ? 'checked' : '' %> form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
+                            <label class="form-check-label" for="featured-<%= item.country_id %>-<%= item.service_id %>">Featured</label>
+                          </div>
+
+                          <% if (Number(item.total_available || 0) > 0) { %>
+                            <span class="soft-badge soft-green"><i class="bi bi-check-circle"></i>Available</span>
+                          <% } else { %>
+                            <span class="soft-badge soft-red"><i class="bi bi-x-circle"></i>Out of stock</span>
+                          <% } %>
+
+                          <% if (isLoss) { %>
+                            <span class="soft-badge soft-red"><i class="bi bi-exclamation-triangle"></i>Selling below cost</span>
+                          <% } %>
+                        </div>
+                      </td>
+
+                      <td class="text-end sticky-actions">
+                        <button type="submit" class="btn btn-primary btn-sm" form="save-form-<%= item.country_id %>-<%= item.service_id %>">
+                          <i class="bi bi-save me-1"></i>Save
+                        </button>
+                      </td>
+                    </tr>
+                  <% }); %>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+
+          <% if (meta && meta.pages > 1) { %>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 px-4 py-3 border-top">
+              <div class="small text-muted">
+                Showing <strong><%= ((meta.page - 1) * meta.limit) + 1 %></strong> to <strong><%= Math.min(meta.page * meta.limit, meta.total) %></strong> of <strong><%= meta.total %></strong>
+              </div>
+
+              <nav aria-label="Pagination">
+                <ul class="pagination pagination-sm mb-0">
+                  <%
+                    const page = Number(meta.page || 1);
+                    const pages = Number(meta.pages || 1);
+                    const startPage = Math.max(1, page - 2);
+                    const endPage = Math.min(pages, page + 2);
+
+                    function pageUrl(targetPage) {
+                      return '/admin/fivesim-services?' + new URLSearchParams({
+                        search: filters?.search || '',
+                        country_id: filters?.country_id || 'all',
+                        status: filters?.status || 'all',
+                        page: String(targetPage)
+                      }).toString();
+                    }
+                  %>
+
+                  <li class="page-item <%= page <= 1 ? 'disabled' : '' %>">
+                    <a class="page-link" href="<%= page <= 1 ? '#' : pageUrl(page - 1) %>"><i class="bi bi-chevron-left"></i></a>
+                  </li>
+
+                  <% if (startPage > 1) { %>
+                    <li class="page-item"><a class="page-link" href="<%= pageUrl(1) %>">1</a></li>
+                    <% if (startPage > 2) { %><li class="page-item disabled"><span class="page-link">…</span></li><% } %>
+                  <% } %>
+
+                  <% for (let p = startPage; p <= endPage; p += 1) { %>
+                    <li class="page-item <%= p === page ? 'active' : '' %>"><a class="page-link" href="<%= pageUrl(p) %>"><%= p %></a></li>
+                  <% } %>
+
+                  <% if (endPage < pages) { %>
+                    <% if (endPage < pages - 1) { %><li class="page-item disabled"><span class="page-link">…</span></li><% } %>
+                    <li class="page-item"><a class="page-link" href="<%= pageUrl(pages) %>"><%= pages %></a></li>
+                  <% } %>
+
+                  <li class="page-item <%= page >= pages ? 'disabled' : '' %>">
+                    <a class="page-link" href="<%= page >= pages ? '#' : pageUrl(page + 1) %>"><i class="bi bi-chevron-right"></i></a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.querySelectorAll('form.quick-form').forEach(function (form) {
+      form.addEventListener('submit', function () {
+        const button = document.querySelector('[form="' + form.id + '"][type="submit"]');
+        if (!button) return;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving';
+      });
+    });
+  </script>
+</body>
+</html>
