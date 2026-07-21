@@ -68,7 +68,11 @@ const makeSyncSMMJob = require('./jobs/syncSMM');
 const syncSMM = makeSyncSMMJob(db, promisePool);
 const makeSyncJob = require('./jobs/syncProviderOrders');
 const syncJob = makeSyncJob(db, promisePool);
+const makeSyncFiveSimCatalogJob =
+  require('./jobs/syncFiveSimCatalog');
 
+const syncFiveSimCatalog =
+  makeSyncFiveSimCatalogJob(promisePool);
 
 
 // ===============================
@@ -2918,6 +2922,42 @@ app.get('/notifications/count', (req, res) => {
     res.json({ count: result[0].count });
   });
 });
+
+let fiveSimCatalogSyncRunning = false;
+
+app.get(
+  '/admin/fivesim/sync',
+  checkAdmin,
+  async (req, res) => {
+    if (fiveSimCatalogSyncRunning) {
+      return res.status(409).json({
+        success: false,
+        message: '5SIM catalog sync is already running.',
+      });
+    }
+
+    fiveSimCatalogSyncRunning = true;
+
+    try {
+      const result = await syncFiveSimCatalog();
+
+      return res.json({
+        success: true,
+        message: '5SIM catalog synced successfully.',
+        data: result,
+      });
+    } catch (error) {
+      return res.status(
+        error.httpStatus || 500
+      ).json({
+        success: false,
+        message: error.message || '5SIM sync failed',
+      });
+    } finally {
+      fiveSimCatalogSyncRunning = false;
+    }
+  }
+);
 
 
 app.get('/admin/balance-requests', checkAdmin, (req, res) => {
