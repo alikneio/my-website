@@ -73,6 +73,9 @@ const makeSyncFiveSimCatalogJob =
 
 const syncFiveSimCatalog =
   makeSyncFiveSimCatalogJob(promisePool);
+  const {
+  startFiveSimOrderJob
+} = require('./jobs/fivesim-order-job');
 
 
 // ===============================
@@ -11371,6 +11374,11 @@ app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
   }
 });
 
+startFiveSimOrderJob({
+  promisePool,
+  getFiveSimOrder,
+  cancelFiveSimOrder
+});
 
 const bot = require('./telegram/bot');
 
