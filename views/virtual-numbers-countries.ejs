@@ -9,6 +9,93 @@
     <link rel="stylesheet" href="/css/custom.css">
     <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        .country-card-visual {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+            background:
+                linear-gradient(135deg, rgba(7, 13, 26, .97), rgba(35, 44, 62, .94)),
+                url('/images/new banner.png') center/cover no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .country-card-visual img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .country-fallback {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .country-flag {
+            font-size: 5rem;
+            line-height: 1;
+            filter: drop-shadow(0 8px 18px rgba(0,0,0,.25));
+        }
+
+        .country-name-on-image {
+            font-size: 1.35rem;
+            font-weight: 700;
+        }
+
+        .country-meta {
+            font-size: .84rem;
+            font-weight: 400;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+
+        .country-availability {
+            color: #198754;
+            font-size: .84rem;
+            margin-top: 4px;
+        }
+
+        .country-price {
+            color: #0d6efd;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        .category-card .card-body {
+            min-height: 118px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        @media (max-width: 576px) {
+            .country-flag {
+                font-size: 3.5rem;
+            }
+
+            .country-name-on-image {
+                font-size: 1.05rem;
+            }
+
+            .category-card .card-body {
+                padding: 1rem .65rem;
+                min-height: 110px;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -18,7 +105,7 @@
 <div class="hero-section">
     <h1 class="display-4"><%= service.name %></h1>
     <p class="lead col-lg-8 mx-auto">
-        Select an available country to continue to checkout.
+        Select an available country to continue.
     </p>
 </div>
 
@@ -39,10 +126,7 @@
 </div>
 
 <div class="container my-5 py-5">
-
-    <h2 class="text-center section-title">
-        Select a Country
-    </h2>
+    <h2 class="text-center section-title">Select a Country</h2>
 
     <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
 
@@ -55,20 +139,54 @@
         <% } else { %>
 
             <% countries.forEach(function(country) { %>
+                <%
+                    function isoToFlag(iso) {
+                        const cleanIso = String(iso || '').trim().toUpperCase();
+                        if (!/^[A-Z]{2}$/.test(cleanIso)) return '🌐';
+
+                        return cleanIso
+                            .split('')
+                            .map(letter =>
+                                String.fromCodePoint(
+                                    127397 + letter.charCodeAt(0)
+                                )
+                            )
+                            .join('');
+                    }
+
+                    const flag = isoToFlag(country.iso);
+                %>
+
                 <div class="col">
                     <a
                         href="/virtual-numbers/checkout/<%= country.store_item_id %>"
-                        class="category-card service-card"
+                        class="category-card service-card h-100"
                     >
-                        <img
-                            src="<%= country.image || '/images/default-category.png' %>"
-                            class="card-img"
-                            alt="<%= country.name %>"
-                            loading="lazy"
-                            onerror="this.src='/images/default-category.png'"
-                        >
+                        <div class="country-card-visual">
+                            <% if (country.image) { %>
+                                <img
+                                    src="<%= country.image %>"
+                                    alt="<%= country.name %>"
+                                    loading="lazy"
+                                    onerror="
+                                        this.style.display='none';
+                                        this.nextElementSibling.style.display='flex';
+                                    "
+                                >
+                            <% } %>
 
-                        <div class="card-body">
+                            <div
+                                class="country-fallback"
+                                style="<%= country.image ? 'display:none;' : 'display:flex;' %>"
+                            >
+                                <div class="country-flag"><%= flag %></div>
+                                <div class="country-name-on-image">
+                                    <%= country.name %>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-body text-center">
                             <div>
                                 <%= country.name %>
                                 <% if (country.iso) { %>
@@ -79,18 +197,18 @@
                             </div>
 
                             <% if (country.prefix) { %>
-                                <div class="small text-muted mt-1">
+                                <div class="country-meta">
                                     <%= country.prefix %>
                                 </div>
                             <% } %>
 
-                            <div class="small text-success mt-1">
-                                <i class="bi bi-check-circle"></i>
+                            <div class="country-availability">
+                                <i class="bi bi-check-circle-fill"></i>
                                 <%= Number(country.available_count || 0).toLocaleString() %>
                                 available
                             </div>
 
-                            <div class="text-primary fw-bold mt-2">
+                            <div class="country-price">
                                 $<%= Number(country.sell_price || 0).toFixed(2) %>
                             </div>
                         </div>
@@ -101,14 +219,12 @@
         <% } %>
 
     </div>
-
 </div>
 
 <%- include('partials/footer') %>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-
     const input = document.getElementById("searchInput");
     const form = document.getElementById("searchForm");
 
@@ -117,22 +233,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (input) {
-        input.addEventListener("input", function(){
-
+        input.addEventListener("input", function () {
             const value = this.value.toLowerCase().trim();
 
             document.querySelectorAll(".category-card").forEach(card => {
-
                 const wrapper = card.closest(".col");
                 const title = card.innerText.toLowerCase();
-
-                wrapper.style.display =
-                    title.includes(value) ? "" : "none";
+                wrapper.style.display = title.includes(value) ? "" : "none";
             });
-
         });
     }
-
 });
 </script>
 
