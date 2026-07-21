@@ -2973,25 +2973,63 @@ app.get('/admin/fivesim/test', checkAdmin, async (req, res) => {
   }
 });
 
-app.get("/admin/fivesim/debug", checkAdmin, async (req, res) => {
-
-    const {
+app.get(
+  '/admin/fivesim/debug',
+  checkAdmin,
+  async (req, res) => {
+    try {
+      const {
         getCountries,
         getProducts,
-        getPrices
-    } = require("./services/fivesim");
+        getPrices,
+      } = require('./services/fivesim');
 
-    res.json({
+      const countries = await getCountries();
 
-        countries: await getCountries(),
+      const products = await getProducts({
+        country: 'usa',
+        operator: 'any',
+      });
 
-        products: await getProducts(),
+      const prices = await getPrices({
+        country: 'usa',
+        product: 'telegram',
+      });
 
-        prices: await getPrices()
+      const countryEntries =
+        Object.entries(countries || {}).slice(0, 3);
 
-    });
+      const productEntries =
+        Object.entries(products || {}).slice(0, 10);
 
-});
+      return res.json({
+        success: true,
+
+        countriesSample:
+          Object.fromEntries(countryEntries),
+
+        productsSample:
+          Object.fromEntries(productEntries),
+
+        telegramUsaPrices: prices,
+      });
+    } catch (error) {
+      console.error('❌ 5SIM debug error:', {
+        message: error.message,
+        status: error.httpStatus,
+        payload: error.providerPayload,
+      });
+
+      return res.status(
+        error.httpStatus || 500
+      ).json({
+        success: false,
+        message: error.message,
+        payload: error.providerPayload || null,
+      });
+    }
+  }
+);
 
 
 const fetch = require('node-fetch');

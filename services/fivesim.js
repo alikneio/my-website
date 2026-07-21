@@ -29,7 +29,9 @@ function getAuthHeaders() {
 }
 
 function getProviderErrorMessage(data) {
-  if (!data) return 'Empty response from 5SIM';
+  if (data === undefined || data === null || data === '') {
+    return 'Empty response from 5SIM';
+  }
 
   if (typeof data === 'string') {
     return data;
@@ -49,7 +51,7 @@ function getProviderErrorMessage(data) {
 
   try {
     return JSON.stringify(data);
-  } catch {
+  } catch (_) {
     return 'Unknown 5SIM error';
   }
 }
@@ -72,8 +74,6 @@ async function callFiveSim({
       headers: auth
         ? getAuthHeaders()
         : { Accept: 'application/json' },
-
-      // منع Axios من رمي الخطأ قبل أن نفحص الرد
       validateStatus: () => true,
     });
 
@@ -86,6 +86,7 @@ async function callFiveSim({
 
       error.httpStatus = status;
       error.providerPayload = data;
+
       throw error;
     }
 
@@ -95,51 +96,34 @@ async function callFiveSim({
 
     return data;
   } catch (error) {
-    if (error.providerPayload) {
+    // الخطأ تم تجهيزه مسبقًا داخل الدالة
+    if (error.providerPayload !== undefined) {
       throw error;
     }
 
-    const message =
-      error.response?.data
-        ? getProviderErrorMessage(error.response.data)
-        : error.message;
+    const responseData = error.response?.data;
 
-    const wrappedError = new Error(`5SIM request failed: ${message}`);
+    const message =
+      responseData !== undefined
+        ? getProviderErrorMessage(responseData)
+        : error.message || 'Unknown request error';
+
+    const wrappedError = new Error(
+      `5SIM request failed: ${message}`
+    );
 
     wrappedError.code = error.code;
     wrappedError.httpStatus = error.response?.status;
-    wrappedError.providerPayload = error.response?.data;
+    wrappedError.providerPayload = responseData;
 
     throw wrappedError;
   }
-}
-
-async function getCountries() {
-  return callFiveSim({
-    url: "/guest/countries",
-    auth: false,
-  });
-}
-
-async function getProducts() {
-  return callFiveSim({
-    url: "/guest/products",
-    auth: false,
-  });
-}
-
-async function getPrices() {
-  return callFiveSim({
-    url: "/guest/prices",
-    auth: false,
-  });
 }
 
 // =====================================
 // User
 // =====================================
 
-// اختبار المفتاح + جلب الرصيد
 async function getFiveSimProfile() {
   const data = await callFiveSim({
     url: '/user/profile',
@@ -170,21 +154,75 @@ async function getFiveSimProfile() {
 }
 
 // =====================================
-// Public prices
+// Countries
 // =====================================
 
-async function getFiveSimPrices({
+async function getCountries() {
+  return callFiveSim({
+    url: '/guest/countries',
+    auth: false,
+  });
+}
+
+// =====================================
+// Products
+// Endpoint:
+// /guest/products/{country}/{operator}
+// =====================================
+
+async function getProducts({
+  country = 'any',
+  operator = 'any',
+} = {}) {
+  const cleanCountry =
+    String(country || 'any')
+      .trim()
+      .toLowerCase();
+
+  const cleanOperator =
+    String(operator || 'any')
+      .trim()
+      .toLowerCase();
+
+  if (!cleanCountry) {
+    throw new Error('5SIM country is required');
+  }
+
+  if (!cleanOperator) {
+    throw new Error('5SIM operator is required');
+  }
+
+  return callFiveSim({
+    url:
+      `/guest/products/${encodeURIComponent(cleanCountry)}` +
+      `/${encodeURIComponent(cleanOperator)}`,
+    auth: false,
+  });
+}
+
+// =====================================
+// Prices
+// Endpoint:
+// /guest/prices
+// Optional query: country, product
+// =====================================
+
+async function getPrices({
   country,
   product,
 } = {}) {
   const params = {};
 
   if (country) {
-    params.country = String(country).trim().toLowerCase();
+    params.country = String(country)
+      .trim()
+      .toLowerCase();
   }
 
   if (product) {
-    params.product = String(product).trim().toLowerCase();
+    params.product = String(product)
+      .trim()
+      .toLowerCase();
   }
 
   return callFiveSim({
@@ -195,10 +233,8 @@ async function getFiveSimPrices({
 }
 
 module.exports = {
-    getFiveSimProfile,
-    getFiveSimPrices,
-
-    getCountries,
-    getProducts,
-    getPrices
+  getFiveSimProfile,
+  getCountries,
+  getProducts,
+  getPrices,
 };
