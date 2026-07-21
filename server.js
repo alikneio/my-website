@@ -10144,56 +10144,191 @@ app.get('/pubg-section', async (req, res) => {
 
 
 
-app.get('/order-details/:id', checkAuth, (req, res) => {
-  const orderId = Number(req.params.id);
-  const userId = req.session.user.id;
+app.get(
+  '/order-details/:id',
+  checkAuth,
+  async (req, res) => {
+    const orderId = Number(req.params.id);
+    const userId = Number(req.session.user?.id);
 
-  const sql = `
-    SELECT
-      o.*,
-      so.status          AS smm_status,
-      so.quantity        AS smm_quantity,
-      so.delivered_qty   AS smm_delivered_qty,
-      so.remains_qty     AS smm_remains_qty,
-      so.refund_amount   AS smm_refund_amount,
-      so.provider_status AS smm_provider_status
-    FROM orders o
-    LEFT JOIN smm_orders so
-      ON so.provider_order_id = o.provider_order_id
-    WHERE o.id = ? AND o.userId = ?
-    LIMIT 1
-  `;
-
-  db.query(sql, [orderId, userId], (err, rows) => {
-    if (err || rows.length === 0) {
-      console.error('order-details error:', err?.message || err);
-      return res.status(404).send("❌ Order not found or access denied.");
+    if (
+      !Number.isInteger(orderId) ||
+      orderId <= 0 ||
+      !Number.isInteger(userId) ||
+      userId <= 0
+    ) {
+      return res.status(400).send('Invalid order request.');
     }
 
-    const row = rows[0];
+    try {
+      const [rows] = await promisePool.query(
+        `
+        SELECT
+          o.*,
 
-    res.render('order-details', {
-      order: {
-        id: row.id,
-        productName: row.productName,
-        price: row.price,
-        purchaseDate: row.purchaseDate,
-        status: row.status,
-        order_details: row.order_details || '',
-        admin_reply: row.admin_reply || '',
-        provider_order_id: row.provider_order_id || null,
+          /* =========================
+             SMM only
+             ========================= */
+          so.status AS smm_status,
+          so.quantity AS smm_quantity,
+          so.delivered_qty AS smm_delivered_qty,
+          so.remains_qty AS smm_remains_qty,
+          so.refund_amount AS smm_refund_amount,
+          so.provider_status AS smm_provider_status,
 
-        // معلومات الـ SMM (بتكون null للطلبات العادية)
-        smm_status: row.smm_status || null,
-        smm_quantity: row.smm_quantity || null,
-        smm_delivered_qty: row.smm_delivered_qty || null,
-        smm_remains_qty: row.smm_remains_qty || null,
-        smm_refund_amount: row.smm_refund_amount || null,
-        smm_provider_status: row.smm_provider_status || null,
+          /* =========================
+             5SIM only
+             ========================= */
+          fvo.id AS fivesim_local_id,
+          fvo.provider_order_id AS fivesim_provider_order_id,
+          fvo.phone_number AS fivesim_phone_number,
+          fvo.sms_code AS fivesim_sms_code,
+          fvo.sms_text AS fivesim_sms_text,
+          fvo.country_code AS fivesim_country_code,
+          fvo.service_code AS fivesim_service_code,
+          fvo.status AS fivesim_status,
+          fvo.provider_status AS fivesim_provider_status,
+          fvo.expires_at AS fivesim_expires_at,
+          fvo.refunded AS fivesim_refunded,
+          fvo.refund_amount AS fivesim_refund_amount
+
+        FROM orders o
+
+        LEFT JOIN smm_orders so
+          ON o.provider = 'smm'
+         AND so.provider_order_id = o.provider_order_id
+
+        LEFT JOIN fivesim_orders fvo
+          ON o.provider = 'fivesim'
+         AND fvo.order_id = o.id
+
+        WHERE o.id = ?
+          AND o.userId = ?
+
+        LIMIT 1
+        `,
+        [orderId, userId]
+      );
+
+      if (!rows.length) {
+        return res
+          .status(404)
+          .send('❌ Order not found or access denied.');
       }
-    });
-  });
-});
+
+      const row = rows[0];
+
+      return res.render('order-details', {
+        user: req.session.user,
+
+        order: {
+          id: row.id,
+          userId: row.userId,
+          productName: row.productName,
+          price: row.price,
+          purchaseDate: row.purchaseDate,
+          status: row.status,
+
+          provider: row.provider || null,
+          source: row.source || null,
+          fulfillment_mode: row.fulfillment_mode || null,
+          stock_fallback: Number(row.stock_fallback || 0),
+
+          /*
+           * لطلبات 5SIM نخفي JSON من الواجهة.
+           * البيانات الحقيقية ستظهر من fivesim_orders.
+           */
+          order_details:
+            row.provider === 'fivesim'
+              ? ''
+              : row.order_details || '',
+
+          admin_reply: row.admin_reply || '',
+          provider_order_id:
+            row.provider_order_id || null,
+
+          refill_disabled:
+            Number(row.refill_disabled || 0),
+
+          // =========================
+          // SMM fields
+          // =========================
+
+          smm_status:
+            row.smm_status || null,
+
+          smm_quantity:
+            row.smm_quantity ?? null,
+
+          smm_delivered_qty:
+            row.smm_delivered_qty ?? null,
+
+          smm_remains_qty:
+            row.smm_remains_qty ?? null,
+
+          smm_refund_amount:
+            row.smm_refund_amount ?? null,
+
+          smm_provider_status:
+            row.smm_provider_status || null,
+
+          // =========================
+          // 5SIM fields
+          // =========================
+
+          fivesim_local_id:
+            row.fivesim_local_id || null,
+
+          fivesim_provider_order_id:
+            row.fivesim_provider_order_id || null,
+
+          fivesim_phone_number:
+            row.fivesim_phone_number || null,
+
+          fivesim_sms_code:
+            row.fivesim_sms_code || null,
+
+          fivesim_sms_text:
+            row.fivesim_sms_text || null,
+
+          fivesim_country_code:
+            row.fivesim_country_code || null,
+
+          fivesim_service_code:
+            row.fivesim_service_code || null,
+
+          fivesim_status:
+            row.fivesim_status || null,
+
+          fivesim_provider_status:
+            row.fivesim_provider_status || null,
+
+          fivesim_expires_at:
+            row.fivesim_expires_at || null,
+
+          fivesim_refunded:
+            Number(row.fivesim_refunded || 0),
+
+          fivesim_refund_amount:
+            Number(row.fivesim_refund_amount || 0)
+        }
+      });
+
+    } catch (error) {
+      console.error(
+        '❌ GET /order-details/:id error:',
+        {
+          orderId,
+          userId,
+          code: error.code,
+          message: error.message || error
+        }
+      );
+
+      return res.status(500).send('Server error');
+    }
+  }
+);
 
 
 app.get(
