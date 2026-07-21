@@ -8,88 +8,529 @@
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
 
   <style>
-    body { font-family: "Cairo", sans-serif; background: #f6f8fb; }
-    .page-wrap { max-width: 1550px; }
-    .control-card { border: 0; border-radius: 18px; box-shadow: 0 10px 30px rgba(22,34,51,.07); }
-    .top-title { font-weight: 700; letter-spacing: -.4px; }
-    .stat-chip { display:inline-flex; align-items:center; gap:7px; padding:7px 11px; border:1px solid #e5e9f2; border-radius:999px; background:#fff; color:#667085; font-size:.85rem; }
-    .service-cell { min-width:220px; }
-    .country-cell { min-width:165px; }
-    .price-cell { min-width:135px; }
-    .settings-cell { min-width:260px; }
-    .status-cell { min-width:155px; }
-    .operator-cell { min-width:170px; }
-    .table thead th { font-size:.78rem; text-transform:uppercase; color:#667085; white-space:nowrap; border-bottom-width:1px; }
-    .table tbody td { vertical-align:middle; }
-    .service-logo { width:42px; height:42px; border-radius:12px; object-fit:cover; background:#f1f4f8; border:1px solid #e6eaf0; }
-    .service-logo-placeholder { width:42px; height:42px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background:#eef4ff; color:#0d6efd; border:1px solid #dce8ff; font-size:1.1rem; }
-    .soft-badge { display:inline-flex; align-items:center; gap:5px; padding:5px 8px; border-radius:999px; font-size:.75rem; font-weight:600; }
-    .soft-green { background:#eaf8f0; color:#198754; }
-    .soft-red { background:#fff0f0; color:#dc3545; }
-    .soft-blue { background:#eef4ff; color:#0d6efd; }
-    .soft-gray { background:#f2f4f7; color:#667085; }
-    .quick-form { display:grid; gap:10px; }
-    .quick-form .form-control, .quick-form .form-select { min-height:38px; }
-    .mini-label { display:block; margin-bottom:4px; font-size:.72rem; color:#7a8494; text-transform:uppercase; font-weight:700; }
-    .danger-price { color:#dc3545; font-weight:700; }
-    .safe-price { color:#198754; font-weight:700; }
-    .sticky-actions { position:sticky; right:0; background:#fff; z-index:2; box-shadow:-10px 0 18px rgba(35,45,60,.04); }
-    .table thead .sticky-actions { background:#f8f9fa; z-index:3; }
-    .form-switch .form-check-input { cursor:pointer; }
-    .pagination .page-link { border-radius:10px; margin:0 2px; }
-    .empty-state { padding:60px 20px; text-align:center; color:#7a8494; }
-    .empty-state i { font-size:2.4rem; margin-bottom:12px; display:block; color:#b5bdca; }
-    @media (max-width:991px) { .sticky-actions { position:static; box-shadow:none; } }
+    :root {
+      --vn-primary: #1266f1;
+      --vn-primary-dark: #0d47b8;
+      --vn-success: #198754;
+      --vn-danger: #dc3545;
+      --vn-warning: #f59f00;
+      --vn-bg: #f4f7fb;
+      --vn-card: #ffffff;
+      --vn-border: rgba(18, 34, 51, .08);
+      --vn-text: #172033;
+      --vn-muted: #6b778c;
+      --vn-shadow: 0 14px 40px rgba(20, 35, 60, .08);
+    }
+
+    body {
+      font-family: "Cairo", sans-serif;
+      background: var(--vn-bg);
+      color: var(--vn-text);
+    }
+
+    .page-wrap {
+      max-width: 1560px;
+    }
+
+    .hero-panel {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      min-height: 230px;
+      padding: 28px;
+      color: #fff;
+      background:
+        linear-gradient(120deg, rgba(4, 15, 38, .98), rgba(16, 76, 170, .94)),
+        url('/images/virtual-numbers-admin-banner.webp') center/cover no-repeat;
+      box-shadow: 0 18px 50px rgba(5, 23, 58, .22);
+    }
+
+    .hero-panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 82% 28%, rgba(255,255,255,.19), transparent 20%),
+        radial-gradient(circle at 72% 76%, rgba(41, 211, 255, .18), transparent 25%);
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 760px;
+    }
+
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.18);
+      font-size: .8rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      backdrop-filter: blur(8px);
+    }
+
+    .hero-title {
+      font-size: clamp(1.7rem, 3vw, 2.65rem);
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .hero-text {
+      color: rgba(255,255,255,.78);
+      max-width: 680px;
+      margin-bottom: 22px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .hero-btn {
+      border-radius: 12px;
+      font-weight: 700;
+      padding: 10px 16px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: -34px;
+      position: relative;
+      z-index: 3;
+      padding-inline: 18px;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,.96);
+      border: 1px solid var(--vn-border);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: var(--vn-shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      font-size: 1.1rem;
+    }
+
+    .stat-icon.blue { background: rgba(18,102,241,.10); color: var(--vn-primary); }
+    .stat-icon.green { background: rgba(25,135,84,.10); color: var(--vn-success); }
+    .stat-icon.orange { background: rgba(245,159,0,.12); color: var(--vn-warning); }
+    .stat-icon.purple { background: rgba(132,72,255,.10); color: #7c3aed; }
+
+    .stat-label {
+      color: var(--vn-muted);
+      font-size: .78rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-top: 3px;
+    }
+
+    .panel-card {
+      border: 0;
+      border-radius: 20px;
+      box-shadow: var(--vn-shadow);
+      background: var(--vn-card);
+    }
+
+    .filters-card .form-control,
+    .filters-card .form-select {
+      min-height: 46px;
+      border-radius: 12px;
+    }
+
+    .view-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .service-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .service-card {
+      border: 1px solid var(--vn-border);
+      border-radius: 20px;
+      background: #fff;
+      box-shadow: 0 10px 28px rgba(18,34,51,.055);
+      overflow: hidden;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .service-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 34px rgba(18,34,51,.09);
+    }
+
+    .service-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px;
+      border-bottom: 1px solid var(--vn-border);
+      background:
+        linear-gradient(135deg, rgba(18,102,241,.055), rgba(25,135,84,.035));
+    }
+
+    .service-main {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .service-logo {
+      width: 62px;
+      height: 62px;
+      border-radius: 18px;
+      object-fit: cover;
+      border: 1px solid rgba(0,0,0,.06);
+      background: #f2f5f9;
+      flex: 0 0 auto;
+    }
+
+    .service-logo-fallback {
+      width: 62px;
+      height: 62px;
+      border-radius: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0d6efd, #6f42c1);
+      color: #fff;
+      font-size: 1.45rem;
+      flex: 0 0 auto;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+    }
+
+    .service-name {
+      font-size: 1.05rem;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .service-sub {
+      color: var(--vn-muted);
+      font-size: .82rem;
+      margin-top: 4px;
+    }
+
+    .badge-soft {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      font-size: .74rem;
+      font-weight: 700;
+    }
+
+    .soft-blue { background: rgba(18,102,241,.10); color: var(--vn-primary); }
+    .soft-green { background: rgba(25,135,84,.10); color: var(--vn-success); }
+    .soft-red { background: rgba(220,53,69,.10); color: var(--vn-danger); }
+    .soft-gray { background: #f1f3f6; color: #667085; }
+    .soft-orange { background: rgba(245,159,0,.12); color: #a66b00; }
+
+    .service-card-body {
+      padding: 18px;
+    }
+
+    .price-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .price-box {
+      border: 1px solid var(--vn-border);
+      border-radius: 14px;
+      padding: 12px;
+      background: #fafbfd;
+    }
+
+    .mini-label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--vn-muted);
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+    }
+
+    .price-value {
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
+    .profit-positive { color: var(--vn-success); }
+    .profit-negative { color: var(--vn-danger); }
+
+    .profit-bar {
+      height: 7px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #edf0f4;
+      margin-top: 8px;
+    }
+
+    .profit-bar > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #198754, #4dd4a0);
+    }
+
+    .card-form .form-control,
+    .card-form .form-select {
+      border-radius: 11px;
+      min-height: 41px;
+    }
+
+    .advanced-box {
+      border-top: 1px solid var(--vn-border);
+      margin-top: 14px;
+      padding-top: 14px;
+    }
+
+    .advanced-toggle {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0;
+      color: var(--vn-primary);
+      font-weight: 700;
+    }
+
+    .advanced-content {
+      display: none;
+      margin-top: 14px;
+    }
+
+    .advanced-content.is-open {
+      display: block;
+    }
+
+    .switch-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .save-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .save-btn {
+      min-width: 110px;
+      border-radius: 11px;
+      font-weight: 700;
+    }
+
+    .empty-state {
+      padding: 70px 20px;
+      text-align: center;
+      color: var(--vn-muted);
+    }
+
+    .empty-state i {
+      display: block;
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+      color: #b4bdca;
+    }
+
+    .pagination .page-link {
+      border-radius: 10px;
+      margin: 0 2px;
+    }
+
+    .toast-container {
+      z-index: 9999;
+    }
+
+    @media (max-width: 1199px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+      }
+
+      .service-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .hero-panel {
+        min-height: 260px;
+        padding: 22px;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+        margin-top: 16px;
+        padding-inline: 0;
+      }
+
+      .price-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .service-card-head {
+        align-items: flex-start;
+      }
+
+      .save-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .save-btn {
+        width: 100%;
+      }
+    }
   </style>
 </head>
+
 <body>
   <%- include('partials/admin-sidebar', { user: user }) %>
 
   <main class="main-content">
     <div class="container-fluid py-4 page-wrap">
 
-      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-        <div>
-          <h1 class="h4 mb-1 top-title">
-            <i class="bi bi-phone me-2"></i>
-            Virtual Numbers Control
-          </h1>
-          <div class="text-muted small">
-            Manage country + service pricing. Operators are selected automatically by the system.
+      <section class="hero-panel mb-4">
+        <div class="hero-content">
+          <div class="hero-kicker">
+            <i class="bi bi-shield-check"></i>
+            AKCELL Control Center
+          </div>
+
+          <h1 class="hero-title">Virtual Numbers Control</h1>
+
+          <p class="hero-text">
+            Manage pricing, availability, visibility and automatic operator selection
+            for all virtual number services from one clean control panel.
+          </p>
+
+          <div class="hero-actions">
+            <a href="/admin/fivesim/sync" class="btn btn-light hero-btn">
+              <i class="bi bi-arrow-repeat me-1"></i>
+              Sync Provider
+            </a>
+
+            <a href="/admin/fivesim-services" class="btn btn-outline-light hero-btn">
+              <i class="bi bi-arrow-clockwise me-1"></i>
+              Refresh Page
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-grid mb-4">
+        <div class="stat-card">
+          <div class="stat-icon blue">
+            <i class="bi bi-grid"></i>
+          </div>
+          <div class="stat-label">Combinations</div>
+          <div class="stat-value"><%= Number(meta?.total || 0).toLocaleString() %></div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon green">
+            <i class="bi bi-check-circle"></i>
+          </div>
+          <div class="stat-label">Active on this page</div>
+          <div class="stat-value">
+            <%= (items || []).filter(item => Number(item.is_active) === 1).length %>
           </div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2">
-          <span class="stat-chip">
-            <i class="bi bi-grid"></i>
-            <strong><%= Number(meta?.total || 0).toLocaleString() %></strong>
-            combinations
-          </span>
-
-          <a href="/admin/fivesim/sync" class="btn btn-primary">
-            <i class="bi bi-arrow-repeat me-1"></i>
-            Sync Provider
-          </a>
+        <div class="stat-card">
+          <div class="stat-icon orange">
+            <i class="bi bi-lightning-charge"></i>
+          </div>
+          <div class="stat-label">Available numbers</div>
+          <div class="stat-value">
+            <%= (items || []).reduce((sum, item) => sum + Number(item.total_available || 0), 0).toLocaleString() %>
+          </div>
         </div>
-      </div>
 
-      <div class="card control-card mb-4">
+        <div class="stat-card">
+          <div class="stat-icon purple">
+            <i class="bi bi-globe2"></i>
+          </div>
+          <div class="stat-label">Countries</div>
+          <div class="stat-value"><%= (countries || []).length %></div>
+        </div>
+      </section>
+
+      <section class="card panel-card filters-card mb-4">
         <div class="card-body p-4">
           <form method="get" action="/admin/fivesim-services" class="row g-3 align-items-end">
             <div class="col-xl-5 col-md-6">
-              <label class="form-label small text-uppercase text-muted fw-bold">Search</label>
-              <input type="text" name="search" class="form-control" placeholder="Telegram, WhatsApp, USA, Germany..." value="<%= filters?.search || '' %>" />
+              <label class="form-label fw-bold small text-uppercase text-muted">Search</label>
+              <input
+                type="text"
+                name="search"
+                class="form-control"
+                placeholder="WhatsApp, Telegram, USA, Germany..."
+                value="<%= filters?.search || '' %>"
+              />
             </div>
 
             <div class="col-xl-3 col-md-3">
-              <label class="form-label small text-uppercase text-muted fw-bold">Country</label>
+              <label class="form-label fw-bold small text-uppercase text-muted">Country</label>
               <select name="country_id" class="form-select">
-                <option value="all" <%= filters?.country_id === 'all' ? 'selected' : '' %>>All countries</option>
+                <option value="all" <%= filters?.country_id === 'all' ? 'selected' : '' %>>
+                  All countries
+                </option>
+
                 <% (countries || []).forEach(function(country) { %>
-                  <option value="<%= country.id %>" <%= String(filters?.country_id) === String(country.id) ? 'selected' : '' %>>
+                  <option
+                    value="<%= country.id %>"
+                    <%= String(filters?.country_id) === String(country.id) ? 'selected' : '' %>
+                  >
                     <%= country.custom_name || country.code %>
                     <%= country.iso ? `(${country.iso.toUpperCase()})` : '' %>
                   </option>
@@ -98,7 +539,7 @@
             </div>
 
             <div class="col-xl-2 col-md-3">
-              <label class="form-label small text-uppercase text-muted fw-bold">Status</label>
+              <label class="form-label fw-bold small text-uppercase text-muted">Status</label>
               <select name="status" class="form-select">
                 <option value="all" <%= filters?.status === 'all' ? 'selected' : '' %>>All</option>
                 <option value="active" <%= filters?.status === 'active' ? 'selected' : '' %>>Active</option>
@@ -107,200 +548,352 @@
             </div>
 
             <div class="col-xl-2 col-md-12 d-flex gap-2">
-              <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-funnel me-1"></i>Apply</button>
-              <a href="/admin/fivesim-services" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+              <button type="submit" class="btn btn-primary flex-grow-1" style="border-radius:12px;">
+                <i class="bi bi-funnel me-1"></i>
+                Apply
+              </button>
+
+              <a
+                href="/admin/fivesim-services"
+                class="btn btn-outline-secondary"
+                style="border-radius:12px;"
+                title="Reset filters"
+              >
+                <i class="bi bi-x-lg"></i>
+              </a>
             </div>
           </form>
         </div>
-      </div>
+      </section>
 
-      <div class="card control-card">
-        <div class="card-body p-0">
-          <div class="d-flex justify-content-between align-items-center px-4 py-3 border-bottom">
+      <section class="card panel-card">
+        <div class="card-body p-4">
+
+          <div class="view-toolbar mb-4">
             <div>
-              <div class="fw-bold">Store combinations</div>
-              <div class="small text-muted">Each row represents one service in one country.</div>
+              <h2 class="h5 fw-bold mb-1">Store Services</h2>
+              <div class="small text-muted">
+                Each card represents one service in one country.
+              </div>
             </div>
-            <div class="small text-muted">Page <strong><%= meta?.page || 1 %></strong> of <strong><%= meta?.pages || 1 %></strong></div>
+
+            <div class="small text-muted">
+              Page <strong><%= meta?.page || 1 %></strong>
+              of <strong><%= meta?.pages || 1 %></strong>
+            </div>
           </div>
 
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>Service</th>
-                  <th>Country</th>
-                  <th>Provider data</th>
-                  <th>Sell price</th>
-                  <th>Selection</th>
-                  <th>Status</th>
-                  <th class="text-end sticky-actions">Save</th>
-                </tr>
-              </thead>
+          <% if (!items || !items.length) { %>
+            <div class="empty-state">
+              <i class="bi bi-search"></i>
+              <div class="fw-bold mb-1">No results found</div>
+              <div>Try changing the filters or search term.</div>
+            </div>
 
-              <tbody>
-                <% if (!items || !items.length) { %>
-                  <tr>
-                    <td colspan="7">
-                      <div class="empty-state">
-                        <i class="bi bi-search"></i>
-                        <div class="fw-bold mb-1">No results found</div>
-                        <div>Try changing the filters or search term.</div>
+          <% } else { %>
+            <div class="service-grid">
+              <% items.forEach(function(item) { %>
+                <%
+                  const providerPrice = Number(item.cheapest_provider_price || 0);
+                  const sellPrice = Number(item.sell_price || 0);
+                  const margin = sellPrice > 0 ? sellPrice - providerPrice : 0;
+                  const isLoss = sellPrice > 0 && providerPrice > sellPrice;
+                  const marginPercent =
+                    sellPrice > 0 && margin > 0
+                      ? Math.min(100, Math.max(0, (margin / sellPrice) * 100))
+                      : 0;
+
+                  const formId = `save-form-${item.country_id}-${item.service_id}`;
+
+                  const returnTo = '/admin/fivesim-services?' + new URLSearchParams({
+                    search: filters?.search || '',
+                    country_id: filters?.country_id || 'all',
+                    status: filters?.status || 'all',
+                    page: String(meta?.page || 1)
+                  }).toString();
+                %>
+
+                <article class="service-card">
+                  <div class="service-card-head">
+                    <div class="service-main">
+                      <% if (item.service_image) { %>
+                        <img
+                          src="<%= item.service_image %>"
+                          alt="<%= item.store_custom_name || item.provider_name || item.product_code %>"
+                          class="service-logo"
+                          loading="lazy"
+                          onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';"
+                        />
+                      <% } %>
+
+                      <span
+                        class="service-logo-fallback"
+                        style="<%= item.service_image ? 'display:none;' : 'display:inline-flex;' %>"
+                      >
+                        <i class="bi bi-chat-square-text-fill"></i>
+                      </span>
+
+                      <div style="min-width:0;">
+                        <div class="service-name">
+                          <%= item.store_custom_name || item.service_custom_name || item.provider_name || item.product_code %>
+                        </div>
+
+                        <div class="service-sub">
+                          <i class="bi bi-geo-alt me-1"></i>
+                          <%= item.country_name || item.country_code %>
+                          <% if (item.country_iso) { %>
+                            · <%= item.country_iso.toUpperCase() %>
+                          <% } %>
+                          <% if (item.country_prefix) { %>
+                            · <%= item.country_prefix %>
+                          <% } %>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                          <% if (item.store_item_id) { %>
+                            <span class="badge-soft soft-blue">
+                              <i class="bi bi-check2"></i>
+                              Configured
+                            </span>
+                          <% } else { %>
+                            <span class="badge-soft soft-gray">
+                              Not configured
+                            </span>
+                          <% } %>
+
+                          <% if (Number(item.total_available || 0) > 0) { %>
+                            <span class="badge-soft soft-green">
+                              <i class="bi bi-check-circle"></i>
+                              Available
+                            </span>
+                          <% } else { %>
+                            <span class="badge-soft soft-red">
+                              <i class="bi bi-x-circle"></i>
+                              Out of stock
+                            </span>
+                          <% } %>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                <% } else { %>
-                  <% items.forEach(function(item) { %>
-                    <%
-                      const providerPrice = Number(item.cheapest_provider_price || 0);
-                      const sellPrice = Number(item.sell_price || 0);
-                      const margin = sellPrice > 0 ? sellPrice - providerPrice : 0;
-                      const isLoss = sellPrice > 0 && providerPrice > sellPrice;
-                      const returnTo = '/admin/fivesim-services?' + new URLSearchParams({
-                        search: filters?.search || '',
-                        country_id: filters?.country_id || 'all',
-                        status: filters?.status || 'all',
-                        page: String(meta?.page || 1)
-                      }).toString();
-                    %>
+                    </div>
 
-                    <tr>
-                      <td class="service-cell">
-                        <div class="d-flex align-items-center gap-3">
-                          <% if (item.service_image) { %>
-                            <img src="<%= item.service_image %>" alt="" class="service-logo" />
-                          <% } else { %>
-                            <span class="service-logo-placeholder"><i class="bi bi-chat-square-text"></i></span>
-                          <% } %>
+                    <span class="badge-soft <%= Number(item.is_active) === 1 ? 'soft-green' : 'soft-gray' %>">
+                      <i class="bi <%= Number(item.is_active) === 1 ? 'bi-eye' : 'bi-eye-slash' %>"></i>
+                      <%= Number(item.is_active) === 1 ? 'Active' : 'Hidden' %>
+                    </span>
+                  </div>
 
-                          <div>
-                            <div class="fw-bold"><%= item.store_custom_name || item.service_custom_name || item.provider_name || item.product_code %></div>
-                            <div class="small text-muted">Code: <code><%= item.product_code %></code></div>
-                            <% if (item.store_item_id) { %>
-                              <span class="soft-badge soft-blue mt-1"><i class="bi bi-check2"></i>Configured</span>
-                            <% } else { %>
-                              <span class="soft-badge soft-gray mt-1">Not configured</span>
-                            <% } %>
-                          </div>
+                  <form
+                    id="<%= formId %>"
+                    method="post"
+                    action="/admin/fivesim-services/save"
+                    class="service-card-body card-form"
+                  >
+                    <input type="hidden" name="country_id" value="<%= item.country_id %>" />
+                    <input type="hidden" name="service_id" value="<%= item.service_id %>" />
+                    <input type="hidden" name="return_to" value="<%= returnTo %>" />
+
+                    <div class="price-grid">
+                      <div class="price-box">
+                        <span class="mini-label">Provider Cost</span>
+                        <div class="price-value">
+                          <%= providerPrice > 0 ? `$${providerPrice.toFixed(4)}` : 'Unavailable' %>
                         </div>
-                      </td>
+                      </div>
 
-                      <td class="country-cell">
-                        <div class="fw-bold"><%= item.country_name || item.country_code %></div>
-                        <div class="small text-muted">
-                          <% if (item.country_iso) { %><%= item.country_iso.toUpperCase() %><% } %>
-                          <% if (item.country_prefix) { %> · <%= item.country_prefix %><% } %>
+                      <div class="price-box">
+                        <span class="mini-label">Sell Price</span>
+                        <div class="price-value">
+                          <%= sellPrice > 0 ? `$${sellPrice.toFixed(4)}` : '$0.0000' %>
                         </div>
-                      </td>
+                      </div>
 
-                      <td class="operator-cell">
-                        <div class="mb-1">
-                          <span class="mini-label">Cheapest cost</span>
-                          <% if (providerPrice > 0) { %>
-                            <span class="<%= isLoss ? 'danger-price' : '' %>">$<%= providerPrice.toFixed(4) %></span>
-                          <% } else { %>
-                            <span class="text-muted">Unavailable</span>
-                          <% } %>
+                      <div class="price-box">
+                        <span class="mini-label">Profit</span>
+                        <div class="price-value <%= isLoss ? 'profit-negative' : 'profit-positive' %>">
+                          <%= margin >= 0 ? '+' : '' %>$<%= margin.toFixed(4) %>
                         </div>
-                        <div class="small mb-1"><span class="text-muted">Available:</span> <strong><%= Number(item.total_available || 0).toLocaleString() %></strong></div>
-                        <div class="small mb-1"><span class="text-muted">Operators:</span> <strong><%= Number(item.available_operators || 0) %></strong></div>
-                        <div class="small"><span class="text-muted">Best rate:</span> <strong><%= Number(item.best_rate || 0).toFixed(2) %></strong></div>
-                      </td>
 
-                      <td class="price-cell">
-                        <form id="save-form-<%= item.country_id %>-<%= item.service_id %>" method="post" action="/admin/fivesim-services/save" class="quick-form">
-                          <input type="hidden" name="country_id" value="<%= item.country_id %>" />
-                          <input type="hidden" name="service_id" value="<%= item.service_id %>" />
-                          <input type="hidden" name="return_to" value="<%= returnTo %>" />
+                        <div class="profit-bar">
+                          <span style="width:<%= marginPercent %>%;"></span>
+                        </div>
+                      </div>
+                    </div>
 
-                          <div>
-                            <label class="mini-label">Customer price</label>
-                            <div class="input-group input-group-sm">
-                              <span class="input-group-text">$</span>
-                              <input type="number" name="sell_price" class="form-control" step="0.0001" min="0" value="<%= Number(item.sell_price || 0).toFixed(4) %>" required />
-                            </div>
-                          </div>
+                    <div class="row g-3">
+                      <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold">Customer Price</label>
+                        <div class="input-group">
+                          <span class="input-group-text">$</span>
+                          <input
+                            type="number"
+                            name="sell_price"
+                            class="form-control"
+                            step="0.0001"
+                            min="0"
+                            value="<%= Number(item.sell_price || 0).toFixed(4) %>"
+                            required
+                          />
+                        </div>
+                      </div>
 
-                          <div>
-                            <label class="mini-label">Public name</label>
-                            <input type="text" name="custom_name" class="form-control form-control-sm" maxlength="150" placeholder="Optional custom name" value="<%= item.store_custom_name || '' %>" />
-                          </div>
+                      <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold">Public Name</label>
+                        <input
+                          type="text"
+                          name="custom_name"
+                          class="form-control"
+                          maxlength="150"
+                          placeholder="Optional custom name"
+                          value="<%= item.store_custom_name || '' %>"
+                        />
+                      </div>
+                    </div>
 
-                          <% if (sellPrice > 0) { %>
-                            <div class="small">Margin: <span class="<%= isLoss ? 'danger-price' : 'safe-price' %>"><%= margin >= 0 ? '+' : '' %>$<%= margin.toFixed(4) %></span></div>
-                          <% } %>
-                        </form>
-                      </td>
+                    <div class="advanced-box">
+                      <button
+                        type="button"
+                        class="advanced-toggle"
+                        aria-expanded="false"
+                      >
+                        <span>
+                          <i class="bi bi-sliders me-1"></i>
+                          Advanced Settings
+                        </span>
 
-                      <td class="settings-cell">
-                        <div class="quick-form">
-                          <div>
-                            <label class="mini-label">Selection mode</label>
-                            <select name="selection_mode" class="form-select form-select-sm" form="save-form-<%= item.country_id %>-<%= item.service_id %>">
-                              <option value="cheapest" <%= item.selection_mode === 'cheapest' ? 'selected' : '' %>>Cheapest</option>
-                              <option value="balanced" <%= (!item.selection_mode || item.selection_mode === 'balanced') ? 'selected' : '' %>>Balanced</option>
-                              <option value="quality" <%= item.selection_mode === 'quality' ? 'selected' : '' %>>Best quality</option>
+                        <i class="bi bi-chevron-down"></i>
+                      </button>
+
+                      <div class="advanced-content">
+                        <div class="row g-3">
+                          <div class="col-12">
+                            <label class="form-label fw-bold">Selection Mode</label>
+                            <select name="selection_mode" class="form-select">
+                              <option value="cheapest" <%= item.selection_mode === 'cheapest' ? 'selected' : '' %>>
+                                Cheapest
+                              </option>
+                              <option value="balanced" <%= (!item.selection_mode || item.selection_mode === 'balanced') ? 'selected' : '' %>>
+                                Balanced
+                              </option>
+                              <option value="quality" <%= item.selection_mode === 'quality' ? 'selected' : '' %>>
+                                Best Quality
+                              </option>
                             </select>
                           </div>
 
-                          <div class="row g-2">
-                            <div class="col-6">
-                              <label class="mini-label">Minimum rate</label>
-                              <input type="number" name="minimum_rate" class="form-control form-control-sm" step="0.01" min="0" value="<%= Number(item.minimum_rate || 0).toFixed(2) %>" form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
-                            </div>
-                            <div class="col-6">
-                              <label class="mini-label">Max cost</label>
-                              <input type="number" name="maximum_provider_price" class="form-control form-control-sm" step="0.0001" min="0" placeholder="No limit" value="<%= item.maximum_provider_price === null || item.maximum_provider_price === undefined ? '' : Number(item.maximum_provider_price).toFixed(4) %>" form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
-                            </div>
+                          <div class="col-12 col-md-4">
+                            <label class="form-label fw-bold">Minimum Rate</label>
+                            <input
+                              type="number"
+                              name="minimum_rate"
+                              class="form-control"
+                              step="0.01"
+                              min="0"
+                              value="<%= Number(item.minimum_rate || 0).toFixed(2) %>"
+                            />
                           </div>
 
-                          <div>
-                            <label class="mini-label">Sort order</label>
-                            <input type="number" name="sort_order" class="form-control form-control-sm" value="<%= Number(item.sort_order || 0) %>" form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
+                          <div class="col-12 col-md-4">
+                            <label class="form-label fw-bold">Maximum Cost</label>
+                            <input
+                              type="number"
+                              name="maximum_provider_price"
+                              class="form-control"
+                              step="0.0001"
+                              min="0"
+                              placeholder="No limit"
+                              value="<%= item.maximum_provider_price === null || item.maximum_provider_price === undefined ? '' : Number(item.maximum_provider_price).toFixed(4) %>"
+                            />
+                          </div>
+
+                          <div class="col-12 col-md-4">
+                            <label class="form-label fw-bold">Sort Order</label>
+                            <input
+                              type="number"
+                              name="sort_order"
+                              class="form-control"
+                              value="<%= Number(item.sort_order || 0) %>"
+                            />
                           </div>
                         </div>
-                      </td>
+                      </div>
+                    </div>
 
-                      <td class="status-cell">
-                        <div class="d-grid gap-2">
-                          <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" value="1" name="is_active" id="active-<%= item.country_id %>-<%= item.service_id %>" <%= Number(item.is_active) === 1 ? 'checked' : '' %> form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
-                            <label class="form-check-label" for="active-<%= item.country_id %>-<%= item.service_id %>">Active</label>
-                          </div>
+                    <div class="switch-row">
+                      <div class="form-check form-switch">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          value="1"
+                          name="is_active"
+                          id="active-<%= item.country_id %>-<%= item.service_id %>"
+                          <%= Number(item.is_active) === 1 ? 'checked' : '' %>
+                        />
+                        <label
+                          class="form-check-label"
+                          for="active-<%= item.country_id %>-<%= item.service_id %>"
+                        >
+                          Active
+                        </label>
+                      </div>
 
-                          <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" value="1" name="is_featured" id="featured-<%= item.country_id %>-<%= item.service_id %>" <%= Number(item.is_featured) === 1 ? 'checked' : '' %> form="save-form-<%= item.country_id %>-<%= item.service_id %>" />
-                            <label class="form-check-label" for="featured-<%= item.country_id %>-<%= item.service_id %>">Featured</label>
-                          </div>
+                      <div class="form-check form-switch">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          value="1"
+                          name="is_featured"
+                          id="featured-<%= item.country_id %>-<%= item.service_id %>"
+                          <%= Number(item.is_featured) === 1 ? 'checked' : '' %>
+                        />
+                        <label
+                          class="form-check-label"
+                          for="featured-<%= item.country_id %>-<%= item.service_id %>"
+                        >
+                          Featured
+                        </label>
+                      </div>
+                    </div>
 
-                          <% if (Number(item.total_available || 0) > 0) { %>
-                            <span class="soft-badge soft-green"><i class="bi bi-check-circle"></i>Available</span>
-                          <% } else { %>
-                            <span class="soft-badge soft-red"><i class="bi bi-x-circle"></i>Out of stock</span>
-                          <% } %>
+                    <div class="save-row">
+                      <div class="d-flex flex-wrap gap-2">
+                        <span class="badge-soft soft-blue">
+                          <i class="bi bi-boxes"></i>
+                          <%= Number(item.total_available || 0).toLocaleString() %> available
+                        </span>
 
-                          <% if (isLoss) { %>
-                            <span class="soft-badge soft-red"><i class="bi bi-exclamation-triangle"></i>Selling below cost</span>
-                          <% } %>
-                        </div>
-                      </td>
+                        <span class="badge-soft soft-gray">
+                          <i class="bi bi-diagram-3"></i>
+                          <%= Number(item.available_operators || 0) %> operators
+                        </span>
 
-                      <td class="text-end sticky-actions">
-                        <button type="submit" class="btn btn-primary btn-sm" form="save-form-<%= item.country_id %>-<%= item.service_id %>">
-                          <i class="bi bi-save me-1"></i>Save
-                        </button>
-                      </td>
-                    </tr>
-                  <% }); %>
-                <% } %>
-              </tbody>
-            </table>
-          </div>
+                        <% if (isLoss) { %>
+                          <span class="badge-soft soft-red">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Selling below cost
+                          </span>
+                        <% } %>
+                      </div>
+
+                      <button type="submit" class="btn btn-primary save-btn">
+                        <i class="bi bi-save me-1"></i>
+                        Save
+                      </button>
+                    </div>
+                  </form>
+                </article>
+              <% }); %>
+            </div>
+          <% } %>
 
           <% if (meta && meta.pages > 1) { %>
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 px-4 py-3 border-top">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4 pt-4 border-top">
               <div class="small text-muted">
-                Showing <strong><%= ((meta.page - 1) * meta.limit) + 1 %></strong> to <strong><%= Math.min(meta.page * meta.limit, meta.total) %></strong> of <strong><%= meta.total %></strong>
+                Showing
+                <strong><%= ((meta.page - 1) * meta.limit) + 1 %></strong>
+                to
+                <strong><%= Math.min(meta.page * meta.limit, meta.total) %></strong>
+                of
+                <strong><%= meta.total %></strong>
               </div>
 
               <nav aria-label="Pagination">
@@ -322,43 +915,104 @@
                   %>
 
                   <li class="page-item <%= page <= 1 ? 'disabled' : '' %>">
-                    <a class="page-link" href="<%= page <= 1 ? '#' : pageUrl(page - 1) %>"><i class="bi bi-chevron-left"></i></a>
+                    <a class="page-link" href="<%= page <= 1 ? '#' : pageUrl(page - 1) %>">
+                      <i class="bi bi-chevron-left"></i>
+                    </a>
                   </li>
 
                   <% if (startPage > 1) { %>
-                    <li class="page-item"><a class="page-link" href="<%= pageUrl(1) %>">1</a></li>
-                    <% if (startPage > 2) { %><li class="page-item disabled"><span class="page-link">…</span></li><% } %>
+                    <li class="page-item">
+                      <a class="page-link" href="<%= pageUrl(1) %>">1</a>
+                    </li>
+
+                    <% if (startPage > 2) { %>
+                      <li class="page-item disabled">
+                        <span class="page-link">…</span>
+                      </li>
+                    <% } %>
                   <% } %>
 
                   <% for (let p = startPage; p <= endPage; p += 1) { %>
-                    <li class="page-item <%= p === page ? 'active' : '' %>"><a class="page-link" href="<%= pageUrl(p) %>"><%= p %></a></li>
+                    <li class="page-item <%= p === page ? 'active' : '' %>">
+                      <a class="page-link" href="<%= pageUrl(p) %>"><%= p %></a>
+                    </li>
                   <% } %>
 
                   <% if (endPage < pages) { %>
-                    <% if (endPage < pages - 1) { %><li class="page-item disabled"><span class="page-link">…</span></li><% } %>
-                    <li class="page-item"><a class="page-link" href="<%= pageUrl(pages) %>"><%= pages %></a></li>
+                    <% if (endPage < pages - 1) { %>
+                      <li class="page-item disabled">
+                        <span class="page-link">…</span>
+                      </li>
+                    <% } %>
+
+                    <li class="page-item">
+                      <a class="page-link" href="<%= pageUrl(pages) %>"><%= pages %></a>
+                    </li>
                   <% } %>
 
                   <li class="page-item <%= page >= pages ? 'disabled' : '' %>">
-                    <a class="page-link" href="<%= page >= pages ? '#' : pageUrl(page + 1) %>"><i class="bi bi-chevron-right"></i></a>
+                    <a class="page-link" href="<%= page >= pages ? '#' : pageUrl(page + 1) %>">
+                      <i class="bi bi-chevron-right"></i>
+                    </a>
                   </li>
                 </ul>
               </nav>
             </div>
           <% } %>
         </div>
-      </div>
+      </section>
     </div>
   </main>
 
-  <script src="/js/bootstrap.bundle.min.js"></script>
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="saveToast" class="toast border-0 shadow" role="alert">
+      <div class="toast-header">
+        <i class="bi bi-check-circle-fill text-success me-2"></i>
+        <strong class="me-auto">Virtual Numbers</strong>
+        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+      </div>
+      <div class="toast-body">
+        Saving changes...
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
-    document.querySelectorAll('form.quick-form').forEach(function (form) {
+    document.querySelectorAll('.advanced-toggle').forEach(function (button) {
+      button.addEventListener('click', function () {
+        const content = button.nextElementSibling;
+        const icon = button.querySelector('.bi-chevron-down, .bi-chevron-up');
+        const isOpen = content.classList.toggle('is-open');
+
+        button.setAttribute('aria-expanded', String(isOpen));
+
+        if (icon) {
+          icon.className = isOpen
+            ? 'bi bi-chevron-up'
+            : 'bi bi-chevron-down';
+        }
+      });
+    });
+
+    document.querySelectorAll('.card-form').forEach(function (form) {
       form.addEventListener('submit', function () {
-        const button = document.querySelector('[form="' + form.id + '"][type="submit"]');
+        const button = form.querySelector('button[type="submit"]');
+
         if (!button) return;
+
         button.disabled = true;
-        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving';
+        button.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-2"></span>' +
+          'Saving...';
+
+        const toastElement = document.getElementById('saveToast');
+
+        if (toastElement && window.bootstrap) {
+          const toast = bootstrap.Toast.getOrCreateInstance(toastElement);
+          toast.show();
+        }
       });
     });
   </script>
