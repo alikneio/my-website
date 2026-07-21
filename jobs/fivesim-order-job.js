@@ -39,6 +39,143 @@ function clean(value) {
   return String(value ?? '').trim();
 }
 
+function escapeTelegramHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+async function sendFiveSimTelegramNotification({
+  promisePool,
+  sendTelegramMessage,
+  row,
+  phoneNumber,
+  smsCode,
+  smsText
+}) {
+  if (
+    typeof sendTelegramMessage !== 'function' ||
+    !process.env.TELEGRAM_BOT_TOKEN
+  ) {
+    return;
+  }
+
+  try {
+    const [[telegramUser]] =
+      await promisePool.query(
+        `
+        SELECT
+          username,
+          telegram_chat_id
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+        `,
+        [row.user_id]
+      );
+
+    const chatId =
+      telegramUser?.telegram_chat_id;
+
+    const adminChatId =
+      process.env.ADMIN_TELEGRAM_CHAT_ID ||
+      '2096387191';
+
+    const safeUsername =
+      escapeTelegramHtml(
+        telegramUser?.username ||
+        `User #${row.user_id}`
+      );
+
+    const safeService =
+      escapeTelegramHtml(
+        row.service_code ||
+        'Virtual Number'
+      );
+
+    const safeCountry =
+      escapeTelegramHtml(
+        row.country_code ||
+        'Unknown'
+      );
+
+    const safePhone =
+      escapeTelegramHtml(
+        phoneNumber ||
+        row.phone_number ||
+        ''
+      );
+
+    const safeCode =
+      escapeTelegramHtml(
+        smsCode || ''
+      );
+
+    const safeText =
+      escapeTelegramHtml(
+        smsText || ''
+      );
+
+    if (chatId) {
+      const customerMessage = `
+✅ <b>وصل رمز التفعيل</b>
+
+🛍️ <b>الخدمة:</b> ${safeService}
+🌍 <b>الدولة:</b> ${safeCountry}
+📞 <b>الرقم:</b> <code>${safePhone}</code>
+🔐 <b>الرمز:</b> <code>${safeCode || 'غير متوفر'}</code>
+🧾 <b>رقم الطلب:</b> #${row.order_id}
+${safeText ? `\n💬 <b>نص الرسالة:</b> ${safeText}` : ''}
+
+يمكنك مشاهدة التفاصيل أيضًا من صفحة طلباتي.
+      `.trim();
+
+      await sendTelegramMessage(
+        chatId,
+        customerMessage,
+        process.env.TELEGRAM_BOT_TOKEN,
+        {
+          parseMode: 'HTML',
+          timeoutMs: 15000
+        }
+      );
+    }
+
+    if (adminChatId) {
+      const adminMessage = `
+📩 <b>وصل SMS لطلب 5SIM</b>
+
+👤 <b>الزبون:</b> ${safeUsername}
+🛍️ <b>الخدمة:</b> ${safeService}
+🌍 <b>الدولة:</b> ${safeCountry}
+📞 <b>الرقم:</b> <code>${safePhone}</code>
+🔐 <b>الرمز:</b> <code>${safeCode || 'غير متوفر'}</code>
+🧾 <b>Order ID:</b> #${row.order_id}
+🔗 <b>Provider Order:</b> ${escapeTelegramHtml(
+        row.provider_order_id
+      )}
+${safeText ? `\n💬 <b>SMS:</b> ${safeText}` : ''}
+      `.trim();
+
+      await sendTelegramMessage(
+        adminChatId,
+        adminMessage,
+        process.env.TELEGRAM_BOT_TOKEN,
+        {
+          parseMode: 'HTML',
+          timeoutMs: 15000
+        }
+      );
+    }
+  } catch (error) {
+    console.error(
+      '⚠️ 5SIM SMS Telegram notification failed:',
+      error?.message || error
+    );
+  }
+}
+
 function normalizeStatus(value) {
   return clean(value).toUpperCase();
 }
@@ -297,6 +434,7 @@ async function insertRefundNotification({
 
 async function markOrderAccepted({
   promisePool,
+  sendTelegramMessage,
   row,
   providerOrder,
   providerStatus,
@@ -402,6 +540,20 @@ async function markOrderAccepted({
     );
 
     await conn.commit();
+
+    await sendFiveSimTelegramNotification({
+      promisePool,
+      sendTelegramMessage,
+      row,
+      phoneNumber:
+        phoneNumber ||
+        row.phone_number ||
+        '',
+      smsCode:
+        finalSmsCode,
+      smsText:
+        finalSmsText
+    });
 
     console.log(
       `✅ 5SIM order #${row.order_id}: SMS received`
@@ -686,6 +838,7 @@ async function refundOrderOnce({
 
 async function processPendingOrder({
   promisePool,
+  sendTelegramMessage,
   getFiveSimOrder,
   cancelFiveSimOrder,
   row
@@ -756,6 +909,7 @@ async function processPendingOrder({
   if (smsCode || smsText) {
     await markOrderAccepted({
       promisePool,
+      sendTelegramMessage,
       row,
       providerOrder,
       providerStatus,
@@ -921,6 +1075,7 @@ async function processPendingOrder({
 
 async function runFiveSimOrderJob({
   promisePool,
+  sendTelegramMessage,
   getFiveSimOrder,
   cancelFiveSimOrder
 }) {
@@ -956,6 +1111,8 @@ async function runFiveSimOrderJob({
           fvo.created_at,
           fvo.refunded,
           fvo.customer_price,
+          fvo.country_code,
+          fvo.service_code,
 
           o.status AS order_status
 
@@ -994,6 +1151,7 @@ async function runFiveSimOrderJob({
       try {
         await processPendingOrder({
           promisePool,
+          sendTelegramMessage,
           getFiveSimOrder,
           cancelFiveSimOrder,
           row
@@ -1051,12 +1209,22 @@ async function runFiveSimOrderJob({
 
 function startFiveSimOrderJob({
   promisePool,
+  sendTelegramMessage,
   getFiveSimOrder,
   cancelFiveSimOrder
 }) {
   if (!promisePool) {
     throw new Error(
       'startFiveSimOrderJob: promisePool is required'
+    );
+  }
+
+  if (
+    sendTelegramMessage !== undefined &&
+    typeof sendTelegramMessage !== 'function'
+  ) {
+    throw new Error(
+      'startFiveSimOrderJob: sendTelegramMessage must be a function'
     );
   }
 
@@ -1092,6 +1260,7 @@ function startFiveSimOrderJob({
   const runner = () => {
     runFiveSimOrderJob({
       promisePool,
+      sendTelegramMessage,
       getFiveSimOrder,
       cancelFiveSimOrder
     }).catch((error) => {

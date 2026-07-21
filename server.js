@@ -965,9 +965,67 @@ app.get(
         return res.redirect('/login');
       }
 
+      // =====================================
+      // Create and store a fresh idempotency key
+      // =====================================
+
       const idemKey = crypto
         .randomBytes(32)
         .toString('hex');
+
+      if (
+        !req.session.fiveSimIdemKeys ||
+        typeof req.session.fiveSimIdemKeys !== 'object' ||
+        Array.isArray(req.session.fiveSimIdemKeys)
+      ) {
+        req.session.fiveSimIdemKeys = {};
+      }
+
+      req.session.fiveSimIdemKeys[idemKey] = {
+        storeItemId,
+        createdAt: Date.now()
+      };
+
+      // Clean keys older than 1 hour
+      for (
+        const [key, record]
+        of Object.entries(req.session.fiveSimIdemKeys)
+      ) {
+        const createdAt = Number(
+          record?.createdAt || 0
+        );
+
+        if (
+          !createdAt ||
+          Date.now() - createdAt > 60 * 60 * 1000
+        ) {
+          delete req.session.fiveSimIdemKeys[key];
+        }
+      }
+
+      // Keep at most 20 active keys in the session
+      const activeKeys = Object.keys(
+        req.session.fiveSimIdemKeys
+      );
+
+      if (activeKeys.length > 20) {
+        activeKeys
+          .sort((a, b) => {
+            const aCreatedAt = Number(
+              req.session.fiveSimIdemKeys[a]?.createdAt || 0
+            );
+
+            const bCreatedAt = Number(
+              req.session.fiveSimIdemKeys[b]?.createdAt || 0
+            );
+
+            return aCreatedAt - bCreatedAt;
+          })
+          .slice(0, activeKeys.length - 20)
+          .forEach(key => {
+            delete req.session.fiveSimIdemKeys[key];
+          });
+      }
 
       const item = {
         id: Number(row.id),
@@ -1032,12 +1090,21 @@ app.get(
       const errorMessages = {
         unavailable:
           'This virtual number is currently unavailable.',
+
         balance:
           'Your balance is insufficient for this purchase.',
+
         failed:
           'The number could not be reserved. Please try again.',
+
         duplicate:
-          'This purchase request was already submitted.'
+          'This purchase request was already submitted.',
+
+        provider:
+          'The provider could not reserve a number. Please try again.',
+
+        server:
+          'Unexpected server error. Please try again.'
       };
 
       return res.render(
@@ -1090,13 +1157,34 @@ app.post(
       req.body.idem_key || ''
     ).trim();
 
-    const sessionIdemKey = String(
-      req.session.fiveSimIdemKey || ''
-    ).trim();
+    const sessionIdemRecord =
+      req.session.fiveSimIdemKeys?.[
+        submittedIdemKey
+      ] || null;
 
     const sessionStoreItemId = Number(
-      req.session.fiveSimStoreItemId || 0
+      sessionIdemRecord?.storeItemId || 0
     );
+
+    const sessionIdemCreatedAt = Number(
+      sessionIdemRecord?.createdAt || 0
+    );
+
+    const sessionIdemExpired =
+      !sessionIdemCreatedAt ||
+      Date.now() - sessionIdemCreatedAt >
+        60 * 60 * 1000;
+
+    function removeSubmittedIdemKey() {
+      if (
+        req.session.fiveSimIdemKeys &&
+        typeof req.session.fiveSimIdemKeys === 'object'
+      ) {
+        delete req.session.fiveSimIdemKeys[
+          submittedIdemKey
+        ];
+      }
+    }
 
     if (
       !Number.isInteger(storeItemId) ||
@@ -1109,16 +1197,28 @@ app.post(
       );
     }
 
-    // منع تبديل ID الخدمة أو إرسال Token قديم
+    // منع تبديل ID الخدمة أو إرسال Token قديم/غير صالح
     if (
-      !submittedIdemKey ||
-      submittedIdemKey !== sessionIdemKey ||
-      sessionStoreItemId !== storeItemId
+      !/^[a-f0-9]{64}$/i.test(
+        submittedIdemKey
+      ) ||
+      !sessionIdemRecord ||
+      sessionStoreItemId !== storeItemId ||
+      sessionIdemExpired
     ) {
+      removeSubmittedIdemKey();
+
       return res.redirect(
         `/virtual-numbers/checkout/${storeItemId}?error=duplicate`
       );
     }
+
+    /*
+     * نستهلك المفتاح فور قبول الطلب.
+     * الضغط الثاني على نفس الفورم يُرفض،
+     * بينما فتح Checkout جديد يولّد مفتاحًا جديدًا.
+     */
+    removeSubmittedIdemKey();
 
     let providerPurchase = null;
     let selectedOffer = null;
@@ -1140,8 +1240,7 @@ app.post(
       );
 
       if (existingOrder) {
-        delete req.session.fiveSimIdemKey;
-        delete req.session.fiveSimStoreItemId;
+        removeSubmittedIdemKey();
 
         return res.redirect('/my-orders');
       }
@@ -1238,17 +1337,20 @@ app.post(
       const offers = await chooseBestFiveSimOffer({
         countryId: Number(storeItem.country_id),
         serviceId: Number(storeItem.service_id),
+
         selectionMode:
           storeItem.selection_mode || 'balanced',
+
         minimumRate: Number(
           storeItem.minimum_rate || 0
         ),
+
         maximumProviderPrice:
           storeItem.maximum_provider_price === null
             ? null
             : Number(
                 storeItem.maximum_provider_price
-              ),
+              )
       });
 
       if (!Array.isArray(offers) || !offers.length) {
@@ -1269,13 +1371,14 @@ app.post(
             await buyFiveSimActivation({
               country: offer.country_code,
               operator: offer.operator_code,
-              product: offer.service_code,
+              product: offer.service_code
             });
 
           providerPurchase = purchase;
           selectedOffer = offer;
 
           break;
+
         } catch (error) {
           lastProviderError = error;
 
@@ -1285,15 +1388,19 @@ app.post(
               country: offer.country_code,
               service: offer.service_code,
               operator: offer.operator_code,
+
               message:
                 error?.providerPayload ||
                 error?.message ||
-                error,
+                error
             }
           );
 
-          // أخطاء غير قابلة للمحاولة مع Operator آخر
-          if (!isRetryableFiveSimPurchaseError(error)) {
+          if (
+            !isRetryableFiveSimPurchaseError(
+              error
+            )
+          ) {
             throw error;
           }
         }
@@ -1357,11 +1464,14 @@ app.post(
         providerPrice > customerPrice
       ) {
         try {
-          await cancelFiveSimOrder(providerOrderId);
+          await cancelFiveSimOrder(
+            providerOrderId
+          );
         } catch (cancelError) {
           console.error(
             '❌ Failed to cancel unprofitable 5SIM order:',
-            cancelError.message || cancelError
+            cancelError.message ||
+            cancelError
           );
         }
 
@@ -1378,7 +1488,6 @@ app.post(
 
       conn = await promisePool.getConnection();
       await conn.beginTransaction();
-
       /*
        * فحص الـIdempotency مرة ثانية داخل Transaction.
        * مهم في حال وصل طلبان بنفس اللحظة.
@@ -1405,14 +1514,14 @@ app.post(
         } catch (cancelError) {
           console.error(
             '❌ Failed to cancel duplicate 5SIM order:',
-            cancelError.message || cancelError
+            cancelError.message ||
+            cancelError
           );
         }
 
         providerPurchase = null;
 
-        delete req.session.fiveSimIdemKey;
-        delete req.session.fiveSimStoreItemId;
+        removeSubmittedIdemKey();
 
         return res.redirect('/my-orders');
       }
@@ -1423,7 +1532,8 @@ app.post(
         UPDATE users
         SET
           balance = balance - ?,
-          total_spent = COALESCE(total_spent, 0) + ?
+          total_spent =
+            COALESCE(total_spent, 0) + ?
         WHERE id = ?
           AND balance >= ?
         `,
@@ -1431,14 +1541,20 @@ app.post(
           customerPrice,
           customerPrice,
           userId,
-          customerPrice,
+          customerPrice
         ]
       );
 
-      if (balanceUpdate.affectedRows !== 1) {
+      if (
+        balanceUpdate.affectedRows !== 1
+      ) {
         throw Object.assign(
-          new Error('Insufficient balance'),
-          { code: 'FIVESIM_BALANCE' }
+          new Error(
+            'Insufficient balance'
+          ),
+          {
+            code: 'FIVESIM_BALANCE'
+          }
         );
       }
 
@@ -1453,64 +1569,88 @@ app.post(
         storeItem.country_code;
 
       const productName =
-        `${publicServiceName} - ${publicCountryName}`
-          .slice(0, 255);
+        (
+          `${publicServiceName} - ` +
+          `${publicCountryName}`
+        ).slice(0, 255);
 
-      const orderDetails = JSON.stringify({
-        type: 'virtual_number',
-        service: storeItem.service_code,
-        country: storeItem.country_code,
-        phone: phoneNumber,
+      const orderDetails =
+        JSON.stringify({
+          type: 'virtual_number',
 
-        // Operator لا نعرضه للزبون،
-        // لكنه محفوظ داخليًا في fivesim_orders.
-        waiting_for_sms: true,
-      });
+          service:
+            storeItem.service_code,
 
-      const [orderInsert] = await conn.query(
-        `
-        INSERT INTO orders
-          (
+          country:
+            storeItem.country_code,
+
+          phone:
+            phoneNumber,
+
+          /*
+           * Operator لا نعرضه للزبون،
+           * لكنه محفوظ داخليًا
+           * في fivesim_orders.
+           */
+          waiting_for_sms: true
+        });
+
+      const [orderInsert] =
+        await conn.query(
+          `
+          INSERT INTO orders
+            (
+              userId,
+              productName,
+              price,
+              purchaseDate,
+              order_details,
+              status,
+              admin_reply,
+              product_id,
+              is_new,
+              provider_order_id,
+              provider,
+              source,
+              client_token,
+              fulfillment_mode,
+              stock_fallback
+            )
+          VALUES
+            (
+              ?,
+              ?,
+              ?,
+              NOW(),
+              ?,
+              'In progress',
+              NULL,
+              NULL,
+              1,
+              ?,
+              'fivesim',
+              'api',
+              ?,
+              'manual',
+              0
+            )
+          `,
+          [
             userId,
+
             productName,
-            price,
-            purchaseDate,
-            order_details,
-            status,
-            admin_reply,
-            product_id,
-            is_new,
-            provider_order_id,
-            provider,
-            source,
-            client_token,
-            fulfillment_mode,
-            stock_fallback
-          )
-        VALUES
-          (
-            ?, ?, ?, NOW(), ?,
-            'In progress',
-            NULL,
-            NULL,
-            1,
-            ?,
-            'fivesim',
-            'api',
-            ?,
-            'manual',
-            0
-          )
-        `,
-        [
-          userId,
-          productName,
-          Number(customerPrice.toFixed(2)),
-          orderDetails,
-          String(providerOrderId),
-          submittedIdemKey,
-        ]
-      );
+
+            Number(
+              customerPrice.toFixed(2)
+            ),
+
+            orderDetails,
+
+            String(providerOrderId),
+
+            submittedIdemKey
+          ]
+        );
 
       const localOrderId =
         Number(orderInsert.insertId);
@@ -1548,16 +1688,30 @@ app.post(
           )
         VALUES
           (
-            ?, ?, ?, ?,
-            ?, ?, ?,
-            ?, NULL, NULL,
-            ?, ?,
+            ?,
+            ?,
+            ?,
+            ?,
+
+            ?,
+            ?,
+            ?,
+
+            ?,
+            NULL,
+            NULL,
+
+            ?,
+            ?,
+
             'pending',
             ?,
             ?,
+
             0,
             0,
             ?,
+
             NOW(),
             NOW()
           )
@@ -1574,13 +1728,20 @@ app.post(
 
           phoneNumber,
 
-          Number(providerPrice.toFixed(4)),
-          Number(customerPrice.toFixed(4)),
+          Number(
+            providerPrice.toFixed(4)
+          ),
+
+          Number(
+            customerPrice.toFixed(4)
+          ),
 
           providerStatus,
           expiresAt,
 
-          JSON.stringify(providerPurchase),
+          JSON.stringify(
+            providerPurchase
+          )
         ]
       );
 
@@ -1594,12 +1755,18 @@ app.post(
             reason
           )
         VALUES
-          (?, 'debit', ?, ?)
+          (
+            ?,
+            'debit',
+            ?,
+            ?
+          )
         `,
         [
           userId,
           customerPrice,
-          `Virtual number order #${localOrderId}`,
+
+          `Virtual number order #${localOrderId}`
         ]
       );
 
@@ -1613,31 +1780,189 @@ app.post(
             created_at
           )
         VALUES
-          (?, ?, 'order', NOW())
+          (
+            ?,
+            ?,
+            'order',
+            NOW()
+          )
         `,
         [
           userId,
-          `Your virtual number ${phoneNumber} is ready. Waiting for SMS.`,
+
+          `Your virtual number ${phoneNumber} is ready. Waiting for SMS.`
         ]
       );
 
       await conn.commit();
 
+      /*
+       * بعد نجاح الحفظ المحلي،
+       * ما عاد لازم نلغي الطلب عند المزود
+       * إذا صار خطأ لاحقًا بإشعار Telegram.
+       */
       providerPurchase = null;
 
-      delete req.session.fiveSimIdemKey;
-      delete req.session.fiveSimStoreItemId;
+      removeSubmittedIdemKey();
 
       // تحديث المستوى خارج Transaction
-      recalcUserLevel(userId).catch((error) => {
+      recalcUserLevel(userId).catch(
+        (error) => {
+          console.error(
+            '❌ 5SIM recalcUserLevel error:',
+            error.message || error
+          );
+        }
+      );
+
+      // -----------------------------------------
+      // Telegram notifications
+      // فشل Telegram لا يؤثر على نجاح الطلب
+      // -----------------------------------------
+
+      try {
+        const [[telegramUser]] =
+          await promisePool.query(
+            `
+            SELECT
+              username,
+              telegram_chat_id
+            FROM users
+            WHERE id = ?
+            LIMIT 1
+            `,
+            [userId]
+          );
+
+        const telegramChatId =
+          telegramUser?.telegram_chat_id;
+
+        const username =
+          telegramUser?.username ||
+          req.session.user?.username ||
+          `User #${userId}`;
+
+        function escapeTelegramHtml(
+          value
+        ) {
+          return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        }
+
+        const safeServiceName =
+          escapeTelegramHtml(
+            publicServiceName ||
+            storeItem.service_code
+          );
+
+        const safeCountryName =
+          escapeTelegramHtml(
+            publicCountryName ||
+            storeItem.country_code
+          );
+
+        const safePhoneNumber =
+          escapeTelegramHtml(
+            phoneNumber
+          );
+
+        const safeUsername =
+          escapeTelegramHtml(
+            username
+          );
+
+        const formattedCustomerPrice =
+          Number(
+            customerPrice
+          ).toFixed(2);
+
+        if (telegramChatId) {
+          const customerTelegramMessage = `
+📱 <b>تم حجز رقمك بنجاح</b>
+
+🛍️ <b>الخدمة:</b> ${safeServiceName}
+🌍 <b>الدولة:</b> ${safeCountryName}
+📞 <b>الرقم:</b> <code>${safePhoneNumber}</code>
+💰 <b>السعر:</b> $${formattedCustomerPrice}
+⏳ <b>الحالة:</b> بانتظار وصول رمز التفعيل
+🧾 <b>رقم الطلب:</b> #${localOrderId}
+
+سيصلك إشعار جديد فور وصول رمز SMS.
+          `.trim();
+
+          await sendTelegramMessage(
+            telegramChatId,
+
+            customerTelegramMessage,
+
+            process.env
+              .TELEGRAM_BOT_TOKEN,
+
+            {
+              parseMode: 'HTML',
+              timeoutMs: 15000
+            }
+          );
+        }
+
+        const adminChatId =
+          process.env
+            .ADMIN_TELEGRAM_CHAT_ID ||
+          '2096387191';
+
+        if (adminChatId) {
+          const adminTelegramMessage = `
+🆕 <b>طلب رقم افتراضي جديد</b>
+
+👤 <b>الزبون:</b> ${safeUsername}
+🛍️ <b>الخدمة:</b> ${safeServiceName}
+🌍 <b>الدولة:</b> ${safeCountryName}
+📞 <b>الرقم:</b> <code>${safePhoneNumber}</code>
+💵 <b>سعر البيع:</b> $${formattedCustomerPrice}
+🏷️ <b>تكلفة المزود:</b> $${Number(
+            providerPrice || 0
+          ).toFixed(4)}
+📡 <b>Operator:</b> ${escapeTelegramHtml(
+            selectedOffer
+              ?.operator_code ||
+            'Unknown'
+          )}
+🧾 <b>Order ID:</b> #${localOrderId}
+🔗 <b>Provider Order:</b> ${escapeTelegramHtml(
+            providerOrderId
+          )}
+📌 <b>الحالة:</b> Waiting for SMS
+          `.trim();
+
+          await sendTelegramMessage(
+            adminChatId,
+
+            adminTelegramMessage,
+
+            process.env
+              .TELEGRAM_BOT_TOKEN,
+
+            {
+              parseMode: 'HTML',
+              timeoutMs: 15000
+            }
+          );
+        }
+
+      } catch (telegramError) {
         console.error(
-          '❌ 5SIM recalcUserLevel error:',
-          error.message || error
+          '⚠️ 5SIM Telegram notification failed:',
+
+          telegramError?.message ||
+          telegramError
         );
-      });
+      }
 
       return res.redirect('/my-orders');
-    } catch (error) {
+
+        } catch (error) {
       if (conn) {
         try {
           await conn.rollback();
@@ -1647,8 +1972,9 @@ app.post(
       }
 
       /*
-       * إذا الرقم انحجز لكن فشل الخصم أو التسجيل،
-       * نلغيه فورًا عند المزود.
+       * إذا الرقم انحجز عند المزود
+       * لكن فشل الخصم أو التسجيل المحلي،
+       * نلغيه فورًا حتى ما يبقى Order يتيم.
        */
       if (providerPurchase?.id) {
         try {
@@ -1659,16 +1985,18 @@ app.post(
           console.log(
             `✅ Canceled orphan 5SIM order ${providerPurchase.id}`
           );
+
         } catch (cancelError) {
           console.error(
             '❌ Failed to cancel orphan 5SIM order:',
             {
               providerOrderId:
                 providerPurchase.id,
+
               message:
                 cancelError?.providerPayload ||
                 cancelError?.message ||
-                cancelError,
+                cancelError
             }
           );
         }
@@ -1677,14 +2005,24 @@ app.post(
       console.error(
         '❌ POST /virtual-numbers/buy/:id:',
         {
-          message: error.message,
-          code: error.code,
-          status: error.httpStatus,
-          payload: error.providerPayload,
+          message:
+            error.message,
+
+          code:
+            error.code,
+
+          status:
+            error.httpStatus,
+
+          payload:
+            error.providerPayload
         }
       );
 
-      if (error.code === 'FIVESIM_BALANCE') {
+      if (
+        error.code ===
+        'FIVESIM_BALANCE'
+      ) {
         return res.redirect(
           `/virtual-numbers/checkout/${storeItemId}?error=balance`
         );
@@ -1693,6 +2031,7 @@ app.post(
       return res.redirect(
         `/virtual-numbers/checkout/${storeItemId}?error=server`
       );
+
     } finally {
       if (conn) {
         try {
@@ -1704,7 +2043,6 @@ app.post(
     }
   }
 );
-
 
 // =============================================
 // 5SIM — Customer services list
@@ -12296,6 +12634,7 @@ app.get('/admin/dev/sync-now', checkAdmin, async (req, res) => {
 
 startFiveSimOrderJob({
   promisePool,
+  sendTelegramMessage,
   getFiveSimOrder,
   cancelFiveSimOrder
 });
