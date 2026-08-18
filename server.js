@@ -2865,6 +2865,60 @@ app.get('/roblox', (req, res) => {
   });
 });
 
+app.get('/itunes', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'iTunes Cards'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (itunes):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('itunes', { user, products: finalProducts });
+  });
+});
+
+app.get('/playstation', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'PlayStation Cards'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (playstation):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('playstation', { user, products: finalProducts });
+  });
+});
+
+app.get('/xbox', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE sub_category = 'Xbox Cards'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (xbox):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyUserDiscountToProducts(products, user);
+
+    res.render('xbox', { user, products: finalProducts });
+  });
+});
+
 app.get('/cyberghost', (req, res) => {
   const sql = `
     SELECT * FROM products
