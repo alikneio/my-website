@@ -9001,7 +9001,7 @@ app.post('/admin/api-categories/:id/delete', checkAdmin, async (req, res) => {
 });
 
 
-// صفحة قائمة منتجات كاتيجوري واحدة (ديناميكي)
+/// صفحة قائمة منتجات كاتيجوري واحدة (ديناميكي)
 app.get('/apps/:slug', async (req, res) => {
   const { slug } = req.params;
   const q = (sql, p = []) => new Promise((ok, no) => db.query(sql, p, (e, r) => e ? no(e) : ok(r)));
