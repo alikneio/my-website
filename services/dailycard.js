@@ -2,7 +2,7 @@ const axios = require('axios');
 
 
 const dailycardAPI = axios.create({
-  baseURL: 'https://dailycard.shop/UAPI',
+  baseURL: 'https://dailycard.co/UAPI',
     timeout: 20000,
   headers: {
     // ✅ تم تصحيح هذا السطر لاستخدام backticks
