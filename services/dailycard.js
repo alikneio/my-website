@@ -1,7 +1,5 @@
 const axios = require('axios');
 
-console.log("🔑 Loaded API KEY:", process.env.DAILYCARD_API_KEY);
-console.log("🔒 Loaded API SECRET:", process.env.DAILYCARD_API_SECRET);
 
 const dailycardAPI = axios.create({
   baseURL: 'https://dailycard.shop/UAPI',
