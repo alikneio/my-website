@@ -4912,20 +4912,76 @@ app.get('/register', (req, res) => {
 
 
 app.post('/register', (req, res) => {
-  const { username, email, password, phone } = req.body;
+
+  // 🛡️ منع requests الفارغة أو غير الصحيحة
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).send('Invalid request.');
+  }
+
+  let { username, email, password, phone } = req.body;
+
+  // 🛡️ التأكد من أنواع وقيم الحقول المطلوبة
+  if (
+    typeof username !== 'string' ||
+    typeof email !== 'string' ||
+    typeof password !== 'string' ||
+    typeof phone !== 'string' ||
+    !username.trim() ||
+    !email.trim() ||
+    !password ||
+    !phone.trim()
+  ) {
+    req.session.error = "⚠️ يرجى تعبئة جميع الحقول بشكل صحيح.";
+    return res.redirect('/register');
+  }
+
+  // تنظيف القيم
+  username = username.trim();
+  email = email.trim().toLowerCase();
+  phone = phone.trim();
+
+  // 🛡️ حدود منطقية للأطوال
+  if (
+    username.length > 50 ||
+    email.length > 254 ||
+    phone.length > 30 ||
+    password.length > 128
+  ) {
+    req.session.error = "⚠️ إحدى القيم المدخلة أطول من المسموح.";
+    return res.redirect('/register');
+  }
+
+  // 🛡️ تحقق أساسي من صيغة البريد الإلكتروني
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(email)) {
+    req.session.error = "⚠️ البريد الإلكتروني غير صالح.";
+    return res.redirect('/register');
+  }
 
   // تحقق من كلمة المرور
   const isPasswordValid =
-    password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password);
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password);
 
   if (!isPasswordValid) {
-    req.session.error = "❌ كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.";
+    req.session.error =
+      "❌ كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.";
+
     return res.redirect('/register');
   }
 
   // تحقق من التكرار
-  const checkSql = `SELECT * FROM users WHERE username = ? OR email = ?`;
+  const checkSql = `
+    SELECT id
+    FROM users
+    WHERE username = ? OR email = ?
+    LIMIT 1
+  `;
+
   db.query(checkSql, [username, email], (err, results) => {
+
     if (err) {
       console.error("🔴 DB Error:", err);
       req.session.error = "⚠️ حصل خطأ في الخادم.";
@@ -4933,30 +4989,46 @@ app.post('/register', (req, res) => {
     }
 
     if (results.length > 0) {
-      req.session.error = "⚠️ اسم المستخدم أو البريد الإلكتروني مستخدم مسبقاً.";
+      req.session.error =
+        "⚠️ اسم المستخدم أو البريد الإلكتروني مستخدم مسبقاً.";
+
       return res.redirect('/register');
     }
 
-    // تشفير وحفظ
+    // تشفير كلمة المرور
     bcrypt.hash(password, saltRounds, (err, hash) => {
+
       if (err) {
         console.error("🔴 Hash Error:", err);
         req.session.error = "⚠️ خطأ في التشفير.";
         return res.redirect('/register');
       }
 
-      const insertSql = `INSERT INTO users (username, email, password, phone) VALUES (?, ?, ?, ?)`;
-      db.query(insertSql, [username, email, hash, phone], (err, result) => {
-        if (err) {
-          console.error("🔴 Insert Error:", err);
-          req.session.error = "❌ لم يتم إنشاء الحساب. حاول لاحقاً.";
-          return res.redirect('/register');
-        }
+      const insertSql = `
+        INSERT INTO users (username, email, password, phone)
+        VALUES (?, ?, ?, ?)
+      `;
 
-        // نجاح
-        req.session.success = "✅ تم إنشاء الحساب بنجاح! سجل دخولك الآن.";
-        return res.redirect('/login');
-      });
+      db.query(
+        insertSql,
+        [username, email, hash, phone],
+        (err, result) => {
+
+          if (err) {
+            console.error("🔴 Insert Error:", err);
+            req.session.error =
+              "❌ لم يتم إنشاء الحساب. حاول لاحقاً.";
+
+            return res.redirect('/register');
+          }
+
+          // نجاح
+          req.session.success =
+            "✅ تم إنشاء الحساب بنجاح! سجل دخولك الآن.";
+
+          return res.redirect('/login');
+        }
+      );
     });
   });
 });
@@ -6476,9 +6548,30 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
 
 
 
-
 app.post('/login', async (req, res) => {
+
+  // 🛡️ Reject malformed/empty requests safely
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid request.'
+    });
+  }
+
   const { login_identifier, password, captcha } = req.body;
+
+  // 🛡️ Required fields validation
+  if (
+    typeof login_identifier !== 'string' ||
+    typeof password !== 'string' ||
+    !login_identifier.trim() ||
+    !password
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid login request.'
+    });
+  }
 
   // Initialize loginAttempts if not set
   if (!req.session.loginAttempts) req.session.loginAttempts = 0;
@@ -6516,22 +6609,40 @@ app.post('/login', async (req, res) => {
 
   // Attempt to find user and check password
   const sql = `SELECT * FROM users WHERE email = ? OR username = ?`;
-  db.query(sql, [login_identifier, login_identifier], (err, results) => {
+
+  db.query(sql, [login_identifier.trim(), login_identifier.trim()], (err, results) => {
     if (err) {
-      return res.status(500).json({ success: false, message: 'Database error.' });
+      return res.status(500).json({
+        success: false,
+        message: 'Database error.'
+      });
     }
 
     if (results.length > 0) {
       const user = results[0];
+
       bcrypt.compare(password, user.password, (err, isMatch) => {
+
+        if (err) {
+          return res.status(500).json({
+            success: false,
+            message: 'Authentication error.'
+          });
+        }
+
         if (isMatch) {
           req.session.user = user;
           req.session.justLoggedIn = true;
           req.session.loginAttempts = 0;
 
-          return res.json({ success: true, redirectUrl: '/' });
+          return res.json({
+            success: true,
+            redirectUrl: '/'
+          });
+
         } else {
           req.session.loginAttempts += 1;
+
           return res.status(401).json({
             success: false,
             message: '❌ Incorrect email or password.',
@@ -6539,8 +6650,10 @@ app.post('/login', async (req, res) => {
           });
         }
       });
+
     } else {
       req.session.loginAttempts += 1;
+
       return res.status(401).json({
         success: false,
         message: '❌ Incorrect email or password.',
