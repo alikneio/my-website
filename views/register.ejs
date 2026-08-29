@@ -1,167 +1,188 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Register - AK Cell</title>
 
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap"
+    rel="stylesheet"
+  >
 
   <style>
-    :root{
-      --primary:#1e3c72;
-      --primary-dark:#142b55;
-      --muted:#6b7280;
+    :root {
+      --primary: #1e3c72;
+      --primary-dark: #142b55;
+      --muted: #6b7280;
     }
 
-    body{
-      font-family:'Cairo', sans-serif;
-      min-height:100vh;
-      margin:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    body {
+      font-family: 'Cairo', sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       background:
         radial-gradient(circle at top left, rgba(30,60,114,.18), transparent 30%),
         radial-gradient(circle at bottom right, rgba(13,110,253,.12), transparent 30%),
         linear-gradient(135deg, #eef4fb, #f8fbff);
-      padding:18px;
+      padding: 18px;
     }
 
-    .register-shell{
-      width:100%;
-      max-width:460px;
+    .register-shell {
+      width: 100%;
+      max-width: 460px;
     }
 
-    .brand-box{
-      text-align:center;
-      margin-bottom:18px;
+    .brand-box {
+      text-align: center;
+      margin-bottom: 18px;
     }
 
-    .brand-logo{
-      width:74px;
-      height:74px;
-      border-radius:22px;
-      object-fit:contain;
-      background:#fff;
-      padding:10px;
-      box-shadow:0 16px 40px rgba(30,60,114,.16);
+    .brand-logo {
+      width: 74px;
+      height: 74px;
+      border-radius: 22px;
+      object-fit: contain;
+      background: #fff;
+      padding: 10px;
+      box-shadow: 0 16px 40px rgba(30,60,114,.16);
     }
 
-    .form-box{
-      background:rgba(255,255,255,.94);
-      border:1px solid rgba(30,60,114,.08);
-      border-radius:28px;
-      padding:34px;
-      box-shadow:0 24px 70px rgba(15,23,42,.12);
-      backdrop-filter:blur(10px);
+    .form-box {
+      background: rgba(255,255,255,.94);
+      border: 1px solid rgba(30,60,114,.08);
+      border-radius: 28px;
+      padding: 34px;
+      box-shadow: 0 24px 70px rgba(15,23,42,.12);
+      backdrop-filter: blur(10px);
     }
 
-    .form-box h2{
-      text-align:center;
-      margin-bottom:8px;
-      color:var(--primary);
-      font-weight:800;
+    .form-box h2 {
+      text-align: center;
+      margin-bottom: 8px;
+      color: var(--primary);
+      font-weight: 800;
     }
 
-    .subtitle{
-      color:var(--muted);
-      font-size:.95rem;
-      text-align:center;
-      margin-bottom:24px;
+    .subtitle {
+      color: var(--muted);
+      font-size: .95rem;
+      text-align: center;
+      margin-bottom: 24px;
     }
 
-    .form-label{
-      font-weight:700;
-      color:#111827;
+    .form-label {
+      font-weight: 700;
+      color: #111827;
     }
 
-    .input-wrap{
-      position:relative;
+    .input-wrap {
+      position: relative;
     }
 
-    .input-wrap i{
-      position:absolute;
-      left:15px;
-      top:50%;
-      transform:translateY(-50%);
-      color:#7b8794;
-      font-size:1.05rem;
+    .input-wrap > i {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #7b8794;
+      font-size: 1.05rem;
+      pointer-events: none;
     }
 
-    .form-control{
-      height:52px;
-      border-radius:14px;
-      background:#eef5ff;
-      border:1px solid rgba(30,60,114,.12);
-      padding-left:44px;
-      font-size:1rem;
+    .form-control {
+      height: 52px;
+      border-radius: 14px;
+      background: #eef5ff;
+      border: 1px solid rgba(30,60,114,.12);
+      padding-left: 44px;
+      font-size: 1rem;
     }
 
-    .form-control:focus{
-      background:#fff;
-      border-color:rgba(30,60,114,.55);
-      box-shadow:0 0 0 .22rem rgba(30,60,114,.12);
+    .form-control:focus {
+      background: #fff;
+      border-color: rgba(30,60,114,.55);
+      box-shadow: 0 0 0 .22rem rgba(30,60,114,.12);
     }
 
-    .password-input{
-      padding-right:45px;
+    .password-input {
+      padding-right: 45px;
     }
 
-    .password-toggle{
-      position:absolute;
-      right:12px;
-      top:50%;
-      transform:translateY(-50%);
-      border:0;
-      background:transparent;
-      color:#6b7280;
-      padding:6px;
-      z-index:5;
+    .password-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      color: #6b7280;
+      padding: 6px;
+      z-index: 5;
     }
 
-    .btn-primary{
-      background:linear-gradient(135deg, var(--primary), #2b5aa0);
-      border:0;
-      border-radius:15px;
-      height:54px;
-      font-weight:800;
-      box-shadow:0 14px 30px rgba(30,60,114,.24);
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #2b5aa0);
+      border: 0;
+      border-radius: 15px;
+      height: 54px;
+      font-weight: 800;
+      box-shadow: 0 14px 30px rgba(30,60,114,.24);
+      transition: .2s ease;
     }
 
-    .btn-primary:hover{
-      background:linear-gradient(135deg, var(--primary-dark), #244d8d);
-      transform:translateY(-1px);
+    .btn-primary:hover {
+      background: linear-gradient(135deg, var(--primary-dark), #244d8d);
+      transform: translateY(-1px);
     }
 
-    .small-link{
-      color:var(--primary);
-      font-weight:800;
-      text-decoration:none;
+    .btn-primary:disabled {
+      opacity: .75;
+      cursor: not-allowed;
+      transform: none;
     }
 
-    .small-link:hover{
-      text-decoration:underline;
+    .small-link {
+      color: var(--primary);
+      font-weight: 800;
+      text-decoration: none;
     }
 
-    .security-note{
-      margin-top:16px;
-      padding:11px 13px;
-      border-radius:16px;
-      background:rgba(30,60,114,.06);
-      color:#334155;
-      font-size:.88rem;
-      display:flex;
-      gap:8px;
-      align-items:center;
+    .small-link:hover {
+      text-decoration: underline;
     }
 
-    @media(max-width:576px){
-      .form-box{
-        padding:26px 20px;
-        border-radius:22px;
+    .security-note {
+      margin-top: 16px;
+      padding: 11px 13px;
+      border-radius: 16px;
+      background: rgba(30,60,114,.06);
+      color: #334155;
+      font-size: .88rem;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .field-hint {
+      display: block;
+      margin-top: 6px;
+      color: #6b7280;
+      font-size: .78rem;
+    }
+
+    @media (max-width: 576px) {
+      .form-box {
+        padding: 26px 20px;
+        border-radius: 22px;
       }
     }
   </style>
@@ -172,73 +193,198 @@
 <div class="register-shell">
 
   <div class="brand-box">
-    <img src="/images/logo.png" class="brand-logo" alt="AK Cell">
+    <img
+      src="/images/logo.png"
+      class="brand-logo"
+      alt="AK Cell"
+    >
   </div>
 
   <div class="form-box">
-    <h2>Create an Account</h2>
-    <div class="subtitle">Join AK Cell and manage your services easily</div>
 
-    <% if (typeof error !== 'undefined') { %>
-      <div class="alert alert-danger text-center fw-bold mb-3"><%= error %></div>
+    <h2>Create an Account</h2>
+
+    <div class="subtitle">
+      Join AK Cell and manage your services easily
+    </div>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert-danger text-center fw-bold mb-3">
+        <%= error %>
+      </div>
     <% } %>
 
-    <form action="/register" method="POST" id="registerForm">
+    <form
+      action="/register"
+      method="POST"
+      id="registerForm"
+      autocomplete="on"
+    >
+
+      <!-- Username -->
       <div class="mb-3">
-        <label for="username" class="form-label">Username</label>
+
+        <label for="username" class="form-label">
+          Username
+        </label>
+
         <div class="input-wrap">
+
           <i class="bi bi-person"></i>
-          <input type="text" id="username" name="username" class="form-control" required />
+
+          <input
+            type="text"
+            id="username"
+            name="username"
+            class="form-control"
+            autocomplete="username"
+            minlength="3"
+            maxlength="50"
+            required
+          >
+
         </div>
+
       </div>
 
+      <!-- Email -->
       <div class="mb-3">
-        <label for="email" class="form-label">Email address</label>
+
+        <label for="email" class="form-label">
+          Email address
+        </label>
+
         <div class="input-wrap">
+
           <i class="bi bi-envelope"></i>
-          <input type="email" id="email" name="email" class="form-control" required />
+
+          <input
+            type="email"
+            id="email"
+            name="email"
+            class="form-control"
+            autocomplete="email"
+            maxlength="254"
+            required
+          >
+
         </div>
+
       </div>
 
+      <!-- Phone -->
       <div class="mb-3">
-        <label for="phone" class="form-label">Phone Number</label>
+
+        <label for="phone" class="form-label">
+          Phone Number
+        </label>
+
         <div class="input-wrap">
+
           <i class="bi bi-telephone"></i>
-          <input type="tel" id="phone" name="phone" class="form-control" />
+
+          <input
+            type="tel"
+            id="phone"
+            name="phone"
+            class="form-control"
+            autocomplete="tel"
+            inputmode="tel"
+            maxlength="30"
+            required
+          >
+
         </div>
+
       </div>
 
+      <!-- Password -->
       <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
+
+        <label for="password" class="form-label">
+          Password
+        </label>
+
         <div class="input-wrap">
+
           <i class="bi bi-lock"></i>
-          <input type="password" id="password" name="password" class="form-control password-input" required />
-          <button type="button" class="password-toggle" id="togglePassword">
+
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="form-control password-input"
+            autocomplete="new-password"
+            minlength="8"
+            maxlength="128"
+            required
+          >
+
+          <button
+            type="button"
+            class="password-toggle"
+            id="togglePassword"
+            aria-label="Show or hide password"
+          >
             <i class="bi bi-eye" id="eyeIcon"></i>
           </button>
+
         </div>
+
+        <small class="field-hint">
+          Minimum 8 characters, including one uppercase letter and one number.
+        </small>
+
       </div>
 
-      <div id="passwordError" class="alert alert-warning text-center fw-bold d-none">
-        Password must be at least 8 characters and contain one uppercase letter and one number.
+      <!-- Password Validation -->
+      <div
+        id="passwordError"
+        class="alert alert-warning text-center fw-bold d-none"
+      >
+        Password must be at least 8 characters and contain one uppercase
+        letter and one number.
       </div>
 
+      <!-- Submit -->
       <div class="d-grid mt-4">
-        <button type="submit" class="btn btn-primary" id="registerBtn">Register</button>
+
+        <button
+          type="submit"
+          class="btn btn-primary"
+          id="registerBtn"
+        >
+          Register
+        </button>
+
       </div>
+
     </form>
 
     <div class="text-center mt-3">
+
       <small class="text-muted">
+
         Already have an account?
-        <a href="/login" class="small-link">Login here</a>
+
+        <a href="/login" class="small-link">
+          Login here
+        </a>
+
       </small>
+
     </div>
 
     <div class="security-note">
+
       <i class="bi bi-shield-check text-primary"></i>
-      <span>Your account is protected with secure password rules.</span>
+
+      <span>
+        Your account is protected with secure password rules.
+      </span>
+
     </div>
+
   </div>
 
 </div>
@@ -246,33 +392,53 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  document.getElementById("registerForm").addEventListener("submit", function (e) {
-    const password = document.getElementById("password").value.trim();
-    const isValid = password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password);
+  const registerForm = document.getElementById("registerForm");
+  const registerBtn = document.getElementById("registerBtn");
+  const passwordInput = document.getElementById("password");
+  const passwordError = document.getElementById("passwordError");
+  const togglePassword = document.getElementById("togglePassword");
+  const eyeIcon = document.getElementById("eyeIcon");
 
-    const errorBox = document.getElementById("passwordError");
+  registerForm.addEventListener("submit", function (e) {
 
-    if (!isValid) {
+    const password = passwordInput.value;
+
+    const isPasswordValid =
+      password.length >= 8 &&
+      password.length <= 128 &&
+      /[A-Z]/.test(password) &&
+      /\d/.test(password);
+
+    if (!isPasswordValid) {
+
       e.preventDefault();
-      errorBox.classList.remove("d-none");
-    } else {
-      errorBox.classList.add("d-none");
-      document.getElementById("registerBtn").textContent = "Creating...";
-      document.getElementById("registerBtn").disabled = true;
+
+      passwordError.classList.remove("d-none");
+
+      passwordInput.focus();
+
+      return;
     }
+
+    passwordError.classList.add("d-none");
+
+    // Prevent accidental double submission
+    registerBtn.disabled = true;
+    registerBtn.textContent = "Creating...";
   });
 
-  document.getElementById("togglePassword").addEventListener("click", function () {
-    const passwordInput = document.getElementById("password");
-    const eyeIcon = document.getElementById("eyeIcon");
 
-    if (passwordInput.type === "password") {
-      passwordInput.type = "text";
-      eyeIcon.className = "bi bi-eye-slash";
-    } else {
-      passwordInput.type = "password";
-      eyeIcon.className = "bi bi-eye";
-    }
+  // Show / Hide Password
+  togglePassword.addEventListener("click", function () {
+
+    const showPassword = passwordInput.type === "password";
+
+    passwordInput.type = showPassword ? "text" : "password";
+
+    eyeIcon.className = showPassword
+      ? "bi bi-eye-slash"
+      : "bi bi-eye";
+
   });
 </script>
 
