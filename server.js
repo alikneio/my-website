@@ -7681,32 +7681,81 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
     description,
     delivery_mode,
     pricing_mode,
-    checkout_flow
+    checkout_flow,
+
+    // Dealer Pricing - Fixed Products
+    level_2_price,
+    level_3_price,
+    level_4_price,
+    level_5_price
   } = req.body;
 
-  const cf = (checkout_flow || 'player_id').toString().toLowerCase().trim();
-  const safeCheckoutFlow = ['player_id', 'account_choice', 'no_details'].includes(cf)
-    ? cf
-    : 'player_id';
+  // =========================================================
+  // CHECKOUT FLOW
+  // =========================================================
+  const cf = (checkout_flow || 'player_id')
+    .toString()
+    .toLowerCase()
+    .trim();
+
+  const safeCheckoutFlow =
+    ['player_id', 'account_choice', 'no_details'].includes(cf)
+      ? cf
+      : 'player_id';
 
   const requires_player_id =
     safeCheckoutFlow === 'player_id' &&
-    (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on')
+    (
+      req.body.requires_player_id === '1' ||
+      req.body.requires_player_id === 'on'
+    )
       ? 1
       : 0;
 
+  // =========================================================
+  // PRODUCT FLAGS
+  // =========================================================
   const is_out_of_stock =
-    (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
+    (
+      req.body.is_out_of_stock === '1' ||
+      req.body.is_out_of_stock === 'on'
+    )
+      ? 1
+      : 0;
 
   const active = (req.body.active === '0') ? 0 : 1;
+
   const sort_order = Number(req.body.sort_order || 0);
 
-  const dm = (delivery_mode || 'manual').toString().toLowerCase().trim();
-  const safeDeliveryMode = (dm === 'stock' || dm === 'manual') ? dm : 'manual';
+  // =========================================================
+  // DELIVERY MODE
+  // =========================================================
+  const dm = (delivery_mode || 'manual')
+    .toString()
+    .toLowerCase()
+    .trim();
 
-  const pm = (pricing_mode || 'fixed').toString().toLowerCase().trim();
-  const safePricingMode = (pm === 'options' || pm === 'fixed') ? pm : 'fixed';
+  const safeDeliveryMode =
+    (dm === 'stock' || dm === 'manual')
+      ? dm
+      : 'manual';
 
+  // =========================================================
+  // PRICING MODE
+  // =========================================================
+  const pm = (pricing_mode || 'fixed')
+    .toString()
+    .toLowerCase()
+    .trim();
+
+  const safePricingMode =
+    (pm === 'options' || pm === 'fixed')
+      ? pm
+      : 'fixed';
+
+  // =========================================================
+  // REQUIRED FIELDS
+  // =========================================================
   if (!name || !main_category || !sub_category) {
     return res.status(400).send("Missing required fields");
   }
@@ -7715,73 +7764,298 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
   const cleanMainCat = main_category.trim();
   const cleanSubCat = sub_category.trim();
 
-  const cleanImage = image?.trim() ? image.trim() : null;
-  const cleanSubImage = sub_category_image?.trim() ? sub_category_image.trim() : null;
+  const cleanImage =
+    image?.trim()
+      ? image.trim()
+      : null;
+
+  const cleanSubImage =
+    sub_category_image?.trim()
+      ? sub_category_image.trim()
+      : null;
+
   const cleanPlayerLabel =
     safeCheckoutFlow === 'player_id' && player_id_label?.trim()
       ? player_id_label.trim()
       : null;
 
-  const cleanNotes = notes?.trim() ? notes.trim() : null;
-  const cleanDescription = description?.trim() ? description.trim() : null;
+  const cleanNotes =
+    notes?.trim()
+      ? notes.trim()
+      : null;
 
+  const cleanDescription =
+    description?.trim()
+      ? description.trim()
+      : null;
+
+  // =========================================================
+  // DEALER PRICING
+  // =========================================================
+  // Applies to local SQL products in both Fixed and Options.
+  const dealerPricingEnabled =
+    (
+      req.body.dealer_pricing_enabled === '1' ||
+      req.body.dealer_pricing_enabled === 'on'
+    )
+      ? 1
+      : 0;
+
+  // Empty => NULL
+  // Valid number >= 0 => number
+  // Invalid => NaN
+  const parseOptionalDealerPrice = (value) => {
+    if (
+      value === undefined ||
+      value === null ||
+      String(value).trim() === ''
+    ) {
+      return null;
+    }
+
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return NaN;
+    }
+
+    return parsed;
+  };
+
+  // =========================================================
+  // FIXED DEALER PRICES
+  // =========================================================
+  let cleanLevel2Price = null;
+  let cleanLevel3Price = null;
+  let cleanLevel4Price = null;
+  let cleanLevel5Price = null;
+
+  // Fixed product stores dealer prices on products table.
+  if (
+    dealerPricingEnabled === 1 &&
+    safePricingMode === 'fixed'
+  ) {
+    cleanLevel2Price =
+      parseOptionalDealerPrice(level_2_price);
+
+    cleanLevel3Price =
+      parseOptionalDealerPrice(level_3_price);
+
+    cleanLevel4Price =
+      parseOptionalDealerPrice(level_4_price);
+
+    cleanLevel5Price =
+      parseOptionalDealerPrice(level_5_price);
+
+    const dealerPrices = [
+      cleanLevel2Price,
+      cleanLevel3Price,
+      cleanLevel4Price,
+      cleanLevel5Price
+    ];
+
+    if (
+      dealerPrices.some(
+        value => Number.isNaN(value)
+      )
+    ) {
+      return res
+        .status(400)
+        .send("One or more dealer prices are invalid");
+    }
+  }
+
+  // =========================================================
+  // BASE PRICE / OPTIONS
+  // =========================================================
   let cleanPrice = 0;
   let normalizedOptions = [];
 
   try {
+
+    // =======================================================
+    // FIXED PRODUCT
+    // =======================================================
     if (safePricingMode === 'fixed') {
+
       cleanPrice = Number(price);
 
-      if (!Number.isFinite(cleanPrice) || cleanPrice < 0) {
-        return res.status(400).send("Invalid price");
+      if (
+        !Number.isFinite(cleanPrice) ||
+        cleanPrice < 0
+      ) {
+        return res
+          .status(400)
+          .send("Invalid price");
       }
+
+    // =======================================================
+    // OPTIONS PRODUCT
+    // =======================================================
     } else {
-      const rawOptions = req.body.options || {};
-      const optionList = Array.isArray(rawOptions)
-        ? rawOptions
-        : Object.values(rawOptions);
+
+      const rawOptions =
+        req.body.options || {};
+
+      const optionList =
+        Array.isArray(rawOptions)
+          ? rawOptions
+          : Object.values(rawOptions);
 
       normalizedOptions = optionList
         .map(opt => ({
-          option_label: opt?.option_label?.toString().trim() || '',
-          option_value: opt?.option_value?.toString().trim() || '',
-          price: Number(opt?.price),
-          sort_order: Number(opt?.sort_order || 0),
-          is_active: (String(opt?.is_active || '0') === '1') ? 1 : 0
-        }))
-        .filter(opt => opt.option_label !== '');
+          option_label:
+            opt?.option_label
+              ?.toString()
+              .trim() || '',
 
+          option_value:
+            opt?.option_value
+              ?.toString()
+              .trim() || '',
+
+          price:
+            Number(opt?.price),
+
+          // Dealer prices for this specific option
+          level_2_price:
+            dealerPricingEnabled
+              ? parseOptionalDealerPrice(
+                  opt?.level_2_price
+                )
+              : null,
+
+          level_3_price:
+            dealerPricingEnabled
+              ? parseOptionalDealerPrice(
+                  opt?.level_3_price
+                )
+              : null,
+
+          level_4_price:
+            dealerPricingEnabled
+              ? parseOptionalDealerPrice(
+                  opt?.level_4_price
+                )
+              : null,
+
+          level_5_price:
+            dealerPricingEnabled
+              ? parseOptionalDealerPrice(
+                  opt?.level_5_price
+                )
+              : null,
+
+          sort_order:
+            Number(opt?.sort_order || 0),
+
+          is_active:
+            (
+              String(
+                opt?.is_active || '0'
+              ) === '1'
+            )
+              ? 1
+              : 0
+        }))
+        .filter(
+          opt => opt.option_label !== ''
+        );
+
+      // Must have at least one option
       if (!normalizedOptions.length) {
-        return res.status(400).send("At least one option is required");
+        return res
+          .status(400)
+          .send(
+            "At least one option is required"
+          );
       }
 
-      const invalidOption = normalizedOptions.find(
-        opt => !Number.isFinite(opt.price) || opt.price < 0
-      );
+      // Validate retail prices
+      const invalidOption =
+        normalizedOptions.find(
+          opt =>
+            !Number.isFinite(opt.price) ||
+            opt.price < 0
+        );
 
       if (invalidOption) {
-        return res.status(400).send("One or more option prices are invalid");
+        return res
+          .status(400)
+          .send(
+            "One or more option prices are invalid"
+          );
       }
 
-      const firstActive = normalizedOptions.find(opt => opt.is_active === 1);
-      const fallbackOption = firstActive || normalizedOptions[0];
-      cleanPrice = Number(fallbackOption?.price || 0);
+      // Validate Dealer prices
+      const invalidDealerOption =
+        normalizedOptions.find(opt =>
+          [
+            opt.level_2_price,
+            opt.level_3_price,
+            opt.level_4_price,
+            opt.level_5_price
+          ].some(
+            value => Number.isNaN(value)
+          )
+        );
 
-      if (!Number.isFinite(cleanPrice) || cleanPrice < 0) {
-        return res.status(400).send("Invalid option price");
+      if (invalidDealerOption) {
+        return res
+          .status(400)
+          .send(
+            "One or more option dealer prices are invalid"
+          );
+      }
+
+      // products.price still keeps a base/fallback price
+      const firstActive =
+        normalizedOptions.find(
+          opt => opt.is_active === 1
+        );
+
+      const fallbackOption =
+        firstActive ||
+        normalizedOptions[0];
+
+      cleanPrice =
+        Number(
+          fallbackOption?.price || 0
+        );
+
+      if (
+        !Number.isFinite(cleanPrice) ||
+        cleanPrice < 0
+      ) {
+        return res
+          .status(400)
+          .send("Invalid option price");
       }
     }
 
-    const conn = await promisePool.getConnection();
+    // =========================================================
+    // DATABASE TRANSACTION
+    // =========================================================
+    const conn =
+      await promisePool.getConnection();
 
     try {
+
       await conn.beginTransaction();
 
+      // =======================================================
+      // INSERT PRODUCT
+      // =======================================================
       const sql = `
         INSERT INTO products
         (
           name,
           price,
+          dealer_pricing_enabled,
+          level_2_price,
+          level_3_price,
+          level_4_price,
+          level_5_price,
           image,
           main_category,
           sub_category,
@@ -7797,12 +8071,24 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
           pricing_mode,
           checkout_flow
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (
+          ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?
+        )
       `;
 
       const params = [
         cleanName,
         cleanPrice,
+
+        // Dealer Pricing
+        dealerPricingEnabled,
+        cleanLevel2Price,
+        cleanLevel3Price,
+        cleanLevel4Price,
+        cleanLevel5Price,
+
         cleanImage,
         cleanMainCat,
         cleanSubCat,
@@ -7819,11 +8105,27 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
         safeCheckoutFlow
       ];
 
-      const [result] = await conn.query(sql, params);
-      const productId = result.insertId;
+      const [result] =
+        await conn.query(
+          sql,
+          params
+        );
 
-      if (safePricingMode === 'options' && normalizedOptions.length) {
-        for (const opt of normalizedOptions) {
+      const productId =
+        result.insertId;
+
+      // =======================================================
+      // INSERT OPTIONS
+      // =======================================================
+      if (
+        safePricingMode === 'options' &&
+        normalizedOptions.length
+      ) {
+
+        for (
+          const opt of normalizedOptions
+        ) {
+
           await conn.query(
             `
             INSERT INTO product_checkout_options
@@ -7832,16 +8134,32 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
               option_label,
               option_value,
               price,
+              level_2_price,
+              level_3_price,
+              level_4_price,
+              level_5_price,
               sort_order,
               is_active
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (
+              ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?
+            )
             `,
             [
               productId,
               opt.option_label,
               opt.option_value || null,
+
+              // Retail
               opt.price,
+
+              // Dealer
+              opt.level_2_price,
+              opt.level_3_price,
+              opt.level_4_price,
+              opt.level_5_price,
+
               opt.sort_order,
               opt.is_active
             ]
@@ -7849,25 +8167,53 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
         }
       }
 
+      // =======================================================
+      // COMMIT
+      // =======================================================
       await conn.commit();
 
-      if (safeDeliveryMode === 'stock') {
-        return res.redirect(`/admin/products/${productId}/stock`);
+      // Stock product
+      if (
+        safeDeliveryMode === 'stock'
+      ) {
+        return res.redirect(
+          `/admin/products/${productId}/stock`
+        );
       }
 
-      return res.redirect('/admin/products');
+      return res.redirect(
+        '/admin/products'
+      );
 
     } catch (err) {
+
       await conn.rollback();
-      console.error("❌ DATABASE INSERT ERROR:", err?.message || err);
-      return res.status(500).send("Error adding product");
+
+      console.error(
+        "❌ DATABASE INSERT ERROR:",
+        err?.message || err
+      );
+
+      return res
+        .status(500)
+        .send("Error adding product");
+
     } finally {
+
       conn.release();
+
     }
 
   } catch (err) {
-    console.error("❌ POST /admin/products error:", err?.message || err);
-    return res.status(500).send("Server error");
+
+    console.error(
+      "❌ POST /admin/products error:",
+      err?.message || err
+    );
+
+    return res
+      .status(500)
+      .send("Server error");
   }
 });
 
@@ -7919,29 +8265,72 @@ app.post('/admin/update-balance', checkAdmin, (req, res) => {
 });
 
 
+app.get('/admin/products/edit/:id', checkAdmin, async (req, res) => {
+  const productId = Number(req.params.id);
 
-app.get('/admin/products/edit/:id', checkAdmin, (req, res) => {
-  const productId = req.params.id;
-  const sql = "SELECT * FROM products WHERE id = ?";
+  if (!Number.isInteger(productId) || productId <= 0) {
+    return res.status(400).send('Invalid product ID.');
+  }
 
-  db.query(sql, [productId], (err, result) => {
-    if (err || !result || result.length === 0) {
+  try {
+    // Get product
+    const [products] = await promisePool.query(
+      `SELECT * FROM products WHERE id = ? LIMIT 1`,
+      [productId]
+    );
+
+    if (!products || products.length === 0) {
       return res.status(404).send('❌ Product not found.');
     }
 
-    const product = result[0];
+    const product = products[0];
 
-    res.render('admin-edit-product', {
+    // Get checkout options
+    const [options] = await promisePool.query(
+      `
+      SELECT
+        id,
+        product_id,
+        option_label,
+        option_value,
+        price,
+        level_2_price,
+        level_3_price,
+        level_4_price,
+        level_5_price,
+        sort_order,
+        is_active
+      FROM product_checkout_options
+      WHERE product_id = ?
+      ORDER BY sort_order ASC, id ASC
+      `,
+      [productId]
+    );
+
+    return res.render('admin-edit-product', {
       user: req.session.user,
-      product
+      product,
+      options: options || []
     });
-  });
+
+  } catch (err) {
+    console.error(
+      '❌ GET /admin/products/edit/:id error:',
+      err?.message || err
+    );
+
+    return res.status(500).send('Server error.');
+  }
 });
 
 
 
-app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
-  const productId = req.params.id;
+app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
+  const productId = Number(req.params.id);
+
+  if (!Number.isInteger(productId) || productId <= 0) {
+    return res.status(400).send('Invalid product ID.');
+  }
 
   const {
     name,
@@ -7954,82 +8343,475 @@ app.post('/admin/products/edit/:id', checkAdmin, (req, res) => {
     notes,
     description,
     delivery_mode,
-    checkout_flow
+    pricing_mode,
+    checkout_flow,
+    level_2_price,
+    level_3_price,
+    level_4_price,
+    level_5_price
   } = req.body;
 
-  const dm = (delivery_mode || 'manual').toString().toLowerCase().trim();
-  const safeDeliveryMode = (dm === 'stock' || dm === 'manual') ? dm : 'manual';
+  // =======================================================
+  // BASIC VALIDATION
+  // =======================================================
+  if (!name || !name.trim()) {
+    return res.status(400).send('Product name is required.');
+  }
 
-  const cf = (checkout_flow || 'player_id').toString().toLowerCase().trim();
-  const safeCheckoutFlow = ['player_id', 'account_choice', 'no_details'].includes(cf)
-    ? cf
-    : 'player_id';
+  // =======================================================
+  // DELIVERY MODE
+  // =======================================================
+  const dm = (delivery_mode || 'manual')
+    .toString()
+    .toLowerCase()
+    .trim();
+
+  const safeDeliveryMode =
+    ['manual', 'stock'].includes(dm)
+      ? dm
+      : 'manual';
+
+  // =======================================================
+  // PRICING MODE
+  // =======================================================
+  const pm = (pricing_mode || 'fixed')
+    .toString()
+    .toLowerCase()
+    .trim();
+
+  const safePricingMode =
+    ['fixed', 'options'].includes(pm)
+      ? pm
+      : 'fixed';
+
+  // =======================================================
+  // CHECKOUT FLOW
+  // =======================================================
+  const cf = (checkout_flow || 'player_id')
+    .toString()
+    .toLowerCase()
+    .trim();
+
+  const safeCheckoutFlow =
+    ['player_id', 'account_choice', 'no_details'].includes(cf)
+      ? cf
+      : 'player_id';
 
   const requires_player_id =
     safeCheckoutFlow === 'player_id' &&
-    (req.body.requires_player_id === '1' || req.body.requires_player_id === 'on')
+    (
+      req.body.requires_player_id === '1' ||
+      req.body.requires_player_id === 'on'
+    )
       ? 1
       : 0;
 
   const is_out_of_stock =
-    (req.body.is_out_of_stock === '1' || req.body.is_out_of_stock === 'on') ? 1 : 0;
+    (
+      req.body.is_out_of_stock === '1' ||
+      req.body.is_out_of_stock === 'on'
+    )
+      ? 1
+      : 0;
 
-  const normalizedPrice = Number(price);
-  const safePrice = Number.isFinite(normalizedPrice) ? normalizedPrice : 0;
+  // =======================================================
+  // DEALER PRICING
+  // =======================================================
+  const dealerPricingEnabled =
+    (
+      req.body.dealer_pricing_enabled === '1' ||
+      req.body.dealer_pricing_enabled === 'on'
+    )
+      ? 1
+      : 0;
 
-  const safePlayerIdLabel =
-    safeCheckoutFlow === 'player_id' && player_id_label?.trim()
-      ? player_id_label.trim()
-      : null;
-
-  const sql = `
-    UPDATE products
-    SET
-      name = ?,
-      price = ?,
-      image = ?,
-      main_category = ?,
-      sub_category = ?,
-      sub_category_image = ?,
-      requires_player_id = ?,
-      player_id_label = ?,
-      notes = ?,
-      description = ?,
-      is_out_of_stock = ?,
-      delivery_mode = ?,
-      checkout_flow = ?
-    WHERE id = ?
-    LIMIT 1
-  `;
-
-  const values = [
-    (name || '').trim(),
-    safePrice,
-    (image || '').trim() || null,
-    (main_category || '').trim() || null,
-    (sub_category || '').trim() || null,
-    (sub_category_image || '').trim() || null,
-    requires_player_id,
-    safePlayerIdLabel,
-    notes?.trim() ? notes.trim() : null,
-    description?.trim() ? description.trim() : null,
-    is_out_of_stock,
-    safeDeliveryMode,
-    safeCheckoutFlow,
-    productId
-  ];
-
-  db.query(sql, values, (err) => {
-    if (err) {
-      console.error("❌ Error updating product:", err?.message || err);
-      return res.status(500).send("Database error during update.");
+  const parseOptionalDealerPrice = (value) => {
+    if (
+      value === undefined ||
+      value === null ||
+      String(value).trim() === ''
+    ) {
+      return null;
     }
 
-    res.redirect('/admin/products');
-  });
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return NaN;
+    }
+
+    return parsed;
+  };
+
+  // =======================================================
+  // FIXED PRICES
+  // =======================================================
+  let safePrice = 0;
+
+  let cleanLevel2Price = null;
+  let cleanLevel3Price = null;
+  let cleanLevel4Price = null;
+  let cleanLevel5Price = null;
+
+  // =======================================================
+  // OPTIONS
+  // =======================================================
+  let normalizedOptions = [];
+
+  try {
+
+    // =====================================================
+    // FIXED MODE
+    // =====================================================
+    if (safePricingMode === 'fixed') {
+
+      safePrice = Number(price);
+
+      if (
+        !Number.isFinite(safePrice) ||
+        safePrice < 0
+      ) {
+        return res.status(400).send('Invalid retail price.');
+      }
+
+      if (dealerPricingEnabled === 1) {
+
+        cleanLevel2Price =
+          parseOptionalDealerPrice(level_2_price);
+
+        cleanLevel3Price =
+          parseOptionalDealerPrice(level_3_price);
+
+        cleanLevel4Price =
+          parseOptionalDealerPrice(level_4_price);
+
+        cleanLevel5Price =
+          parseOptionalDealerPrice(level_5_price);
+
+        if (
+          [
+            cleanLevel2Price,
+            cleanLevel3Price,
+            cleanLevel4Price,
+            cleanLevel5Price
+          ].some(value => Number.isNaN(value))
+        ) {
+          return res
+            .status(400)
+            .send('One or more dealer prices are invalid.');
+        }
+      }
+
+    // =====================================================
+    // OPTIONS MODE
+    // =====================================================
+    } else {
+
+      const rawOptions = req.body.options || {};
+
+      const optionList =
+        Array.isArray(rawOptions)
+          ? rawOptions
+          : Object.values(rawOptions);
+
+      normalizedOptions = optionList
+        .map(opt => ({
+          id: Number(opt?.id),
+
+          option_label:
+            opt?.option_label
+              ?.toString()
+              .trim() || '',
+
+          option_value:
+            opt?.option_value
+              ?.toString()
+              .trim() || '',
+
+          price:
+            Number(opt?.price),
+
+          level_2_price:
+            dealerPricingEnabled
+              ? parseOptionalDealerPrice(opt?.level_2_price)
+              : null,
+
+          level_3_price:
+            dealerPricingEnabled
+              ? parseOptionalDealerPrice(opt?.level_3_price)
+              : null,
+
+          level_4_price:
+            dealerPricingEnabled
+              ? parseOptionalDealerPrice(opt?.level_4_price)
+              : null,
+
+          level_5_price:
+            dealerPricingEnabled
+              ? parseOptionalDealerPrice(opt?.level_5_price)
+              : null,
+
+          sort_order:
+            Number(opt?.sort_order || 0),
+
+          is_active:
+            (
+              String(opt?.is_active || '0') === '1' ||
+              String(opt?.is_active || '').toLowerCase() === 'on'
+            )
+              ? 1
+              : 0
+        }))
+        .filter(opt => opt.option_label !== '');
+
+      if (!normalizedOptions.length) {
+        return res
+          .status(400)
+          .send('At least one option is required.');
+      }
+
+      const invalidRetailOption =
+        normalizedOptions.find(
+          opt =>
+            !Number.isInteger(opt.id) ||
+            opt.id <= 0 ||
+            !Number.isFinite(opt.price) ||
+            opt.price < 0
+        );
+
+      if (invalidRetailOption) {
+        return res
+          .status(400)
+          .send('One or more options are invalid.');
+      }
+
+      const invalidDealerOption =
+        normalizedOptions.find(opt =>
+          [
+            opt.level_2_price,
+            opt.level_3_price,
+            opt.level_4_price,
+            opt.level_5_price
+          ].some(value => Number.isNaN(value))
+        );
+
+      if (invalidDealerOption) {
+        return res
+          .status(400)
+          .send('One or more option dealer prices are invalid.');
+      }
+
+      // products.price remains a retail fallback.
+      const firstActive =
+        normalizedOptions.find(
+          opt => opt.is_active === 1
+        );
+
+      const fallbackOption =
+        firstActive || normalizedOptions[0];
+
+      safePrice = Number(fallbackOption.price);
+
+      if (
+        !Number.isFinite(safePrice) ||
+        safePrice < 0
+      ) {
+        return res.status(400).send('Invalid option price.');
+      }
+    }
+
+    // =======================================================
+    // DATABASE TRANSACTION
+    // =======================================================
+    const conn = await promisePool.getConnection();
+
+    try {
+
+      await conn.beginTransaction();
+
+      // Make sure product still exists.
+      const [existingProducts] = await conn.query(
+        `SELECT id FROM products WHERE id = ? LIMIT 1 FOR UPDATE`,
+        [productId]
+      );
+
+      if (!existingProducts.length) {
+        await conn.rollback();
+        return res.status(404).send('Product not found.');
+      }
+
+      // =====================================================
+      // UPDATE PRODUCT
+      // =====================================================
+      const sql = `
+        UPDATE products
+        SET
+          name = ?,
+          price = ?,
+
+          dealer_pricing_enabled = ?,
+          level_2_price = ?,
+          level_3_price = ?,
+          level_4_price = ?,
+          level_5_price = ?,
+
+          image = ?,
+          main_category = ?,
+          sub_category = ?,
+          sub_category_image = ?,
+
+          requires_player_id = ?,
+          player_id_label = ?,
+
+          notes = ?,
+          description = ?,
+
+          is_out_of_stock = ?,
+          delivery_mode = ?,
+          pricing_mode = ?,
+          checkout_flow = ?
+
+        WHERE id = ?
+        LIMIT 1
+      `;
+
+      const values = [
+        name.trim(),
+        safePrice,
+
+        dealerPricingEnabled,
+        cleanLevel2Price,
+        cleanLevel3Price,
+        cleanLevel4Price,
+        cleanLevel5Price,
+
+        (image || '').trim() || null,
+        (main_category || '').trim() || null,
+        (sub_category || '').trim() || null,
+        (sub_category_image || '').trim() || null,
+
+        requires_player_id,
+
+        safeCheckoutFlow === 'player_id' &&
+        player_id_label?.trim()
+          ? player_id_label.trim()
+          : null,
+
+        notes?.trim()
+          ? notes.trim()
+          : null,
+
+        description?.trim()
+          ? description.trim()
+          : null,
+
+        is_out_of_stock,
+        safeDeliveryMode,
+        safePricingMode,
+        safeCheckoutFlow,
+
+        productId
+      ];
+
+      await conn.query(sql, values);
+
+      // =====================================================
+      // UPDATE OPTIONS
+      // =====================================================
+      if (safePricingMode === 'options') {
+
+        for (const opt of normalizedOptions) {
+
+          // Important:
+          // product_id is included so an option belonging to
+          // another product cannot be edited.
+          const [updateResult] = await conn.query(
+            `
+            UPDATE product_checkout_options
+            SET
+              option_label = ?,
+              option_value = ?,
+              price = ?,
+              level_2_price = ?,
+              level_3_price = ?,
+              level_4_price = ?,
+              level_5_price = ?,
+              sort_order = ?,
+              is_active = ?
+            WHERE id = ?
+              AND product_id = ?
+            LIMIT 1
+            `,
+            [
+              opt.option_label,
+              opt.option_value || null,
+              opt.price,
+
+              opt.level_2_price,
+              opt.level_3_price,
+              opt.level_4_price,
+              opt.level_5_price,
+
+              opt.sort_order,
+              opt.is_active,
+
+              opt.id,
+              productId
+            ]
+          );
+
+          if (updateResult.affectedRows !== 1) {
+            throw new Error(
+              `Invalid option ${opt.id} for product ${productId}`
+            );
+          }
+        }
+
+      } else {
+
+        // Fixed mode:
+        // We intentionally DO NOT delete old option rows here.
+        // This prevents accidental data loss if pricing mode
+        // is temporarily changed from Options -> Fixed.
+      }
+
+      // =====================================================
+      // COMMIT
+      // =====================================================
+      await conn.commit();
+
+      return res.redirect('/admin/products');
+
+    } catch (err) {
+
+      await conn.rollback();
+
+      console.error(
+        '❌ Error updating product:',
+        err?.message || err
+      );
+
+      return res
+        .status(500)
+        .send('Database error during update.');
+
+    } finally {
+
+      conn.release();
+    }
+
+  } catch (err) {
+
+    console.error(
+      '❌ POST /admin/products/edit/:id error:',
+      err?.message || err
+    );
+
+    return res.status(500).send('Server error.');
+  }
 });
 
-// ✅ Stock Manager Page
+
 app.get('/admin/products/:id/stock', checkAdmin, (req, res) => {
   const productId = Number(req.params.id);
 

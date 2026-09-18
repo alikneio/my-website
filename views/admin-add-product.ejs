@@ -288,8 +288,29 @@
         </div>
 
         <div class="col-12 col-md-2">
-          <label class="form-label fw-semibold">Price</label>
+          <label class="form-label fw-semibold">Retail Price</label>
           <input type="number" step="0.01" min="0" class="form-control option-price-input" placeholder="100">
+        </div>
+
+        <div class="col-12 option-dealer-prices d-none">
+          <div class="row g-2">
+            <div class="col-6 col-md-3">
+              <label class="form-label fw-semibold">Level 2 Price</label>
+              <input type="number" step="0.01" min="0" class="form-control option-level-2-price-input" placeholder="Optional">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label fw-semibold">Level 3 Price</label>
+              <input type="number" step="0.01" min="0" class="form-control option-level-3-price-input" placeholder="Optional">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label fw-semibold">Level 4 Price</label>
+              <input type="number" step="0.01" min="0" class="form-control option-level-4-price-input" placeholder="Optional">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label fw-semibold">Level 5 Price</label>
+              <input type="number" step="0.01" min="0" class="form-control option-level-5-price-input" placeholder="Optional">
+            </div>
+          </div>
         </div>
 
         <div class="col-12 col-md-2">
@@ -385,6 +406,10 @@
         'd-none',
         !enabled || mode !== 'fixed'
       );
+
+      document.querySelectorAll('.option-dealer-prices').forEach(el => {
+        el.classList.toggle('d-none', !enabled || mode !== 'options');
+      });
     }
 
     function refreshPricingMode() {
@@ -408,13 +433,21 @@
       const labelInput = row.querySelector('.option-label-input');
       const valueInput = row.querySelector('.option-value-input');
       const priceInput = row.querySelector('.option-price-input');
+      const level2Input = row.querySelector('.option-level-2-price-input');
+      const level3Input = row.querySelector('.option-level-3-price-input');
+      const level4Input = row.querySelector('.option-level-4-price-input');
+      const level5Input = row.querySelector('.option-level-5-price-input');
       const sortInput = row.querySelector('.option-sort-input');
       const activeInput = row.querySelector('.option-active-input');
       const removeBtn = row.querySelector('.remove-option-btn');
 
       labelInput.value = data.option_label || '';
       valueInput.value = data.option_value || '';
-      priceInput.value = data.price || '';
+      priceInput.value = data.price ?? '';
+      level2Input.value = data.level_2_price ?? '';
+      level3Input.value = data.level_3_price ?? '';
+      level4Input.value = data.level_4_price ?? '';
+      level5Input.value = data.level_5_price ?? '';
       sortInput.value = data.sort_order || optionsContainer.children.length;
       activeInput.checked = typeof data.is_active === 'undefined' ? true : !!data.is_active;
 
@@ -423,6 +456,7 @@
       });
 
       optionsContainer.appendChild(row);
+      refreshDealerPricing();
     }
 
     function rebuildOptionHiddenInputs() {
@@ -437,12 +471,20 @@
         const label = row.querySelector('.option-label-input')?.value?.trim() || '';
         const value = row.querySelector('.option-value-input')?.value?.trim() || '';
         const price = row.querySelector('.option-price-input')?.value?.trim() || '';
+        const level2Price = row.querySelector('.option-level-2-price-input')?.value?.trim() || '';
+        const level3Price = row.querySelector('.option-level-3-price-input')?.value?.trim() || '';
+        const level4Price = row.querySelector('.option-level-4-price-input')?.value?.trim() || '';
+        const level5Price = row.querySelector('.option-level-5-price-input')?.value?.trim() || '';
         const sort = row.querySelector('.option-sort-input')?.value?.trim() || '0';
         const active = row.querySelector('.option-active-input')?.checked ? '1' : '0';
 
         form.appendChild(buildHiddenInput(`options[${index}][option_label]`, label));
         form.appendChild(buildHiddenInput(`options[${index}][option_value]`, value));
         form.appendChild(buildHiddenInput(`options[${index}][price]`, price));
+        form.appendChild(buildHiddenInput(`options[${index}][level_2_price]`, level2Price));
+        form.appendChild(buildHiddenInput(`options[${index}][level_3_price]`, level3Price));
+        form.appendChild(buildHiddenInput(`options[${index}][level_4_price]`, level4Price));
+        form.appendChild(buildHiddenInput(`options[${index}][level_5_price]`, level5Price));
         form.appendChild(buildHiddenInput(`options[${index}][sort_order]`, sort));
         form.appendChild(buildHiddenInput(`options[${index}][is_active]`, active));
       });
