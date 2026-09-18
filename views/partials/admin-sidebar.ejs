@@ -1,141 +1,308 @@
-<div class="d-flex flex-column flex-shrink-0 p-3 text-white bg-dark"
-     style="width:280px;min-height:100vh;">
+<!-- AK Cell Premium Admin Sidebar -->
+<style>
+  .ak-admin-sidebar{
+    --ak-blue:#0d6efd;
+    --ak-cyan:#00c9e8;
+    --ak-bg:#0a111e;
+    --ak-panel:#111b2d;
+    --ak-muted:#8494aa;
+    width:292px;
+    min-height:100vh;
+    padding:18px 14px;
+    color:#f8fafc;
+    background:
+      radial-gradient(circle at 10% 0%, rgba(13,110,253,.20), transparent 28%),
+      linear-gradient(180deg,#0d1627 0%,#080f1b 100%);
+    border-right:1px solid rgba(148,163,184,.13);
+    box-shadow:12px 0 38px rgba(2,6,23,.18);
+    display:flex;
+    flex-direction:column;
+  }
 
-  <a href="/admin"
-     class="d-flex align-items-center mb-3 text-white text-decoration-none">
-    <i class="bi bi-speedometer2 me-2"></i>
-    <span class="fs-4">Admin Panel</span>
+  .ak-admin-brand{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:7px 8px 17px;
+    text-decoration:none;
+    color:#fff !important;
+    border-bottom:1px solid rgba(148,163,184,.12);
+  }
+
+  .ak-admin-brand-mark{
+    width:43px;
+    height:43px;
+    border-radius:13px;
+    display:grid;
+    place-items:center;
+    background:linear-gradient(135deg,var(--ak-blue),var(--ak-cyan));
+    box-shadow:0 9px 24px rgba(13,110,253,.25);
+    font-weight:900;
+    letter-spacing:-1px;
+  }
+
+  .ak-admin-brand-title{
+    font-size:1rem;
+    font-weight:850;
+    letter-spacing:.02em;
+    line-height:1.1;
+  }
+
+  .ak-admin-brand-sub{
+    margin-top:3px;
+    font-size:.68rem;
+    color:var(--ak-muted);
+  }
+
+  .ak-admin-section{
+    margin:18px 9px 7px;
+    color:#66788f;
+    font-size:.64rem;
+    font-weight:900;
+    letter-spacing:.13em;
+    text-transform:uppercase;
+  }
+
+  .ak-admin-nav{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+
+  .ak-admin-nav-link{
+    position:relative;
+    min-height:44px;
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:9px 10px;
+    border-radius:12px;
+    color:#cbd7e6 !important;
+    text-decoration:none;
+    font-size:.81rem;
+    font-weight:600;
+    border:1px solid transparent;
+    transition:background .17s ease,border-color .17s ease,transform .17s ease,color .17s ease;
+  }
+
+  .ak-admin-nav-link:hover{
+    color:#fff !important;
+    background:rgba(13,110,253,.085);
+    border-color:rgba(59,130,246,.13);
+    transform:translateX(2px);
+  }
+
+  .ak-admin-nav-link.active{
+    color:#fff !important;
+    background:linear-gradient(90deg,rgba(13,110,253,.20),rgba(0,201,232,.06));
+    border-color:rgba(59,130,246,.18);
+  }
+
+  .ak-admin-nav-link.active:before{
+    content:"";
+    position:absolute;
+    left:-1px;
+    top:10px;
+    bottom:10px;
+    width:3px;
+    border-radius:999px;
+    background:linear-gradient(180deg,var(--ak-blue),var(--ak-cyan));
+  }
+
+  .ak-admin-nav-icon{
+    flex:0 0 34px;
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    display:grid;
+    place-items:center;
+    background:rgba(255,255,255,.045);
+    color:#72aaff;
+    font-size:.98rem;
+    transition:.17s ease;
+  }
+
+  .ak-admin-nav-link:hover .ak-admin-nav-icon,
+  .ak-admin-nav-link.active .ak-admin-nav-icon{
+    background:rgba(13,110,253,.13);
+    color:#8fc0ff;
+  }
+
+  .ak-admin-nav-text{
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+
+  .ak-admin-badge{
+    margin-left:auto;
+    min-width:22px;
+    height:22px;
+    padding:0 6px;
+    border-radius:999px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:#facc15;
+    color:#422006;
+    font-size:.65rem;
+    font-weight:900;
+    box-shadow:0 5px 13px rgba(250,204,21,.13);
+  }
+
+  .ak-admin-spacer{
+    flex:1 1 auto;
+    min-height:20px;
+  }
+
+  .ak-admin-footer{
+    padding-top:14px;
+    margin-top:15px;
+    border-top:1px solid rgba(148,163,184,.12);
+  }
+
+  .ak-admin-back{
+    width:100%;
+    min-height:43px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    color:#dce7f4 !important;
+    text-decoration:none;
+    font-size:.78rem;
+    font-weight:800;
+    border:1px solid rgba(148,163,184,.15);
+    background:rgba(255,255,255,.045);
+    transition:.17s ease;
+  }
+
+  .ak-admin-back:hover{
+    background:rgba(255,255,255,.075);
+    border-color:rgba(148,163,184,.24);
+  }
+
+  @media (max-width: 991.98px){
+    .ak-admin-sidebar{
+      width:260px;
+    }
+  }
+</style>
+
+<%
+  // Highlight the current admin page automatically.
+  const _adminPath =
+    (typeof currentPath !== 'undefined' && currentPath)
+      ? String(currentPath)
+      : ((typeof requestPath !== 'undefined' && requestPath) ? String(requestPath) : '');
+
+  const _isAdminActive = (path, exact = false) => {
+    if (!_adminPath) return false;
+    return exact ? _adminPath === path : _adminPath.startsWith(path);
+  };
+%>
+
+<div class="ak-admin-sidebar">
+
+  <a href="/admin" class="ak-admin-brand">
+    <div class="ak-admin-brand-mark">AK</div>
+    <div>
+      <div class="ak-admin-brand-title">AK CELL</div>
+      <div class="ak-admin-brand-sub">Administration Center</div>
+    </div>
   </a>
 
-  <hr>
+  <div class="ak-admin-section">Overview</div>
+  <nav class="ak-admin-nav">
+    <a href="/admin"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin', true) ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-grid-fill"></i></span>
+      <span class="ak-admin-nav-text">Dashboard</span>
+    </a>
 
-  <ul class="nav nav-pills flex-column mb-auto">
+    <a href="/admin/orders"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/orders') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-bag-check-fill"></i></span>
+      <span class="ak-admin-nav-text">Orders</span>
+    </a>
 
-    <!-- Dashboard -->
-    <li>
-      <a href="/admin" class="nav-link text-white">
-        <i class="bi bi-grid"></i>
-        <span class="ms-2">Dashboard</span>
-      </a>
-    </li>
+    <a href="/admin/balance-requests"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/balance-requests') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-wallet2"></i></span>
+      <span class="ak-admin-nav-text">Balance Requests</span>
 
-    <!-- Orders -->
-    <li>
-      <a href="/admin/orders" class="nav-link text-white">
-        <i class="bi bi-table"></i>
-        <span class="ms-2">Orders</span>
-      </a>
-    </li>
-
-    <!-- Balance -->
-    <li>
-      <a href="/admin/balance-requests"
-         class="nav-link text-white d-flex justify-content-between align-items-center">
-
-        <span>
-          <i class="bi bi-wallet2"></i>
-          <span class="ms-2">Balance Requests</span>
+      <% if ((typeof pendingBalanceRequestsCount !== 'undefined' ? pendingBalanceRequestsCount : 0) > 0) { %>
+        <span class="ak-admin-badge">
+          <%= pendingBalanceRequestsCount > 99 ? '99+' : pendingBalanceRequestsCount %>
         </span>
+      <% } %>
+    </a>
+  </nav>
 
-        <% if ((pendingBalanceRequestsCount || 0) > 0) { %>
-          <span class="badge bg-warning text-dark rounded-pill">
-            <%= pendingBalanceRequestsCount > 99 ? '99+' : pendingBalanceRequestsCount %>
-          </span>
-        <% } %>
+  <div class="ak-admin-section">Catalog</div>
+  <nav class="ak-admin-nav">
+    <a href="/admin/products"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/products') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-box-seam-fill"></i></span>
+      <span class="ak-admin-nav-text">Products</span>
+    </a>
 
-      </a>
-    </li>
+    <a href="/admin/stock"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/stock') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-archive-fill"></i></span>
+      <span class="ak-admin-nav-text">Stock Management</span>
+    </a>
 
-    <hr class="text-secondary">
+    <a href="/admin/api-products"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/api-products') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-cloud-arrow-down-fill"></i></span>
+      <span class="ak-admin-nav-text">API Products</span>
+    </a>
 
-    <!-- Products -->
-    <li>
-      <a href="/admin/products" class="nav-link text-white">
-        <i class="bi bi-box-seam"></i>
-        <span class="ms-2">Products</span>
-      </a>
-    </li>
+    <a href="/admin/api-categories"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/api-categories') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-grid-3x3-gap-fill"></i></span>
+      <span class="ak-admin-nav-text">API Categories</span>
+    </a>
+  </nav>
 
-    <li>
-      <a href="/admin/stock" class="nav-link text-white">
-        <i class="bi bi-archive-fill"></i>
-        <span class="ms-2">Stock Management</span>
-      </a>
-    </li>
+  <div class="ak-admin-section">Services</div>
+  <nav class="ak-admin-nav">
+    <a href="/admin/fivesim-services"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/fivesim-services') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-phone-vibrate-fill"></i></span>
+      <span class="ak-admin-nav-text">Virtual Numbers</span>
+    </a>
 
-    <li>
-      <a href="/admin/api-products" class="nav-link text-white">
-        <i class="bi bi-cloud-arrow-down-fill"></i>
-        <span class="ms-2">API Products</span>
-      </a>
-    </li>
+    <a href="/admin/smm-services"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/smm-services') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-instagram"></i></span>
+      <span class="ak-admin-nav-text">SMM Services</span>
+    </a>
 
-    <li>
-      <a href="/admin/api-categories" class="nav-link text-white">
-        <i class="bi bi-grid-3x3-gap-fill"></i>
-        <span class="ms-2">API Categories</span>
-      </a>
-    </li>
+    <a href="/admin/smm-categories"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/smm-categories') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-collection-fill"></i></span>
+      <span class="ak-admin-nav-text">SMM Categories</span>
+    </a>
+  </nav>
 
-    <hr class="text-secondary">
+  <div class="ak-admin-section">Management</div>
+  <nav class="ak-admin-nav">
+    <a href="/admin/users"
+       class="ak-admin-nav-link <%= _isAdminActive('/admin/users') ? 'active' : '' %>">
+      <span class="ak-admin-nav-icon"><i class="bi bi-people-fill"></i></span>
+      <span class="ak-admin-nav-text">Users</span>
+    </a>
+  </nav>
 
-    <!-- NEW -->
-    <li>
-      <a href="/admin/fivesim-services"
-         class="nav-link text-white">
+  <div class="ak-admin-spacer"></div>
 
-        <i class="bi bi-phone-vibrate-fill"></i>
-
-        <span class="ms-2">
-          Virtual Numbers
-        </span>
-      </a>
-    </li>
-
-    <hr class="text-secondary">
-
-    <!-- SMM -->
-    <li>
-      <a href="/admin/smm-services"
-         class="nav-link text-white">
-
-        <i class="bi bi-instagram"></i>
-
-        <span class="ms-2">
-          SMM Services
-        </span>
-      </a>
-    </li>
-
-    <li>
-      <a href="/admin/smm-categories"
-         class="nav-link text-white">
-
-        <i class="bi bi-collection"></i>
-
-        <span class="ms-2">
-          SMM Categories
-        </span>
-      </a>
-    </li>
-
-    <hr class="text-secondary">
-
-    <!-- Users -->
-    <li>
-      <a href="/admin/users" class="nav-link text-white">
-        <i class="bi bi-people-fill"></i>
-        <span class="ms-2">Users</span>
-      </a>
-    </li>
-
-  </ul>
-
-  <hr>
-
-  <a href="/" class="btn btn-secondary">
-    <i class="bi bi-arrow-left-square me-2"></i>
-    Back to Main Site
-  </a>
-
+  <div class="ak-admin-footer">
+    <a href="/" class="ak-admin-back">
+      <i class="bi bi-arrow-left"></i>
+      Back to Main Site
+    </a>
+  </div>
 </div>
