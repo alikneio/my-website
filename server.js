@@ -2928,7 +2928,7 @@ app.get('/netflixH-section', (req, res) => {
     }
 
     // ⛔ ما نغير منطق الخصم
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('netflixH-section', {
       user,
@@ -2950,7 +2950,7 @@ app.get('/windows-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('windows-section', { user, products: finalProducts });
   });
@@ -2968,7 +2968,7 @@ app.get('/office-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('office-section', { user, products: finalProducts });
   });
@@ -2986,7 +2986,7 @@ app.get('/roblox', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('roblox', { user, products: finalProducts });
   });
@@ -3004,7 +3004,7 @@ app.get('/itunes', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('itunes', { user, products: finalProducts });
   });
@@ -3022,7 +3022,7 @@ app.get('/playstation', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('playstation', { user, products: finalProducts });
   });
@@ -3040,7 +3040,7 @@ app.get('/xbox', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('xbox', { user, products: finalProducts });
   });
@@ -3058,7 +3058,7 @@ app.get('/cyberghost', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('cyberghost', { user, products: finalProducts });
   });
@@ -3076,7 +3076,7 @@ app.get('/telegramstars', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('telegramstars', { user, products: finalProducts });
   });
@@ -3094,7 +3094,7 @@ app.get('/spotifyN-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('spotifyN-section', { user, products: finalProducts });
   });
@@ -3112,7 +3112,7 @@ app.get('/spotifyH-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('spotifyH-section', { user, products: finalProducts });
   });
@@ -3130,7 +3130,7 @@ app.get('/netflixL-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('netflixL-section', { user, products: finalProducts });
   });
@@ -3148,7 +3148,7 @@ app.get('/iptv-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('iptv-section', { user, products: finalProducts });
   });
@@ -3166,7 +3166,7 @@ app.get('/ibo', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('ibo', { user, products: finalProducts });
   });
@@ -3189,7 +3189,7 @@ app.get('/openart', (req, res) => {
     }
 
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('openart', { user, products: finalProducts });
   });
@@ -3207,7 +3207,7 @@ app.get('/office365', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('office365', { user, products: finalProducts });
   });
@@ -3231,7 +3231,7 @@ app.get('/hailuo', (req, res) => {
     }
 
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('hailuo', { user, products: finalProducts });
   });
@@ -3253,7 +3253,7 @@ app.get('/lovable', (req, res) => {
     }
 
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('lovable', { user, products: finalProducts });
   });
@@ -3275,7 +3275,7 @@ app.get('/gamma', (req, res) => {
     }
 
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('gamma', { user, products: finalProducts });
   });
@@ -3293,7 +3293,7 @@ app.get('/duolingo', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('duolingo', { user, products: finalProducts });
   });
@@ -3311,7 +3311,7 @@ app.get('/touch-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('touch-section', { user, products: finalProducts });
   });
@@ -3329,7 +3329,7 @@ app.get('/alfa-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('alfa-section', { user, products: finalProducts });
   });
@@ -3347,7 +3347,7 @@ app.get('/u-share', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('u-share', { user, products: finalProducts });
   });
@@ -11759,7 +11759,7 @@ app.get('/netflix-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('netflix-section', {
       user,
@@ -11781,7 +11781,7 @@ app.get('/shahid-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('shahid-section', {
       user,
@@ -11806,7 +11806,7 @@ app.get('/osn-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('osn-section', { user, products: finalProducts });
   });
@@ -11824,7 +11824,7 @@ app.get('/primevideo', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('primevideo', { user, products: finalProducts });
   });
@@ -11842,7 +11842,7 @@ app.get('/Adobe_Creativity_Cloud', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('Adobe_Creativity_Cloud', { user, products: finalProducts });
   });
@@ -11860,7 +11860,7 @@ app.get('/disney-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('disney-section', { user, products: finalProducts });
   });
@@ -11878,7 +11878,7 @@ app.get('/disneyhigh-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('disneyhigh-section', { user, products: finalProducts });
   });
@@ -11896,7 +11896,7 @@ app.get('/youtube-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('youtube-section', { user, products: finalProducts });
   });
@@ -11914,7 +11914,7 @@ app.get('/leonardo', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('leonardo', { user, products: finalProducts });
   });
@@ -11932,7 +11932,7 @@ app.get('/snapchat', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('snapchat', { user, products: finalProducts });
   });
@@ -11950,7 +11950,7 @@ app.get('/gemini', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('gemini', { user, products: finalProducts });
   });
@@ -11968,7 +11968,7 @@ app.get('/watchit', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('watchit', { user, products: finalProducts });
   });
@@ -11986,7 +11986,7 @@ app.get('/yango', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('yango', { user, products: finalProducts });
   });
@@ -12005,7 +12005,7 @@ app.get('/starzplay', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('starzplay', { user, products: finalProducts });
   });
@@ -12023,7 +12023,7 @@ app.get('/grammarly', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('grammarly', { user, products: finalProducts });
   });
@@ -12041,7 +12041,7 @@ app.get('/dramabox', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('dramabox', { user, products: finalProducts });
   });
@@ -12086,7 +12086,7 @@ app.get('/hbo', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('hbo', { user, products: finalProducts });
   });
@@ -12104,7 +12104,7 @@ app.get('/perplexity', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('perplexity', { user, products: finalProducts });
   });
@@ -12122,7 +12122,7 @@ app.get('/crunchyroll-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+   const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('crunchyroll-section', { user, products: finalProducts });
   });
@@ -12140,7 +12140,7 @@ app.get('/Claude', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('Claude', { user, products: finalProducts });
   });
@@ -12159,7 +12159,7 @@ app.get('/capcut-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('capcut-section', { user, products: finalProducts });
   });
@@ -12177,7 +12177,7 @@ app.get('/canva-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('canva-section', { user, products: finalProducts });
   });
@@ -12195,7 +12195,7 @@ app.get('/appletv', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('appletv', { user, products: finalProducts });
   });
@@ -12213,7 +12213,7 @@ app.get('/autodesk', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('autodesk', { user, products: finalProducts });
   });
@@ -12231,7 +12231,7 @@ app.get('/tod', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('tod', { user, products: finalProducts });
   });
@@ -12250,7 +12250,7 @@ app.get('/touchvalidity', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('touchvalidity', { user, products: finalProducts });
   });
@@ -12268,7 +12268,7 @@ app.get('/touchcredit', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('touchcredit', { user, products: finalProducts });
   });
@@ -12286,7 +12286,7 @@ app.get('/alfacredit', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('alfacredit', { user, products: finalProducts });
   });
@@ -12307,7 +12307,7 @@ app.get('/chatgpt-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('chatgpt-section', { user, products: finalProducts });
   });
@@ -12325,7 +12325,7 @@ app.get('/anghami-section', (req, res) => {
       return res.status(500).send("Server error");
     }
     const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
+    const finalProducts = applyDealerPricingToProducts(products, user);
 
     res.render('anghami-section', { user, products: finalProducts });
   });

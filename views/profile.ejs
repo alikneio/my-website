@@ -75,6 +75,27 @@
       border: 1px solid rgba(0,0,0,0.08);
       background: #f8fafc;
     }
+
+    .dealer-info {
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      backdrop-filter: blur(8px);
+    }
+    .dealer-info .bi { color: #a3e635; }
+    .pricing-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 5px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: rgba(34,197,94,.16);
+      border: 1px solid rgba(34,197,94,.35);
+      font-size: .82rem;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -90,16 +111,15 @@
           const tgParam = (q && q.tg) ? String(q.tg) : '';
 
           const level = Number(user?.level || 1);
-          const discount = Number(user?.discount_percent || 0);
           const totalSpent = Number(user?.total_spent || 0);
           const createdAt = user?.createdAt || user?.created_at;
 
           const tiers = [
-            { level: 1, label: 'Bronze',   min: 0,    max: 100,   discount: 0, className: 'bronze' },
+            { level: 1, label: 'Bronze',   min: 0,    max: 100, className: 'bronze' },
             { level: 2, label: 'Silver',   min: 100,  max: 500,   discount: 2, className: 'silver' },
-            { level: 3, label: 'Gold',     min: 500,  max: 1500,  discount: 4, className: 'gold' },
-            { level: 4, label: 'Platinum', min: 1500, max: 5000,  discount: 6, className: 'platinum' },
-            { level: 5, label: 'Diamond',  min: 5000, max: null,  discount: 10, className: 'diamond' },
+            { level: 3, label: 'Gold',     min: 500,  max: 1500, className: 'gold' },
+            { level: 4, label: 'Platinum', min: 1500, max: 5000, className: 'platinum' },
+            { level: 5, label: 'Diamond',  min: 5000, max: null, className: 'diamond' },
           ];
 
           const bySpentTier =
@@ -142,9 +162,15 @@
               <h3 class="mb-1">
                 <span class="fw-semibold">Hello, </span><%= user.username %> 👋
               </h3>
-              <p class="mb-3 loyalty-stat">
-                You are enjoying a <strong><%= discount.toFixed(0) %>% discount</strong> on your orders.
-              </p>
+              <div class="dealer-info mb-3 loyalty-stat">
+                <i class="bi bi-shop me-1"></i>
+                <% if (currentTier.level >= 2) { %>
+                  Your account has <strong>dealer pricing access</strong> on eligible products.
+                <% } else { %>
+                  Reach <strong>Level 2</strong> to unlock dealer pricing on eligible products.
+                <% } %>
+                Prices vary by product.
+              </div>
 
               <div class="row mb-3">
                 <div class="col-6">
@@ -182,11 +208,11 @@
 
               <% if (nextTier) { %>
                 <small class="text-light opacity-75">
-                  Spend more to unlock better discounts and perks.
+                  Spend more to unlock the next dealer level and more eligible pricing.
                 </small>
               <% } else { %>
                 <small class="text-light opacity-75">
-                  You are a top-tier member. Thank you for being awesome! 💙
+                  You reached the highest dealer level. 💎
                 </small>
               <% } %>
             </div>
@@ -200,19 +226,23 @@
                 <strong><%= createdAt ? new Date(createdAt).toLocaleDateString() : '' %></strong>
               </p>
               <p class="mb-0 loyalty-stat">
-                Current Discount<br>
-                <strong><%= discount.toFixed(0) %>%</strong>
+                Pricing Status<br>
+                <% if (currentTier.level >= 2) { %>
+                  <span class="pricing-status"><i class="bi bi-patch-check"></i>Dealer Pricing Active</span>
+                <% } else { %>
+                  <span class="pricing-status"><i class="bi bi-person"></i>Retail Pricing</span>
+                <% } %>
               </p>
             </div>
           </div>
         </div>
 
-        <!-- Levels & Discounts -->
+        <!-- Dealer Levels -->
         <div class="card profile-card mb-4">
           <div class="card-header bg-white border-0">
             <h5 class="mb-0">
               <i class="bi bi-trophy me-2 text-warning"></i>
-              Levels & Discounts
+              Dealer Levels
             </h5>
           </div>
           <div class="card-body pt-0">
@@ -224,7 +254,7 @@
                     <th>Tier</th>
                     <th>From</th>
                     <th>To</th>
-                    <th>Discount</th>
+                    <th>Pricing Access</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -234,14 +264,22 @@
                       <td><span class="tier-pill <%= t.className %>"><%= t.label %></span></td>
                       <td>$<%= t.min.toFixed(2) %></td>
                       <td><%= t.max === null ? 'Unlimited' : ('$' + t.max.toFixed(2)) %></td>
-                      <td><%= t.discount %>%</td>
+                      <td>
+                        <% if (t.level === 1) { %>
+                          <span class="badge rounded-pill text-bg-light border">Retail</span>
+                        <% } else { %>
+                          <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">
+                            <i class="bi bi-check-circle me-1"></i>Dealer Pricing
+                          </span>
+                        <% } %>
+                      </td>
                     </tr>
                   <% }) %>
                 </tbody>
               </table>
             </div>
             <small class="text-muted d-block mt-2">
-              * Levels are calculated based on your total spent across all completed orders.
+              * Levels are calculated based on your total spent across all completed orders. Dealer prices are available on eligible products and may vary from one product to another.
             </small>
           </div>
         </div>

@@ -1,259 +1,632 @@
-<!-- زر المنيو -->
-<button class="btn btn-dark m-3" type="button"
+<!-- AK Cell Premium Offcanvas Menu -->
+<button class="btn btn-dark m-3 ak-menu-trigger" type="button"
         data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu"
         aria-controls="offcanvasMenu">
-  <i class="bi bi-list"></i> Menu
+  <i class="bi bi-list"></i>
+  <span>Menu</span>
 </button>
 
 <style>
-  .ak-menu-offcanvas {
-    background: radial-gradient(circle at top left, #111827, #020617);
-    color: #f9fafb;
+  .ak-menu-trigger{
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:12px;
+    padding:.55rem .9rem;
+    display:inline-flex;
+    align-items:center;
+    gap:.5rem;
+    box-shadow:0 8px 22px rgba(15,23,42,.14);
   }
-  .ak-user-card {
-    border-radius: 16px;
-    background: rgba(15, 23, 42, 0.96);
-    border: 1px solid rgba(148, 163, 184, 0.45);
-    padding: 14px;
-    margin-bottom: 16px;
+
+  .ak-premium-menu{
+    --ak-blue:#0d6efd;
+    --ak-cyan:#00c9e8;
+    --ak-navy:#0b1220;
+    --ak-panel:#111b2d;
+    --ak-muted:#93a4bb;
+    width:min(390px, 92vw) !important;
+    color:#f8fafc;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(13,110,253,.22), transparent 30%),
+      linear-gradient(180deg,#0d1627 0%,#080f1c 100%);
+    border-right:1px solid rgba(148,163,184,.16);
+    box-shadow:22px 0 60px rgba(2,6,23,.34);
   }
-  .ak-user-meta {
-    font-size: 0.82rem;
-    opacity: 0.9;
+
+  .ak-premium-menu .offcanvas-header{
+    padding:20px 20px 15px;
+    border-bottom:1px solid rgba(148,163,184,.14);
   }
-  .ak-pill {
-    border-radius: 999px;
-    padding: 3px 10px;
-    font-size: 0.75rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
+
+  .ak-brand{
+    display:flex;
+    align-items:center;
+    gap:11px;
   }
-  .ak-pill-level {
-    background: #facc15;
-    color: #1f2937;
-    font-weight: 700;
+
+  .ak-brand-mark{
+    width:42px;
+    height:42px;
+    border-radius:13px;
+    display:grid;
+    place-items:center;
+    background:linear-gradient(135deg,var(--ak-blue),var(--ak-cyan));
+    box-shadow:0 8px 24px rgba(13,110,253,.28);
+    font-weight:900;
+    color:white;
+    letter-spacing:-1px;
   }
-  .ak-pill-discount {
-    background: #22c55e;
-    color: #022c22;
-    font-weight: 800;
+
+  .ak-brand-name{
+    font-weight:850;
+    letter-spacing:.02em;
+    line-height:1.05;
   }
-  .ak-menu-link {
-    border-radius: 10px;
-    padding: 7px 10px;
-    margin-bottom: 6px;
-    font-size: 0.95rem;
-    color: #e5e7eb !important;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
+
+  .ak-brand-sub{
+    color:var(--ak-muted);
+    font-size:.72rem;
+    margin-top:3px;
   }
-  .ak-menu-link i {
-    width: 18px;
-    font-size: 1.1rem;
+
+  .ak-close{
+    width:38px;
+    height:38px;
+    border:1px solid rgba(148,163,184,.18);
+    border-radius:12px;
+    background:rgba(255,255,255,.055);
+    color:#e2e8f0;
+    display:grid;
+    place-items:center;
+    transition:.18s ease;
   }
-  .ak-menu-link:hover {
-    background: rgba(255,255,255,0.08);
+
+  .ak-close:hover{
+    background:rgba(255,255,255,.10);
+    transform:rotate(4deg);
   }
-  .ak-divider {
-    border-top: 1px solid rgba(148, 163, 184, 0.4);
-    margin: 12px 0;
+
+  .ak-premium-menu .offcanvas-body{
+    padding:17px 18px 20px;
   }
-  .ak-mini-tag {
-    font-size: .7rem;
-    font-weight: 800;
-    padding: 2px 8px;
-    border-radius: 999px;
-    border: 1px solid rgba(2,44,34,.25);
-    background: rgba(255,255,255,.35);
-    color: #052e16;
+
+  .ak-member-card{
+    position:relative;
+    overflow:hidden;
+    border-radius:21px;
+    padding:18px;
+    background:
+      radial-gradient(circle at 95% 5%, rgba(0,201,232,.20), transparent 35%),
+      linear-gradient(135deg,#173c78 0%,#102b59 48%,#0e1d36 100%);
+    border:1px solid rgba(96,165,250,.24);
+    box-shadow:0 18px 35px rgba(2,6,23,.25);
+  }
+
+  .ak-member-card:after{
+    content:"";
+    position:absolute;
+    width:120px;
+    height:120px;
+    border:1px solid rgba(255,255,255,.07);
+    border-radius:50%;
+    right:-55px;
+    bottom:-60px;
+  }
+
+  .ak-avatar{
+    width:44px;
+    height:44px;
+    border-radius:14px;
+    display:grid;
+    place-items:center;
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.13);
+    font-size:1.25rem;
+  }
+
+  .ak-hello{
+    color:#b9c7da;
+    font-size:.73rem;
+  }
+
+  .ak-username{
+    font-weight:800;
+    font-size:1.03rem;
+    max-width:180px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .ak-level-chip,
+  .ak-dealer-chip{
+    border-radius:999px;
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:5px 9px;
+    font-size:.69rem;
+    font-weight:800;
+    white-space:nowrap;
+  }
+
+  .ak-level-chip{
+    background:rgba(255,193,7,.14);
+    color:#ffd15c;
+    border:1px solid rgba(255,193,7,.25);
+  }
+
+  .ak-dealer-chip{
+    background:rgba(0,201,232,.11);
+    color:#67e8f9;
+    border:1px solid rgba(34,211,238,.20);
+  }
+
+  .ak-balance-panel{
+    position:relative;
+    z-index:1;
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px solid rgba(255,255,255,.10);
+    display:flex;
+    align-items:end;
+    justify-content:space-between;
+    gap:12px;
+  }
+
+  .ak-balance-label{
+    color:#b9c7da;
+    font-size:.72rem;
+  }
+
+  .ak-balance-value{
+    font-size:1.55rem;
+    font-weight:900;
+    line-height:1.1;
+    margin-top:3px;
+  }
+
+  .ak-add-balance{
+    text-decoration:none;
+    color:#fff !important;
+    font-weight:800;
+    font-size:.75rem;
+    padding:9px 12px;
+    border-radius:11px;
+    background:linear-gradient(135deg,var(--ak-blue),#168fbf);
+    border:1px solid rgba(255,255,255,.13);
+    box-shadow:0 7px 17px rgba(13,110,253,.18);
+    white-space:nowrap;
+  }
+
+  .ak-progress-wrap{
+    position:relative;
+    z-index:1;
+    margin-top:14px;
+  }
+
+  .ak-progress-meta{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    color:#aebdd1;
+    font-size:.67rem;
+    margin-bottom:6px;
+  }
+
+  .ak-level-progress{
+    height:5px;
+    background:rgba(255,255,255,.09);
+    border-radius:999px;
+    overflow:hidden;
+  }
+
+  .ak-level-progress > span{
+    display:block;
+    height:100%;
+    border-radius:999px;
+    background:linear-gradient(90deg,#00c9e8,#4d8dff);
+  }
+
+  .ak-section-title{
+    color:#7f91a9;
+    font-size:.67rem;
+    font-weight:850;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    margin:20px 4px 10px;
+  }
+
+  .ak-quick-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:9px;
+  }
+
+  .ak-quick-item{
+    position:relative;
+    min-height:86px;
+    border-radius:16px;
+    padding:11px 7px 9px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    color:#dbe6f4 !important;
+    text-decoration:none;
+    text-align:center;
+    font-size:.72rem;
+    border:1px solid rgba(148,163,184,.12);
+    background:rgba(255,255,255,.045);
+    transition:transform .18s ease, background .18s ease, border-color .18s ease;
+  }
+
+  .ak-quick-item:hover{
+    transform:translateY(-2px);
+    background:rgba(13,110,253,.10);
+    border-color:rgba(59,130,246,.30);
+  }
+
+  .ak-quick-icon{
+    width:35px;
+    height:35px;
+    border-radius:11px;
+    display:grid;
+    place-items:center;
+    color:#69a7ff;
+    background:rgba(13,110,253,.11);
+    font-size:1.05rem;
+  }
+
+  .ak-quick-item:nth-child(2) .ak-quick-icon{ color:#35d7e9; background:rgba(0,201,232,.10); }
+  .ak-quick-item:nth-child(3) .ak-quick-icon{ color:#f7c95c; background:rgba(250,204,21,.09); }
+  .ak-quick-item:nth-child(4) .ak-quick-icon{ color:#a78bfa; background:rgba(139,92,246,.10); }
+  .ak-quick-item:nth-child(5) .ak-quick-icon{ color:#34d399; background:rgba(16,185,129,.10); }
+  .ak-quick-item:nth-child(6) .ak-quick-icon{ color:#fb7185; background:rgba(244,63,94,.10); }
+
+  .ak-count-badge{
+    position:absolute;
+    top:7px;
+    right:8px;
+    min-width:19px;
+    height:19px;
+    padding:0 5px;
+    border-radius:999px;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:#ef4444;
+    color:#fff;
+    font-size:.61rem;
+    font-weight:900;
+    box-shadow:0 4px 10px rgba(239,68,68,.25);
+  }
+
+  .ak-pending-badge{
+    position:absolute;
+    top:7px;
+    right:8px;
+    min-width:19px;
+    height:19px;
+    padding:0 5px;
+    border-radius:999px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#facc15;
+    color:#422006;
+    font-size:.61rem;
+    font-weight:900;
+  }
+
+  .ak-account-list{
+    border:1px solid rgba(148,163,184,.11);
+    border-radius:16px;
+    overflow:hidden;
+    background:rgba(255,255,255,.035);
+  }
+
+  .ak-account-link{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:12px 13px;
+    color:#dce7f4 !important;
+    text-decoration:none;
+    font-size:.82rem;
+    border-bottom:1px solid rgba(148,163,184,.09);
+    transition:.18s ease;
+  }
+
+  .ak-account-link:last-child{border-bottom:0}
+  .ak-account-link:hover{background:rgba(255,255,255,.055)}
+  .ak-account-link i{color:#6fa9ff;font-size:1rem}
+
+  .ak-admin-link{
+    margin-top:13px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    padding:11px 12px;
+    border-radius:13px;
+    color:#172033 !important;
+    background:linear-gradient(135deg,#facc15,#f59e0b);
+    text-decoration:none;
+    font-size:.79rem;
+    font-weight:900;
+    box-shadow:0 8px 20px rgba(245,158,11,.12);
+  }
+
+  .ak-logout{
+    margin-top:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    padding:10px 12px;
+    border-radius:13px;
+    color:#fda4af !important;
+    border:1px solid rgba(244,63,94,.22);
+    background:rgba(244,63,94,.055);
+    text-decoration:none;
+    font-size:.79rem;
+    font-weight:800;
+  }
+
+  .ak-guest{
+    padding:19px;
+    border-radius:18px;
+    background:rgba(255,255,255,.045);
+    border:1px solid rgba(148,163,184,.12);
+  }
+
+  .ak-guest p{margin:0 0 4px;font-weight:800}
+  .ak-guest small{color:var(--ak-muted)}
+
+  @media (max-width:380px){
+    .ak-premium-menu .offcanvas-body{padding-left:13px;padding-right:13px}
+    .ak-member-card{padding:15px}
+    .ak-quick-grid{gap:7px}
+    .ak-quick-item{min-height:82px;font-size:.68rem}
   }
 </style>
 
 <%
-  // suffix لمنع تكرار IDs لو الpartial تكرر
-  const _menuUid = (typeof menuUid !== 'undefined' && menuUid) ? String(menuUid) : String(Date.now());
+  // Unique suffix in case this partial is rendered more than once.
+  const _menuUid = (typeof menuUid !== 'undefined' && menuUid)
+    ? String(menuUid)
+    : String(Date.now());
 %>
 
-<div class="offcanvas offcanvas-start ak-menu-offcanvas"
+<div class="offcanvas offcanvas-start ak-premium-menu"
      tabindex="-1"
      id="offcanvasMenu"
      aria-labelledby="offcanvasMenuLabel-<%= _menuUid %>">
 
-  <div class="offcanvas-header border-bottom border-secondary">
-    <h5 class="offcanvas-title" id="offcanvasMenuLabel-<%= _menuUid %>">AK Cell Menu</h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  <div class="offcanvas-header">
+    <div class="ak-brand">
+      <div class="ak-brand-mark">AK</div>
+      <div>
+        <div class="ak-brand-name" id="offcanvasMenuLabel-<%= _menuUid %>">AK CELL</div>
+        <div class="ak-brand-sub">Digital Services</div>
+      </div>
+    </div>
+
+    <button type="button" class="ak-close" data-bs-dismiss="offcanvas" aria-label="Close">
+      <i class="bi bi-x-lg"></i>
+    </button>
   </div>
 
-  <div class="offcanvas-body d-flex flex-column">
-
-    <!-- Notifications -->
-    <a href="/notifications"
-       class="btn btn-outline-light btn-sm position-relative mb-3"
-       id="notifLink-<%= _menuUid %>">
-      <i class="bi bi-bell" id="notifIcon-<%= _menuUid %>"></i>
-      <span id="notifBadge-<%= _menuUid %>"
-            class="position-absolute top-0 start-100 translate-middle badge bg-danger rounded-pill"
-            style="display:none;">
-        0
-      </span>
-    </a>
+  <div class="offcanvas-body">
 
     <% if (user) { %>
       <%
-        const userBalance    = Number(user.balance || 0);
-        const userLevel      = Number(user.level || 1);
-        const userDiscount   = Number(user.discount_percent || 0);
+        const userBalance = Number(user.balance || 0);
+        const userLevel = Math.min(Math.max(Number(user.level || 1), 1), 5);
         const userTotalSpent = Number(user.total_spent || 0);
 
-        // ✅ Auto discount by level (حسب النظام الجديد)
-        const levelDiscountMap = { 1: 0, 2: 2, 3: 4, 4: 6, 5: 10 };
-        const autoDiscount = (levelDiscountMap[userLevel] ?? 0);
+        const levelInfo = {
+          1: { name: 'Bronze',   min: 0,    next: 100 },
+          2: { name: 'Silver',   min: 100,  next: 500 },
+          3: { name: 'Gold',     min: 500,  next: 1500 },
+          4: { name: 'Platinum', min: 1500, next: 5000 },
+          5: { name: 'Diamond',  min: 5000, next: null }
+        };
 
-        // ✅ Effective discount: manual wins, otherwise auto
-        const effectiveDiscount = (userDiscount > 0) ? userDiscount : autoDiscount;
-        const discountMode = (userDiscount > 0) ? 'Manual' : 'Auto';
+        const currentLevelInfo = levelInfo[userLevel] || levelInfo[1];
+        let menuProgress = 100;
+        let menuRemaining = 0;
+
+        if (currentLevelInfo.next !== null) {
+          const range = currentLevelInfo.next - currentLevelInfo.min;
+          menuProgress = range > 0
+            ? Math.min(100, Math.max(0, ((userTotalSpent - currentLevelInfo.min) / range) * 100))
+            : 0;
+          menuRemaining = Math.max(0, currentLevelInfo.next - userTotalSpent);
+        }
       %>
 
-      <!-- User card -->
-      <div class="ak-user-card">
-        <div class="d-flex justify-content-between align-items-center">
-          <div>
-            <h5 class="mb-1">Welcome, <%= user.username %></h5>
-            <div class="ak-user-meta">
-              Balance:
-              <span class="text-success fw-bold">
-                $<%= userBalance.toFixed(2) %>
-              </span>
+      <!-- Member / Balance Card -->
+      <div class="ak-member-card">
+        <div class="d-flex align-items-center justify-content-between gap-2 position-relative" style="z-index:1;">
+          <div class="d-flex align-items-center gap-2 overflow-hidden">
+            <div class="ak-avatar">
+              <i class="bi bi-person-fill"></i>
+            </div>
+            <div class="overflow-hidden">
+              <div class="ak-hello">Welcome back</div>
+              <div class="ak-username"><%= user.username %></div>
             </div>
           </div>
-          <div class="text-end">
-            <span class="small text-muted d-block">Level</span>
-            <span class="badge bg-light text-dark"><%= userLevel %></span>
+
+          <span class="ak-level-chip">
+            <i class="bi bi-gem"></i>
+            <%= currentLevelInfo.name %> · L<%= userLevel %>
+          </span>
+        </div>
+
+        <div class="ak-balance-panel">
+          <div>
+            <div class="ak-balance-label">Available Balance</div>
+            <div class="ak-balance-value">$<%= userBalance.toFixed(2) %></div>
           </div>
+
+          <a href="/add-balance/whish" class="ak-add-balance">
+            <i class="bi bi-plus-lg me-1"></i>Add Balance
+          </a>
         </div>
 
-        <div class="d-flex flex-wrap gap-2 mt-2">
-          <span class="ak-pill ak-pill-level">
-            <i class="bi bi-arrow-up-circle"></i>
-            Level <%= userLevel %>
-          </span>
-
-          <span class="ak-pill ak-pill-discount">
-            <i class="bi bi-percent"></i>
-            <%= Number(effectiveDiscount).toFixed(0) %>% Discount
-            <span class="ak-mini-tag"><%= discountMode %></span>
-          </span>
+        <div class="d-flex flex-wrap gap-2 mt-3 position-relative" style="z-index:1;">
+          <% if (userLevel >= 2) { %>
+            <span class="ak-dealer-chip">
+              <i class="bi bi-patch-check-fill"></i>
+              Dealer Pricing
+            </span>
+          <% } else { %>
+            <span class="ak-dealer-chip">
+              <i class="bi bi-person-check-fill"></i>
+              Retail Member
+            </span>
+          <% } %>
         </div>
 
-        <div class="text-muted small mt-2">
-          Total spent: $<%= userTotalSpent.toFixed(2) %>
+        <div class="ak-progress-wrap">
+          <div class="ak-progress-meta">
+            <% if (currentLevelInfo.next !== null) { %>
+              <span>Progress to Level <%= userLevel + 1 %></span>
+              <span>$<%= menuRemaining.toFixed(2) %> remaining</span>
+            <% } else { %>
+              <span>Highest membership level</span>
+              <span>Level 5</span>
+            <% } %>
+          </div>
+          <div class="ak-level-progress">
+            <span style="width:<%= menuProgress %>%"></span>
+          </div>
         </div>
       </div>
 
-      <div class="ak-divider"></div>
+      <!-- Quick Access -->
+      <div class="ak-section-title">Quick Access</div>
 
-      <!-- Links -->
-      <ul class="navbar-nav flex-grow-1">
-        <li class="nav-item">
-          <a class="ak-menu-link" href="/profile">
-            <i class="bi bi-person-fill"></i> My Profile
-          </a>
-        </li>
+      <div class="ak-quick-grid">
+        <a href="/" class="ak-quick-item">
+          <span class="ak-quick-icon"><i class="bi bi-house-door-fill"></i></span>
+          <span>Home</span>
+        </a>
 
-        <li class="nav-item">
-  <a class="ak-menu-link" href="/my-balance">
-    <i class="bi bi-wallet2"></i> My Balance
-    <% if ((pendingBalanceCount || 0) > 0) { %>
-      <span class="badge bg-warning text-dark ms-auto"><%= pendingBalanceCount %></span>
-    <% } %>
-  </a>
-</li>
+        <a href="/profile" class="ak-quick-item">
+          <span class="ak-quick-icon"><i class="bi bi-person-fill"></i></span>
+          <span>My Profile</span>
+        </a>
 
+        <a href="/my-balance" class="ak-quick-item">
+          <% if ((typeof pendingBalanceCount !== 'undefined' ? pendingBalanceCount : 0) > 0) { %>
+            <span class="ak-pending-badge"><%= pendingBalanceCount %></span>
+          <% } %>
+          <span class="ak-quick-icon"><i class="bi bi-wallet2"></i></span>
+          <span>My Balance</span>
+        </a>
 
-        <li class="nav-item">
-          <a href="/add-balance/whish" class="ak-menu-link">
-            <i class="bi bi-credit-card-2-front"></i> Add Balance
-          </a>
-        </li>
+        <a href="/my-orders" class="ak-quick-item">
+          <span class="ak-quick-icon"><i class="bi bi-bag-check-fill"></i></span>
+          <span>My Orders</span>
+        </a>
 
-        <li class="nav-item">
-          <a class="ak-menu-link" href="/">
-            <i class="bi bi-house-door-fill"></i> Home
-          </a>
-        </li>
+        <a href="/transactions" class="ak-quick-item">
+          <span class="ak-quick-icon"><i class="bi bi-receipt"></i></span>
+          <span>Transactions</span>
+        </a>
 
-        <li class="nav-item">
-          <a class="ak-menu-link" href="/my-orders">
-            <i class="bi bi-bag-fill"></i> My Orders
-          </a>
-        </li>
+        <a href="/notifications" class="ak-quick-item" id="notifLink-<%= _menuUid %>">
+          <span id="notifBadge-<%= _menuUid %>" class="ak-count-badge">0</span>
+          <span class="ak-quick-icon">
+            <i class="bi bi-bell-fill" id="notifIcon-<%= _menuUid %>"></i>
+          </span>
+          <span>Notifications</span>
+        </a>
+      </div>
 
-        <li class="nav-item">
-          <a href="/transactions" class="ak-menu-link">
-            <i class="bi bi-cash-coin"></i> Transactions
-          </a>
-        </li>
-      </ul>
+      <!-- Account -->
+      <div class="ak-section-title">Account</div>
 
-      <div class="ak-divider"></div>
+      <div class="ak-account-list">
+        <a href="/profile" class="ak-account-link">
+          <i class="bi bi-person-gear"></i>
+          <span>Account Settings</span>
+          <i class="bi bi-chevron-right ms-auto" style="font-size:.72rem;color:#64748b"></i>
+        </a>
 
+        <a href="/add-balance/whish" class="ak-account-link">
+          <i class="bi bi-credit-card-2-front"></i>
+          <span>Add Balance</span>
+          <i class="bi bi-chevron-right ms-auto" style="font-size:.72rem;color:#64748b"></i>
+        </a>
+      </div>
+
+      <!-- IMPORTANT: Admin button is rendered ONLY for admin users -->
       <% if (user.role === 'admin') { %>
-        <a class="btn btn-warning w-100 mb-3" href="/admin">
-          <i class="bi bi-person-circle me-2"></i> Admin Panel
+        <a class="ak-admin-link" href="/admin">
+          <i class="bi bi-shield-lock-fill"></i>
+          Admin Panel
         </a>
       <% } %>
 
-      <a class="btn btn-outline-danger w-100 mt-auto" href="/logout">
-        <i class="bi bi-box-arrow-right me-2"></i>Logout
+      <a class="ak-logout" href="/logout">
+        <i class="bi bi-box-arrow-right"></i>
+        Logout
       </a>
 
     <% } else { %>
 
-      <div class="mb-3">
-        <p class="mb-1">Welcome to AK Cell</p>
-        <small class="text-muted">Login to see your level & discounts</small>
+      <div class="ak-guest">
+        <div class="ak-brand mb-3">
+          <div class="ak-brand-mark"><i class="bi bi-person"></i></div>
+          <div>
+            <p>Welcome to AK Cell</p>
+            <small>Sign in to access your account and member benefits.</small>
+          </div>
+        </div>
+
+        <div class="ak-account-list mt-3">
+          <a href="/" class="ak-account-link">
+            <i class="bi bi-house-door-fill"></i>
+            Home
+          </a>
+          <a href="/login" class="ak-account-link">
+            <i class="bi bi-box-arrow-in-right"></i>
+            Login
+          </a>
+          <a href="/register" class="ak-account-link">
+            <i class="bi bi-person-plus-fill"></i>
+            Register
+          </a>
+        </div>
       </div>
 
-      <ul class="navbar-nav flex-grow-1">
-        <li class="nav-item">
-          <a class="ak-menu-link" href="/">
-            <i class="bi bi-house-door-fill"></i> Home
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="ak-menu-link" href="/login">
-            <i class="bi bi-box-arrow-in-right"></i> Login
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="ak-menu-link" href="/register">
-            <i class="bi bi-person-plus-fill"></i> Register
-          </a>
-        </li>
-      </ul>
-
     <% } %>
-
   </div>
 </div>
 
 <script>
-  (function(){
+  (function () {
     const uid = "<%= _menuUid %>";
     const badge = document.getElementById("notifBadge-" + uid);
-    const icon  = document.getElementById("notifIcon-" + uid);
+    const icon = document.getElementById("notifIcon-" + uid);
 
+    // Guest menus do not contain the notification tile.
     if (!badge || !icon) return;
 
     let timer = null;
 
     async function fetchNotificationsCount() {
       try {
-        const res = await fetch('/notifications/count', { headers: { 'Accept': 'application/json' } });
+        const res = await fetch('/notifications/count', {
+          headers: { 'Accept': 'application/json' }
+        });
 
         if (!res.ok) {
           badge.style.display = 'none';
@@ -268,24 +641,24 @@
         const count = Number(data?.count || 0);
 
         if (count > 0) {
-          badge.textContent = count > 99 ? "99+" : String(count);
-          badge.style.display = 'inline-block';
+          badge.textContent = count > 99 ? '99+' : String(count);
+          badge.style.display = 'flex';
           icon.classList.add('text-warning');
         } else {
           badge.style.display = 'none';
           icon.classList.remove('text-warning');
         }
       } catch (err) {
-        console.error("❌ Failed to fetch notifications:", err);
+        console.error('❌ Failed to fetch notifications:', err);
       }
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener('DOMContentLoaded', () => {
       fetchNotificationsCount();
       timer = setInterval(fetchNotificationsCount, 30000);
     });
 
-    window.addEventListener("beforeunload", () => {
+    window.addEventListener('beforeunload', () => {
       if (timer) clearInterval(timer);
     });
   })();
