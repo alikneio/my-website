@@ -362,8 +362,8 @@
                 <span style="text-decoration:line-through;">
                   $<span id="displayOriginalPrice"><%= Number(product.original_price || 0).toFixed(2) %></span>
                 </span>
-                <% if (typeof effectiveDiscount !== 'undefined') { %>
-                  <span class="ms-1">(-<%= Number(effectiveDiscount || 0) %>%)</span>
+                <% if (Number(product.manual_discount_percent || 0) > 0) { %>
+                  <span class="ms-1">Manual discount: <%= Number(product.manual_discount_percent || 0) %>%</span>
                 <% } %>
               </div>
             </div>

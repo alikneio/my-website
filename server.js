@@ -3583,23 +3583,47 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
 
   const user = req.session.user || null;
 
-  const productSql = "SELECT * FROM products WHERE id = ? LIMIT 1";
+  const productSql = `
+    SELECT *
+    FROM products
+    WHERE id = ?
+    LIMIT 1
+  `;
+
   const optionsSql = `
-    SELECT id, product_id, option_label, option_value, price, sort_order, is_active
+    SELECT
+      id,
+      product_id,
+      option_label,
+      option_value,
+      price,
+      level_2_price,
+      level_3_price,
+      level_4_price,
+      level_5_price,
+      sort_order,
+      is_active
     FROM product_checkout_options
-    WHERE product_id = ? AND is_active = 1
+    WHERE product_id = ?
+      AND is_active = 1
     ORDER BY sort_order ASC, id ASC
   `;
+
   const stockSql = `
     SELECT 1
     FROM product_stock_items
-    WHERE product_id = ? AND status = 'available'
+    WHERE product_id = ?
+      AND status = 'available'
     LIMIT 1
   `;
 
   db.query(productSql, [productId], (err, results) => {
     if (err) {
-      console.error('❌ /checkout/:id product error:', err.message || err);
+      console.error(
+        '❌ /checkout/:id product error:',
+        err.message || err
+      );
+
       return res.status(500).send('Server error.');
     }
 
@@ -3608,103 +3632,327 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
     }
 
     const product = results[0];
+
     product.source = 'sql';
 
-    // legacy out_of_stock
-    if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
-      const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
-      if (oos) return res.status(403).send('This product is currently out of stock.');
+    // =====================================================
+    // OUT OF STOCK
+    // =====================================================
+    if (
+      Object.prototype.hasOwnProperty.call(
+        product,
+        'is_out_of_stock'
+      )
+    ) {
+      const oos =
+        Number(product.is_out_of_stock) === 1 ||
+        product.is_out_of_stock === true;
+
+      if (oos) {
+        return res
+          .status(403)
+          .send('This product is currently out of stock.');
+      }
     }
 
-    // رسائل الخطأ
+    // =====================================================
+    // ERROR MESSAGES
+    // =====================================================
     let errorMessage = '';
-    if (error === 'balance') errorMessage = 'Insufficient balance.';
-    else if (error === 'server') errorMessage = 'Server error during purchase. Please try again.';
-    else if (error === 'invalid_option') errorMessage = 'Invalid option selected.';
-    else if (error === 'missing_option') errorMessage = 'Please choose an option before buying.';
 
-    // ملاحظات المنتج
+    if (error === 'balance') {
+      errorMessage = 'Insufficient balance.';
+    } else if (error === 'server') {
+      errorMessage =
+        'Server error during purchase. Please try again.';
+    } else if (error === 'invalid_option') {
+      errorMessage = 'Invalid option selected.';
+    } else if (error === 'missing_option') {
+      errorMessage =
+        'Please choose an option before buying.';
+    }
+
+    // =====================================================
+    // NOTES
+    // =====================================================
     const notes =
-      (product.notes && String(product.notes).trim() !== '')
+      product.notes &&
+      String(product.notes).trim() !== ''
         ? String(product.notes).trim()
         : null;
 
-    // idempotency key
+    // =====================================================
+    // IDEMPOTENCY
+    // =====================================================
     const idemKey = uuidv4();
+
     req.session.idemKey = idemKey;
 
-    // delivery mode
-    const deliveryMode = (product.delivery_mode || 'manual').toString();
+    // =====================================================
+    // DELIVERY MODE
+    // =====================================================
+    const deliveryMode =
+      (product.delivery_mode || 'manual')
+        .toString()
+        .toLowerCase()
+        .trim();
+
     product.delivery_mode = deliveryMode;
 
-    // 1) هات خيارات الـ checkout إذا موجودة
-    db.query(optionsSql, [productId], (optErr, optionRows) => {
-      if (optErr) {
-        console.error('❌ /checkout/:id options error:', optErr.message || optErr);
-        return res.status(500).send('Server error.');
+    // =====================================================
+    // MANUAL DISCOUNT
+    // =====================================================
+    // IMPORTANT:
+    // This is ONLY users.discount_percent.
+    // It does NOT include the old automatic level discounts.
+    let manualDiscountPercent =
+      Number(user?.discount_percent || 0);
+
+    if (!Number.isFinite(manualDiscountPercent)) {
+      manualDiscountPercent = 0;
+    }
+
+    manualDiscountPercent =
+      Math.min(
+        Math.max(manualDiscountPercent, 0),
+        100
+      );
+
+    const applyManualDiscount = (price) => {
+      const base = Number(price || 0);
+
+      if (!Number.isFinite(base)) {
+        return 0;
       }
 
-      const hasOptions = Array.isArray(optionRows) && optionRows.length > 0;
+      const finalPrice =
+        base *
+        (1 - manualDiscountPercent / 100);
 
-      let checkoutOptions = [];
+      return Number(finalPrice.toFixed(2));
+    };
 
-      if (hasOptions) {
-        checkoutOptions = optionRows.map(opt => {
-          const originalPrice = Number(opt.price || 0);
-          const finalPrice = applyUserDiscount(originalPrice, user);
+    // =====================================================
+    // OPTIONS
+    // =====================================================
+    db.query(
+      optionsSql,
+      [productId],
+      (optErr, optionRows) => {
 
-          return {
-            ...opt,
-            original_price: Number.isFinite(originalPrice)
-              ? Number(originalPrice.toFixed(2))
-              : 0,
-            price: finalPrice
-          };
-        });
+        if (optErr) {
+          console.error(
+            '❌ /checkout/:id options error:',
+            optErr.message || optErr
+          );
 
-        // للسعر المعروض أعلى الصفحة: أول خيار
-        const firstOption = checkoutOptions[0];
-        product.original_price = Number(firstOption.original_price || 0);
-        product.price = Number(firstOption.price || 0);
-        product.has_checkout_options = true;
-      } else {
-        // fallback: السعر العادي القديم
-        const originalPrice = Number(product.price || 0);
-        const finalPrice = applyUserDiscount(originalPrice, user);
+          return res
+            .status(500)
+            .send('Server error.');
+        }
 
-        product.original_price = Number.isFinite(originalPrice)
-          ? Number(originalPrice.toFixed(2))
-          : 0;
-        product.price = finalPrice;
-        product.has_checkout_options = false;
+        const hasOptions =
+          Array.isArray(optionRows) &&
+          optionRows.length > 0;
+
+        let checkoutOptions = [];
+
+        // =================================================
+        // OPTIONS PRODUCT
+        // =================================================
+        if (hasOptions) {
+
+          checkoutOptions =
+            optionRows.map(opt => {
+
+              // Retail/base price
+              const retailPrice =
+                Number(opt.price || 0);
+
+              // First apply Dealer Level pricing
+              const dealerPrice =
+                getLocalOptionPriceForUser(
+                  opt,
+                  product,
+                  user
+                );
+
+              // Then manual discount_percent
+              const finalPrice =
+                applyManualDiscount(
+                  dealerPrice
+                );
+
+              return {
+                ...opt,
+
+                // Retail/base price
+                retail_price:
+                  Number.isFinite(retailPrice)
+                    ? Number(
+                        retailPrice.toFixed(2)
+                      )
+                    : 0,
+
+                // Price after Level pricing,
+                // before manual discount
+                dealer_price:
+                  Number.isFinite(
+                    Number(dealerPrice)
+                  )
+                    ? Number(
+                        Number(
+                          dealerPrice
+                        ).toFixed(2)
+                      )
+                    : 0,
+
+                // Used by current EJS as crossed price.
+                original_price:
+                  Number.isFinite(
+                    Number(dealerPrice)
+                  )
+                    ? Number(
+                        Number(
+                          dealerPrice
+                        ).toFixed(2)
+                      )
+                    : 0,
+
+                // FINAL price
+                price: finalPrice
+              };
+            });
+
+          const firstOption =
+            checkoutOptions[0];
+
+          product.original_price =
+            Number(
+              firstOption.original_price || 0
+            );
+
+          product.price =
+            Number(
+              firstOption.price || 0
+            );
+
+          product.retail_price =
+            Number(
+              firstOption.retail_price || 0
+            );
+
+          product.dealer_price =
+            Number(
+              firstOption.dealer_price || 0
+            );
+
+          product.has_checkout_options = true;
+
+        // =================================================
+        // FIXED PRODUCT
+        // =================================================
+        } else {
+
+          const retailPrice =
+            Number(product.price || 0);
+
+          // First Dealer Level
+          const dealerPrice =
+            getLocalProductPriceForUser(
+              product,
+              user
+            );
+
+          // Then manual discount
+          const finalPrice =
+            applyManualDiscount(
+              dealerPrice
+            );
+
+          product.retail_price =
+            Number.isFinite(retailPrice)
+              ? Number(
+                  retailPrice.toFixed(2)
+                )
+              : 0;
+
+          product.dealer_price =
+            Number.isFinite(
+              Number(dealerPrice)
+            )
+              ? Number(
+                  Number(
+                    dealerPrice
+                  ).toFixed(2)
+                )
+              : 0;
+
+          // Current EJS uses this for strikethrough.
+          product.original_price =
+            product.dealer_price;
+
+          product.price =
+            finalPrice;
+
+          product.has_checkout_options =
+            false;
+        }
+
+        product.manual_discount_percent =
+          manualDiscountPercent;
+
+        product.user_level =
+          normalizeUserLevel(user);
+
+        // =================================================
+        // RENDER
+        // =================================================
+        const renderCheckout = () => {
+          return res.render(
+            'checkout',
+            {
+              user,
+              product,
+              checkoutOptions,
+              error: errorMessage,
+              notes,
+              idemKey,
+
+              // Kept only for compatibility.
+              // This is MANUAL discount only.
+              effectiveDiscount:
+                manualDiscountPercent
+            }
+          );
+        };
+
+        // =================================================
+        // STOCK
+        // =================================================
+        if (deliveryMode !== 'stock') {
+          return renderCheckout();
+        }
+
+        db.query(
+          stockSql,
+          [productId],
+          (stockErr, stockRows) => {
+
+            product.in_stock =
+              (
+                !stockErr &&
+                stockRows &&
+                stockRows.length > 0
+              );
+
+            return renderCheckout();
+          }
+        );
       }
-
-      const renderCheckout = () => {
-        return res.render('checkout', {
-          user,
-          product,
-          checkoutOptions,
-          error: errorMessage,
-          notes,
-          idemKey,
-          effectiveDiscount: (user ? getUserEffectiveDiscount(user) : 0)
-        });
-      };
-
-      // 2) stock logic مثل ما هو
-      if (deliveryMode !== 'stock') {
-        return renderCheckout();
-      }
-
-      db.query(stockSql, [productId], (stockErr, stockRows) => {
-        // إذا فشل query نخليه false بس نسمح بالشراء
-        product.in_stock = (!stockErr && stockRows && stockRows.length > 0);
-        return renderCheckout();
-      });
-    });
+    );
   });
 });
-
 app.get('/api-checkout/:id', checkAuth, async (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const error = req.query.error || null;
@@ -6893,6 +7141,7 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
   } = req.body;
 
   const sessionUser = req.session.user;
+
   if (!sessionUser?.id) {
     return res.status(401).json({
       success: false,
@@ -6907,17 +7156,27 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
   const q = (sql, params = []) =>
     new Promise((resolve, reject) =>
-      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+      db.query(sql, params, (err, rows) =>
+        err ? reject(err) : resolve(rows)
+      )
     );
 
+  // =========================================================
+  // IDEMPOTENCY HELPERS
+  // =========================================================
   async function storeIdempotencyResponse(conn, userId, key, payload) {
     if (!key) return;
+
     const json = JSON.stringify(payload);
 
     await conn.query(
-      `INSERT INTO idempotency_keys (user_id, idem_key, response_json)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE response_json = VALUES(response_json)`,
+      `
+      INSERT INTO idempotency_keys
+        (user_id, idem_key, response_json)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        response_json = VALUES(response_json)
+      `,
       [userId, key, json]
     );
   }
@@ -6927,10 +7186,13 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
 
     try {
       const [[row]] = await promisePool.query(
-        `SELECT response_json
-         FROM idempotency_keys
-         WHERE user_id = ? AND idem_key = ?
-         LIMIT 1`,
+        `
+        SELECT response_json
+        FROM idempotency_keys
+        WHERE user_id = ?
+          AND idem_key = ?
+        LIMIT 1
+        `,
         [userId, key]
       );
 
@@ -6946,33 +7208,74 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
   }
 
   try {
-    const alreadyReturned = await returnExistingIdempotentResponse(sessionUser.id, idemKey);
+    // =======================================================
+    // IDEMPOTENCY CHECK
+    // =======================================================
+    const alreadyReturned =
+      await returnExistingIdempotentResponse(
+        sessionUser.id,
+        idemKey
+      );
+
     if (alreadyReturned) return;
 
+    // =======================================================
+    // PRODUCT ID
+    // =======================================================
     const productIdNum = parseInt(productId, 10);
-    if (!Number.isFinite(productIdNum) || productIdNum <= 0) {
+
+    if (
+      !Number.isFinite(productIdNum) ||
+      productIdNum <= 0
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Invalid product ID'
       });
     }
 
+    // =======================================================
+    // FRESH USER
+    // =======================================================
+    // Important:
+    // We get the user again from DB so level,
+    // balance and manual discount are current.
     let freshUser = null;
+
     try {
       const [[u]] = await promisePool.query(
-        'SELECT * FROM users WHERE id = ? LIMIT 1',
+        `
+        SELECT *
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+        `,
         [sessionUser.id]
       );
+
       freshUser = u || sessionUser;
-      if (u) req.session.user = u;
+
+      if (u) {
+        req.session.user = u;
+      }
     } catch (_) {
       freshUser = sessionUser;
     }
 
+    // =======================================================
+    // PRODUCT
+    // =======================================================
     const productRows = await q(
-      'SELECT * FROM products WHERE id = ? AND active = 1 LIMIT 1',
+      `
+      SELECT *
+      FROM products
+      WHERE id = ?
+        AND active = 1
+      LIMIT 1
+      `,
       [productIdNum]
     );
+
     const product = productRows?.[0];
 
     if (!product) {
@@ -6982,206 +7285,501 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
       });
     }
 
-    if (Object.prototype.hasOwnProperty.call(product, 'is_out_of_stock')) {
-      const oos = Number(product.is_out_of_stock) === 1 || product.is_out_of_stock === true;
+    // =======================================================
+    // OUT OF STOCK FLAG
+    // =======================================================
+    if (
+      Object.prototype.hasOwnProperty.call(
+        product,
+        'is_out_of_stock'
+      )
+    ) {
+      const oos =
+        Number(product.is_out_of_stock) === 1 ||
+        product.is_out_of_stock === true;
+
       if (oos) {
         return res.status(403).json({
           success: false,
-          message: 'This product is currently out of stock.'
+          message:
+            'This product is currently out of stock.'
         });
       }
     }
 
-    const deliveryMode = (product.delivery_mode || 'manual').toString().toLowerCase().trim();
-    const isStock = deliveryMode === 'stock';
+    // =======================================================
+    // DELIVERY MODE
+    // =======================================================
+    const deliveryMode =
+      (product.delivery_mode || 'manual')
+        .toString()
+        .toLowerCase()
+        .trim();
 
-    const checkoutFlowRaw = (product.checkout_flow || 'player_id').toString().toLowerCase().trim();
-    const safeCheckoutFlow = ['player_id', 'account_choice', 'no_details'].includes(checkoutFlowRaw)
-      ? checkoutFlowRaw
-      : 'player_id';
+    const isStock =
+      deliveryMode === 'stock';
 
+    // =======================================================
+    // CHECKOUT FLOW
+    // =======================================================
+    const checkoutFlowRaw =
+      (product.checkout_flow || 'player_id')
+        .toString()
+        .toLowerCase()
+        .trim();
+
+    const safeCheckoutFlow =
+      [
+        'player_id',
+        'account_choice',
+        'no_details'
+      ].includes(checkoutFlowRaw)
+        ? checkoutFlowRaw
+        : 'player_id';
+
+    // =======================================================
+    // PRODUCT OPTIONS
+    // =======================================================
+    // Important:
+    // Dealer prices are fetched directly from DB.
     const optionRows = await q(
       `
-      SELECT id, product_id, option_label, option_value, price, is_active
+      SELECT
+        id,
+        product_id,
+        option_label,
+        option_value,
+        price,
+        level_2_price,
+        level_3_price,
+        level_4_price,
+        level_5_price,
+        is_active
       FROM product_checkout_options
-      WHERE product_id = ? AND is_active = 1
+      WHERE product_id = ?
+        AND is_active = 1
       ORDER BY sort_order ASC, id ASC
       `,
       [productIdNum]
     );
 
-    const hasCheckoutOptions = Array.isArray(optionRows) && optionRows.length > 0;
+    const hasCheckoutOptions =
+      Array.isArray(optionRows) &&
+      optionRows.length > 0;
 
     let selectedOption = null;
+
+    // basePrice here means:
+    // Dealer-aware price BEFORE manual discount.
     let basePrice = 0;
+
     const orderDetailsParts = [];
 
+    // =======================================================
+    // OPTIONS PRICING
+    // =======================================================
     if (hasCheckoutOptions) {
-      const optionIdNum = parseInt(optionId, 10);
+      const optionIdNum =
+        parseInt(optionId, 10);
 
-      if (!Number.isFinite(optionIdNum) || optionIdNum <= 0) {
+      if (
+        !Number.isFinite(optionIdNum) ||
+        optionIdNum <= 0
+      ) {
         return res.status(400).json({
           success: false,
-          message: 'Please choose an option before buying.'
+          message:
+            'Please choose an option before buying.'
         });
       }
 
-      selectedOption = optionRows.find(x => Number(x.id) === optionIdNum);
+      selectedOption =
+        optionRows.find(
+          x => Number(x.id) === optionIdNum
+        );
 
       if (!selectedOption) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid option selected.'
+          message:
+            'Invalid option selected.'
         });
       }
 
-      basePrice = Number(selectedOption.price || 0);
+      // =====================================================
+      // IMPORTANT SECURITY
+      // =====================================================
+      // We DO NOT trust any price from HTML/browser.
+      //
+      // Price comes from:
+      // product + selected option + fresh user level.
+      //
+      // L1 = Retail
+      // L2 = level_2_price
+      // L3 = level_3_price
+      // L4 = level_4_price
+      // L5 = level_5_price
+      //
+      // Dealer OFF = Retail
+      // Missing level price = Retail
+      // =====================================================
+      basePrice =
+        getLocalOptionPriceForUser(
+          selectedOption,
+          product,
+          freshUser
+        );
 
       orderDetailsParts.push(
-        `Option: ${selectedOption.option_label}${selectedOption.option_value ? ` (${selectedOption.option_value})` : ''}`
+        `Option: ${selectedOption.option_label}${
+          selectedOption.option_value
+            ? ` (${selectedOption.option_value})`
+            : ''
+        }`
       );
+
+    // =======================================================
+    // FIXED PRODUCT PRICING
+    // =======================================================
     } else {
-      basePrice = Number(product.price || 0);
+      basePrice =
+        getLocalProductPriceForUser(
+          product,
+          freshUser
+        );
     }
 
+    // =======================================================
+    // CHECKOUT FLOW: PLAYER ID
+    // =======================================================
     if (safeCheckoutFlow === 'player_id') {
-      const pId = (playerId && String(playerId).trim() !== '')
-        ? String(playerId).trim()
-        : null;
+      const pId =
+        (
+          playerId &&
+          String(playerId).trim() !== ''
+        )
+          ? String(playerId).trim()
+          : null;
 
-      if (Number(product.requires_player_id) === 1 && !pId) {
+      if (
+        Number(product.requires_player_id) === 1 &&
+        !pId
+      ) {
         return res.status(400).json({
           success: false,
-          message: `Please enter ${product.player_id_label || 'Player ID'}.`
+          message:
+            `Please enter ${
+              product.player_id_label ||
+              'Player ID'
+            }.`
         });
       }
 
       if (pId) {
-        orderDetailsParts.push(`${product.player_id_label || 'Player ID'}: ${pId}`);
+        orderDetailsParts.push(
+          `${
+            product.player_id_label ||
+            'Player ID'
+          }: ${pId}`
+        );
       }
     }
 
-    if (safeCheckoutFlow === 'account_choice') {
-      const choice = (checkoutChoice || 'own_account').toString().toLowerCase().trim();
-      const safeChoice = ['own_account', 'account_from_us'].includes(choice)
-        ? choice
-        : 'own_account';
+    // =======================================================
+    // CHECKOUT FLOW: ACCOUNT CHOICE
+    // =======================================================
+    if (
+      safeCheckoutFlow ===
+      'account_choice'
+    ) {
+      const choice =
+        (checkoutChoice || 'own_account')
+          .toString()
+          .toLowerCase()
+          .trim();
+
+      const safeChoice =
+        [
+          'own_account',
+          'account_from_us'
+        ].includes(choice)
+          ? choice
+          : 'own_account';
 
       if (safeChoice === 'own_account') {
-        const email = (accountEmail || '').toString().trim();
-        const password = (accountPassword || '').toString().trim();
+        const email =
+          (accountEmail || '')
+            .toString()
+            .trim();
+
+        const password =
+          (accountPassword || '')
+            .toString()
+            .trim();
 
         if (!email || !password) {
           return res.status(400).json({
             success: false,
-            message: 'Please enter account email and password.'
+            message:
+              'Please enter account email and password.'
           });
         }
 
-        orderDetailsParts.push('Checkout Choice: Use my own account');
-        orderDetailsParts.push(`Account Email: ${email}`);
-        orderDetailsParts.push(`Account Password: ${password}`);
+        orderDetailsParts.push(
+          'Checkout Choice: Use my own account'
+        );
+
+        orderDetailsParts.push(
+          `Account Email: ${email}`
+        );
+
+        orderDetailsParts.push(
+          `Account Password: ${password}`
+        );
+
       } else {
-        orderDetailsParts.push('Checkout Choice: Account from us');
+        orderDetailsParts.push(
+          'Checkout Choice: Account from us'
+        );
       }
     }
 
-    if (safeCheckoutFlow === 'no_details') {
-      orderDetailsParts.push('Checkout: Buy now only — no customer details required.');
+    // =======================================================
+    // CHECKOUT FLOW: NO DETAILS
+    // =======================================================
+    if (
+      safeCheckoutFlow ===
+      'no_details'
+    ) {
+      orderDetailsParts.push(
+        'Checkout: Buy now only — no customer details required.'
+      );
     }
 
     if (!orderDetailsParts.length) {
-      orderDetailsParts.push(`Checkout Flow: ${safeCheckoutFlow} — no customer details submitted.`);
+      orderDetailsParts.push(
+        `Checkout Flow: ${safeCheckoutFlow} — no customer details submitted.`
+      );
     }
 
-    if (!Number.isFinite(basePrice) || basePrice <= 0) {
+    // =======================================================
+    // VALIDATE DEALER-AWARE BASE PRICE
+    // =======================================================
+    basePrice = Number(basePrice);
+
+    if (
+      !Number.isFinite(basePrice) ||
+      basePrice <= 0
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Pricing error'
       });
     }
 
-    const effectiveDiscountPercent = (typeof getUserEffectiveDiscount === 'function')
-      ? Number(getUserEffectiveDiscount(freshUser) || 0)
-      : Number(freshUser.discount_percent || 0) || 0;
+    // =======================================================
+    // MANUAL USER DISCOUNT
+    // =======================================================
+    // IMPORTANT:
+    //
+    // We intentionally DO NOT use:
+    //
+    // getUserEffectiveDiscount()
+    // applyUserDiscount()
+    //
+    // because those helpers contain the OLD automatic
+    // Level percentage discount system.
+    //
+    // Dealer Level Price was already selected above.
+    //
+    // Here we apply ONLY:
+    // users.discount_percent
+    // =======================================================
+    const manualDiscountPercentRaw =
+      Number(
+        freshUser?.discount_percent || 0
+      );
 
-    const purchasePrice = applyUserDiscount(basePrice, freshUser);
+    const effectiveDiscountPercent =
+      Number.isFinite(
+        manualDiscountPercentRaw
+      )
+        ? Math.min(
+            Math.max(
+              manualDiscountPercentRaw,
+              0
+            ),
+            100
+          )
+        : 0;
 
-    if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
+    // =======================================================
+    // FINAL PURCHASE PRICE
+    // =======================================================
+    const purchasePriceRaw =
+      basePrice *
+      (
+        1 -
+        (
+          effectiveDiscountPercent /
+          100
+        )
+      );
+
+    const purchasePrice =
+      Number(
+        purchasePriceRaw.toFixed(2)
+      );
+
+    if (
+      !Number.isFinite(purchasePrice) ||
+      purchasePrice <= 0
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Pricing error'
       });
     }
 
+    // =======================================================
+    // TRANSACTION
+    // =======================================================
     const now = new Date();
-    const conn = await promisePool.getConnection();
+
+    const conn =
+      await promisePool.getConnection();
 
     try {
       await conn.beginTransaction();
 
+      // =====================================================
+      // IDEMPOTENCY LOCK
+      // =====================================================
       if (idemKey) {
         try {
           await conn.query(
-            `INSERT INTO idempotency_keys (user_id, idem_key, response_json)
-             VALUES (?, ?, NULL)`,
-            [freshUser.id, idemKey]
+            `
+            INSERT INTO idempotency_keys
+              (
+                user_id,
+                idem_key,
+                response_json
+              )
+            VALUES (?, ?, NULL)
+            `,
+            [
+              freshUser.id,
+              idemKey
+            ]
           );
+
         } catch (e) {
-          const [[row]] = await conn.query(
-            `SELECT response_json
-             FROM idempotency_keys
-             WHERE user_id = ? AND idem_key = ?
-             LIMIT 1`,
-            [freshUser.id, idemKey]
-          );
+          const [[row]] =
+            await conn.query(
+              `
+              SELECT response_json
+              FROM idempotency_keys
+              WHERE user_id = ?
+                AND idem_key = ?
+              LIMIT 1
+              `,
+              [
+                freshUser.id,
+                idemKey
+              ]
+            );
 
           if (row?.response_json) {
             try {
-              const payload = JSON.parse(row.response_json);
+              const payload =
+                JSON.parse(
+                  row.response_json
+                );
+
               await conn.commit();
-              return res.json(payload);
+
+              return res.json(
+                payload
+              );
+
             } catch (_) {}
           }
 
           await conn.rollback();
+
           return res.status(409).json({
             success: false,
-            message: 'Request already in progress. Please wait a moment and refresh.'
+            message:
+              'Request already in progress. Please wait a moment and refresh.'
           });
         }
       }
 
+      // =====================================================
+      // STOCK
+      // =====================================================
       let stockItem = null;
 
       if (isStock) {
-        const [[item]] = await conn.query(
-          `SELECT id, delivery_text
-           FROM product_stock_items
-           WHERE product_id = ? AND status = 'available'
-           ORDER BY id ASC
-           LIMIT 1
-           FOR UPDATE`,
-          [productIdNum]
+        const [[item]] =
+          await conn.query(
+            `
+            SELECT
+              id,
+              delivery_text
+            FROM product_stock_items
+            WHERE product_id = ?
+              AND status = 'available'
+            ORDER BY id ASC
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [productIdNum]
+          );
+
+        stockItem =
+          item || null;
+      }
+
+      const shouldAutoDeliver =
+        isStock &&
+        !!stockItem;
+
+      if (
+        isStock &&
+        !stockItem
+      ) {
+        orderDetailsParts.push(
+          'Auto-delivery: Out of stock — will be processed manually.'
         );
-        stockItem = item || null;
       }
 
-      const shouldAutoDeliver = isStock && !!stockItem;
+      const orderDetails =
+        orderDetailsParts.join(' | ');
 
-      if (isStock && !stockItem) {
-        orderDetailsParts.push('Auto-delivery: Out of stock — will be processed manually.');
-      }
+      const initialStatus =
+        shouldAutoDeliver
+          ? 'Accepted'
+          : 'Waiting';
 
-      const orderDetails = orderDetailsParts.join(' | ');
-      const initialStatus = shouldAutoDeliver ? 'Accepted' : 'Waiting';
-
-      const [updRes] = await conn.query(
-        `UPDATE users
-         SET balance = balance - ?
-         WHERE id = ? AND balance >= ?`,
-        [purchasePrice, freshUser.id, purchasePrice]
-      );
+      // =====================================================
+      // DEDUCT USER BALANCE
+      // =====================================================
+      // purchasePrice is calculated server-side.
+      const [updRes] =
+        await conn.query(
+          `
+          UPDATE users
+          SET balance = balance - ?
+          WHERE id = ?
+            AND balance >= ?
+          `,
+          [
+            purchasePrice,
+            freshUser.id,
+            purchasePrice
+          ]
+        );
 
       if (!updRes?.affectedRows) {
         await conn.rollback();
@@ -7189,110 +7787,250 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
         if (idemKey) {
           try {
             await promisePool.query(
-              `DELETE FROM idempotency_keys
-               WHERE user_id = ? AND idem_key = ? AND response_json IS NULL`,
-              [freshUser.id, idemKey]
+              `
+              DELETE FROM idempotency_keys
+              WHERE user_id = ?
+                AND idem_key = ?
+                AND response_json IS NULL
+              `,
+              [
+                freshUser.id,
+                idemKey
+              ]
             );
           } catch (_) {}
         }
 
         return res.status(400).json({
           success: false,
-          message: 'Insufficient balance.'
+          message:
+            'Insufficient balance.'
         });
       }
 
-      const transactionReason = hasCheckoutOptions
-        ? `Purchase: ${product.name} - ${selectedOption.option_label}`
-        : `Purchase: ${product.name}`;
+      // =====================================================
+      // TRANSACTION HISTORY
+      // =====================================================
+      const transactionReason =
+        hasCheckoutOptions
+          ? `Purchase: ${product.name} - ${selectedOption.option_label}`
+          : `Purchase: ${product.name}`;
 
       await conn.query(
-        `INSERT INTO transactions (user_id, type, amount, reason)
-         VALUES (?, 'debit', ?, ?)`,
-        [freshUser.id, purchasePrice, transactionReason]
-      );
-
-      const adminReplyAuto = shouldAutoDeliver ? (stockItem.delivery_text || '') : null;
-
-      const orderProductName = hasCheckoutOptions
-        ? `${product.name} - ${selectedOption.option_label}`
-        : product.name;
-
-      const [orderResult] = await conn.query(
-        `INSERT INTO orders
-         (userId, productName, price, purchaseDate, order_details, status, admin_reply, product_id, source, fulfillment_mode)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'sql', ?)`,
+        `
+        INSERT INTO transactions
+          (
+            user_id,
+            type,
+            amount,
+            reason
+          )
+        VALUES (?, 'debit', ?, ?)
+        `,
         [
           freshUser.id,
-          orderProductName,
           purchasePrice,
-          now,
-          orderDetails,
-          initialStatus,
-          adminReplyAuto,
-          productIdNum,
-          isStock ? 'stock' : 'manual'
+          transactionReason
         ]
       );
 
-      const orderId = orderResult.insertId;
+      // =====================================================
+      // ORDER
+      // =====================================================
+      const adminReplyAuto =
+        shouldAutoDeliver
+          ? (
+              stockItem.delivery_text ||
+              ''
+            )
+          : null;
 
+      const orderProductName =
+        hasCheckoutOptions
+          ? `${product.name} - ${selectedOption.option_label}`
+          : product.name;
+
+      const [orderResult] =
+        await conn.query(
+          `
+          INSERT INTO orders
+            (
+              userId,
+              productName,
+              price,
+              purchaseDate,
+              order_details,
+              status,
+              admin_reply,
+              product_id,
+              source,
+              fulfillment_mode
+            )
+          VALUES
+            (
+              ?,
+              ?,
+              ?,
+              ?,
+              ?,
+              ?,
+              ?,
+              ?,
+              'sql',
+              ?
+            )
+          `,
+          [
+            freshUser.id,
+            orderProductName,
+            purchasePrice,
+            now,
+            orderDetails,
+            initialStatus,
+            adminReplyAuto,
+            productIdNum,
+            isStock
+              ? 'stock'
+              : 'manual'
+          ]
+        );
+
+      const orderId =
+        orderResult.insertId;
+
+      // =====================================================
+      // AUTO DELIVERY STOCK
+      // =====================================================
       if (shouldAutoDeliver) {
         await conn.query(
-          `UPDATE product_stock_items
-           SET status = 'sold',
-               sold_at = NOW(),
-               order_id = ?
-           WHERE id = ?`,
-          [orderId, stockItem.id]
+          `
+          UPDATE product_stock_items
+          SET
+            status = 'sold',
+            sold_at = NOW(),
+            order_id = ?
+          WHERE id = ?
+          `,
+          [
+            orderId,
+            stockItem.id
+          ]
         );
       }
 
-      const notifMsg = shouldAutoDeliver
-        ? `✅ تم تسليم طلبك (${orderProductName}) تلقائياً. ادخل على Order Details لرؤية البيانات.`
-        : `✅ تم استلام طلبك (${orderProductName}) بنجاح. سيتم معالجته قريبًا.`;
+      // =====================================================
+      // USER NOTIFICATION
+      // =====================================================
+      const notifMsg =
+        shouldAutoDeliver
+          ? `✅ تم تسليم طلبك (${orderProductName}) تلقائياً. ادخل على Order Details لرؤية البيانات.`
+          : `✅ تم استلام طلبك (${orderProductName}) بنجاح. سيتم معالجته قريبًا.`;
 
       await conn.query(
-        `INSERT INTO notifications (user_id, message, created_at, is_read)
-         VALUES (?, ?, NOW(), 0)`,
-        [freshUser.id, notifMsg]
+        `
+        INSERT INTO notifications
+          (
+            user_id,
+            message,
+            created_at,
+            is_read
+          )
+        VALUES (?, ?, NOW(), 0)
+        `,
+        [
+          freshUser.id,
+          notifMsg
+        ]
       );
 
-      const successPayload = shouldAutoDeliver
-        ? { success: true, redirectUrl: `/order-details/${orderId}` }
-        : { success: true, redirectUrl: '/processing' };
+      // =====================================================
+      // SUCCESS RESPONSE
+      // =====================================================
+      const successPayload =
+        shouldAutoDeliver
+          ? {
+              success: true,
+              redirectUrl:
+                `/order-details/${orderId}`
+            }
+          : {
+              success: true,
+              redirectUrl:
+                '/processing'
+            };
 
-      await storeIdempotencyResponse(conn, freshUser.id, idemKey, successPayload);
+      await storeIdempotencyResponse(
+        conn,
+        freshUser.id,
+        idemKey,
+        successPayload
+      );
 
       await conn.commit();
 
+      // =====================================================
+      // REFRESH SESSION USER
+      // =====================================================
       try {
-        const [[freshAfter]] = await promisePool.query(
-          'SELECT * FROM users WHERE id = ? LIMIT 1',
-          [freshUser.id]
-        );
-        if (freshAfter) req.session.user = freshAfter;
+        const [[freshAfter]] =
+          await promisePool.query(
+            `
+            SELECT *
+            FROM users
+            WHERE id = ?
+            LIMIT 1
+            `,
+            [freshUser.id]
+          );
+
+        if (freshAfter) {
+          req.session.user =
+            freshAfter;
+        }
+
       } catch (_) {}
 
-      req.session.pendingOrderId = orderId;
+      req.session.pendingOrderId =
+        orderId;
 
+      // =====================================================
+      // TELEGRAM NOTIFICATIONS
+      // =====================================================
       try {
-        const [rows] = await promisePool.query(
-          'SELECT telegram_chat_id, username FROM users WHERE id = ?',
-          [freshUser.id]
-        );
+        const [rows] =
+          await promisePool.query(
+            `
+            SELECT
+              telegram_chat_id,
+              username
+            FROM users
+            WHERE id = ?
+            `,
+            [freshUser.id]
+          );
 
-        const chatId = rows[0]?.telegram_chat_id;
-        const username = rows[0]?.username || freshUser.username;
+        const chatId =
+          rows[0]?.telegram_chat_id;
 
+        const username =
+          rows[0]?.username ||
+          freshUser.username;
+
+        // ===================================================
+        // USER TELEGRAM
+        // ===================================================
         if (chatId) {
-          const userStatus = shouldAutoDeliver ? 'تم التسليم تلقائياً' : 'جاري المعالجة (Waiting)';
+          const userStatus =
+            shouldAutoDeliver
+              ? 'تم التسليم تلقائياً'
+              : 'جاري المعالجة (Waiting)';
+
           const userMsg = `
 📥 *طلبك تم تسجيله بنجاح*
 
 🛍️ *المنتج:* ${orderProductName}
-💰 *السعر بعد الخصم:* ${purchasePrice}$
-📉 *الخصم الفعلي:* ${effectiveDiscountPercent}%
+💰 *السعر:* ${purchasePrice}$
+📉 *الخصم اليدوي:* ${effectiveDiscountPercent}%
 📌 *الحالة:* ${userStatus}
 🧾 *رقم الطلب:* ${orderId}
           `.trim();
@@ -7301,22 +8039,36 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
             chatId,
             userMsg,
             process.env.TELEGRAM_BOT_TOKEN,
-            { parseMode: 'Markdown', timeoutMs: 15000 }
+            {
+              parseMode: 'Markdown',
+              timeoutMs: 15000
+            }
           );
         }
 
-        const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
-        const adminStatus = shouldAutoDeliver
-          ? '✅ Delivered automatically (stock)'
-          : (isStock ? '⏳ Pending manual (no stock)' : '⏳ Pending manual');
+        // ===================================================
+        // ADMIN TELEGRAM
+        // ===================================================
+        const adminChatId =
+          process.env.ADMIN_TELEGRAM_CHAT_ID ||
+          '2096387191';
+
+        const adminStatus =
+          shouldAutoDeliver
+            ? '✅ Delivered automatically (stock)'
+            : (
+                isStock
+                  ? '⏳ Pending manual (no stock)'
+                  : '⏳ Pending manual'
+              );
 
         const adminMsg = `
 🆕 <b>طلب جديد!</b>
 
 👤 <b>الزبون:</b> ${username}
 🛍️ <b>المنتج:</b> ${orderProductName}
-💰 <b>السعر بعد الخصم:</b> ${purchasePrice}$
-📉 <b>الخصم الفعلي:</b> ${effectiveDiscountPercent}%
+💰 <b>السعر:</b> ${purchasePrice}$
+📉 <b>الخصم اليدوي:</b> ${effectiveDiscountPercent}%
 📋 <b>التفاصيل:</b> ${orderDetails || 'لا يوجد'}
 📌 <b>الحالة:</b> ${adminStatus}
 🧾 <b>Order ID:</b> ${orderId}
@@ -7327,23 +8079,47 @@ app.post('/buy', checkAuth, uploadNone.none(), async (req, res) => {
           adminChatId,
           adminMsg,
           process.env.TELEGRAM_BOT_TOKEN,
-          { parseMode: 'HTML', timeoutMs: 15000 }
+          {
+            parseMode: 'HTML',
+            timeoutMs: 15000
+          }
         );
+
       } catch (_) {}
 
-      return res.json(successPayload);
+      // =====================================================
+      // DONE
+      // =====================================================
+      return res.json(
+        successPayload
+      );
 
     } catch (e) {
-      try { await conn.rollback(); } catch (_) {}
+      try {
+        await conn.rollback();
+      } catch (_) {}
+
+      console.error(
+        '❌ /buy transaction error:',
+        e?.message || e
+      );
+
       return res.status(500).json({
         success: false,
-        message: 'Transaction failed'
+        message:
+          'Transaction failed'
       });
+
     } finally {
       conn.release();
     }
 
   } catch (err) {
+    console.error(
+      '❌ /buy error:',
+      err?.message || err
+    );
+
     return res.status(500).json({
       success: false,
       message: 'Server error'
