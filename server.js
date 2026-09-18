@@ -430,24 +430,60 @@ function getLocalOptionPriceForUser(option, product, user) {
 function applyDealerPricingToProducts(products, user) {
   if (!Array.isArray(products)) return [];
 
+  let manualDiscountPercent =
+    Number(user?.discount_percent || 0);
+
+  if (!Number.isFinite(manualDiscountPercent)) {
+    manualDiscountPercent = 0;
+  }
+
+  manualDiscountPercent = Math.min(
+    Math.max(manualDiscountPercent, 0),
+    100
+  );
+
   return products.map(product => {
     const retailPrice = Number(product.price || 0);
-    const finalPrice = getLocalProductPriceForUser(product, user);
+
+    // First: calculate price according to L1-L5
+    const dealerPrice = getLocalProductPriceForUser(
+      product,
+      user
+    );
+
+    // Second: apply manual discount_percent if present
+    const finalPriceRaw =
+      Number(dealerPrice || 0) *
+      (1 - manualDiscountPercent / 100);
+
+    const finalPrice = Number(
+      finalPriceRaw.toFixed(2)
+    );
 
     return {
       ...product,
+
+      // Final price shown to customer
       price: finalPrice,
+
+      // Original retail price
       original_price: retailPrice,
+
+      // Price after dealer level, before manual discount
+      dealer_price: Number(dealerPrice || 0),
+
+      // Useful later for UI
+      manual_discount_percent: manualDiscountPercent,
+
       user_level: normalizeUserLevel(user),
 
       dealer_pricing_applied:
         Number(product.dealer_pricing_enabled) === 1 &&
         normalizeUserLevel(user) >= 2 &&
-        finalPrice !== retailPrice
+        Number(dealerPrice) !== retailPrice
     };
   });
 }
-
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -12014,18 +12050,26 @@ app.get('/dramabox', (req, res) => {
 app.get('/goodshort', (req, res) => {
   const sql = `
     SELECT * FROM products
-    WHERE main_category = 'Accounts' AND sub_category = 'GoodShort'
+    WHERE main_category = 'Accounts'
+      AND sub_category = 'GoodShort'
     ORDER BY sort_order ASC, id ASC
   `;
+
   db.query(sql, [], (err, products) => {
     if (err) {
       console.error("Database error:", err);
       return res.status(500).send("Server error");
     }
-    const user = req.session.user || null;
-    const finalProducts = applyUserDiscountToProducts(products, user);
 
-    res.render('dramabox', { user, products: finalProducts });
+    const user = req.session.user || null;
+
+    const finalProducts =
+      applyDealerPricingToProducts(products, user);
+
+    res.render('dramabox', {
+      user,
+      products: finalProducts
+    });
   });
 });
 
