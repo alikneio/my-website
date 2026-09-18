@@ -106,6 +106,54 @@
                 <input type="number" step="0.01" min="0" class="form-control" name="price" id="fixedPriceInput" required>
               </div>
 
+              <!-- Dealer Pricing -->
+              <div class="col-12">
+                <div class="soft-card p-3">
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="dealerPricingEnabled"
+                      name="dealer_pricing_enabled"
+                      value="1"
+                    >
+                    <label class="form-check-label fw-bold" for="dealerPricingEnabled">
+                      Enable Dealer Pricing
+                    </label>
+                  </div>
+
+                  <div class="form-text">
+                    Level 1 uses the normal retail price. Levels 2–5 can have custom dealer prices.
+                  </div>
+
+                  <div id="fixedDealerPrices" class="row g-3 mt-1 d-none">
+                    <div class="col-6 col-md-3">
+                      <label class="form-label fw-semibold">Level 2 Price</label>
+                      <input type="number" step="0.01" min="0" class="form-control"
+                             name="level_2_price" placeholder="Optional">
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                      <label class="form-label fw-semibold">Level 3 Price</label>
+                      <input type="number" step="0.01" min="0" class="form-control"
+                             name="level_3_price" placeholder="Optional">
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                      <label class="form-label fw-semibold">Level 4 Price</label>
+                      <input type="number" step="0.01" min="0" class="form-control"
+                             name="level_4_price" placeholder="Optional">
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                      <label class="form-label fw-semibold">Level 5 Price</label>
+                      <input type="number" step="0.01" min="0" class="form-control"
+                             name="level_5_price" placeholder="Optional">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="col-12 col-md-6">
                 <label class="form-label fw-semibold">
                   <i class="bi bi-ui-checks-grid me-1"></i>
@@ -279,6 +327,9 @@
     const optionRowTemplate = document.getElementById('optionRowTemplate');
     const form = document.getElementById('addProductForm');
 
+    const dealerPricingEnabled = document.getElementById('dealerPricingEnabled');
+    const fixedDealerPrices = document.getElementById('fixedDealerPrices');
+
     const checkoutFlow = document.getElementById('checkoutFlow');
     const requiresPlayerIdCheckbox = document.getElementById('requires_player_id');
     const requiresPlayerIdWrap = document.getElementById('requiresPlayerIdWrap');
@@ -322,6 +373,18 @@
       input.value = value;
       input.className = 'generated-option-hidden';
       return input;
+    }
+
+    function refreshDealerPricing() {
+      if (!dealerPricingEnabled || !fixedDealerPrices) return;
+
+      const enabled = dealerPricingEnabled.checked;
+      const mode = (pricingMode?.value || 'fixed').toLowerCase();
+
+      fixedDealerPrices.classList.toggle(
+        'd-none',
+        !enabled || mode !== 'fixed'
+      );
     }
 
     function refreshPricingMode() {
@@ -416,9 +479,14 @@
     toggleHint();
     refreshPricingMode();
     refreshCheckoutFlow();
+    refreshDealerPricing();
 
     deliveryMode?.addEventListener('change', toggleHint);
-    pricingMode?.addEventListener('change', refreshPricingMode);
+    pricingMode?.addEventListener('change', () => {
+      refreshPricingMode();
+      refreshDealerPricing();
+    });
+    dealerPricingEnabled?.addEventListener('change', refreshDealerPricing);
     checkoutFlow?.addEventListener('change', refreshCheckoutFlow);
 
     addOptionBtn?.addEventListener('click', () => addOptionRow());

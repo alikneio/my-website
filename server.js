@@ -351,12 +351,103 @@ function applyUserDiscountToProducts(products, user) {
 
 
 
+function normalizeUserLevel(user) {
+  const level = parseInt(user?.level || 1, 10);
 
+  if (!Number.isFinite(level)) return 1;
 
+  return Math.min(Math.max(level, 1), 5);
+}
 
-// ... (باقي الكود مثل app.use و المسارات)
+function getLocalProductPriceForUser(product, user) {
+  const retailPrice = Number(product?.price || 0);
 
-// ... (باقي الكود مثل app.use و المسارات)
+  // Dealer pricing disabled => everyone pays retail price
+  if (Number(product?.dealer_pricing_enabled) !== 1) {
+    return retailPrice;
+  }
+
+  const level = normalizeUserLevel(user);
+
+  // Level 1 is always retail
+  if (level <= 1) {
+    return retailPrice;
+  }
+
+  const levelPrice = product?.[`level_${level}_price`];
+
+  // Missing/invalid dealer price => safely fall back to retail
+  if (
+    levelPrice === null ||
+    levelPrice === undefined ||
+    levelPrice === ''
+  ) {
+    return retailPrice;
+  }
+
+  const parsedPrice = Number(levelPrice);
+
+  if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+    return retailPrice;
+  }
+
+  return parsedPrice;
+}
+
+function getLocalOptionPriceForUser(option, product, user) {
+  const retailPrice = Number(option?.price || 0);
+
+  // Dealer pricing is controlled by the parent product
+  if (Number(product?.dealer_pricing_enabled) !== 1) {
+    return retailPrice;
+  }
+
+  const level = normalizeUserLevel(user);
+
+  if (level <= 1) {
+    return retailPrice;
+  }
+
+  const levelPrice = option?.[`level_${level}_price`];
+
+  if (
+    levelPrice === null ||
+    levelPrice === undefined ||
+    levelPrice === ''
+  ) {
+    return retailPrice;
+  }
+
+  const parsedPrice = Number(levelPrice);
+
+  if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+    return retailPrice;
+  }
+
+  return parsedPrice;
+}
+
+function applyDealerPricingToProducts(products, user) {
+  if (!Array.isArray(products)) return [];
+
+  return products.map(product => {
+    const retailPrice = Number(product.price || 0);
+    const finalPrice = getLocalProductPriceForUser(product, user);
+
+    return {
+      ...product,
+      price: finalPrice,
+      original_price: retailPrice,
+      user_level: normalizeUserLevel(user),
+
+      dealer_pricing_applied:
+        Number(product.dealer_pricing_enabled) === 1 &&
+        normalizeUserLevel(user) >= 2 &&
+        finalPrice !== retailPrice
+    };
+  });
+}
+
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
