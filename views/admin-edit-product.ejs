@@ -80,6 +80,8 @@
     <%
       const deliveryMode = (product.delivery_mode || 'manual').toString().toLowerCase();
       const checkoutFlow = (product.checkout_flow || 'player_id').toString().toLowerCase();
+      const pricingMode = (product.pricing_mode || 'fixed').toString().toLowerCase();
+      const dealerPricingEnabled = Number(product.dealer_pricing_enabled) === 1;
       const isStock = deliveryMode === 'stock';
       const stockCount = product.stock_count !== undefined && product.stock_count !== null ? Number(product.stock_count) : null;
       const inStock = stockCount !== null ? stockCount > 0 : null;
@@ -195,10 +197,110 @@
           </div>
 
           <div class="mb-3">
-            <label class="form-label fw-bold">Price</label>
+            <label class="form-label fw-bold"><i class="bi bi-cash-stack me-1"></i> Pricing Mode</label>
             <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-cash-coin"></i></span>
-              <input type="number" step="0.01" class="form-control" name="price" value="<%= product.price %>" required>
+              <span class="input-group-text"><i class="bi bi-sliders"></i></span>
+              <select class="form-select" name="pricing_mode" id="pricingMode">
+                <option value="fixed" <%= pricingMode === 'fixed' ? 'selected' : '' %>>Fixed Price</option>
+                <option value="options" <%= pricingMode === 'options' ? 'selected' : '' %>>Options / Variants</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="fixedPricingSection" class="<%= pricingMode === 'options' ? 'd-none' : '' %>">
+            <div class="mb-3">
+              <label class="form-label fw-bold">Retail Price</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-cash-coin"></i></span>
+                <input type="number" step="0.01" min="0" class="form-control" name="price" id="fixedPriceInput"
+                  value="<%= product.price %>">
+              </div>
+            </div>
+
+            <div class="mb-3 p-3 rounded-4 border bg-light">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="dealerPricingEnabled"
+                  name="dealer_pricing_enabled" value="1" <%= dealerPricingEnabled ? 'checked' : '' %>>
+                <label class="form-check-label fw-bold" for="dealerPricingEnabled">Enable Dealer Pricing</label>
+              </div>
+              <div class="helper">Level 1 uses retail. Levels 2–5 can have custom prices.</div>
+
+              <div id="fixedDealerPrices" class="row g-3 mt-1 <%= dealerPricingEnabled ? '' : 'd-none' %>">
+                <% [2,3,4,5].forEach(level => { %>
+                  <div class="col-6 col-md-3">
+                    <label class="form-label fw-bold">Level <%= level %> Price</label>
+                    <input type="number" step="0.01" min="0" class="form-control"
+                      name="level_<%= level %>_price"
+                      value="<%= product['level_' + level + '_price'] ?? '' %>"
+                      placeholder="Optional">
+                  </div>
+                <% }) %>
+              </div>
+            </div>
+          </div>
+
+          <div id="optionsPricingSection" class="<%= pricingMode === 'options' ? '' : 'd-none' %>">
+            <div class="mb-3 p-3 rounded-4 border bg-light">
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="dealerPricingEnabledOptions"
+                  name="dealer_pricing_enabled_options" value="1" <%= dealerPricingEnabled ? 'checked' : '' %>>
+                <label class="form-check-label fw-bold" for="dealerPricingEnabledOptions">Enable Dealer Pricing for Options</label>
+              </div>
+              <div class="helper mb-3">Each option has its own retail and Level 2–5 prices.</div>
+
+              <div id="optionsContainer">
+                <% (options || []).forEach((opt, index) => { %>
+                  <div class="option-row border rounded-4 p-3 mb-3">
+                    <input type="hidden" name="options[<%= index %>][id]" value="<%= opt.id %>">
+                    <div class="row g-3">
+                      <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold">Option Label</label>
+                        <input type="text" class="form-control" name="options[<%= index %>][option_label]"
+                          value="<%= opt.option_label || '' %>" required>
+                      </div>
+                      <div class="col-12 col-md-2">
+                        <label class="form-label fw-bold">Value</label>
+                        <input type="text" class="form-control" name="options[<%= index %>][option_value]"
+                          value="<%= opt.option_value || '' %>">
+                      </div>
+                      <div class="col-12 col-md-2">
+                        <label class="form-label fw-bold">Retail Price</label>
+                        <input type="number" step="0.01" min="0" class="form-control"
+                          name="options[<%= index %>][price]" value="<%= opt.price %>" required>
+                      </div>
+                      <div class="col-6 col-md-2">
+                        <label class="form-label fw-bold">Sort</label>
+                        <input type="number" min="0" class="form-control"
+                          name="options[<%= index %>][sort_order]" value="<%= opt.sort_order || 0 %>">
+                      </div>
+                      <div class="col-6 col-md-2 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                          <input type="checkbox" class="form-check-input"
+                            name="options[<%= index %>][is_active]" value="1"
+                            <%= Number(opt.is_active) === 1 ? 'checked' : '' %>>
+                          <label class="form-check-label">Active</label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="row g-2 mt-1 option-dealer-prices <%= dealerPricingEnabled ? '' : 'd-none' %>">
+                      <% [2,3,4,5].forEach(level => { %>
+                        <div class="col-6 col-md-3">
+                          <label class="form-label fw-bold">Level <%= level %> Price</label>
+                          <input type="number" step="0.01" min="0" class="form-control"
+                            name="options[<%= index %>][level_<%= level %>_price]"
+                            value="<%= opt['level_' + level + '_price'] ?? '' %>"
+                            placeholder="Optional">
+                        </div>
+                      <% }) %>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+
+              <% if (!(options || []).length) { %>
+                <div class="alert alert-warning mb-0">No options found for this product.</div>
+              <% } %>
             </div>
           </div>
 
@@ -374,14 +476,71 @@
       }
     }
 
+    const pricingModeSel = document.getElementById('pricingMode');
+    const fixedPricingSection = document.getElementById('fixedPricingSection');
+    const optionsPricingSection = document.getElementById('optionsPricingSection');
+    const fixedPriceInput = document.getElementById('fixedPriceInput');
+    const dealerPricingEnabled = document.getElementById('dealerPricingEnabled');
+    const dealerPricingEnabledOptions = document.getElementById('dealerPricingEnabledOptions');
+    const fixedDealerPrices = document.getElementById('fixedDealerPrices');
+
+    function refreshPricingMode() {
+      const mode = (pricingModeSel?.value || 'fixed').toLowerCase();
+      const isOptions = mode === 'options';
+
+      fixedPricingSection?.classList.toggle('d-none', isOptions);
+      optionsPricingSection?.classList.toggle('d-none', !isOptions);
+
+      if (fixedPriceInput) fixedPriceInput.required = !isOptions;
+
+      // Keep both dealer checkboxes synchronized.
+      if (dealerPricingEnabled && dealerPricingEnabledOptions) {
+        if (isOptions) dealerPricingEnabledOptions.checked = dealerPricingEnabled.checked;
+        else dealerPricingEnabled.checked = dealerPricingEnabledOptions.checked;
+      }
+
+      refreshDealerPricing();
+    }
+
+    function refreshDealerPricing() {
+      const mode = (pricingModeSel?.value || 'fixed').toLowerCase();
+      const enabled = mode === 'options'
+        ? !!dealerPricingEnabledOptions?.checked
+        : !!dealerPricingEnabled?.checked;
+
+      fixedDealerPrices?.classList.toggle('d-none', !enabled || mode !== 'fixed');
+
+      document.querySelectorAll('.option-dealer-prices').forEach(el => {
+        el.classList.toggle('d-none', !enabled || mode !== 'options');
+      });
+    }
+
+    dealerPricingEnabled?.addEventListener('change', () => {
+      if (dealerPricingEnabledOptions) dealerPricingEnabledOptions.checked = dealerPricingEnabled.checked;
+      refreshDealerPricing();
+    });
+
+    dealerPricingEnabledOptions?.addEventListener('change', () => {
+      if (dealerPricingEnabled) dealerPricingEnabled.checked = dealerPricingEnabledOptions.checked;
+      refreshDealerPricing();
+    });
+
+    pricingModeSel?.addEventListener('change', refreshPricingMode);
+
     toggleStockHint();
     refreshCheckoutFlow();
+    refreshPricingMode();
 
     deliveryModeSel?.addEventListener('change', toggleStockHint);
     checkoutFlow?.addEventListener('change', refreshCheckoutFlow);
 
     editProductForm?.addEventListener('submit', () => {
       const flow = (checkoutFlow?.value || 'player_id').toLowerCase();
+      const mode = (pricingModeSel?.value || 'fixed').toLowerCase();
+
+      if (mode === 'options' && dealerPricingEnabled && dealerPricingEnabledOptions) {
+        dealerPricingEnabled.checked = dealerPricingEnabledOptions.checked;
+      }
 
       if (requiresPlayerId) {
         requiresPlayerId.disabled = false;
