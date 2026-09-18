@@ -112,14 +112,16 @@
 
           const level = Number(user?.level || 1);
           const totalSpent = Number(user?.total_spent || 0);
+          const levelMode = user?.level_mode === 'manual' ? 'manual' : 'auto';
+          const isManualLevel = levelMode === 'manual';
           const createdAt = user?.createdAt || user?.created_at;
 
           const tiers = [
-            { level: 1, label: 'Bronze',   min: 0,    max: 100, className: 'bronze' },
-            { level: 2, label: 'Silver',   min: 100,  max: 500,   discount: 2, className: 'silver' },
-            { level: 3, label: 'Gold',     min: 500,  max: 1500, className: 'gold' },
-            { level: 4, label: 'Platinum', min: 1500, max: 5000, className: 'platinum' },
-            { level: 5, label: 'Diamond',  min: 5000, max: null, className: 'diamond' },
+            { level: 1, label: 'Bronze',   min: 0,     max: 500,   className: 'bronze' },
+            { level: 2, label: 'Silver',   min: 500,   max: 1500,  className: 'silver' },
+            { level: 3, label: 'Gold',     min: 1500,  max: 5000,  className: 'gold' },
+            { level: 4, label: 'Platinum', min: 5000,  max: 10000, className: 'platinum' },
+            { level: 5, label: 'Diamond',  min: 10000, max: null,  className: 'diamond' },
           ];
 
           const bySpentTier =
@@ -128,8 +130,12 @@
           const byLevelTier =
             tiers.find(t => t.level === level) || tiers[0];
 
-          const currentTier = bySpentTier || byLevelTier;
-          const nextTier = tiers.find(t => t.level === currentTier.level + 1) || null;
+          // Manual dealer accounts use the level assigned by admin.
+          // Automatic accounts use Total Spent.
+          const currentTier = isManualLevel ? byLevelTier : (bySpentTier || byLevelTier);
+          const nextTier = !isManualLevel
+            ? (tiers.find(t => t.level === currentTier.level + 1) || null)
+            : null;
 
           let progress = 100;
           let remainingAmount = 0;
@@ -188,7 +194,10 @@
               </div>
 
               <div class="mb-2 d-flex justify-content-between align-items-center">
-                <% if (nextTier) { %>
+                <% if (isManualLevel) { %>
+                  <small><strong>Manual Dealer Level</strong></small>
+                  <small>Assigned by AK Cell</small>
+                <% } else if (nextTier) { %>
                   <small>
                     Progress to <strong><%= nextTier.label %> (Level <%= nextTier.level %>)</strong>
                   </small>
@@ -206,7 +215,11 @@
                      aria-valuenow="<%= progress %>" aria-valuemin="0" aria-valuemax="100"></div>
               </div>
 
-              <% if (nextTier) { %>
+              <% if (isManualLevel) { %>
+                <small class="text-light opacity-75">
+                  Your dealer level is manually assigned and does not change automatically with Total Spent.
+                </small>
+              <% } else if (nextTier) { %>
                 <small class="text-light opacity-75">
                   Spend more to unlock the next dealer level and more eligible pricing.
                 </small>
@@ -279,7 +292,7 @@
               </table>
             </div>
             <small class="text-muted d-block mt-2">
-              * Levels are calculated based on your total spent across all completed orders. Dealer prices are available on eligible products and may vary from one product to another.
+              * Automatic levels are calculated from total spent. Manual dealer levels are assigned by AK Cell and remain fixed until changed by an administrator. Dealer prices are available on eligible products and may vary by product.
             </small>
           </div>
         </div>
