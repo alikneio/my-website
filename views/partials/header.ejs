@@ -449,12 +449,12 @@
         const userTotalSpent = Number(user.total_spent || 0);
 
         const levelInfo = {
-          1: { name: 'Bronze',   min: 0,    next: 100 },
-          2: { name: 'Silver',   min: 100,  next: 500 },
-          3: { name: 'Gold',     min: 500,  next: 1500 },
-          4: { name: 'Platinum', min: 1500, next: 5000 },
-          5: { name: 'Diamond',  min: 5000, next: null }
-        };
+  1: { name: 'Bronze',   min: 0,     next: 500 },
+  2: { name: 'Silver',   min: 500,   next: 1500 },
+  3: { name: 'Gold',     min: 1500,  next: 5000 },
+  4: { name: 'Platinum', min: 5000,  next: 10000 },
+  5: { name: 'Diamond',  min: 10000, next: null }
+};
 
         const currentLevelInfo = levelInfo[userLevel] || levelInfo[1];
         let menuProgress = 100;

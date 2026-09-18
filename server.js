@@ -85,29 +85,47 @@ const syncFiveSimCatalog =
 // حساب مستوى المستخدم والخصم بناءً على total_spent
 async function recalcUserLevel(userId) {
   try {
-    const [[row]] = await promisePool.query(
-      "SELECT total_spent FROM users WHERE id = ? LIMIT 1",
+    const [rows] = await promisePool.query(
+      `SELECT total_spent, level, level_mode
+       FROM users
+       WHERE id = ?
+       LIMIT 1`,
       [userId]
     );
 
-    const spent = Number(row?.total_spent || 0);
-    let level = 1;
+    if (!rows.length) return;
 
-    if (spent >= 100 && spent < 500) level = 2;
-    else if (spent >= 500 && spent < 1500) level = 3;
-    else if (spent >= 1500 && spent < 5000) level = 4;
-    else if (spent >= 5000) level = 5;
+    const user = rows[0];
 
-    // ✅ نحدّث level فقط (ما نلمس discount_percent نهائياً)
+    
+    if (user.level_mode === 'manual') {
+      return;
+    }
+
+    const totalSpent = Number(user.total_spent || 0);
+
+    let newLevel = 1;
+
+    if (totalSpent >= 10000) {
+      newLevel = 5;
+    } else if (totalSpent >= 5000) {
+      newLevel = 4;
+    } else if (totalSpent >= 1500) {
+      newLevel = 3;
+    } else if (totalSpent >= 500) {
+      newLevel = 2;
+    }
+
     await promisePool.query(
-      "UPDATE users SET level = ? WHERE id = ?",
-      [level, userId]
+      `UPDATE users
+       SET level = ?
+       WHERE id = ?
+         AND level_mode = 'auto'`,
+      [newLevel, userId]
     );
 
-    return { level };
   } catch (err) {
-    console.error("❌ recalcUserLevel error:", err.message || err);
-    return null;
+    console.error('❌ Error recalculating user level:', err);
   }
 }
 
@@ -8385,40 +8403,124 @@ app.get('/admin/users/edit/:id', checkAdmin, (req, res) => {
   });
 });
 
-app.post('/admin/users/edit/:id', checkAdmin, (req, res) => {
-  const {
-    username,
-    email,
-    phone,
-    role,
-    level,
-    discount_percent,
-    total_spent
-  } = req.body;
+app.post('/admin/users/edit/:id', checkAdmin, async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      phone,
+      role,
+      level,
+      level_mode,
+      discount_percent,
+      total_spent
+    } = req.body;
 
-  const lvl   = parseInt(level || 1, 10);
-  const disc  = parseFloat(discount_percent || 0);
-  const spent = parseFloat(total_spent || 0);
+    const userId = parseInt(req.params.id, 10);
 
-  const sql = `
-    UPDATE users
-    SET username = ?,
-        email = ?,
-        phone = ?,
-        role = ?,
-        level = ?,
-        discount_percent = ?,
-        total_spent = ?
-    WHERE id = ?
-  `;
+    // ================================
+    // Validate Level Mode
+    // ================================
+    const levelMode =
+      level_mode === 'manual'
+        ? 'manual'
+        : 'auto';
 
-  db.query(sql, [username, email, phone, role, lvl, disc, spent, req.params.id], (err) => {
-    if (err) {
-      console.error("❌ Error updating user:", err.message);
-      return res.status(500).send("❌ Error updating user.");
+    // ================================
+    // Validate Discount
+    // ================================
+    let disc = parseFloat(discount_percent || 0);
+
+    if (!Number.isFinite(disc)) {
+      disc = 0;
     }
-    res.redirect('/admin/users');
-  });
+
+    disc = Math.min(Math.max(disc, 0), 100);
+
+    // ================================
+    // Validate Total Spent
+    // ================================
+    let spent = parseFloat(total_spent || 0);
+
+    if (!Number.isFinite(spent) || spent < 0) {
+      spent = 0;
+    }
+
+    // ================================
+    // Calculate / Validate Level
+    // ================================
+    let finalLevel;
+
+    if (levelMode === 'manual') {
+
+      // Manual dealer level
+      finalLevel = parseInt(level || 1, 10);
+
+      if (
+        !Number.isFinite(finalLevel) ||
+        finalLevel < 1 ||
+        finalLevel > 5
+      ) {
+        finalLevel = 1;
+      }
+
+    } else {
+
+      // Automatic level based on Total Spent
+      finalLevel = 1;
+
+      if (spent >= 10000) {
+        finalLevel = 5;
+      } else if (spent >= 5000) {
+        finalLevel = 4;
+      } else if (spent >= 1500) {
+        finalLevel = 3;
+      } else if (spent >= 500) {
+        finalLevel = 2;
+      }
+
+    }
+
+    // ================================
+    // Update User
+    // ================================
+    const sql = `
+      UPDATE users
+      SET username = ?,
+          email = ?,
+          phone = ?,
+          role = ?,
+          level = ?,
+          level_mode = ?,
+          discount_percent = ?,
+          total_spent = ?
+      WHERE id = ?
+    `;
+
+    await promisePool.query(sql, [
+      username,
+      email || null,
+      phone || null,
+      role,
+      finalLevel,
+      levelMode,
+      disc,
+      spent,
+      userId
+    ]);
+
+    return res.redirect('/admin/users');
+
+  } catch (err) {
+    console.error(
+      "❌ Error updating user:",
+      err.message
+    );
+
+    return res
+      .status(500)
+      .send("❌ Error updating user.");
+  }
 });
 
 

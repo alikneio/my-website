@@ -1,97 +1,248 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Edit User</title>
+
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
 </head>
+
 <body class="bg-light">
 
 <div class="d-flex">
+
   <%- include('partials/admin-sidebar') %>
 
   <div class="container-fluid p-4">
+
     <h2 class="mb-3">
       Edit User
       <small class="text-muted">(#<%= editUser.id %>)</small>
     </h2>
+
     <hr>
 
-    <form action="/admin/users/edit/<%= editUser.id %>" method="POST" class="row g-3">
+    <form
+      action="/admin/users/edit/<%= editUser.id %>"
+      method="POST"
+      class="row g-3"
+    >
 
-      <!-- Basic Info -->
+      <!-- ========================= -->
+      <!-- Basic Information -->
+      <!-- ========================= -->
+
       <div class="col-md-6">
         <label class="form-label">Username</label>
+
         <input
           type="text"
           name="username"
           class="form-control"
           value="<%= editUser.username %>"
-          required>
+          required
+        >
       </div>
+
 
       <div class="col-md-6">
         <label class="form-label">Email</label>
+
         <input
           type="email"
           name="email"
           class="form-control"
-          value="<%= editUser.email %>">
+          value="<%= editUser.email || '' %>"
+        >
       </div>
+
 
       <div class="col-md-6">
         <label class="form-label">Phone</label>
+
         <input
           type="text"
           name="phone"
           class="form-control"
-          value="<%= editUser.phone %>">
+          value="<%= editUser.phone || '' %>"
+        >
       </div>
+
 
       <div class="col-md-6">
         <label class="form-label">Role</label>
+
         <select name="role" class="form-select">
-          <option value="user"  <%= editUser.role === 'user'  ? 'selected' : '' %>>User</option>
-          <option value="admin" <%= editUser.role === 'admin' ? 'selected' : '' %>>Admin</option>
+
+          <option
+            value="user"
+            <%= editUser.role === 'user' ? 'selected' : '' %>
+          >
+            User
+          </option>
+
+          <option
+            value="admin"
+            <%= editUser.role === 'admin' ? 'selected' : '' %>
+          >
+            Admin
+          </option>
+
         </select>
       </div>
 
-      <!-- Read-only balance (just for info) -->
+
+      <!-- ========================= -->
+      <!-- Balance -->
+      <!-- ========================= -->
+
       <div class="col-md-6">
-        <label class="form-label">Current Balance ($)</label>
+
+        <label class="form-label">
+          Current Balance ($)
+        </label>
+
         <input
           type="text"
           class="form-control"
           value="<%= Number(editUser.balance || 0).toFixed(2) %>"
-          disabled>
+          disabled
+        >
+
         <div class="form-text">
           تعديل الرصيد يتم من صفحة أخرى (إيداع / خصم).
         </div>
+
       </div>
 
-      <!-- Loyalty / Level Settings -->
-      <div class="col-12">
+
+      <!-- ========================= -->
+      <!-- Loyalty / Dealer Settings -->
+      <!-- ========================= -->
+
+      <div class="col-12 mt-4">
         <hr>
-        <h5>Loyalty / Level Settings</h5>
-      </div>
 
-      <div class="col-md-4">
-        <label class="form-label">User Level</label>
-        <input
-          type="number"
-          name="level"
-          class="form-control"
-          min="1"
-          max="50"
-          value="<%= editUser.level || 1 %>">
-        <div class="form-text">
-          رقم مستوى التاجر. يستخدم مع نظام الخصومات.
+        <h5 class="mb-1">
+          <i class="bi bi-award me-1"></i>
+          Loyalty / Dealer Level Settings
+        </h5>
+
+        <div class="text-muted small">
+          Manage automatic customer levels or assign a fixed dealer level.
         </div>
       </div>
 
+
+      <!-- Level Mode -->
+
       <div class="col-md-4">
-        <label class="form-label">Discount (%)</label>
+
+        <label class="form-label">
+          Level Mode
+        </label>
+
+        <select
+          name="level_mode"
+          id="levelMode"
+          class="form-select"
+        >
+
+          <option
+            value="auto"
+            <%= (editUser.level_mode || 'auto') === 'auto' ? 'selected' : '' %>
+          >
+            Automatic
+          </option>
+
+          <option
+            value="manual"
+            <%= editUser.level_mode === 'manual' ? 'selected' : '' %>
+          >
+            Manual / Dealer
+          </option>
+
+        </select>
+
+        <div class="form-text">
+          Automatic follows Total Spent. Manual keeps a fixed dealer level.
+        </div>
+
+      </div>
+
+
+      <!-- User Level -->
+
+      <div class="col-md-4">
+
+        <label class="form-label">
+          User Level
+        </label>
+
+        <select
+          name="level"
+          id="userLevel"
+          class="form-select"
+        >
+
+          <option
+            value="1"
+            <%= Number(editUser.level || 1) === 1 ? 'selected' : '' %>
+          >
+            L1 - Retail
+          </option>
+
+          <option
+            value="2"
+            <%= Number(editUser.level) === 2 ? 'selected' : '' %>
+          >
+            L2 - Silver Dealer
+          </option>
+
+          <option
+            value="3"
+            <%= Number(editUser.level) === 3 ? 'selected' : '' %>
+          >
+            L3 - Gold Dealer
+          </option>
+
+          <option
+            value="4"
+            <%= Number(editUser.level) === 4 ? 'selected' : '' %>
+          >
+            L4 - Platinum Dealer
+          </option>
+
+          <option
+            value="5"
+            <%= Number(editUser.level) === 5 ? 'selected' : '' %>
+          >
+            L5 - Diamond Dealer
+          </option>
+
+        </select>
+
+        <div
+          class="form-text"
+          id="levelHelp"
+        >
+          Select the dealer level.
+        </div>
+
+      </div>
+
+
+      <!-- Manual Discount -->
+
+      <div class="col-md-4">
+
+        <label class="form-label">
+          Manual Discount (%)
+        </label>
+
         <input
           type="number"
           name="discount_percent"
@@ -99,38 +250,243 @@
           min="0"
           max="100"
           step="1"
-          value="<%= editUser.discount_percent || 0 %>">
+          value="<%= editUser.discount_percent || 0 %>"
+        >
+
         <div class="form-text">
-          نسبة الخصم التي يحصل عليها هذا المستخدم على الطلبات.
+          Optional extra discount applied on top of the user's price.
         </div>
+
       </div>
 
+
+      <!-- Total Spent -->
+
       <div class="col-md-4">
-        <label class="form-label">Total Spent ($)</label>
+
+        <label class="form-label">
+          Total Spent ($)
+        </label>
+
         <input
           type="number"
           name="total_spent"
           class="form-control"
           min="0"
           step="0.01"
-          value="<%= Number(editUser.total_spent || 0).toFixed(2) %>">
+          value="<%= Number(editUser.total_spent || 0).toFixed(2) %>"
+        >
+
         <div class="form-text">
-          إجمالي ما صرفه هذا المستخدم. ممكن تعتمد عليه لحساب المستوى تلقائياً.
+          Automatic levels are calculated from this amount.
         </div>
+
       </div>
 
+
+      <!-- Current Status -->
+
+      <div class="col-md-4">
+
+        <label class="form-label">
+          Current Status
+        </label>
+
+        <div class="border rounded p-3 bg-white">
+
+          <div class="mb-2">
+
+            <strong>Current Level:</strong>
+
+            <span class="badge bg-primary ms-1">
+              L<%= Number(editUser.level || 1) %>
+            </span>
+
+          </div>
+
+          <div>
+
+            <strong>Mode:</strong>
+
+            <% if (editUser.level_mode === 'manual') { %>
+
+              <span class="badge bg-warning text-dark ms-1">
+                Manual / Dealer
+              </span>
+
+            <% } else { %>
+
+              <span class="badge bg-success ms-1">
+                Automatic
+              </span>
+
+            <% } %>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- Automatic Level Rules -->
+
+      <div class="col-md-4">
+
+        <label class="form-label">
+          Automatic Level Rules
+        </label>
+
+        <div class="alert alert-info mb-0 py-2">
+
+          <div>
+            <strong>L1</strong>
+            — $0 → $499.99
+          </div>
+
+          <div>
+            <strong>L2</strong>
+            — $500 → $1,499.99
+          </div>
+
+          <div>
+            <strong>L3</strong>
+            — $1,500 → $4,999.99
+          </div>
+
+          <div>
+            <strong>L4</strong>
+            — $5,000 → $9,999.99
+          </div>
+
+          <div>
+            <strong>L5</strong>
+            — $10,000+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- Information Box -->
+
+      <div class="col-12">
+
+        <div
+          id="modeInfo"
+          class="alert alert-secondary mb-0"
+        ></div>
+
+      </div>
+
+
+      <!-- ========================= -->
+      <!-- Buttons -->
+      <!-- ========================= -->
+
       <div class="col-12 mt-3">
-        <button class="btn btn-primary">
+
+        <button
+          type="submit"
+          class="btn btn-primary"
+        >
           <i class="bi bi-save me-1"></i>
           Update User
         </button>
-        <a href="/admin/users" class="btn btn-outline-secondary ms-2">
+
+        <a
+          href="/admin/users"
+          class="btn btn-outline-secondary ms-2"
+        >
           Cancel
         </a>
+
       </div>
+
     </form>
+
   </div>
+
 </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  const levelMode = document.getElementById('levelMode');
+  const userLevel = document.getElementById('userLevel');
+  const levelHelp = document.getElementById('levelHelp');
+  const modeInfo = document.getElementById('modeInfo');
+
+
+  function updateLevelMode() {
+
+    const isAuto = levelMode.value === 'auto';
+
+
+    if (isAuto) {
+
+      /*
+       * In Automatic mode the server calculates
+       * the level from Total Spent.
+       *
+       * Disabled fields are not submitted,
+       * which is intentional.
+       */
+
+      userLevel.disabled = true;
+
+
+      levelHelp.textContent =
+        'Level is controlled automatically based on Total Spent.';
+
+
+      modeInfo.className =
+        'alert alert-success mb-0';
+
+
+      modeInfo.innerHTML =
+        '<strong>Automatic Mode:</strong> ' +
+        'The customer level will automatically change according to Total Spent.';
+
+    } else {
+
+      /*
+       * Manual dealer mode.
+       * Admin selects and controls the level.
+       */
+
+      userLevel.disabled = false;
+
+
+      levelHelp.textContent =
+        'Manual dealer level is locked and will not change automatically.';
+
+
+      modeInfo.className =
+        'alert alert-warning mb-0';
+
+
+      modeInfo.innerHTML =
+        '<strong>Manual / Dealer Mode:</strong> ' +
+        'The selected level stays fixed until an administrator changes it or switches the account back to Automatic.';
+
+    }
+
+  }
+
+
+  levelMode.addEventListener(
+    'change',
+    updateLevelMode
+  );
+
+
+  updateLevelMode();
+
+});
+</script>
 
 </body>
 </html>
