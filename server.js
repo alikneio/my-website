@@ -4007,6 +4007,8 @@ app.get('/checkout/:id', checkAuth, (req, res) => {
     );
   });
 });
+
+
 app.get('/api-checkout/:id', checkAuth, async (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const error = req.query.error || null;
@@ -6666,13 +6668,10 @@ app.get('/api/out-of-stock', async (req, res) => {
 
       UNION
 
-      /* 2) Normal products (exclude anything that exists as API product) */
-      SELECT CAST(p.id AS CHAR) AS id
-      FROM products p
-      LEFT JOIN selected_api_products sap
-        ON sap.product_id = p.id
-      WHERE sap.product_id IS NULL
-        AND p.is_out_of_stock = 1
+      /* 2) Normal products */
+      SELECT CAST(id AS CHAR) AS id
+      FROM products
+      WHERE is_out_of_stock = 1
     `;
 
     db.query(sql, [], (err, rows) => {
@@ -6680,6 +6679,7 @@ app.get('/api/out-of-stock', async (req, res) => {
         console.error('❌ OOS API error:', err);
         return res.json([]);
       }
+
       res.json(rows.map(r => String(r.id)));
     });
 
@@ -6690,9 +6690,6 @@ app.get('/api/out-of-stock', async (req, res) => {
 });
 
 
-// شراء منتج كمي (نسبي) بدقة سنت 100%
-// شراء منتج كمي بدقة سنت 100% + حماية من الخصم المزدوج
-// شراء منتج كمي بدقة سنت (Round) + حماية من الخصم المزدوج
 app.post('/buy-quantity-product', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
