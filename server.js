@@ -6994,14 +6994,18 @@ app.get('/api/out-of-stock', async (req, res) => {
   try {
     const sql = `
       /* 1) API products */
-      SELECT CAST(product_id AS CHAR) AS id
+      SELECT
+        CAST(product_id AS CHAR) AS id,
+        'api' AS source
       FROM selected_api_products
       WHERE is_out_of_stock = 1
 
-      UNION
+      UNION ALL
 
-      /* 2) Normal products */
-      SELECT CAST(id AS CHAR) AS id
+      /* 2) Normal SQL products */
+      SELECT
+        CAST(id AS CHAR) AS id,
+        'sql' AS source
       FROM products
       WHERE is_out_of_stock = 1
     `;
@@ -7012,7 +7016,12 @@ app.get('/api/out-of-stock', async (req, res) => {
         return res.json([]);
       }
 
-      res.json(rows.map(r => String(r.id)));
+      res.json(
+        rows.map(r => ({
+          id: String(r.id),
+          source: String(r.source)
+        }))
+      );
     });
 
   } catch (e) {
