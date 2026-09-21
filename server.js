@@ -9128,6 +9128,101 @@ app.post('/admin/products', checkAdmin, async (req, res) => {
   }
 });
 
+app.get('/admin/sql-subcategories', checkAdmin, async (req, res) => {
+  try {
+    const [subcategories] = await promisePool.query(`
+      SELECT *
+      FROM sql_subcategories
+      ORDER BY main_category ASC, sort_order ASC, id ASC
+    `);
+
+    res.render('admin-sql-subcategories', {
+      user: req.session.user,
+      subcategories
+    });
+
+  } catch (err) {
+    console.error('❌ Error loading SQL sub-categories:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
+
+// Add new SQL sub-category
+app.post('/admin/sql-subcategories', checkAdmin, async (req, res) => {
+  try {
+    const {
+      name,
+      main_category,
+      image,
+      sort_order
+    } = req.body;
+
+    if (!name || !main_category) {
+      return res.status(400).send('Name and Main Category are required');
+    }
+
+    const cleanName = name.trim();
+    const cleanMainCategory = main_category.trim();
+
+    // Generate URL-safe slug
+    const slug = cleanName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!slug) {
+      return res.status(400).send('Invalid sub-category name');
+    }
+
+    const cleanImage =
+      image && image.trim()
+        ? image.trim()
+        : null;
+
+    const cleanSortOrder =
+      Number.isFinite(Number(sort_order))
+        ? Number(sort_order)
+        : 0;
+
+    const active =
+      req.body.active === '1' ||
+      req.body.active === 'on'
+        ? 1
+        : 0;
+
+    await promisePool.query(
+      `
+        INSERT INTO sql_subcategories
+          (name, slug, main_category, image, sort_order, active)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        cleanName,
+        slug,
+        cleanMainCategory,
+        cleanImage,
+        cleanSortOrder,
+        active
+      ]
+    );
+
+    return res.redirect('/admin/sql-subcategories');
+
+  } catch (err) {
+    // Duplicate slug
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res
+        .status(400)
+        .send('A sub-category with this slug already exists');
+    }
+
+    console.error('❌ Error adding SQL sub-category:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
 app.post('/admin/update-balance', checkAdmin, (req, res) => {
     const { userId, amount, operation } = req.body;
     const parsedAmount = parseFloat(amount);
