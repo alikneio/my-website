@@ -8907,8 +8907,31 @@ app.post('/admin/users/reset-password/:id', checkAdmin, async (req, res) => {
 
 
 
-app.get('/admin/products/new', checkAdmin, (req, res) => {
-    res.render('admin-add-product', { user: req.session.user });
+app.get('/admin/products/new', checkAdmin, async (req, res) => {
+  try {
+    const [sqlSubcategories] = await promisePool.query(`
+      SELECT
+        id,
+        name,
+        slug,
+        main_category,
+        image,
+        sort_order,
+        active
+      FROM sql_subcategories
+      WHERE active = 1
+      ORDER BY main_category ASC, sort_order ASC, name ASC
+    `);
+
+    res.render('admin-add-product', {
+      user: req.session.user,
+      sqlSubcategories
+    });
+
+  } catch (err) {
+    console.error('❌ Error loading Add Product page:', err);
+    return res.status(500).send('Server error');
+  }
 });
 
 app.post('/admin/products', checkAdmin, async (req, res) => {

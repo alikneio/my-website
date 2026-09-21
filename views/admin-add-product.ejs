@@ -38,78 +38,175 @@
     .d-none-force {
       display: none !important;
     }
+
+    .category-mode-card {
+      border: 1px solid rgba(13,110,253,.18);
+      border-radius: 16px;
+      background: #f8fbff;
+    }
+
+    .dynamic-category-info {
+      border-radius: 12px;
+    }
   </style>
 </head>
 
 <body class="bg-light">
+
   <div class="d-flex">
+
     <%- include('partials/admin-sidebar') %>
 
     <div class="container-fluid p-4 p-lg-5">
+
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h1 class="mb-0">Add New Product</h1>
+
         <a href="/admin/products" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-left"></i> Back
         </a>
       </div>
 
+
       <div class="card shadow-sm" style="border-radius: 16px;">
+
         <div class="card-body">
-          <form action="/admin/products" method="POST" autocomplete="off" id="addProductForm">
+
+          <form
+            action="/admin/products"
+            method="POST"
+            autocomplete="off"
+            id="addProductForm"
+          >
+
             <div class="row g-3">
 
+
+              <!-- PRODUCT NAME -->
               <div class="col-12">
-                <label class="form-label fw-semibold">Product Name</label>
-                <input type="text" class="form-control" name="name" required>
+
+                <label class="form-label fw-semibold">
+                  Product Name
+                </label>
+
+                <input
+                  type="text"
+                  class="form-control"
+                  name="name"
+                  required
+                >
+
               </div>
 
+
+              <!-- DELIVERY MODE -->
               <div class="col-12 col-md-6">
+
                 <label class="form-label fw-semibold">
-                  <i class="bi bi-truck me-1"></i> Delivery Mode
+                  <i class="bi bi-truck me-1"></i>
+                  Delivery Mode
                 </label>
-                <select class="form-select" name="delivery_mode" id="deliveryMode">
-                  <option value="manual" selected>Manual (Admin processes order)</option>
-                  <option value="stock">Stock (Auto delivery)</option>
+
+                <select
+                  class="form-select"
+                  name="delivery_mode"
+                  id="deliveryMode"
+                >
+                  <option value="manual" selected>
+                    Manual (Admin processes order)
+                  </option>
+
+                  <option value="stock">
+                    Stock (Auto delivery)
+                  </option>
                 </select>
 
                 <div class="form-text">
-                  Stock = إذا في مخزون بيتسلم تلقائي، وإذا ما في → الطلب بيضل Pending / Waiting وينشاف من الأدمن.
+                  Stock = إذا في مخزون بيتسلم تلقائي،
+                  وإذا ما في → الطلب بيضل Pending / Waiting
+                  وينشاف من الأدمن.
                 </div>
 
-                <div id="stockHint" class="alert alert-info mt-2 mb-0 d-none" style="border-radius: 14px;">
+                <div
+                  id="stockHint"
+                  class="alert alert-info mt-2 mb-0 d-none"
+                  style="border-radius: 14px;"
+                >
                   <div class="d-flex gap-2">
+
                     <i class="bi bi-lightning-charge-fill"></i>
+
                     <div class="small">
                       بعد إنشاء المنتج، بتقدر تضيف الحسابات من صفحة:
                       <b>Manage Stock</b>.
                     </div>
+
                   </div>
                 </div>
+
               </div>
 
+
+              <!-- PRICING MODE -->
               <div class="col-12 col-md-6">
+
                 <label class="form-label fw-semibold">
-                  <i class="bi bi-cash-stack me-1"></i> Pricing Mode
+                  <i class="bi bi-cash-stack me-1"></i>
+                  Pricing Mode
                 </label>
-                <select class="form-select" name="pricing_mode" id="pricingMode">
-                  <option value="fixed" selected>Fixed Price</option>
-                  <option value="options">Options / Variants</option>
+
+                <select
+                  class="form-select"
+                  name="pricing_mode"
+                  id="pricingMode"
+                >
+                  <option value="fixed" selected>
+                    Fixed Price
+                  </option>
+
+                  <option value="options">
+                    Options / Variants
+                  </option>
                 </select>
 
                 <div class="form-text">
-                  Fixed = سعر واحد للمنتج. Options = الزبون يختار من عدة خيارات.
+                  Fixed = سعر واحد للمنتج.
+                  Options = الزبون يختار من عدة خيارات.
                 </div>
+
               </div>
 
-              <div class="col-12 col-md-6" id="fixedPriceWrap">
-                <label class="form-label fw-semibold">Price</label>
-                <input type="number" step="0.01" min="0" class="form-control" name="price" id="fixedPriceInput" required>
+
+              <!-- FIXED PRICE -->
+              <div
+                class="col-12 col-md-6"
+                id="fixedPriceWrap"
+              >
+
+                <label class="form-label fw-semibold">
+                  Price
+                </label>
+
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="form-control"
+                  name="price"
+                  id="fixedPriceInput"
+                  required
+                >
+
               </div>
 
-              <!-- Dealer Pricing -->
+
+              <!-- DEALER PRICING -->
               <div class="col-12">
+
                 <div class="soft-card p-3">
+
                   <div class="form-check">
+
                     <input
                       class="form-check-input"
                       type="checkbox"
@@ -117,442 +214,1742 @@
                       name="dealer_pricing_enabled"
                       value="1"
                     >
-                    <label class="form-check-label fw-bold" for="dealerPricingEnabled">
+
+                    <label
+                      class="form-check-label fw-bold"
+                      for="dealerPricingEnabled"
+                    >
                       Enable Dealer Pricing
                     </label>
+
                   </div>
+
 
                   <div class="form-text">
-                    Level 1 uses the normal retail price. Levels 2–5 can have custom dealer prices.
+                    Level 1 uses the normal retail price.
+                    Levels 2–5 can have custom dealer prices.
                   </div>
 
-                  <div id="fixedDealerPrices" class="row g-3 mt-1 d-none">
-                    <div class="col-6 col-md-3">
-                      <label class="form-label fw-semibold">Level 2 Price</label>
-                      <input type="number" step="0.01" min="0" class="form-control"
-                             name="level_2_price" placeholder="Optional">
-                    </div>
+
+                  <div
+                    id="fixedDealerPrices"
+                    class="row g-3 mt-1 d-none"
+                  >
 
                     <div class="col-6 col-md-3">
-                      <label class="form-label fw-semibold">Level 3 Price</label>
-                      <input type="number" step="0.01" min="0" class="form-control"
-                             name="level_3_price" placeholder="Optional">
+
+                      <label class="form-label fw-semibold">
+                        Level 2 Price
+                      </label>
+
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="form-control"
+                        name="level_2_price"
+                        placeholder="Optional"
+                      >
+
                     </div>
 
-                    <div class="col-6 col-md-3">
-                      <label class="form-label fw-semibold">Level 4 Price</label>
-                      <input type="number" step="0.01" min="0" class="form-control"
-                             name="level_4_price" placeholder="Optional">
-                    </div>
 
                     <div class="col-6 col-md-3">
-                      <label class="form-label fw-semibold">Level 5 Price</label>
-                      <input type="number" step="0.01" min="0" class="form-control"
-                             name="level_5_price" placeholder="Optional">
+
+                      <label class="form-label fw-semibold">
+                        Level 3 Price
+                      </label>
+
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="form-control"
+                        name="level_3_price"
+                        placeholder="Optional"
+                      >
+
                     </div>
+
+
+                    <div class="col-6 col-md-3">
+
+                      <label class="form-label fw-semibold">
+                        Level 4 Price
+                      </label>
+
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="form-control"
+                        name="level_4_price"
+                        placeholder="Optional"
+                      >
+
+                    </div>
+
+
+                    <div class="col-6 col-md-3">
+
+                      <label class="form-label fw-semibold">
+                        Level 5 Price
+                      </label>
+
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="form-control"
+                        name="level_5_price"
+                        placeholder="Optional"
+                      >
+
+                    </div>
+
                   </div>
+
                 </div>
+
               </div>
 
+
+              <!-- CHECKOUT FLOW -->
               <div class="col-12 col-md-6">
+
                 <label class="form-label fw-semibold">
+
                   <i class="bi bi-ui-checks-grid me-1"></i>
                   Checkout Flow
+
                 </label>
-                <select class="form-select" name="checkout_flow" id="checkoutFlow">
-                  <option value="player_id" selected>Player ID / Single Field</option>
-                  <option value="account_choice">Account Choice (Own Account / Account From Us)</option>
-                  <option value="no_details">Buy Now Only (No Details)</option>
+
+                <select
+                  class="form-select"
+                  name="checkout_flow"
+                  id="checkoutFlow"
+                >
+
+                  <option value="player_id" selected>
+                    Player ID / Single Field
+                  </option>
+
+                  <option value="account_choice">
+                    Account Choice (Own Account / Account From Us)
+                  </option>
+
+                  <option value="no_details">
+                    Buy Now Only (No Details)
+                  </option>
+
                 </select>
+
                 <div class="form-text">
-                  Player ID = النظام القديم. Account Choice = خيارين. No Details = زر شراء فقط.
+                  Player ID = النظام القديم.
+                  Account Choice = خيارين.
+                  No Details = زر شراء فقط.
                 </div>
+
               </div>
 
-              <div class="col-12 col-md-4">
-                <label class="form-label fw-semibold">Main Category</label>
-                <input type="text" class="form-control" name="main_category" placeholder="e.g., Accounts, Games" required>
+
+              <!-- ================================================= -->
+              <!-- CATEGORY SYSTEM -->
+              <!-- ================================================= -->
+
+              <div class="col-12">
+
+                <div class="category-mode-card p-3 p-md-4">
+
+                  <div class="mb-3">
+
+                    <h5 class="section-title mb-1">
+
+                      <i class="bi bi-grid-3x3-gap-fill me-1"></i>
+                      Product Category
+
+                    </h5>
+
+                    <div class="text-muted small">
+                      اختر Dynamic SQL Sub-Category للمنتجات الجديدة،
+                      أو Manual للمنتجات والأقسام القديمة.
+                    </div>
+
+                  </div>
+
+
+                  <!-- CATEGORY MODE -->
+                  <div class="mb-3">
+
+                    <label class="form-label fw-semibold">
+                      Category Mode
+                    </label>
+
+                    <select
+                      class="form-select"
+                      id="categoryMode"
+                    >
+
+                      <option value="dynamic" selected>
+                        Dynamic SQL Sub-Category
+                      </option>
+
+                      <option value="manual">
+                        Manual / Existing Category
+                      </option>
+
+                    </select>
+
+                  </div>
+
+
+                  <!-- DYNAMIC CATEGORY -->
+                  <div id="dynamicCategoryWrap">
+
+                    <label class="form-label fw-semibold">
+                      SQL Sub-Category
+                    </label>
+
+                    <select
+                      class="form-select"
+                      id="dynamicSubcategorySelect"
+                    >
+
+                      <option value="">
+                        Select SQL Sub-Category
+                      </option>
+
+
+                      <% if (
+                        typeof sqlSubcategories !== 'undefined' &&
+                        sqlSubcategories &&
+                        sqlSubcategories.length > 0
+                      ) { %>
+
+                        <% sqlSubcategories.forEach(function(category) { %>
+
+                          <option
+                            value="<%= category.id %>"
+                            data-main-category="<%= category.main_category %>"
+                            data-sub-category="<%= category.name %>"
+                            data-image="<%= category.image || '' %>"
+                          >
+                            <%= category.main_category %>
+                            →
+                            <%= category.name %>
+                          </option>
+
+                        <% }) %>
+
+                      <% } %>
+
+                    </select>
+
+
+                    <div class="form-text">
+                      Main Category و Sub Category رح يتعبّوا
+                      تلقائيًا من الـSQL Sub-Category.
+                    </div>
+
+
+                    <% if (
+                      typeof sqlSubcategories === 'undefined' ||
+                      !sqlSubcategories ||
+                      sqlSubcategories.length === 0
+                    ) { %>
+
+                      <div class="alert alert-warning mt-3 mb-0">
+
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+
+                        No active SQL Sub-Categories found.
+
+                      </div>
+
+                    <% } %>
+
+
+                    <div
+                      id="selectedDynamicCategoryInfo"
+                      class="alert alert-info dynamic-category-info mt-3 mb-0 d-none"
+                    >
+
+                      <div class="small">
+
+                        <div>
+                          <strong>Main Category:</strong>
+                          <span id="selectedMainCategory">-</span>
+                        </div>
+
+                        <div>
+                          <strong>Sub Category:</strong>
+                          <span id="selectedSubCategory">-</span>
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+
+                  <!-- MANUAL CATEGORY -->
+                  <div
+                    id="manualCategoryWrap"
+                    class="d-none"
+                  >
+
+                    <div class="row g-3">
+
+                      <div class="col-12 col-md-6">
+
+                        <label class="form-label fw-semibold">
+                          Main Category
+                        </label>
+
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="manualMainCategory"
+                          placeholder="e.g., Accounts, Games"
+                        >
+
+                      </div>
+
+
+                      <div class="col-12 col-md-6">
+
+                        <label class="form-label fw-semibold">
+                          Sub Category
+                        </label>
+
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="manualSubCategory"
+                          placeholder="e.g., Netflix, Free Fire"
+                        >
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+
+                  <!-- REAL VALUES SENT TO SERVER -->
+                  <input
+                    type="hidden"
+                    name="main_category"
+                    id="mainCategoryInput"
+                  >
+
+                  <input
+                    type="hidden"
+                    name="sub_category"
+                    id="subCategoryInput"
+                  >
+
+                </div>
+
               </div>
 
-              <div class="col-12 col-md-4">
-                <label class="form-label fw-semibold">Sub Category</label>
-                <input type="text" class="form-control" name="sub_category" placeholder="e.g., Netflix, Free Fire" required>
-              </div>
 
+              <!-- OUT OF STOCK -->
               <div class="col-12 col-md-4 d-flex align-items-end">
+
                 <div class="form-check">
-                  <input type="checkbox" class="form-check-input" id="is_out_of_stock" name="is_out_of_stock" value="1">
-                  <label class="form-check-label" for="is_out_of_stock">
+
+                  <input
+                    type="checkbox"
+                    class="form-check-input"
+                    id="is_out_of_stock"
+                    name="is_out_of_stock"
+                    value="1"
+                  >
+
+                  <label
+                    class="form-check-label"
+                    for="is_out_of_stock"
+                  >
                     Out of Stock
                   </label>
+
                   <div class="form-text">
-                    (Optional) للـ Manual products. للـ Stock products الأفضل تتحكم بالمخزون من Stock Manager.
+                    (Optional) للـ Manual products.
+                    للـ Stock products الأفضل تتحكم بالمخزون
+                    من Stock Manager.
                   </div>
+
                 </div>
+
               </div>
 
+
+              <!-- PRODUCT IMAGE -->
               <div class="col-12 col-md-6">
-                <label class="form-label fw-semibold">Product Image Path</label>
-                <input type="text" class="form-control" name="image" placeholder="/images/webp/product.webp">
-                <div class="form-text">يفضّل تحط مسار كامل صحيح.</div>
+
+                <label class="form-label fw-semibold">
+                  Product Image Path
+                </label>
+
+                <input
+                  type="text"
+                  class="form-control"
+                  name="image"
+                  placeholder="/images/webp/product.webp"
+                >
+
+                <div class="form-text">
+                  يفضّل تحط مسار كامل صحيح.
+                </div>
+
               </div>
 
+
+              <!-- SUBCATEGORY IMAGE -->
               <div class="col-12 col-md-6">
-                <label class="form-label fw-semibold">Sub-Category Image Path</label>
-                <input type="text" class="form-control" name="sub_category_image" placeholder="/images/webp/cat_netflix.webp">
+
+                <label class="form-label fw-semibold">
+                  Sub-Category Image Path
+                </label>
+
+                <input
+                  type="text"
+                  class="form-control"
+                  name="sub_category_image"
+                  id="subCategoryImageInput"
+                  placeholder="/images/webp/cat_netflix.webp"
+                >
+
+                <div class="form-text">
+                  عند اختيار Dynamic SQL Sub-Category،
+                  سيتم استخدام صورة القسم تلقائيًا إذا كانت موجودة.
+                </div>
+
               </div>
 
+
+              <!-- DESCRIPTION -->
               <div class="col-12">
-                <label class="form-label fw-semibold">Description</label>
-                <textarea class="form-control" name="description" rows="3"
-                  placeholder="Product description shown in checkout details..."></textarea>
+
+                <label class="form-label fw-semibold">
+                  Description
+                </label>
+
+                <textarea
+                  class="form-control"
+                  name="description"
+                  rows="3"
+                  placeholder="Product description shown in checkout details..."
+                ></textarea>
+
               </div>
 
+
+              <!-- NOTES -->
               <div class="col-12">
-                <label class="form-label fw-semibold">Product Notes (Optional)</label>
-                <textarea class="form-control" name="notes" rows="3"
-                  placeholder="Enter any notes or instructions for the user..."></textarea>
+
+                <label class="form-label fw-semibold">
+                  Product Notes (Optional)
+                </label>
+
+                <textarea
+                  class="form-control"
+                  name="notes"
+                  rows="3"
+                  placeholder="Enter any notes or instructions for the user..."
+                ></textarea>
+
               </div>
 
-              <div class="col-12 col-md-6" id="playerIdLabelWrap">
-                <label class="form-label fw-semibold">Field Label (مثلاً: Username, Email)</label>
-                <input type="text" class="form-control" name="player_id_label" id="playerIdLabelInput" placeholder="Player ID">
+
+              <!-- PLAYER ID LABEL -->
+              <div
+                class="col-12 col-md-6"
+                id="playerIdLabelWrap"
+              >
+
+                <label class="form-label fw-semibold">
+                  Field Label (مثلاً: Username, Email)
+                </label>
+
+                <input
+                  type="text"
+                  class="form-control"
+                  name="player_id_label"
+                  id="playerIdLabelInput"
+                  placeholder="Player ID"
+                >
+
               </div>
 
-              <div class="col-12 col-md-6 d-flex align-items-end" id="requiresPlayerIdWrap">
+
+              <!-- REQUIRES PLAYER ID -->
+              <div
+                class="col-12 col-md-6 d-flex align-items-end"
+                id="requiresPlayerIdWrap"
+              >
+
                 <div class="form-check">
-                  <input type="checkbox" class="form-check-input" id="requires_player_id" name="requires_player_id" value="1">
-                  <label class="form-check-label" for="requires_player_id">Requires Player ID?</label>
+
+                  <input
+                    type="checkbox"
+                    class="form-check-input"
+                    id="requires_player_id"
+                    name="requires_player_id"
+                    value="1"
+                  >
+
+                  <label
+                    class="form-check-label"
+                    for="requires_player_id"
+                  >
+                    Requires Player ID?
+                  </label>
+
                 </div>
+
               </div>
+
 
             </div>
 
-            <div id="optionsSection" class="mt-4 d-none">
+
+            <!-- ================================================= -->
+            <!-- OPTIONS -->
+            <!-- ================================================= -->
+
+            <div
+              id="optionsSection"
+              class="mt-4 d-none"
+            >
+
               <div class="soft-card p-3 p-md-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+
+                <div
+                  class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"
+                >
+
                   <div>
+
                     <h5 class="section-title mb-1">
-                      <i class="bi bi-list-check me-1"></i> Product Options
+
+                      <i class="bi bi-list-check me-1"></i>
+                      Product Options
+
                     </h5>
+
                     <div class="text-muted small">
-                      أضف الخيارات اللي بدك المستخدم يختار بينها في صفحة الـ checkout.
+                      أضف الخيارات اللي بدك المستخدم يختار بينها
+                      في صفحة الـ checkout.
                     </div>
+
                   </div>
 
-                  <button type="button" class="btn btn-outline-primary" id="addOptionBtn">
-                    <i class="bi bi-plus-circle me-1"></i> Add Option
+
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    id="addOptionBtn"
+                  >
+
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Add Option
+
                   </button>
+
                 </div>
+
 
                 <div id="optionsContainer"></div>
 
-                <div class="alert alert-secondary mb-0 mt-2" style="border-radius: 14px;">
+
+                <div
+                  class="alert alert-secondary mb-0 mt-2"
+                  style="border-radius: 14px;"
+                >
+
                   <div class="small">
+
                     <b>مثال:</b><br>
+
                     Label = 1 Dollar<br>
                     Value = 1<br>
                     Price = 100
+
                   </div>
+
                 </div>
+
               </div>
+
             </div>
+
 
             <hr class="my-4">
 
+
+            <!-- SUBMIT -->
             <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i> Add Product
+
+              <button
+                type="submit"
+                class="btn btn-primary"
+              >
+
+                <i class="bi bi-plus-circle me-1"></i>
+                Add Product
+
               </button>
-              <a href="/admin/products" class="btn btn-secondary">Cancel</a>
+
+
+              <a
+                href="/admin/products"
+                class="btn btn-secondary"
+              >
+                Cancel
+              </a>
+
             </div>
+
+
           </form>
+
         </div>
+
       </div>
+
 
       <%- include('partials/footer') %>
+
     </div>
+
   </div>
 
+
+
+  <!-- ========================================================= -->
+  <!-- OPTION TEMPLATE -->
+  <!-- ========================================================= -->
+
   <template id="optionRowTemplate">
+
     <div class="option-row">
+
       <div class="row g-3 align-items-end">
+
+
         <div class="col-12 col-md-4">
-          <label class="form-label fw-semibold">Option Label</label>
-          <input type="text" class="form-control option-label-input" placeholder="e.g. 1 Dollar">
+
+          <label class="form-label fw-semibold">
+            Option Label
+          </label>
+
+          <input
+            type="text"
+            class="form-control option-label-input"
+            placeholder="e.g. 1 Dollar"
+          >
+
         </div>
+
 
         <div class="col-12 col-md-2">
-          <label class="form-label fw-semibold">Value</label>
-          <input type="text" class="form-control option-value-input" placeholder="e.g. 1">
+
+          <label class="form-label fw-semibold">
+            Value
+          </label>
+
+          <input
+            type="text"
+            class="form-control option-value-input"
+            placeholder="e.g. 1"
+          >
+
         </div>
+
 
         <div class="col-12 col-md-2">
-          <label class="form-label fw-semibold">Retail Price</label>
-          <input type="number" step="0.01" min="0" class="form-control option-price-input" placeholder="100">
+
+          <label class="form-label fw-semibold">
+            Retail Price
+          </label>
+
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            class="form-control option-price-input"
+            placeholder="100"
+          >
+
         </div>
 
+
+        <!-- OPTION DEALER PRICES -->
         <div class="col-12 option-dealer-prices d-none">
+
           <div class="row g-2">
+
+
             <div class="col-6 col-md-3">
-              <label class="form-label fw-semibold">Level 2 Price</label>
-              <input type="number" step="0.01" min="0" class="form-control option-level-2-price-input" placeholder="Optional">
+
+              <label class="form-label fw-semibold">
+                Level 2 Price
+              </label>
+
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                class="form-control option-level-2-price-input"
+                placeholder="Optional"
+              >
+
             </div>
+
+
             <div class="col-6 col-md-3">
-              <label class="form-label fw-semibold">Level 3 Price</label>
-              <input type="number" step="0.01" min="0" class="form-control option-level-3-price-input" placeholder="Optional">
+
+              <label class="form-label fw-semibold">
+                Level 3 Price
+              </label>
+
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                class="form-control option-level-3-price-input"
+                placeholder="Optional"
+              >
+
             </div>
+
+
             <div class="col-6 col-md-3">
-              <label class="form-label fw-semibold">Level 4 Price</label>
-              <input type="number" step="0.01" min="0" class="form-control option-level-4-price-input" placeholder="Optional">
+
+              <label class="form-label fw-semibold">
+                Level 4 Price
+              </label>
+
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                class="form-control option-level-4-price-input"
+                placeholder="Optional"
+              >
+
             </div>
+
+
             <div class="col-6 col-md-3">
-              <label class="form-label fw-semibold">Level 5 Price</label>
-              <input type="number" step="0.01" min="0" class="form-control option-level-5-price-input" placeholder="Optional">
+
+              <label class="form-label fw-semibold">
+                Level 5 Price
+              </label>
+
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                class="form-control option-level-5-price-input"
+                placeholder="Optional"
+              >
+
             </div>
+
+
           </div>
+
         </div>
 
-        <div class="col-12 col-md-2">
-          <label class="form-label fw-semibold">Sort</label>
-          <input type="number" step="1" min="0" class="form-control option-sort-input" placeholder="0">
-        </div>
 
         <div class="col-12 col-md-2">
+
+          <label class="form-label fw-semibold">
+            Sort
+          </label>
+
+          <input
+            type="number"
+            step="1"
+            min="0"
+            class="form-control option-sort-input"
+            placeholder="0"
+          >
+
+        </div>
+
+
+        <div class="col-12 col-md-2">
+
           <div class="form-check mb-2">
-            <input type="checkbox" class="form-check-input option-active-input" checked>
-            <label class="form-check-label">Active</label>
+
+            <input
+              type="checkbox"
+              class="form-check-input option-active-input"
+              checked
+            >
+
+            <label class="form-check-label">
+              Active
+            </label>
+
           </div>
 
-          <button type="button" class="btn btn-outline-danger w-100 remove-option-btn">
+
+          <button
+            type="button"
+            class="btn btn-outline-danger w-100 remove-option-btn"
+          >
+
             <i class="bi bi-trash"></i>
+
           </button>
+
         </div>
+
+
       </div>
+
     </div>
+
   </template>
+
+
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/main.js"></script>
 
+
   <script>
-    const deliveryMode = document.getElementById('deliveryMode');
-    const stockHint = document.getElementById('stockHint');
 
-    const pricingMode = document.getElementById('pricingMode');
-    const fixedPriceWrap = document.getElementById('fixedPriceWrap');
-    const fixedPriceInput = document.getElementById('fixedPriceInput');
-    const optionsSection = document.getElementById('optionsSection');
-    const optionsContainer = document.getElementById('optionsContainer');
-    const addOptionBtn = document.getElementById('addOptionBtn');
-    const optionRowTemplate = document.getElementById('optionRowTemplate');
-    const form = document.getElementById('addProductForm');
+    // =========================================================
+    // ELEMENTS
+    // =========================================================
 
-    const dealerPricingEnabled = document.getElementById('dealerPricingEnabled');
-    const fixedDealerPrices = document.getElementById('fixedDealerPrices');
+    const deliveryMode =
+      document.getElementById('deliveryMode');
 
-    const checkoutFlow = document.getElementById('checkoutFlow');
-    const requiresPlayerIdCheckbox = document.getElementById('requires_player_id');
-    const requiresPlayerIdWrap = document.getElementById('requiresPlayerIdWrap');
-    const playerIdLabelWrap = document.getElementById('playerIdLabelWrap');
-    const playerIdLabelInput = document.getElementById('playerIdLabelInput');
+    const stockHint =
+      document.getElementById('stockHint');
+
+
+    const pricingMode =
+      document.getElementById('pricingMode');
+
+    const fixedPriceWrap =
+      document.getElementById('fixedPriceWrap');
+
+    const fixedPriceInput =
+      document.getElementById('fixedPriceInput');
+
+    const optionsSection =
+      document.getElementById('optionsSection');
+
+    const optionsContainer =
+      document.getElementById('optionsContainer');
+
+    const addOptionBtn =
+      document.getElementById('addOptionBtn');
+
+    const optionRowTemplate =
+      document.getElementById('optionRowTemplate');
+
+    const form =
+      document.getElementById('addProductForm');
+
+
+    const dealerPricingEnabled =
+      document.getElementById('dealerPricingEnabled');
+
+    const fixedDealerPrices =
+      document.getElementById('fixedDealerPrices');
+
+
+    const checkoutFlow =
+      document.getElementById('checkoutFlow');
+
+    const requiresPlayerIdCheckbox =
+      document.getElementById('requires_player_id');
+
+    const requiresPlayerIdWrap =
+      document.getElementById('requiresPlayerIdWrap');
+
+    const playerIdLabelWrap =
+      document.getElementById('playerIdLabelWrap');
+
+    const playerIdLabelInput =
+      document.getElementById('playerIdLabelInput');
+
+
+    // =========================================================
+    // CATEGORY ELEMENTS
+    // =========================================================
+
+    const categoryMode =
+      document.getElementById('categoryMode');
+
+    const dynamicCategoryWrap =
+      document.getElementById('dynamicCategoryWrap');
+
+    const manualCategoryWrap =
+      document.getElementById('manualCategoryWrap');
+
+    const dynamicSubcategorySelect =
+      document.getElementById('dynamicSubcategorySelect');
+
+    const manualMainCategory =
+      document.getElementById('manualMainCategory');
+
+    const manualSubCategory =
+      document.getElementById('manualSubCategory');
+
+    const mainCategoryInput =
+      document.getElementById('mainCategoryInput');
+
+    const subCategoryInput =
+      document.getElementById('subCategoryInput');
+
+    const subCategoryImageInput =
+      document.getElementById('subCategoryImageInput');
+
+    const selectedDynamicCategoryInfo =
+      document.getElementById('selectedDynamicCategoryInfo');
+
+    const selectedMainCategory =
+      document.getElementById('selectedMainCategory');
+
+    const selectedSubCategory =
+      document.getElementById('selectedSubCategory');
+
+
+    // =========================================================
+    // DELIVERY MODE
+    // =========================================================
 
     function toggleHint() {
+
       if (!deliveryMode || !stockHint) return;
-      const v = (deliveryMode.value || '').toLowerCase();
-      if (v === 'stock') stockHint.classList.remove('d-none');
-      else stockHint.classList.add('d-none');
+
+      const v =
+        (deliveryMode.value || '').toLowerCase();
+
+      if (v === 'stock') {
+        stockHint.classList.remove('d-none');
+      } else {
+        stockHint.classList.add('d-none');
+      }
+
     }
+
+
+    // =========================================================
+    // CHECKOUT FLOW
+    // =========================================================
 
     function refreshCheckoutFlow() {
-      const flow = (checkoutFlow?.value || 'player_id').toLowerCase();
 
-      const isPlayerId = flow === 'player_id';
+      const flow =
+        (checkoutFlow?.value || 'player_id').toLowerCase();
+
+      const isPlayerId =
+        flow === 'player_id';
+
 
       if (requiresPlayerIdCheckbox) {
-        requiresPlayerIdCheckbox.checked = isPlayerId;
-        requiresPlayerIdCheckbox.disabled = !isPlayerId;
+
+        requiresPlayerIdCheckbox.checked =
+          isPlayerId;
+
+        requiresPlayerIdCheckbox.disabled =
+          !isPlayerId;
+
       }
+
 
       if (requiresPlayerIdWrap) {
-        requiresPlayerIdWrap.classList.toggle('d-none', !isPlayerId);
+
+        requiresPlayerIdWrap.classList.toggle(
+          'd-none',
+          !isPlayerId
+        );
+
       }
+
 
       if (playerIdLabelWrap) {
-        playerIdLabelWrap.classList.toggle('d-none', !isPlayerId);
+
+        playerIdLabelWrap.classList.toggle(
+          'd-none',
+          !isPlayerId
+        );
+
       }
+
 
       if (playerIdLabelInput) {
-        playerIdLabelInput.disabled = !isPlayerId;
+
+        playerIdLabelInput.disabled =
+          !isPlayerId;
+
       }
+
     }
+
+
+    // =========================================================
+    // CATEGORY MODE
+    // =========================================================
+
+    function refreshCategoryMode() {
+
+      const mode =
+        categoryMode?.value || 'dynamic';
+
+      const isDynamic =
+        mode === 'dynamic';
+
+
+      dynamicCategoryWrap?.classList.toggle(
+        'd-none',
+        !isDynamic
+      );
+
+      manualCategoryWrap?.classList.toggle(
+        'd-none',
+        isDynamic
+      );
+
+
+      if (isDynamic) {
+
+        if (manualMainCategory) {
+          manualMainCategory.required = false;
+        }
+
+        if (manualSubCategory) {
+          manualSubCategory.required = false;
+        }
+
+        if (dynamicSubcategorySelect) {
+          dynamicSubcategorySelect.required = true;
+        }
+
+        applyDynamicCategory();
+
+      } else {
+
+        if (dynamicSubcategorySelect) {
+          dynamicSubcategorySelect.required = false;
+        }
+
+        if (manualMainCategory) {
+          manualMainCategory.required = true;
+        }
+
+        if (manualSubCategory) {
+          manualSubCategory.required = true;
+        }
+
+        applyManualCategory();
+
+      }
+
+    }
+
+
+    function applyDynamicCategory() {
+
+      if (!dynamicSubcategorySelect) return;
+
+
+      const option =
+        dynamicSubcategorySelect.options[
+          dynamicSubcategorySelect.selectedIndex
+        ];
+
+
+      if (
+        !option ||
+        !dynamicSubcategorySelect.value
+      ) {
+
+        mainCategoryInput.value = '';
+        subCategoryInput.value = '';
+
+        selectedDynamicCategoryInfo?.classList.add(
+          'd-none'
+        );
+
+        return;
+
+      }
+
+
+      const main =
+        option.dataset.mainCategory || '';
+
+      const sub =
+        option.dataset.subCategory || '';
+
+      const image =
+        option.dataset.image || '';
+
+
+      mainCategoryInput.value =
+        main;
+
+      subCategoryInput.value =
+        sub;
+
+
+      if (
+        image &&
+        subCategoryImageInput &&
+        !subCategoryImageInput.value.trim()
+      ) {
+
+        subCategoryImageInput.value =
+          image;
+
+      }
+
+
+      if (selectedMainCategory) {
+        selectedMainCategory.textContent =
+          main;
+      }
+
+      if (selectedSubCategory) {
+        selectedSubCategory.textContent =
+          sub;
+      }
+
+
+      selectedDynamicCategoryInfo?.classList.remove(
+        'd-none'
+      );
+
+    }
+
+
+    function applyManualCategory() {
+
+      mainCategoryInput.value =
+        manualMainCategory?.value?.trim() || '';
+
+      subCategoryInput.value =
+        manualSubCategory?.value?.trim() || '';
+
+    }
+
+
+    function syncCategoryValues() {
+
+      const mode =
+        categoryMode?.value || 'dynamic';
+
+      if (mode === 'dynamic') {
+        applyDynamicCategory();
+      } else {
+        applyManualCategory();
+      }
+
+    }
+
+
+    // =========================================================
+    // HIDDEN OPTION INPUT
+    // =========================================================
 
     function buildHiddenInput(name, value) {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = name;
-      input.value = value;
-      input.className = 'generated-option-hidden';
+
+      const input =
+        document.createElement('input');
+
+      input.type =
+        'hidden';
+
+      input.name =
+        name;
+
+      input.value =
+        value;
+
+      input.className =
+        'generated-option-hidden';
+
       return input;
+
     }
 
-    function refreshDealerPricing() {
-      if (!dealerPricingEnabled || !fixedDealerPrices) return;
 
-      const enabled = dealerPricingEnabled.checked;
-      const mode = (pricingMode?.value || 'fixed').toLowerCase();
+    // =========================================================
+    // DEALER PRICING
+    // =========================================================
+
+    function refreshDealerPricing() {
+
+      if (
+        !dealerPricingEnabled ||
+        !fixedDealerPrices
+      ) return;
+
+
+      const enabled =
+        dealerPricingEnabled.checked;
+
+      const mode =
+        (pricingMode?.value || 'fixed').toLowerCase();
+
 
       fixedDealerPrices.classList.toggle(
         'd-none',
         !enabled || mode !== 'fixed'
       );
 
-      document.querySelectorAll('.option-dealer-prices').forEach(el => {
-        el.classList.toggle('d-none', !enabled || mode !== 'options');
-      });
+
+      document
+        .querySelectorAll('.option-dealer-prices')
+        .forEach(el => {
+
+          el.classList.toggle(
+            'd-none',
+            !enabled || mode !== 'options'
+          );
+
+        });
+
     }
+
+
+    // =========================================================
+    // PRICING MODE
+    // =========================================================
 
     function refreshPricingMode() {
-      const mode = (pricingMode?.value || 'fixed').toLowerCase();
-      const isOptions = mode === 'options';
 
-      fixedPriceWrap.classList.toggle('d-none', isOptions);
-      optionsSection.classList.toggle('d-none', !isOptions);
+      const mode =
+        (pricingMode?.value || 'fixed').toLowerCase();
 
-      fixedPriceInput.required = !isOptions;
+      const isOptions =
+        mode === 'options';
 
-      if (isOptions && optionsContainer.children.length === 0) {
+
+      fixedPriceWrap.classList.toggle(
+        'd-none',
+        isOptions
+      );
+
+      optionsSection.classList.toggle(
+        'd-none',
+        !isOptions
+      );
+
+
+      fixedPriceInput.required =
+        !isOptions;
+
+
+      if (
+        isOptions &&
+        optionsContainer.children.length === 0
+      ) {
+
         addOptionRow();
+
       }
+
     }
+
+
+    // =========================================================
+    // ADD OPTION
+    // =========================================================
 
     function addOptionRow(data = {}) {
-      const fragment = optionRowTemplate.content.cloneNode(true);
-      const row = fragment.querySelector('.option-row');
 
-      const labelInput = row.querySelector('.option-label-input');
-      const valueInput = row.querySelector('.option-value-input');
-      const priceInput = row.querySelector('.option-price-input');
-      const level2Input = row.querySelector('.option-level-2-price-input');
-      const level3Input = row.querySelector('.option-level-3-price-input');
-      const level4Input = row.querySelector('.option-level-4-price-input');
-      const level5Input = row.querySelector('.option-level-5-price-input');
-      const sortInput = row.querySelector('.option-sort-input');
-      const activeInput = row.querySelector('.option-active-input');
-      const removeBtn = row.querySelector('.remove-option-btn');
+      const fragment =
+        optionRowTemplate.content.cloneNode(true);
 
-      labelInput.value = data.option_label || '';
-      valueInput.value = data.option_value || '';
-      priceInput.value = data.price ?? '';
-      level2Input.value = data.level_2_price ?? '';
-      level3Input.value = data.level_3_price ?? '';
-      level4Input.value = data.level_4_price ?? '';
-      level5Input.value = data.level_5_price ?? '';
-      sortInput.value = data.sort_order || optionsContainer.children.length;
-      activeInput.checked = typeof data.is_active === 'undefined' ? true : !!data.is_active;
+      const row =
+        fragment.querySelector('.option-row');
 
-      removeBtn.addEventListener('click', () => {
-        row.remove();
-      });
 
-      optionsContainer.appendChild(row);
+      const labelInput =
+        row.querySelector('.option-label-input');
+
+      const valueInput =
+        row.querySelector('.option-value-input');
+
+      const priceInput =
+        row.querySelector('.option-price-input');
+
+      const level2Input =
+        row.querySelector('.option-level-2-price-input');
+
+      const level3Input =
+        row.querySelector('.option-level-3-price-input');
+
+      const level4Input =
+        row.querySelector('.option-level-4-price-input');
+
+      const level5Input =
+        row.querySelector('.option-level-5-price-input');
+
+      const sortInput =
+        row.querySelector('.option-sort-input');
+
+      const activeInput =
+        row.querySelector('.option-active-input');
+
+      const removeBtn =
+        row.querySelector('.remove-option-btn');
+
+
+      labelInput.value =
+        data.option_label || '';
+
+      valueInput.value =
+        data.option_value || '';
+
+      priceInput.value =
+        data.price ?? '';
+
+      level2Input.value =
+        data.level_2_price ?? '';
+
+      level3Input.value =
+        data.level_3_price ?? '';
+
+      level4Input.value =
+        data.level_4_price ?? '';
+
+      level5Input.value =
+        data.level_5_price ?? '';
+
+      sortInput.value =
+        data.sort_order ||
+        optionsContainer.children.length;
+
+      activeInput.checked =
+        typeof data.is_active === 'undefined'
+          ? true
+          : !!data.is_active;
+
+
+      removeBtn.addEventListener(
+        'click',
+        () => {
+
+          row.remove();
+
+        }
+      );
+
+
+      optionsContainer.appendChild(
+        row
+      );
+
+
       refreshDealerPricing();
+
     }
+
+
+    // =========================================================
+    // OPTIONS HIDDEN INPUTS
+    // =========================================================
 
     function rebuildOptionHiddenInputs() {
-      form.querySelectorAll('.generated-option-hidden').forEach(el => el.remove());
 
-      const mode = (pricingMode?.value || 'fixed').toLowerCase();
+      form
+        .querySelectorAll('.generated-option-hidden')
+        .forEach(el => el.remove());
+
+
+      const mode =
+        (pricingMode?.value || 'fixed').toLowerCase();
+
+
       if (mode !== 'options') return;
 
-      const rows = optionsContainer.querySelectorAll('.option-row');
+
+      const rows =
+        optionsContainer.querySelectorAll(
+          '.option-row'
+        );
+
 
       rows.forEach((row, index) => {
-        const label = row.querySelector('.option-label-input')?.value?.trim() || '';
-        const value = row.querySelector('.option-value-input')?.value?.trim() || '';
-        const price = row.querySelector('.option-price-input')?.value?.trim() || '';
-        const level2Price = row.querySelector('.option-level-2-price-input')?.value?.trim() || '';
-        const level3Price = row.querySelector('.option-level-3-price-input')?.value?.trim() || '';
-        const level4Price = row.querySelector('.option-level-4-price-input')?.value?.trim() || '';
-        const level5Price = row.querySelector('.option-level-5-price-input')?.value?.trim() || '';
-        const sort = row.querySelector('.option-sort-input')?.value?.trim() || '0';
-        const active = row.querySelector('.option-active-input')?.checked ? '1' : '0';
 
-        form.appendChild(buildHiddenInput(`options[${index}][option_label]`, label));
-        form.appendChild(buildHiddenInput(`options[${index}][option_value]`, value));
-        form.appendChild(buildHiddenInput(`options[${index}][price]`, price));
-        form.appendChild(buildHiddenInput(`options[${index}][level_2_price]`, level2Price));
-        form.appendChild(buildHiddenInput(`options[${index}][level_3_price]`, level3Price));
-        form.appendChild(buildHiddenInput(`options[${index}][level_4_price]`, level4Price));
-        form.appendChild(buildHiddenInput(`options[${index}][level_5_price]`, level5Price));
-        form.appendChild(buildHiddenInput(`options[${index}][sort_order]`, sort));
-        form.appendChild(buildHiddenInput(`options[${index}][is_active]`, active));
+        const label =
+          row
+            .querySelector('.option-label-input')
+            ?.value?.trim() || '';
+
+        const value =
+          row
+            .querySelector('.option-value-input')
+            ?.value?.trim() || '';
+
+        const price =
+          row
+            .querySelector('.option-price-input')
+            ?.value?.trim() || '';
+
+        const level2Price =
+          row
+            .querySelector('.option-level-2-price-input')
+            ?.value?.trim() || '';
+
+        const level3Price =
+          row
+            .querySelector('.option-level-3-price-input')
+            ?.value?.trim() || '';
+
+        const level4Price =
+          row
+            .querySelector('.option-level-4-price-input')
+            ?.value?.trim() || '';
+
+        const level5Price =
+          row
+            .querySelector('.option-level-5-price-input')
+            ?.value?.trim() || '';
+
+        const sort =
+          row
+            .querySelector('.option-sort-input')
+            ?.value?.trim() || '0';
+
+        const active =
+          row
+            .querySelector('.option-active-input')
+            ?.checked
+              ? '1'
+              : '0';
+
+
+        form.appendChild(
+          buildHiddenInput(
+            `options[${index}][option_label]`,
+            label
+          )
+        );
+
+        form.appendChild(
+          buildHiddenInput(
+            `options[${index}][option_value]`,
+            value
+          )
+        );
+
+        form.appendChild(
+          buildHiddenInput(
+            `options[${index}][price]`,
+            price
+          )
+        );
+
+        form.appendChild(
+          buildHiddenInput(
+            `options[${index}][level_2_price]`,
+            level2Price
+          )
+        );
+
+        form.appendChild(
+          buildHiddenInput(
+            `options[${index}][level_3_price]`,
+            level3Price
+          )
+        );
+
+        form.appendChild(
+          buildHiddenInput(
+            `options[${index}][level_4_price]`,
+            level4Price
+          )
+        );
+
+        form.appendChild(
+          buildHiddenInput(
+            `options[${index}][level_5_price]`,
+            level5Price
+          )
+        );
+
+        form.appendChild(
+          buildHiddenInput(
+            `options[${index}][sort_order]`,
+            sort
+          )
+        );
+
+        form.appendChild(
+          buildHiddenInput(
+            `options[${index}][is_active]`,
+            active
+          )
+        );
+
       });
+
     }
+
+
+    // =========================================================
+    // VALIDATE OPTIONS
+    // =========================================================
 
     function validateOptionsMode() {
-      const mode = (pricingMode?.value || 'fixed').toLowerCase();
-      if (mode !== 'options') return true;
 
-      const rows = optionsContainer.querySelectorAll('.option-row');
-      if (!rows.length) {
-        alert('Please add at least one option.');
-        return false;
+      const mode =
+        (pricingMode?.value || 'fixed').toLowerCase();
+
+
+      if (mode !== 'options') {
+        return true;
       }
+
+
+      const rows =
+        optionsContainer.querySelectorAll(
+          '.option-row'
+        );
+
+
+      if (!rows.length) {
+
+        alert(
+          'Please add at least one option.'
+        );
+
+        return false;
+
+      }
+
 
       for (const row of rows) {
-        const label = row.querySelector('.option-label-input')?.value?.trim() || '';
-        const price = row.querySelector('.option-price-input')?.value?.trim() || '';
+
+        const label =
+          row
+            .querySelector('.option-label-input')
+            ?.value?.trim() || '';
+
+        const price =
+          row
+            .querySelector('.option-price-input')
+            ?.value?.trim() || '';
+
 
         if (!label) {
-          alert('Each option must have a label.');
+
+          alert(
+            'Each option must have a label.'
+          );
+
           return false;
+
         }
 
-        if (price === '' || Number(price) < 0) {
-          alert('Each option must have a valid price.');
+
+        if (
+          price === '' ||
+          Number(price) < 0
+        ) {
+
+          alert(
+            'Each option must have a valid price.'
+          );
+
           return false;
+
         }
+
       }
+
 
       return true;
+
     }
 
+
+    // =========================================================
+    // INITIAL STATE
+    // =========================================================
+
     toggleHint();
+
     refreshPricingMode();
+
     refreshCheckoutFlow();
+
     refreshDealerPricing();
 
-    deliveryMode?.addEventListener('change', toggleHint);
-    pricingMode?.addEventListener('change', () => {
-      refreshPricingMode();
-      refreshDealerPricing();
-    });
-    dealerPricingEnabled?.addEventListener('change', refreshDealerPricing);
-    checkoutFlow?.addEventListener('change', refreshCheckoutFlow);
+    refreshCategoryMode();
 
-    addOptionBtn?.addEventListener('click', () => addOptionRow());
 
-    form?.addEventListener('submit', (e) => {
-      if (!validateOptionsMode()) {
-        e.preventDefault();
-        return;
+    // =========================================================
+    // EVENTS
+    // =========================================================
+
+    deliveryMode?.addEventListener(
+      'change',
+      toggleHint
+    );
+
+
+    pricingMode?.addEventListener(
+      'change',
+      () => {
+
+        refreshPricingMode();
+
+        refreshDealerPricing();
+
       }
+    );
 
-      rebuildOptionHiddenInputs();
 
-      if (checkoutFlow && requiresPlayerIdCheckbox) {
-        const flow = (checkoutFlow.value || 'player_id').toLowerCase();
+    dealerPricingEnabled?.addEventListener(
+      'change',
+      refreshDealerPricing
+    );
 
-        if (flow === 'player_id') {
-          requiresPlayerIdCheckbox.disabled = false;
-          requiresPlayerIdCheckbox.checked = true;
-        } else {
-          requiresPlayerIdCheckbox.disabled = false;
-          requiresPlayerIdCheckbox.checked = false;
+
+    checkoutFlow?.addEventListener(
+      'change',
+      refreshCheckoutFlow
+    );
+
+
+    categoryMode?.addEventListener(
+      'change',
+      refreshCategoryMode
+    );
+
+
+    dynamicSubcategorySelect?.addEventListener(
+      'change',
+      applyDynamicCategory
+    );
+
+
+    manualMainCategory?.addEventListener(
+      'input',
+      applyManualCategory
+    );
+
+
+    manualSubCategory?.addEventListener(
+      'input',
+      applyManualCategory
+    );
+
+
+    addOptionBtn?.addEventListener(
+      'click',
+      () => addOptionRow()
+    );
+
+
+    // =========================================================
+    // SUBMIT
+    // =========================================================
+
+    form?.addEventListener(
+      'submit',
+      (e) => {
+
+        syncCategoryValues();
+
+
+        // CATEGORY VALIDATION
+        if (
+          !mainCategoryInput.value.trim() ||
+          !subCategoryInput.value.trim()
+        ) {
+
+          e.preventDefault();
+
+          if (
+            (categoryMode?.value || 'dynamic') ===
+            'dynamic'
+          ) {
+
+            alert(
+              'Please select a SQL Sub-Category.'
+            );
+
+          } else {
+
+            alert(
+              'Please enter Main Category and Sub Category.'
+            );
+
+          }
+
+          return;
+
         }
+
+
+        // OPTIONS VALIDATION
+        if (!validateOptionsMode()) {
+
+          e.preventDefault();
+
+          return;
+
+        }
+
+
+        rebuildOptionHiddenInputs();
+
+
+        // CHECKOUT FLOW
+        if (
+          checkoutFlow &&
+          requiresPlayerIdCheckbox
+        ) {
+
+          const flow =
+            (
+              checkoutFlow.value ||
+              'player_id'
+            ).toLowerCase();
+
+
+          if (flow === 'player_id') {
+
+            requiresPlayerIdCheckbox.disabled =
+              false;
+
+            requiresPlayerIdCheckbox.checked =
+              true;
+
+          } else {
+
+            requiresPlayerIdCheckbox.disabled =
+              false;
+
+            requiresPlayerIdCheckbox.checked =
+              false;
+
+          }
+
+        }
+
       }
-    });
+    );
+
   </script>
+
 </body>
 </html>
