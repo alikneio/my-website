@@ -2693,8 +2693,30 @@ app.get('/accounts', (req, res) => {
     res.render('accounts', { user: req.session.user || null });
 });
 
-app.get('/ai-section', (req, res) => {
-    res.render('ai-section', { user: req.session.user || null });
+app.get('/ai-section', async (req, res) => {
+  try {
+    const [dynamicSubcategories] = await promisePool.query(`
+      SELECT id, name, slug, main_category, image, sort_order
+      FROM sql_subcategories
+      WHERE main_category = ?
+        AND active = 1
+      ORDER BY sort_order ASC, id ASC
+    `, ['AI Tools']);
+
+    res.render('ai-section', {
+      user: req.session.user || null,
+      dynamicSubcategories
+    });
+
+  } catch (err) {
+    console.error('❌ Error loading AI Tools sub-categories:', err);
+
+    
+    res.render('ai-section', {
+      user: req.session.user || null,
+      dynamicSubcategories: []
+    });
+  }
 });
 
 
