@@ -2719,6 +2719,61 @@ app.get('/ai-section', async (req, res) => {
   }
 });
 
+app.get('/category/:slug', async (req, res) => {
+  try {
+    const slug = (req.params.slug || '').trim();
+
+    // Get the dynamic sub-category
+    const [categoryRows] = await promisePool.query(
+      `
+        SELECT *
+        FROM sql_subcategories
+        WHERE slug = ?
+          AND active = 1
+        LIMIT 1
+      `,
+      [slug]
+    );
+
+    if (!categoryRows.length) {
+      return res.status(404).send('Category not found');
+    }
+
+    const category = categoryRows[0];
+
+    // Get local SQL products belonging to it
+    const [products] = await promisePool.query(
+      `
+        SELECT *
+        FROM products
+        WHERE main_category = ?
+          AND sub_category = ?
+          AND active = 1
+        ORDER BY sort_order ASC, id ASC
+      `,
+      [
+        category.main_category,
+        category.name
+      ]
+    );
+
+    const user = req.session.user || null;
+
+    const finalProducts =
+      applyDealerPricingToProducts(products, user);
+
+    res.render('sql-subcategory', {
+      user,
+      category,
+      products: finalProducts
+    });
+
+  } catch (err) {
+    console.error('❌ Dynamic SQL category error:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
 
 
 // ====== Games: list categories ======
