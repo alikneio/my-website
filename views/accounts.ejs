@@ -242,7 +242,34 @@
                 </a>
             </div>
 
+<% if (dynamicSubcategories && dynamicSubcategories.length > 0) { %>
 
+  <% dynamicSubcategories.forEach(function(category) { %>
+
+    <div class="col">
+
+      <a
+        href="/category/<%= category.slug %>"
+        class="category-card service-card"
+      >
+
+        <img
+          src="<%= category.image || '/images/logo.webp' %>"
+          class="card-img"
+          alt="<%= category.name %>"
+        >
+
+        <div class="card-body">
+          <%= category.name %>
+        </div>
+
+      </a>
+
+    </div>
+
+  <% }) %>
+
+<% } %>
 
 
             </div>
