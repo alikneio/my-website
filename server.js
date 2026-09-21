@@ -2796,6 +2796,219 @@ app.get('/category/:slug', async (req, res) => {
 });
 
 
+app.post('/admin/sql-subcategories/:id/edit', checkAdmin, async (req, res) => {
+  const connection = await promisePool.getConnection();
+
+  try {
+    const categoryId = parseInt(req.params.id, 10);
+
+    if (!Number.isFinite(categoryId) || categoryId <= 0) {
+      connection.release();
+      return res.status(400).send('Invalid sub-category ID');
+    }
+
+    const {
+      name,
+      main_category,
+      image,
+      sort_order
+    } = req.body;
+
+    if (!name || !main_category) {
+      connection.release();
+      return res.status(400).send('Name and Main Category are required');
+    }
+
+    const cleanName = name.trim();
+    const cleanMainCategory = main_category.trim();
+
+    const slug = cleanName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!slug) {
+      connection.release();
+      return res.status(400).send('Invalid sub-category name');
+    }
+
+    const cleanImage =
+      image && image.trim()
+        ? image.trim()
+        : null;
+
+    const cleanSortOrder =
+      Number.isFinite(Number(sort_order))
+        ? Number(sort_order)
+        : 0;
+
+    const active =
+      req.body.active === '1' ||
+      req.body.active === 'on'
+        ? 1
+        : 0;
+
+    await connection.beginTransaction();
+
+    // Get old category data
+    const [rows] = await connection.query(
+      `
+        SELECT *
+        FROM sql_subcategories
+        WHERE id = ?
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [categoryId]
+    );
+
+    if (!rows.length) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).send('Sub-category not found');
+    }
+
+    const oldCategory = rows[0];
+
+    // Update category
+    await connection.query(
+      `
+        UPDATE sql_subcategories
+        SET
+          name = ?,
+          slug = ?,
+          main_category = ?,
+          image = ?,
+          sort_order = ?,
+          active = ?
+        WHERE id = ?
+      `,
+      [
+        cleanName,
+        slug,
+        cleanMainCategory,
+        cleanImage,
+        cleanSortOrder,
+        active,
+        categoryId
+      ]
+    );
+
+    // Keep existing products linked if name/main category changed
+    if (
+      oldCategory.name !== cleanName ||
+      oldCategory.main_category !== cleanMainCategory
+    ) {
+      await connection.query(
+        `
+          UPDATE products
+          SET
+            main_category = ?,
+            sub_category = ?
+          WHERE main_category = ?
+            AND sub_category = ?
+        `,
+        [
+          cleanMainCategory,
+          cleanName,
+          oldCategory.main_category,
+          oldCategory.name
+        ]
+      );
+    }
+
+    await connection.commit();
+    connection.release();
+
+    return res.redirect('/admin/sql-subcategories');
+
+  } catch (err) {
+    try {
+      await connection.rollback();
+    } catch (_) {}
+
+    connection.release();
+
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res
+        .status(400)
+        .send('A sub-category with this slug already exists');
+    }
+
+    console.error('❌ Error editing SQL sub-category:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
+
+// =========================================================
+// SQL SUB-CATEGORIES - TOGGLE ACTIVE
+// =========================================================
+app.post('/admin/sql-subcategories/:id/toggle', checkAdmin, async (req, res) => {
+  try {
+    const categoryId = parseInt(req.params.id, 10);
+
+    if (!Number.isFinite(categoryId) || categoryId <= 0) {
+      return res.status(400).send('Invalid sub-category ID');
+    }
+
+    const [result] = await promisePool.query(
+      `
+        UPDATE sql_subcategories
+        SET active = IF(active = 1, 0, 1)
+        WHERE id = ?
+      `,
+      [categoryId]
+    );
+
+    if (!result.affectedRows) {
+      return res.status(404).send('Sub-category not found');
+    }
+
+    return res.redirect('/admin/sql-subcategories');
+
+  } catch (err) {
+    console.error('❌ Error toggling SQL sub-category:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
+
+// =========================================================
+// SQL SUB-CATEGORIES - DELETE
+// =========================================================
+app.post('/admin/sql-subcategories/:id/delete', checkAdmin, async (req, res) => {
+  try {
+    const categoryId = parseInt(req.params.id, 10);
+
+    if (!Number.isFinite(categoryId) || categoryId <= 0) {
+      return res.status(400).send('Invalid sub-category ID');
+    }
+
+    // Delete ONLY the sub-category metadata.
+    // Products are intentionally NOT deleted.
+    const [result] = await promisePool.query(
+      `
+        DELETE FROM sql_subcategories
+        WHERE id = ?
+      `,
+      [categoryId]
+    );
+
+    if (!result.affectedRows) {
+      return res.status(404).send('Sub-category not found');
+    }
+
+    return res.redirect('/admin/sql-subcategories');
+
+  } catch (err) {
+    console.error('❌ Error deleting SQL sub-category:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
+
 
 // ====== Games: list categories ======
 app.get('/games', async (req, res) => {
@@ -2943,32 +3156,53 @@ app.get('/games/:slug', async (req, res) => {
   });
 
 
-app.get('/communication', (req, res) => {
-    const sql = "SELECT * FROM products WHERE main_category = 'Communication'";
-    db.query(sql, [], (err, products) => {
-        if (err) {
-            console.error("Database error:", err);
-            return res.status(500).send("Server error");
-        }
-        res.render('communication', { 
-            user: req.session.user || null,
-            products: products
-        });
-    });
-});
+app.get('/communication', async (req, res) => {
+  try {
+    const [dynamicSubcategories] = await promisePool.query(`
+      SELECT id, name, slug, main_category, image, sort_order
+      FROM sql_subcategories
+      WHERE main_category = ?
+        AND active = 1
+      ORDER BY sort_order ASC, id ASC
+    `, ['Communication']);
 
-app.get('/giftcards', (req, res) => {
-    const sql = "SELECT * FROM products WHERE main_category = 'Gift Cards'";
-    db.query(sql, [], (err, products) => {
-        if (err) {
-            console.error("Database error:", err);
-            return res.status(500).send("Server error");
-        }
-        res.render('giftcards', { 
-            user: req.session.user || null,
-            products: products
-        });
+    res.render('communication', {
+      user: req.session.user || null,
+      dynamicSubcategories
     });
+
+  } catch (err) {
+    console.error('❌ Error loading Communication sub-categories:', err);
+
+    res.render('communication', {
+      user: req.session.user || null,
+      dynamicSubcategories: []
+    });
+  }
+});
+app.get('/giftcards', async (req, res) => {
+  try {
+    const [dynamicSubcategories] = await promisePool.query(`
+      SELECT id, name, slug, main_category, image, sort_order
+      FROM sql_subcategories
+      WHERE main_category = ?
+        AND active = 1
+      ORDER BY sort_order ASC, id ASC
+    `, ['Gift Cards']);
+
+    res.render('giftcards', {
+      user: req.session.user || null,
+      dynamicSubcategories
+    });
+
+  } catch (err) {
+    console.error('❌ Error loading Gift Cards sub-categories:', err);
+
+    res.render('giftcards', {
+      user: req.session.user || null,
+      dynamicSubcategories: []
+    });
+  }
 });
 
 

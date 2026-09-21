@@ -18,9 +18,10 @@
 
   <style>
     .subcat-admin-card {
-      border: 1px solid rgba(0,0,0,.08);
+      border: 1px solid rgba(0, 0, 0, .08);
       border-radius: 16px;
       background: #fff;
+      overflow: hidden;
     }
 
     .subcat-image {
@@ -30,6 +31,7 @@
       border-radius: 12px;
       background: #f8f9fa;
       padding: 5px;
+      flex-shrink: 0;
     }
 
     .subcat-placeholder {
@@ -42,14 +44,52 @@
       justify-content: center;
       color: #adb5bd;
       font-size: 1.3rem;
+      flex-shrink: 0;
     }
 
     .slug-badge {
       font-family: monospace;
       font-size: .78rem;
     }
+
+    .actions-cell {
+      white-space: nowrap;
+    }
+
+    .action-btn {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9px;
+    }
+
+    .modal-content {
+      border: 0;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .category-name {
+      max-width: 260px;
+      word-break: break-word;
+    }
+
+    @media (max-width: 767.98px) {
+      .page-header-actions {
+        width: 100%;
+      }
+
+      .page-header-actions .btn {
+        width: 100%;
+      }
+    }
   </style>
+
 </head>
+
 
 <body class="bg-light">
 
@@ -57,63 +97,119 @@
 
     <%- include('partials/admin-sidebar') %>
 
+
     <div class="container-fluid p-4 p-lg-5">
 
-      <!-- Page Header -->
+
+      <!-- ===================================================== -->
+      <!-- PAGE HEADER -->
+      <!-- ===================================================== -->
+
       <div
         class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4"
       >
+
         <div>
-          <h1 class="mb-1">SQL Sub-Categories</h1>
+
+          <h1 class="mb-1">
+            SQL Sub-Categories
+          </h1>
 
           <div class="text-muted">
             Manage dynamic sub-categories for local SQL products.
           </div>
+
         </div>
 
-        <button
-          type="button"
-          class="btn btn-primary"
-          data-bs-toggle="modal"
-          data-bs-target="#addSubcategoryModal"
-        >
-          <i class="bi bi-plus-circle me-1"></i>
-          Add Sub-Category
-        </button>
+
+        <div class="page-header-actions">
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            data-bs-toggle="modal"
+            data-bs-target="#addSubcategoryModal"
+          >
+
+            <i class="bi bi-plus-circle me-1"></i>
+
+            Add Sub-Category
+
+          </button>
+
+        </div>
+
       </div>
 
 
-      <!-- Categories -->
+
+      <!-- ===================================================== -->
+      <!-- CATEGORIES TABLE -->
+      <!-- ===================================================== -->
+
       <div class="subcat-admin-card shadow-sm">
 
         <div class="card-body p-0">
 
+
           <% if (subcategories && subcategories.length > 0) { %>
+
 
             <div class="table-responsive">
 
               <table class="table align-middle mb-0">
 
+
                 <thead class="table-light">
+
                   <tr>
-                    <th class="ps-4">Sub-Category</th>
-                    <th>Main Category</th>
-                    <th>Slug</th>
-                    <th class="text-center">Sort</th>
-                    <th class="text-center">Status</th>
+
+                    <th class="ps-4">
+                      Sub-Category
+                    </th>
+
+                    <th>
+                      Main Category
+                    </th>
+
+                    <th>
+                      Slug
+                    </th>
+
+                    <th class="text-center">
+                      Sort
+                    </th>
+
+                    <th class="text-center">
+                      Status
+                    </th>
+
+                    <th class="text-end pe-4">
+                      Actions
+                    </th>
+
                   </tr>
+
                 </thead>
+
+
 
                 <tbody>
 
                   <% subcategories.forEach(function(category) { %>
 
+
                     <tr>
 
-                      <!-- Name + Image -->
+
+                      <!-- ===================================== -->
+                      <!-- IMAGE + NAME -->
+                      <!-- ===================================== -->
+
                       <td class="ps-4">
 
                         <div class="d-flex align-items-center gap-3">
+
 
                           <% if (category.image) { %>
 
@@ -121,97 +217,542 @@
                               src="<%= category.image %>"
                               alt="<%= category.name %>"
                               class="subcat-image"
+                              onerror="
+                                this.onerror=null;
+                                this.src='/images/logo.webp';
+                              "
                             >
 
                           <% } else { %>
 
                             <div class="subcat-placeholder">
+
                               <i class="bi bi-grid"></i>
+
                             </div>
 
                           <% } %>
 
-                          <div>
+
+                          <div class="category-name">
 
                             <div class="fw-bold">
+
                               <%= category.name %>
+
                             </div>
 
+
                             <div class="small text-muted">
+
                               ID: <%= category.id %>
+
                             </div>
 
                           </div>
+
 
                         </div>
 
                       </td>
 
 
-                      <!-- Main Category -->
+
+                      <!-- ===================================== -->
+                      <!-- MAIN CATEGORY -->
+                      <!-- ===================================== -->
+
                       <td>
-                        <span class="badge bg-light text-dark border">
+
+                        <span
+                          class="badge bg-light text-dark border"
+                        >
+
                           <%= category.main_category %>
+
                         </span>
+
                       </td>
 
 
-                      <!-- Slug -->
+
+                      <!-- ===================================== -->
+                      <!-- SLUG -->
+                      <!-- ===================================== -->
+
                       <td>
-                        <span class="badge bg-secondary slug-badge">
+
+                        <span
+                          class="badge bg-secondary slug-badge"
+                        >
+
                           <%= category.slug %>
+
                         </span>
+
                       </td>
 
 
-                      <!-- Sort -->
+
+                      <!-- ===================================== -->
+                      <!-- SORT -->
+                      <!-- ===================================== -->
+
                       <td class="text-center">
+
                         <%= category.sort_order %>
+
                       </td>
 
 
-                      <!-- Active -->
+
+                      <!-- ===================================== -->
+                      <!-- STATUS -->
+                      <!-- ===================================== -->
+
                       <td class="text-center">
+
 
                         <% if (Number(category.active) === 1) { %>
 
                           <span class="badge bg-success">
+
+                            <i class="bi bi-check-circle me-1"></i>
+
                             Active
+
                           </span>
 
                         <% } else { %>
 
                           <span class="badge bg-secondary">
+
+                            <i class="bi bi-pause-circle me-1"></i>
+
                             Disabled
+
                           </span>
 
                         <% } %>
 
+
                       </td>
+
+
+
+                      <!-- ===================================== -->
+                      <!-- ACTIONS -->
+                      <!-- ===================================== -->
+
+                      <td class="text-end pe-4 actions-cell">
+
+
+                        <!-- EDIT -->
+                        <button
+                          type="button"
+                          class="btn btn-outline-primary btn-sm action-btn"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editSubcategoryModal<%= category.id %>"
+                          title="Edit"
+                        >
+
+                          <i class="bi bi-pencil"></i>
+
+                        </button>
+
+
+
+                        <!-- ENABLE / DISABLE -->
+                        <form
+                          action="/admin/sql-subcategories/<%= category.id %>/toggle"
+                          method="POST"
+                          class="d-inline"
+                        >
+
+                          <% if (Number(category.active) === 1) { %>
+
+                            <button
+                              type="submit"
+                              class="btn btn-outline-warning btn-sm action-btn"
+                              title="Disable"
+                            >
+
+                              <i class="bi bi-pause-circle"></i>
+
+                            </button>
+
+                          <% } else { %>
+
+                            <button
+                              type="submit"
+                              class="btn btn-outline-success btn-sm action-btn"
+                              title="Enable"
+                            >
+
+                              <i class="bi bi-play-circle"></i>
+
+                            </button>
+
+                          <% } %>
+
+                        </form>
+
+
+
+                        <!-- DELETE -->
+                        <form
+                          action="/admin/sql-subcategories/<%= category.id %>/delete"
+                          method="POST"
+                          class="d-inline"
+                          onsubmit="
+                            return confirm(
+                              'Delete <%= category.name.replace(/'/g, "\\'") %>?\n\nThe sub-category will be deleted, but its products will NOT be deleted.'
+                            );
+                          "
+                        >
+
+                          <button
+                            type="submit"
+                            class="btn btn-outline-danger btn-sm action-btn"
+                            title="Delete"
+                          >
+
+                            <i class="bi bi-trash"></i>
+
+                          </button>
+
+                        </form>
+
+
+                      </td>
+
 
                     </tr>
 
+
+
+                    <!-- ================================================= -->
+                    <!-- EDIT MODAL -->
+                    <!-- ================================================= -->
+
+                    <div
+                      class="modal fade"
+                      id="editSubcategoryModal<%= category.id %>"
+                      tabindex="-1"
+                      aria-hidden="true"
+                    >
+
+                      <div
+                        class="modal-dialog modal-dialog-centered"
+                      >
+
+                        <div class="modal-content">
+
+
+                          <form
+                            action="/admin/sql-subcategories/<%= category.id %>/edit"
+                            method="POST"
+                            autocomplete="off"
+                          >
+
+
+                            <!-- Modal Header -->
+                            <div class="modal-header">
+
+                              <h5 class="modal-title">
+
+                                <i class="bi bi-pencil-square me-1"></i>
+
+                                Edit SQL Sub-Category
+
+                              </h5>
+
+
+                              <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                              ></button>
+
+                            </div>
+
+
+
+                            <!-- Modal Body -->
+                            <div class="modal-body">
+
+
+                              <!-- Name -->
+                              <div class="mb-3">
+
+                                <label
+                                  class="form-label fw-semibold"
+                                >
+                                  Sub-Category Name
+                                </label>
+
+
+                                <input
+                                  type="text"
+                                  name="name"
+                                  class="form-control"
+                                  value="<%= category.name %>"
+                                  required
+                                >
+
+
+                                <div class="form-text">
+
+                                  Changing the name will also update
+                                  linked SQL products.
+
+                                </div>
+
+                              </div>
+
+
+
+                              <!-- Main Category -->
+                              <div class="mb-3">
+
+                                <label
+                                  class="form-label fw-semibold"
+                                >
+                                  Main Category
+                                </label>
+
+
+                                <select
+                                  name="main_category"
+                                  class="form-select"
+                                  required
+                                >
+
+
+                                  <option
+                                    value="AI Tools"
+                                    <%= category.main_category === 'AI Tools' ? 'selected' : '' %>
+                                  >
+                                    AI Tools
+                                  </option>
+
+
+                                  <option
+                                    value="Accounts"
+                                    <%= category.main_category === 'Accounts' ? 'selected' : '' %>
+                                  >
+                                    Accounts
+                                  </option>
+
+
+                                  <option
+                                    value="Gift Cards"
+                                    <%= category.main_category === 'Gift Cards' ? 'selected' : '' %>
+                                  >
+                                    Gift Cards
+                                  </option>
+
+
+                                  <option
+                                    value="Communication"
+                                    <%= category.main_category === 'Communication' ? 'selected' : '' %>
+                                  >
+                                    Communication
+                                  </option>
+
+
+                                </select>
+
+
+                                <div class="form-text">
+
+                                  Moving the sub-category will also move
+                                  its linked SQL products.
+
+                                </div>
+
+                              </div>
+
+
+
+                              <!-- Image -->
+                              <div class="mb-3">
+
+                                <label
+                                  class="form-label fw-semibold"
+                                >
+                                  Image Path
+                                </label>
+
+
+                                <input
+                                  type="text"
+                                  name="image"
+                                  class="form-control"
+                                  value="<%= category.image || '' %>"
+                                  placeholder="/images/example.png"
+                                >
+
+
+                                <div class="form-text">
+
+                                  Example:
+                                  /images/midjourney.png
+
+                                </div>
+
+                              </div>
+
+
+
+                              <!-- Sort -->
+                              <div class="mb-3">
+
+                                <label
+                                  class="form-label fw-semibold"
+                                >
+                                  Sort Order
+                                </label>
+
+
+                                <input
+                                  type="number"
+                                  name="sort_order"
+                                  class="form-control"
+                                  value="<%= category.sort_order || 0 %>"
+                                  min="0"
+                                  step="1"
+                                >
+
+
+                                <div class="form-text">
+
+                                  Lower numbers appear first among
+                                  dynamic sub-categories.
+
+                                </div>
+
+                              </div>
+
+
+
+                              <!-- Active -->
+                              <div class="form-check">
+
+                                <input
+                                  class="form-check-input"
+                                  type="checkbox"
+                                  name="active"
+                                  value="1"
+                                  id="editActive<%= category.id %>"
+                                  <%= Number(category.active) === 1 ? 'checked' : '' %>
+                                >
+
+
+                                <label
+                                  class="form-check-label fw-semibold"
+                                  for="editActive<%= category.id %>"
+                                >
+
+                                  Active
+
+                                </label>
+
+
+                                <div class="form-text">
+
+                                  Disabled categories will not appear
+                                  on the public site.
+
+                                </div>
+
+                              </div>
+
+
+                            </div>
+
+
+
+                            <!-- Modal Footer -->
+                            <div class="modal-footer">
+
+
+                              <button
+                                type="button"
+                                class="btn btn-secondary"
+                                data-bs-dismiss="modal"
+                              >
+
+                                Cancel
+
+                              </button>
+
+
+                              <button
+                                type="submit"
+                                class="btn btn-primary"
+                              >
+
+                                <i class="bi bi-check-circle me-1"></i>
+
+                                Save Changes
+
+                              </button>
+
+
+                            </div>
+
+
+                          </form>
+
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+
                   <% }) %>
 
+
                 </tbody>
+
 
               </table>
 
             </div>
 
+
           <% } else { %>
+
+
+            <!-- ================================================= -->
+            <!-- EMPTY STATE -->
+            <!-- ================================================= -->
 
             <div class="text-center py-5">
 
               <div class="fs-1 text-muted mb-3">
+
                 <i class="bi bi-grid-3x3-gap"></i>
+
               </div>
 
-              <h5>No SQL Sub-Categories Yet</h5>
+
+              <h5>
+
+                No SQL Sub-Categories Yet
+
+              </h5>
+
 
               <p class="text-muted mb-3">
+
                 Add your first dynamic sub-category.
+
               </p>
+
 
               <button
                 type="button"
@@ -219,20 +760,29 @@
                 data-bs-toggle="modal"
                 data-bs-target="#addSubcategoryModal"
               >
+
                 <i class="bi bi-plus-circle me-1"></i>
+
                 Add Sub-Category
+
               </button>
 
             </div>
 
+
           <% } %>
+
 
         </div>
 
       </div>
 
 
-      <!-- Add Modal -->
+
+      <!-- ===================================================== -->
+      <!-- ADD SUB-CATEGORY MODAL -->
+      <!-- ===================================================== -->
+
       <div
         class="modal fade"
         id="addSubcategoryModal"
@@ -244,18 +794,26 @@
 
           <div class="modal-content">
 
+
             <form
               action="/admin/sql-subcategories"
               method="POST"
               autocomplete="off"
             >
 
+
+              <!-- Modal Header -->
               <div class="modal-header">
 
+
                 <h5 class="modal-title">
+
                   <i class="bi bi-plus-circle me-1"></i>
+
                   Add SQL Sub-Category
+
                 </h5>
+
 
                 <button
                   type="button"
@@ -263,17 +821,26 @@
                   data-bs-dismiss="modal"
                 ></button>
 
+
               </div>
 
 
+
+              <!-- Modal Body -->
               <div class="modal-body">
+
 
                 <!-- Name -->
                 <div class="mb-3">
 
-                  <label class="form-label fw-semibold">
+                  <label
+                    class="form-label fw-semibold"
+                  >
+
                     Sub-Category Name
+
                   </label>
+
 
                   <input
                     type="text"
@@ -283,19 +850,30 @@
                     required
                   >
 
+
                   <div class="form-text">
+
                     The URL slug will be generated automatically.
+
                   </div>
 
+
                 </div>
+
 
 
                 <!-- Main Category -->
                 <div class="mb-3">
 
-                  <label class="form-label fw-semibold">
+
+                  <label
+                    class="form-label fw-semibold"
+                  >
+
                     Main Category
+
                   </label>
+
 
                   <select
                     name="main_category"
@@ -303,35 +881,68 @@
                     required
                   >
 
-                    <option value="">Select Main Category</option>
+
+                    <option value="">
+
+                      Select Main Category
+
+                    </option>
+
 
                     <option value="AI Tools">
+
                       AI Tools
+
                     </option>
+
 
                     <option value="Accounts">
+
                       Accounts
+
                     </option>
 
-                    <option value="Games">
-                      Games
+
+                    <option value="Gift Cards">
+
+                      Gift Cards
+
                     </option>
+
+
+                    <option value="Communication">
+
+                      Communication
+
+                    </option>
+
 
                   </select>
 
+
                   <div class="form-text">
+
                     Choose where this sub-category should appear.
+
                   </div>
 
+
                 </div>
+
 
 
                 <!-- Image -->
                 <div class="mb-3">
 
-                  <label class="form-label fw-semibold">
+
+                  <label
+                    class="form-label fw-semibold"
+                  >
+
                     Image Path
+
                   </label>
+
 
                   <input
                     type="text"
@@ -340,19 +951,31 @@
                     placeholder="/images/example.png"
                   >
 
+
                   <div class="form-text">
-                    Example: /images/midjourney.png
+
+                    Example:
+                    /images/midjourney.png
+
                   </div>
 
+
                 </div>
+
 
 
                 <!-- Sort -->
                 <div class="mb-3">
 
-                  <label class="form-label fw-semibold">
+
+                  <label
+                    class="form-label fw-semibold"
+                  >
+
                     Sort Order
+
                   </label>
+
 
                   <input
                     type="number"
@@ -363,15 +986,22 @@
                     step="1"
                   >
 
+
                   <div class="form-text">
-                    Lower numbers appear first among dynamic sub-categories.
+
+                    Lower numbers appear first among
+                    dynamic sub-categories.
+
                   </div>
+
 
                 </div>
 
 
+
                 <!-- Active -->
                 <div class="form-check">
+
 
                   <input
                     class="form-check-input"
@@ -382,43 +1012,64 @@
                     checked
                   >
 
+
                   <label
                     class="form-check-label fw-semibold"
                     for="subcategoryActive"
                   >
+
                     Active
+
                   </label>
 
+
                   <div class="form-text">
-                    Disabled categories will not appear on the public site.
+
+                    Disabled categories will not appear
+                    on the public site.
+
                   </div>
 
+
                 </div>
+
 
               </div>
 
 
+
+              <!-- Modal Footer -->
               <div class="modal-footer">
+
 
                 <button
                   type="button"
                   class="btn btn-secondary"
                   data-bs-dismiss="modal"
                 >
+
                   Cancel
+
                 </button>
+
 
                 <button
                   type="submit"
                   class="btn btn-primary"
                 >
+
                   <i class="bi bi-plus-circle me-1"></i>
+
                   Add Sub-Category
+
                 </button>
+
 
               </div>
 
+
             </form>
+
 
           </div>
 
@@ -427,11 +1078,18 @@
       </div>
 
 
+
+      <!-- ===================================================== -->
+      <!-- FOOTER -->
+      <!-- ===================================================== -->
+
       <%- include('partials/footer') %>
+
 
     </div>
 
   </div>
+
 
 
   <script
@@ -440,5 +1098,7 @@
 
   <script src="/main.js"></script>
 
+
 </body>
+
 </html>
