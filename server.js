@@ -3685,6 +3685,24 @@ app.get('/alfa-section', (req, res) => {
   });
 });
 
+app.get('/akdrama', (req, res) => {
+  const sql = `
+    SELECT * FROM products
+    WHERE main_category = 'Communication' AND sub_category = 'AK DRAMA'
+    ORDER BY sort_order ASC, id ASC
+  `;
+  db.query(sql, [], (err, products) => {
+    if (err) {
+      console.error("❌ Database error (akdrama):", err.message || err);
+      return res.status(500).send("Server error");
+    }
+    const user = req.session.user || null;
+    const finalProducts = applyDealerPricingToProducts(products, user);
+
+    res.render('akdrama', { user, products: finalProducts });
+  });
+});
+
 app.get('/u-share', (req, res) => {
   const sql = `
     SELECT * FROM products
