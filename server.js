@@ -13295,6 +13295,7 @@ app.get('/anghami-section', (req, res) => {
 
 // 🔄 بدّل الراوت الحالي بهيدا — موحَّد مع بقية النظام
 
+
 app.post('/bigolive-section', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
@@ -13322,7 +13323,7 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
   };
 
   const notifyAdmin = async (orderId, message) => {
-    console.error('⚠️ BIGO MANUAL REVIEW:', {
+    console.error('⚠️ BIGO ADMIN ALERT:', {
       orderId,
       userId,
       message
@@ -13333,11 +13334,11 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
     try {
       await sendTelegramMessage(
         process.env.ADMIN_TELEGRAM_CHAT_ID,
-        `⚠️ BIGO Manual Review\n` +
+        `⚠️ BIGO Order Alert\n` +
         `Local Order: #${orderId || 'UNKNOWN'}\n` +
         `User ID: ${userId}\n` +
         `${message}\n\n` +
-        `Do NOT retry or refund before checking Daily Card.`,
+        `For uncertain outcomes, check Daily Card before retry/refund.`,
         process.env.TELEGRAM_BOT_TOKEN
       );
     } catch (err) {
@@ -13371,8 +13372,221 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
     }
   };
 
+  const providerOrderIdFrom = data =>
+    data?.id ??
+    data?.data?.id ??
+    data?.order_id ??
+    data?.data?.order_id ??
+    null;
+
+  const safeProviderMessage = data => {
+    const raw = typeof data === 'string'
+      ? data
+      : (
+          data?.message ??
+          data?.detail ??
+          data?.error?.message ??
+          data?.error ??
+          data?.data?.message ??
+          ''
+        );
+
+    return typeof raw === 'string'
+      ? raw
+          .replace(/[\r\n\t]+/g, ' ')
+          .replace(/(bearer\s+)[^\s]+/ig, '$1[REDACTED]')
+          .slice(0, 200)
+      : '';
+  };
+
+  const isDefiniteRejection = (data, httpStatus) => {
+    if (!data || typeof data !== 'object') return false;
+
+    if (providerOrderIdFrom(data) != null) return false;
+
+    if (
+      httpStatus != null &&
+      (
+        httpStatus >= 500 ||
+        [408, 409, 425, 429].includes(httpStatus)
+      )
+    ) {
+      return false;
+    }
+
+    const state = String(
+      data.status ?? data.data?.status ?? ''
+    ).toLowerCase();
+
+    return data.success === false ||
+      ['rejected', 'declined', 'refused'].includes(state);
+  };
+
   let orderId = null;
   let reservationCommitted = false;
+
+  const rejectAndRefund = async (localOrderId, reason) => {
+    const conn = await promisePool.getConnection();
+    let transactionOpen = false;
+    let commitAttempted = false;
+
+    try {
+      await conn.beginTransaction();
+      transactionOpen = true;
+
+      const [orderRows] = await conn.query(
+        `SELECT id, userId, price, status, provider_order_id
+         FROM orders
+         WHERE id = ? AND userId = ?
+         FOR UPDATE`,
+        [localOrderId, userId]
+      );
+
+      const order = orderRows[0];
+
+      if (
+        !order ||
+        order.status !== 'Waiting' ||
+        order.provider_order_id != null
+      ) {
+        throw new Error(
+          'Order not eligible for automatic rejection'
+        );
+      }
+
+      const [stateRows] = await conn.query(
+        `SELECT response_json
+         FROM idempotency_keys
+         WHERE user_id = ?
+           AND idem_key = ?
+           AND order_id = ?
+         FOR UPDATE`,
+        [userId, rawIdemKey, localOrderId]
+      );
+
+      if (
+        stateRows.length !== 1 ||
+        JSON.parse(
+          stateRows[0].response_json || '{}'
+        ).state !== 'sending'
+      ) {
+        throw new Error(
+          'Idempotency state is not sending'
+        );
+      }
+
+      const refundAmount = Number(order.price);
+
+      if (
+        !Number.isFinite(refundAmount) ||
+        refundAmount <= 0
+      ) {
+        throw new Error('Invalid refund amount');
+      }
+
+      const [updated] = await conn.query(
+        `UPDATE orders
+         SET status = 'Rejected'
+         WHERE id = ?
+           AND userId = ?
+           AND status = 'Waiting'
+           AND provider_order_id IS NULL`,
+        [localOrderId, userId]
+      );
+
+      if (updated.affectedRows !== 1) {
+        throw new Error('Reject update failed');
+      }
+
+      const [credit] = await conn.query(
+        `UPDATE users
+         SET balance = balance + ?
+         WHERE id = ?`,
+        [refundAmount, userId]
+      );
+
+      if (credit.affectedRows !== 1) {
+        throw new Error('Refund balance update failed');
+      }
+
+      await conn.query(
+        `INSERT INTO transactions
+           (user_id, order_id, type, amount, reason)
+         VALUES (?, ?, 'credit', ?, ?)`,
+        [
+          userId,
+          localOrderId,
+          refundAmount,
+          `Refund: BIGO provider rejected order #${localOrderId}`
+        ]
+      );
+
+      const [idemUpdate] = await conn.query(
+        `UPDATE idempotency_keys
+         SET response_json = ?
+         WHERE user_id = ?
+           AND idem_key = ?
+           AND order_id = ?`,
+        [
+          JSON.stringify({
+            state: 'rejected',
+            productId,
+            quantity: qty,
+            playerId,
+            reason: String(reason).slice(0, 160)
+          }),
+          userId,
+          rawIdemKey,
+          localOrderId
+        ]
+      );
+
+      if (idemUpdate.affectedRows !== 1) {
+        throw new Error(
+          'Failed to save rejected idempotency state'
+        );
+      }
+
+      await conn.query(
+        `INSERT INTO notifications
+           (user_id, message, created_at, is_read)
+         VALUES (?, ?, NOW(), 0)`,
+        [
+          userId,
+          `❌ تعذّر تنفيذ الطلب #${localOrderId} وتمت إعادة المبلغ إلى رصيدك.`
+        ]
+      );
+
+      commitAttempted = true;
+      await conn.commit();
+      transactionOpen = false;
+
+      return true;
+
+    } catch (err) {
+      if (transactionOpen) {
+        try {
+          await conn.rollback();
+        } catch (rollbackErr) {
+          console.error(
+            '❌ BIGO refund rollback failed:',
+            rollbackErr.message
+          );
+        }
+      }
+
+      console.error('❌ BIGO rejection/refund failed:', {
+        localOrderId,
+        error: err.message,
+        commitAttempted
+      });
+
+      return false;
+
+    } finally {
+      conn.release();
+    }
+  };
 
   try {
     // 1) Validate inputs
@@ -13385,7 +13599,6 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
       return redirectError('invalid_quantity');
     }
 
-    // Must come from checkout form.
     if (!/^[a-zA-Z0-9_-]{16,64}$/.test(rawIdemKey)) {
       return redirectError('server');
     }
@@ -13406,13 +13619,15 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
 
     const product = products[0];
 
-    if (!product) return redirectError('notfound');
+    if (!product) {
+      return redirectError('notfound');
+    }
 
     if (Number(product.is_out_of_stock) === 1) {
       return redirectError('out_of_stock');
     }
 
-    // Preserve original BIGO pricing: unit_price.
+    // Preserve original BIGO pricing: unit_price
     const unitQty = Number(product.unit_quantity ?? 1);
     const unitPrice = Number(product.unit_price ?? 0);
     const minQty = Number(product.min_quantity ?? 1);
@@ -13432,11 +13647,16 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
     }
 
     // 3) Player ID
-    const requiresPlayerId = Number(product.player_check) === 1;
+    const requiresPlayerId =
+      Number(product.player_check) === 1;
+
     const requiresVerification =
       Number(product.requires_verification) === 1;
 
-    if ((requiresPlayerId || requiresVerification) && !playerId) {
+    if (
+      (requiresPlayerId || requiresVerification) &&
+      !playerId
+    ) {
       return redirectError('missing_player');
     }
 
@@ -13444,9 +13664,15 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
       let verifyRes;
 
       try {
-        verifyRes = await verifyPlayerId(productId, playerId);
+        verifyRes = await verifyPlayerId(
+          productId,
+          playerId
+        );
       } catch (err) {
-        console.error('❌ BIGO verification error:', err.message);
+        console.error(
+          '❌ BIGO verification error:',
+          err.message
+        );
         return redirectError('verify');
       }
 
@@ -13464,14 +13690,18 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
       (qty * unitPrice * 100) / unitQty
     );
 
-    if (!Number.isSafeInteger(totalCents) || totalCents <= 0) {
+    if (
+      !Number.isSafeInteger(totalCents) ||
+      totalCents <= 0
+    ) {
       return redirectError('pricing');
     }
 
     const total = totalCents / 100;
 
     const productName =
-      product.custom_name || `BIGO Product ${productId}`;
+      product.custom_name ||
+      `BIGO Product ${productId}`;
 
     const orderDetails = playerId
       ? `User ID: ${playerId}, Quantity: ${qty}`
@@ -13504,8 +13734,11 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
             })
           ]
         );
+
       } catch (err) {
-        if (err.code !== 'ER_DUP_ENTRY') throw err;
+        if (err.code !== 'ER_DUP_ENTRY') {
+          throw err;
+        }
 
         const [existingRows] = await conn.query(
           `SELECT order_id, response_json
@@ -13519,13 +13752,17 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
         const existing = existingRows[0];
 
         if (!existing) {
-          throw new Error('Duplicate key without existing record');
+          throw new Error(
+            'Duplicate key without existing record'
+          );
         }
 
         let payload = {};
 
         try {
-          payload = JSON.parse(existing.response_json || '{}');
+          payload = JSON.parse(
+            existing.response_json || '{}'
+          );
         } catch (_) {}
 
         if (
@@ -13557,7 +13794,6 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
           return redirectError('balance');
         }
 
-        // Save order BEFORE contacting provider.
         const [orderResult] = await conn.query(
           `INSERT INTO orders
             (
@@ -13607,7 +13843,9 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
         );
 
         if (idemUpdate.affectedRows !== 1) {
-          throw new Error('Failed to link idempotency key to order');
+          throw new Error(
+            'Failed to link idempotency key to order'
+          );
         }
 
         await conn.query(
@@ -13631,11 +13869,17 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
         try {
           await conn.rollback();
         } catch (rollbackErr) {
-          console.error('❌ BIGO rollback error:', rollbackErr);
+          console.error(
+            '❌ BIGO rollback error:',
+            rollbackErr
+          );
         }
       }
 
-      console.error('❌ BIGO reservation error:', err);
+      console.error(
+        '❌ BIGO reservation error:',
+        err
+      );
 
       if (commitAttempted) {
         await notifyAdmin(
@@ -13653,78 +13897,154 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
 
     req.session.pendingOrderId = orderId || null;
 
-    // Duplicate request: no new debit and no provider request.
+    // Duplicate: no new debit or provider request
     if (duplicate) {
       return res.redirect('/processing');
     }
 
     // 6) Mark sending BEFORE provider request
     try {
-      await updateIdemState(orderId, 'sending');
+      await updateIdemState(
+        orderId,
+        'sending'
+      );
     } catch (err) {
       await notifyAdmin(
         orderId,
         `Could not save sending state: ${err.message}`
       );
+
       return res.redirect('/processing');
     }
 
     // 7) Create Daily Card order ONCE
     let providerOrderId = null;
+    let responseData = null;
+    let providerError = null;
+    let providerHttpStatus = null;
 
     try {
       const orderBody = {
         product: productId,
         quantity: qty,
-        ...(playerId ? { account_id: playerId } : {})
+        ...(playerId
+          ? { account_id: playerId }
+          : {})
       };
 
-      const { data: result } = await dailycardAPI.post(
+      const response = await dailycardAPI.post(
         '/api-keys/orders/create/',
         orderBody
       );
 
+      responseData = response.data;
+      providerHttpStatus = response.status ?? null;
       providerOrderId =
-        result?.id ??
-        result?.data?.id ??
-        result?.order_id ??
-        result?.data?.order_id ??
-        null;
-
-      if (
-        providerOrderId === null ||
-        String(providerOrderId).trim() === ''
-      ) {
-        throw new Error('Provider returned no order ID');
-      }
-
-      providerOrderId = String(providerOrderId).trim();
+        providerOrderIdFrom(responseData);
 
     } catch (err) {
-      // Timeout/network error may occur AFTER provider creates order.
-      // No automatic refund or retry.
-      try {
-        await updateIdemState(orderId, 'unknown', {
-          error: String(err.code || err.message).slice(0, 160)
-        });
-      } catch (saveErr) {
-        console.error(
-          '❌ CRITICAL BIGO unknown-state save failed:',
+      providerError = err;
+      responseData =
+        err?.response?.data ?? null;
+      providerHttpStatus =
+        err?.response?.status ?? null;
+      providerOrderId =
+        providerOrderIdFrom(responseData);
+    }
+
+    if (
+      providerOrderId == null ||
+      String(providerOrderId).trim() === ''
+    ) {
+      const reason =
+        safeProviderMessage(responseData);
+
+      const errorCode = String(
+        providerError?.code ||
+        providerError?.message ||
+        'NO_ORDER_ID'
+      ).slice(0, 100);
+
+      const definite =
+        isDefiniteRejection(
+          responseData,
+          providerHttpStatus
+        );
+
+      console.error(
+        '⚠️ BIGO Daily Card response:',
+        {
+          localOrderId: orderId,
+          httpStatus: providerHttpStatus,
+          errorCode,
+          providerMessage:
+            reason || '(not supplied)',
+          classification: definite
+            ? 'EXPLICIT_REJECTION'
+            : 'UNKNOWN'
+        }
+      );
+
+      if (definite) {
+        const refunded =
+          await rejectAndRefund(
+            orderId,
+            reason || errorCode
+          );
+
+        if (refunded) {
+          await notifyAdmin(
+            orderId,
+            `REJECTED + REFUNDED | HTTP ${providerHttpStatus ?? 'N/A'} | ` +
+            `Reason: ${reason || errorCode}`
+          );
+        } else {
+          await notifyAdmin(
+            orderId,
+            `REJECTION detected but local refund outcome NOT confirmed. ` +
+            `Check DB before any manual action. ` +
+            `Reason: ${reason || errorCode}`
+          );
+        }
+
+      } else {
+        try {
+          await updateIdemState(
+            orderId,
+            'unknown',
+            {
+              error: errorCode,
+              httpStatus:
+                providerHttpStatus,
+              providerMessage: reason
+            }
+          );
+        } catch (saveErr) {
+          console.error(
+            '❌ BIGO unknown state save failed:',
+            orderId,
+            saveErr.message
+          );
+        }
+
+        await notifyAdmin(
           orderId,
-          saveErr
+          `Daily Card outcome UNKNOWN | ` +
+          `HTTP ${providerHttpStatus ?? 'N/A'} | ` +
+          `Code ${errorCode} | ` +
+          `Reason: ${reason || 'Not supplied'}`
         );
       }
-
-      await notifyAdmin(
-        orderId,
-        `Daily Card result UNKNOWN: ${err.code || err.message}`
-      );
 
       return res.redirect('/processing');
     }
 
-    // 8) Save provider ID and idempotency state atomically
-    const conn2 = await promisePool.getConnection();
+    providerOrderId =
+      String(providerOrderId).trim();
+
+    // 8) Save provider ID and state atomically
+    const conn2 =
+      await promisePool.getConnection();
 
     let providerTransactionOpen = false;
     let providerSaved = false;
@@ -13733,40 +14053,50 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
       await conn2.beginTransaction();
       providerTransactionOpen = true;
 
-      const [orderUpdate] = await conn2.query(
-        `UPDATE orders
-         SET provider_order_id = ?
-         WHERE id = ?
-           AND userId = ?`,
-        [providerOrderId, orderId, userId]
-      );
+      const [orderUpdate] =
+        await conn2.query(
+          `UPDATE orders
+           SET provider_order_id = ?
+           WHERE id = ?
+             AND userId = ?`,
+          [
+            providerOrderId,
+            orderId,
+            userId
+          ]
+        );
 
       if (orderUpdate.affectedRows !== 1) {
-        throw new Error('Local order not found');
+        throw new Error(
+          'Local order not found'
+        );
       }
 
-      const [stateUpdate] = await conn2.query(
-        `UPDATE idempotency_keys
-         SET response_json = ?
-         WHERE user_id = ?
-           AND idem_key = ?
-           AND order_id = ?`,
-        [
-          JSON.stringify({
-            state: 'submitted',
-            productId,
-            quantity: qty,
-            playerId,
-            providerOrderId
-          }),
-          userId,
-          rawIdemKey,
-          orderId
-        ]
-      );
+      const [stateUpdate] =
+        await conn2.query(
+          `UPDATE idempotency_keys
+           SET response_json = ?
+           WHERE user_id = ?
+             AND idem_key = ?
+             AND order_id = ?`,
+          [
+            JSON.stringify({
+              state: 'submitted',
+              productId,
+              quantity: qty,
+              playerId,
+              providerOrderId
+            }),
+            userId,
+            rawIdemKey,
+            orderId
+          ]
+        );
 
       if (stateUpdate.affectedRows !== 1) {
-        throw new Error('Idempotency record not found');
+        throw new Error(
+          'Idempotency record not found'
+        );
       }
 
       await conn2.commit();
@@ -13782,7 +14112,8 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
 
       await notifyAdmin(
         orderId,
-        `Provider order CREATED (#${providerOrderId}), but local save failed or is uncertain: ${err.message}`
+        `Provider order CREATED (#${providerOrderId}), ` +
+        `but local save failed or is uncertain: ${err.message}`
       );
 
     } finally {
@@ -13807,13 +14138,18 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
       if (freshUser) {
         req.session.user = freshUser;
       }
+
     } catch (err) {
-      console.warn('⚠️ BIGO session refresh error:', err.message);
+      console.warn(
+        '⚠️ BIGO session refresh error:',
+        err.message
+      );
     }
 
-    // 10) Telegram notifications (after successful DB save)
+    // 10) Telegram notifications
     try {
-      const userRow = freshUser || req.session.user;
+      const userRow =
+        freshUser || req.session.user;
 
       if (userRow?.telegram_chat_id) {
         await sendTelegramMessage(
@@ -13824,11 +14160,16 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
           `💰 <b>السعر:</b> ${total.toFixed(2)}$\n` +
           `📌 <b>الحالة:</b> جاري المعالجة`,
           process.env.TELEGRAM_BOT_TOKEN,
-          { parseMode: 'HTML', timeoutMs: 15000 }
+          {
+            parseMode: 'HTML',
+            timeoutMs: 15000
+          }
         );
       }
 
-      if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
+      if (
+        process.env.ADMIN_TELEGRAM_CHAT_ID
+      ) {
         await sendTelegramMessage(
           process.env.ADMIN_TELEGRAM_CHAT_ID,
           `🆕 <b>طلب BIGO جديد!</b>\n` +
@@ -13840,9 +14181,13 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
           `💰 <b>السعر:</b> ${total.toFixed(2)}$\n` +
           `🕓 <b>الوقت:</b> ${new Date().toLocaleString('en-US', { hour12: false })}`,
           process.env.TELEGRAM_BOT_TOKEN,
-          { parseMode: 'HTML', timeoutMs: 15000 }
+          {
+            parseMode: 'HTML',
+            timeoutMs: 15000
+          }
         );
       }
+
     } catch (err) {
       console.warn(
         '⚠️ BIGO Telegram error:',
@@ -13856,10 +14201,15 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
   } catch (err) {
     console.error(
       '❌ BIGO Order Error:',
-      err?.response?.data || err.message || err
+      err?.response?.data ||
+      err.message ||
+      err
     );
 
-    if (reservationCommitted || orderId) {
+    if (
+      reservationCommitted ||
+      orderId
+    ) {
       await notifyAdmin(
         orderId,
         `Unexpected error after reservation: ${err.message}`
@@ -13872,6 +14222,7 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
     return redirectError('server');
   }
 });
+
 
 
 
