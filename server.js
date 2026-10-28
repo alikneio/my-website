@@ -13942,15 +13942,24 @@ app.post('/bigolive-section', checkAuth, async (req, res) => {
       providerOrderId =
         providerOrderIdFrom(responseData);
 
-    } catch (err) {
-      providerError = err;
-      responseData =
-        err?.response?.data ?? null;
-      providerHttpStatus =
-        err?.response?.status ?? null;
-      providerOrderId =
-        providerOrderIdFrom(responseData);
-    }
+   
+} catch (err) {
+  providerError = err;
+  responseData = err?.response?.data ?? null;
+  providerHttpStatus = err?.response?.status ?? null;
+  providerOrderId = providerOrderIdFrom(responseData);
+
+  // Detailed provider diagnostics - Railway Logs only
+  console.error('❌ DAILY CARD API ERROR:', {
+    localOrderId: orderId,
+    httpStatus: providerHttpStatus,
+    axiosCode: err?.code ?? null,
+    message: err?.message ?? null,
+    providerMessage: safeProviderMessage(responseData),
+    responseData: responseData
+  });
+}
+
 
     if (
       providerOrderId == null ||
