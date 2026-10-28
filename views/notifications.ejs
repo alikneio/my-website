@@ -2,61 +2,85 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AK Cell - Notifications</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notifications | AK Cell</title>
   <link rel="stylesheet" href="/css/bootstrap.css" />
   <link rel="stylesheet" href="/css/custom.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css" />
   <style>
-    @media (max-width: 576px) {
-      .notification-box {
-        font-size: 1.1rem;
-        padding: 1.2rem;
-      }
-      h2 {
-        font-size: 1.6rem;
-      }
+    /* Scoped styles: avoid changing global header/footer or Bootstrap. */
+    .ak-notifications { --ak-navy:#172554; --ak-blue:#2563eb; --ak-muted:#64748b; --ak-line:#e2e8f0; max-width:780px; margin:32px auto 56px; padding:0 16px; }
+    .ak-notifications, .ak-notifications * { box-sizing:border-box; }
+    .ak-notifications .ak-panel { background:#fff; border:1px solid var(--ak-line); border-radius:18px; box-shadow:0 8px 28px rgba(15,23,42,.045); overflow:hidden; }
+    .ak-notifications .ak-heading { display:flex; align-items:center; gap:13px; padding:20px 22px; border-bottom:1px solid var(--ak-line); }
+    .ak-notifications .ak-heading-icon { display:grid; place-items:center; width:44px; height:44px; border-radius:13px; background:#172554; color:#fff; flex-shrink:0; font-size:21px; }
+    .ak-notifications h1 { font-size:21px; line-height:1.25; font-weight:800; color:var(--ak-navy); margin:0; }
+    .ak-notifications .ak-subtitle { margin:5px 0 0; font-size:13px; color:var(--ak-muted); }
+    .ak-notifications .ak-count { margin-left:auto; flex-shrink:0; background:#eff6ff; color:#1d4ed8; font-size:12px; font-weight:750; border-radius:999px; padding:7px 11px; }
+    .ak-notifications .ak-list { margin:0; padding:0; list-style:none; }
+    .ak-notifications .ak-item { display:flex; align-items:flex-start; gap:13px; padding:16px 22px; border-bottom:1px solid #edf2f7; }
+    .ak-notifications .ak-item:last-child { border-bottom:0; }
+    .ak-notifications .ak-item-icon { width:36px; height:36px; flex-shrink:0; border-radius:11px; display:grid; place-items:center; color:#2563eb; background:#eff6ff; font-size:17px; }
+    .ak-notifications .ak-item-body { min-width:0; flex:1; }
+    .ak-notifications .ak-message { margin:0; color:#1e293b; font-size:14px; font-weight:550; line-height:1.65; overflow-wrap:anywhere; white-space:pre-line; }
+    .ak-notifications .ak-date { display:flex; align-items:center; gap:5px; margin-top:7px; color:var(--ak-muted); font-size:12px; line-height:1.4; }
+    .ak-notifications .ak-empty { text-align:center; padding:46px 22px; }
+    .ak-notifications .ak-empty-icon { width:66px; height:66px; display:grid; place-items:center; margin:0 auto 16px; border-radius:50%; background:#eff6ff; color:#2563eb; font-size:29px; }
+    .ak-notifications .ak-empty h2 { margin:0 0 8px; color:var(--ak-navy); font-size:18px; font-weight:750; }
+    .ak-notifications .ak-empty p { color:var(--ak-muted); font-size:14px; margin:0; }
+    .ak-notifications .ak-actions { display:flex; justify-content:flex-end; margin-top:16px; }
+    .ak-notifications .ak-home { display:inline-flex; align-items:center; gap:8px; padding:10px 15px; border-radius:10px; border:1px solid #cbd5e1; color:#334155; background:#fff; text-decoration:none; font-size:13px; font-weight:650; transition:background .2s,border-color .2s; }
+    .ak-notifications .ak-home:hover { background:#f8fafc; border-color:#94a3b8; color:#172554; }
+    @media(max-width:576px) {
+      .ak-notifications { margin:20px auto 36px; padding:0 12px; }
+      .ak-notifications .ak-heading { padding:16px; gap:10px; }
+      .ak-notifications .ak-heading-icon { width:40px; height:40px; }
+      .ak-notifications h1 { font-size:19px; }
+      .ak-notifications .ak-subtitle { font-size:12px; }
+      .ak-notifications .ak-count { font-size:11px; padding:6px 9px; }
+      .ak-notifications .ak-item { padding:14px 15px; gap:11px; }
+      .ak-notifications .ak-message { font-size:13px; }
     }
   </style>
 </head>
 <body class="bg-light">
-
   <%- include('partials/header') %>
-
-  <div class="container mt-4 px-3" style="max-width: 700px;">
-    <h2 class="mb-4 fs-4 d-flex align-items-center gap-2 text-dark">
-      <i class="bi bi-bell-fill fs-3 text-warning"></i> Your Notifications
-    </h2>
-
-    <% if (notifications.length === 0) { %>
-      <div class="alert alert-info fs-5 py-3 px-4 text-center notification-box">
-        You don't have any notifications yet.
+  <main class="ak-notifications">
+    <section class="ak-panel" aria-labelledby="notifications-title">
+      <div class="ak-heading">
+        <div class="ak-heading-icon" aria-hidden="true"><i class="bi bi-bell"></i></div>
+        <div>
+          <h1 id="notifications-title">Your Notifications</h1>
+          <p class="ak-subtitle">Updates and messages from AK Cell</p>
+        </div>
+        <span class="ak-count"><%= (notifications || []).length %> total</span>
       </div>
-    <% } else { %>
-      <ul class="list-group">
-        <% notifications.forEach(notification => { 
-             const timestamp = new Date(notification.created_at);
-             const formattedDate = isNaN(timestamp) 
-                 ? 'Unknown date' 
-                 : timestamp.toLocaleString('en-US');
-        %>
-          <li class="list-group-item d-flex justify-content-between align-items-center py-3 px-4 fs-6 notification-box">
-            <span><%= notification.message %></span>
-            <small class="text-muted"><%= formattedDate %></small>
-          </li>
-        <% }) %>
-      </ul>
-    <% } %>
-
-    <div class="mt-4 text-end">
-      <a href="/" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
-        <i class="bi bi-arrow-left"></i> Back to Home
-      </a>
-    </div>
-  </div>
-
+      <% if (!notifications || notifications.length === 0) { %>
+        <div class="ak-empty">
+          <div class="ak-empty-icon" aria-hidden="true"><i class="bi bi-bell-slash"></i></div>
+          <h2>You're all caught up!</h2>
+          <p>You don't have any notifications yet.</p>
+        </div>
+      <% } else { %>
+        <ul class="ak-list">
+          <% notifications.forEach(notification => {
+               const timestamp = new Date(notification.created_at);
+               const formattedDate = isNaN(timestamp.getTime()) ? 'Unknown date' : timestamp.toLocaleString('en-US');
+          %>
+            <li class="ak-item">
+              <div class="ak-item-icon" aria-hidden="true"><i class="bi bi-bell-fill"></i></div>
+              <div class="ak-item-body">
+                <p class="ak-message"><%= notification.message %></p>
+                <div class="ak-date"><i class="bi bi-clock" aria-hidden="true"></i><time><%= formattedDate %></time></div>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+    <div class="ak-actions"><a href="/" class="ak-home"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Home</a></div>
+  </main>
   <%- include('partials/footer') %>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
