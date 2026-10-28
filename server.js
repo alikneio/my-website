@@ -7137,25 +7137,54 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
 
   // Daily Card sometimes returns Django ErrorDetail text
   // inside the "error" field with HTTP 500.
-  const getProviderErrorCode = data => {
-    if (!data || typeof data !== 'object') return null;
+  
+const getProviderErrorCode = data => {
+  if (!data || typeof data !== 'object') return null;
 
-    const direct = data.error_code ?? data.data?.error_code;
+  // 1. Direct error code
+  const direct =
+    data.error_code ??
+    data.data?.error_code ??
+    null;
 
-    if (typeof direct === 'string' &&
-        /^[A-Z][A-Z0-9_]*$/i.test(direct.trim())) {
-      return direct.trim().toUpperCase();
-    }
+  if (
+    typeof direct === 'string' &&
+    /^[A-Z][A-Z0-9_]*$/i.test(direct.trim())
+  ) {
+    return direct.trim().toUpperCase();
+  }
 
-    const raw = typeof data.error === 'string'
-      ? data.error : '';
+  // 2. Daily Card may wrap the actual error inside
+  // a Django REST Framework ErrorDetail string.
+  const raw = [
+    data.error,
+    data.message,
+    data.detail,
+    data.data?.error
+  ]
+    .filter(v => typeof v === 'string')
+    .join(' ');
 
-    const match = raw.match(
-      /['"]error_code['"]\s*:\s*ErrorDetail\(\s*string=['"]([A-Z][A-Z0-9_]*)['"]/i
-    );
+  const match = raw.match(
+    /error_code['"]?\s*:\s*ErrorDetail\(\s*string=['"]([A-Z][A-Z0-9_]*)['"]/i
+  );
 
-    return match ? match[1].toUpperCase() : null;
-  };
+  if (match) {
+    return match[1].toUpperCase();
+  }
+
+  // 3. Confirmed Daily Card insufficient-balance
+  // error, even if the provider returns HTTP 500.
+  if (
+    /الرصيد غير كافٍ|الرصيد غير كافي/i.test(raw) &&
+    /INSUFFICIENT_BALANCE/i.test(raw)
+  ) {
+    return 'INSUFFICIENT_BALANCE';
+  }
+
+  return null;
+};
+
 
   // Only known, final provider rejection codes are
   // eligible for automatic cancellation.
