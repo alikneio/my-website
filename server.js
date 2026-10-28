@@ -7086,7 +7086,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       message
     });
 
-    const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+    const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
 
     if (!adminChatId) return;
 
@@ -7107,7 +7107,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
   };
 
   const updateIdemState = async (orderId, state, extra = {}) => {
-    await query(
+    const result = await query(
       `UPDATE idempotency_keys
        SET response_json = ?
        WHERE user_id = ?
@@ -7126,6 +7126,226 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
         orderId
       ]
     );
+
+    if (result.affectedRows !== 1) {
+      throw new Error('Failed to update idempotency state');
+    }
+  };
+
+  // Extract provider order ID
+  const providerOrderIdFrom = data =>
+    data?.id ??
+    data?.data?.id ??
+    data?.order_id ??
+    data?.data?.order_id ??
+    null;
+
+  // Extract safe provider reason
+  const providerReason = data => {
+    const value =
+      typeof data === 'string'
+        ? data
+        : (
+            data?.message ??
+            data?.detail ??
+            data?.error?.message ??
+            data?.error ??
+            data?.data?.message ??
+            ''
+          );
+
+    return typeof value === 'string'
+      ? value
+          .replace(/[\r\n\t]+/g, ' ')
+          .replace(/(bearer\s+)[^\s]+/ig, '$1[REDACTED]')
+          .slice(0, 200)
+      : '';
+  };
+
+  // Only explicit provider rejection qualifies for refund.
+  // Never auto-refund on network errors, HTTP 5xx,
+  // 408, 409, 425 or 429.
+  const isDefiniteRejection = (data, httpStatus) => {
+    if (!data || typeof data !== 'object') {
+      return false;
+    }
+
+    if (providerOrderIdFrom(data) != null) {
+      return false;
+    }
+
+    if (
+      httpStatus == null ||
+      httpStatus >= 500 ||
+      [408, 409, 425, 429].includes(httpStatus)
+    ) {
+      return false;
+    }
+
+    const state = String(
+      data.status ?? data.data?.status ?? ''
+    ).toLowerCase();
+
+    return (
+      data.success === false ||
+      ['rejected', 'declined', 'refused'].includes(state)
+    );
+  };
+
+  // Atomic rejection and one-time refund
+  const rejectAndRefund = async (localOrderId, reason) => {
+    const conn = await promisePool.getConnection();
+    let inTx = false;
+    let commitAttempted = false;
+
+    try {
+      await conn.beginTransaction();
+      inTx = true;
+
+      const [orders] = await conn.query(
+        `SELECT id, userId, price, status, provider_order_id
+         FROM orders
+         WHERE id = ? AND userId = ?
+         FOR UPDATE`,
+        [localOrderId, userId]
+      );
+
+      const order = orders[0];
+
+      if (
+        !order ||
+        order.status !== 'Waiting' ||
+        order.provider_order_id != null
+      ) {
+        throw new Error('Order is not eligible for refund');
+      }
+
+      const [keys] = await conn.query(
+        `SELECT response_json
+         FROM idempotency_keys
+         WHERE user_id = ?
+           AND idem_key = ?
+           AND order_id = ?
+         FOR UPDATE`,
+        [userId, rawIdemKey, localOrderId]
+      );
+
+      if (
+        keys.length !== 1 ||
+        JSON.parse(keys[0].response_json || '{}').state !== 'sending'
+      ) {
+        throw new Error('Idempotency state is not sending');
+      }
+
+      const amount = Number(order.price);
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('Invalid refund amount');
+      }
+
+      const [changed] = await conn.query(
+        `UPDATE orders
+         SET status = 'Rejected'
+         WHERE id = ?
+           AND userId = ?
+           AND status = 'Waiting'
+           AND provider_order_id IS NULL`,
+        [localOrderId, userId]
+      );
+
+      if (changed.affectedRows !== 1) {
+        throw new Error('Order update failed');
+      }
+
+      const [credited] = await conn.query(
+        `UPDATE users
+         SET balance = balance + ?
+         WHERE id = ?`,
+        [amount, userId]
+      );
+
+      if (credited.affectedRows !== 1) {
+        throw new Error('Balance refund failed');
+      }
+
+      await conn.query(
+        `INSERT INTO transactions
+           (user_id, order_id, type, amount, reason)
+         VALUES (?, ?, 'credit', ?, ?)`,
+        [
+          userId,
+          localOrderId,
+          amount,
+          `Refund: Daily Card rejected order #${localOrderId}`
+        ]
+      );
+
+      const [updatedKey] = await conn.query(
+        `UPDATE idempotency_keys
+         SET response_json = ?
+         WHERE user_id = ?
+           AND idem_key = ?
+           AND order_id = ?`,
+        [
+          JSON.stringify({
+            state: 'rejected',
+            productId: Number(rawProductId),
+            quantity: Number(rawQuantity),
+            playerId,
+            reason: String(reason).slice(0, 160)
+          }),
+          userId,
+          rawIdemKey,
+          localOrderId
+        ]
+      );
+
+      if (updatedKey.affectedRows !== 1) {
+        throw new Error('Key update failed');
+      }
+
+      await conn.query(
+        `INSERT INTO notifications
+           (user_id, message, created_at, is_read)
+         VALUES (?, ?, NOW(), 0)`,
+        [
+          userId,
+          `❌ تعذّر تنفيذ الطلب #${localOrderId} وتمت إعادة المبلغ إلى رصيدك.`
+        ]
+      );
+
+      commitAttempted = true;
+      await conn.commit();
+      inTx = false;
+
+      return true;
+
+    } catch (error) {
+      if (inTx) {
+        try {
+          await conn.rollback();
+        } catch (rollbackError) {
+          console.error(
+            '❌ Refund rollback failed:',
+            rollbackError.message
+          );
+        }
+      }
+
+      console.error(
+        '❌ Daily Card rejection/refund could not be confirmed:',
+        {
+          localOrderId,
+          error: error.message,
+          commitAttempted
+        }
+      );
+
+      return false;
+
+    } finally {
+      conn.release();
+    }
   };
 
   let orderId = null;
@@ -7181,6 +7401,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     }
 
     const unitQty = Number(product.unit_quantity ?? 1);
+
     const rawUnitPrice = Number(
       product.custom_price || product.unit_price || 0
     );
@@ -7205,11 +7426,16 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     // 3) PLAYER ID
     // =====================================================
 
-    const requiresPlayerId = Number(product.player_check) === 1;
+    const requiresPlayerId =
+      Number(product.player_check) === 1;
+
     const requiresVerification =
       Number(product.requires_verification) === 1;
 
-    if ((requiresPlayerId || requiresVerification) && !playerId) {
+    if (
+      (requiresPlayerId || requiresVerification) &&
+      !playerId
+    ) {
       return checkoutError('missing_player');
     }
 
@@ -7217,9 +7443,16 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       let verifyRes;
 
       try {
-        verifyRes = await verifyPlayerId(productIdNum, playerId);
+        verifyRes = await verifyPlayerId(
+          productIdNum,
+          playerId
+        );
       } catch (err) {
-        console.error('❌ Player verification error:', err.message);
+        console.error(
+          '❌ Player verification error:',
+          err.message
+        );
+
         return checkoutError('verify');
       }
 
@@ -7282,6 +7515,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
             })
           ]
         );
+
       } catch (err) {
         if (err.code !== 'ER_DUP_ENTRY') {
           throw err;
@@ -7299,13 +7533,17 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
         const existing = existingRows[0];
 
         if (!existing) {
-          throw new Error('Duplicate key without existing record');
+          throw new Error(
+            'Duplicate key without existing record'
+          );
         }
 
         let payload = {};
 
         try {
-          payload = JSON.parse(existing.response_json || '{}');
+          payload = JSON.parse(
+            existing.response_json || '{}'
+          );
         } catch (_) {}
 
         if (
@@ -7315,6 +7553,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
         ) {
           await conn.rollback();
           transactionStarted = false;
+
           return checkoutError('server');
         }
 
@@ -7335,27 +7574,30 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
         if (balanceResult.affectedRows !== 1) {
           await conn.rollback();
           transactionStarted = false;
+
           return checkoutError('balance');
         }
 
-        // Save local order BEFORE provider request
+        // Save local order before provider request
         const [orderResult] = await conn.query(
           `INSERT INTO orders
-            (
-              userId,
-              productName,
-              price,
-              purchaseDate,
-              order_details,
-              status,
-              provider_order_id,
-              provider,
-              source,
-              client_token
-            )
+           (
+             userId,
+             productName,
+             price,
+             purchaseDate,
+             order_details,
+             status,
+             provider_order_id,
+             provider,
+             source,
+             client_token
+           )
            VALUES
-            (?, ?, ?, NOW(), ?, 'Waiting',
-             NULL, 'dailycard', 'api', ?)`,
+           (
+             ?, ?, ?, NOW(), ?, 'Waiting',
+             NULL, 'dailycard', 'api', ?
+           )`,
           [
             userId,
             productName,
@@ -7367,7 +7609,6 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
 
         orderId = orderResult.insertId;
 
-        // Link financial transaction to local order
         await conn.query(
           `INSERT INTO transactions
              (user_id, order_id, type, amount, reason)
@@ -7380,13 +7621,19 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
           ]
         );
 
-        await conn.query(
+        const [linkedKey] = await conn.query(
           `UPDATE idempotency_keys
            SET order_id = ?
            WHERE user_id = ?
              AND idem_key = ?`,
           [orderId, userId, rawIdemKey]
         );
+
+        if (linkedKey.affectedRows !== 1) {
+          throw new Error(
+            'Failed to link idempotency key'
+          );
+        }
 
         await conn.query(
           `INSERT INTO notifications
@@ -7409,17 +7656,24 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
         try {
           await conn.rollback();
         } catch (rollbackErr) {
-          console.error('❌ Rollback error:', rollbackErr);
+          console.error(
+            '❌ Rollback error:',
+            rollbackErr
+          );
         }
       }
 
-      console.error('❌ Quantity reservation error:', err);
+      console.error(
+        '❌ Quantity reservation error:',
+        err
+      );
 
       if (commitAttempted) {
         await sendAdminAlert(
           orderId,
           'Database COMMIT outcome uncertain. Check balance, order and transaction.'
         );
+
         return res.redirect('/processing');
       }
 
@@ -7429,7 +7683,7 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       conn.release();
     }
 
-    // Duplicate request: NEVER call provider again.
+    // Duplicate request: never call provider again
     if (duplicate) {
       req.session.pendingOrderId = orderId || null;
       return res.redirect('/processing');
@@ -7442,7 +7696,10 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     // =====================================================
 
     try {
-      await updateIdemState(orderId, 'sending');
+      await updateIdemState(
+        orderId,
+        'sending'
+      );
     } catch (err) {
       await sendAdminAlert(
         orderId,
@@ -7457,64 +7714,149 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     // =====================================================
 
     let providerOrderId = null;
+    let providerResponse = null;
+    let providerHttpStatus = null;
+    let providerError = null;
 
     try {
       const orderBody = {
         product: productIdNum,
         quantity: qty,
-        ...(playerId ? { account_id: playerId } : {})
+        ...(playerId
+          ? { account_id: playerId }
+          : {})
       };
 
-      const { data: result } = await dailycardAPI.post(
+      const response = await dailycardAPI.post(
         '/api-keys/orders/create/',
         orderBody
       );
 
-      providerOrderId =
-        result?.id ??
-        result?.data?.id ??
-        result?.order_id ??
-        result?.data?.order_id ??
-        null;
+      providerResponse = response.data;
+      providerHttpStatus = response.status ?? null;
 
-      if (
-        providerOrderId === null ||
-        String(providerOrderId).trim() === ''
-      ) {
-        throw new Error('Provider returned no order ID');
-      }
-
-      providerOrderId = String(providerOrderId).trim();
+      providerOrderId = providerOrderIdFrom(
+        providerResponse
+      );
 
     } catch (err) {
-      // Important:
-      // Timeout does NOT prove the provider rejected the order.
-      // Never auto-refund or automatically retry.
-      try {
-        await updateIdemState(orderId, 'unknown', {
-          error: String(err.code || err.message).slice(0, 160)
-        });
-      } catch (saveErr) {
-        console.error(
-          '❌ CRITICAL: Could not save unknown state:',
+      providerError = err;
+
+      providerResponse =
+        err?.response?.data ?? null;
+
+      providerHttpStatus =
+        err?.response?.status ?? null;
+
+      providerOrderId = providerOrderIdFrom(
+        providerResponse
+      );
+
+      console.error(
+        '❌ DAILY CARD API ERROR:',
+        {
+          localOrderId: orderId,
+          httpStatus: providerHttpStatus,
+          axiosCode: err?.code ?? null,
+          message: err?.message ?? null,
+          providerMessage:
+            providerReason(providerResponse),
+          responseFields:
+            providerResponse &&
+            typeof providerResponse === 'object'
+              ? Object.keys(providerResponse)
+              : []
+        }
+      );
+    }
+
+    if (
+      providerOrderId == null ||
+      String(providerOrderId).trim() === ''
+    ) {
+      const reason = providerReason(
+        providerResponse
+      );
+
+      const code = String(
+        providerError?.code ||
+        providerError?.message ||
+        'NO_ORDER_ID'
+      ).slice(0, 100);
+
+      const definite = isDefiniteRejection(
+        providerResponse,
+        providerHttpStatus
+      );
+
+      console.error(
+        '⚠️ DAILY CARD PROVIDER RESULT:',
+        {
           orderId,
-          saveErr
+          httpStatus: providerHttpStatus,
+          axiosCode: code,
+          providerMessage:
+            reason || '(not supplied)',
+          classification: definite
+            ? 'EXPLICIT_REJECTION'
+            : 'UNKNOWN'
+        }
+      );
+
+      if (definite) {
+        const refunded = await rejectAndRefund(
+          orderId,
+          reason || code
+        );
+
+        await sendAdminAlert(
+          orderId,
+          refunded
+            ? `REJECTED + REFUNDED | HTTP ${providerHttpStatus} | Reason: ${reason || code}`
+            : `Provider rejection detected but local refund NOT CONFIRMED. Check database. Reason: ${reason || code}`
+        );
+
+      } else {
+        try {
+          await updateIdemState(
+            orderId,
+            'unknown',
+            {
+              error: code,
+              httpStatus: providerHttpStatus,
+              providerMessage: reason
+            }
+          );
+
+        } catch (saveErr) {
+          console.error(
+            '❌ CRITICAL: Could not save unknown state:',
+            orderId,
+            saveErr.message
+          );
+        }
+
+        await sendAdminAlert(
+          orderId,
+          `Provider outcome UNKNOWN | ` +
+          `HTTP ${providerHttpStatus ?? 'N/A'} | ` +
+          `Code: ${code} | ` +
+          `Reason: ${reason || 'Not supplied'}`
         );
       }
 
-      await sendAdminAlert(
-        orderId,
-        `Provider outcome UNKNOWN: ${err.code || err.message}`
-      );
-
       return res.redirect('/processing');
     }
+
+    providerOrderId =
+      String(providerOrderId).trim();
 
     // =====================================================
     // 8) SAVE PROVIDER ORDER ID
     // =====================================================
 
     const conn2 = await promisePool.getConnection();
+
     let providerSaved = false;
     let providerTxStarted = false;
 
@@ -7531,7 +7873,9 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       );
 
       if (orderUpdate.affectedRows !== 1) {
-        throw new Error('Local order not found');
+        throw new Error(
+          'Local order not found'
+        );
       }
 
       const [idemUpdate] = await conn2.query(
@@ -7555,7 +7899,9 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       );
 
       if (idemUpdate.affectedRows !== 1) {
-        throw new Error('Idempotency record not found');
+        throw new Error(
+          'Idempotency record not found'
+        );
       }
 
       await conn2.commit();
@@ -7599,8 +7945,12 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       if (freshUser) {
         req.session.user = freshUser;
       }
+
     } catch (err) {
-      console.warn('⚠️ Session refresh failed:', err.message);
+      console.warn(
+        '⚠️ Session refresh failed:',
+        err.message
+      );
     }
 
     // =====================================================
@@ -7608,7 +7958,8 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
     // =====================================================
 
     try {
-      const urow = freshUser || req.session.user;
+      const urow =
+        freshUser || req.session.user;
 
       if (urow?.telegram_chat_id) {
         await sendTelegramMessage(
@@ -7619,12 +7970,15 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
           `💰 <b>السعر:</b> ${finalTotal.toFixed(2)}$\n` +
           `📌 <b>الحالة:</b> جاري المعالجة`,
           process.env.TELEGRAM_BOT_TOKEN,
-          { parseMode: 'HTML', timeoutMs: 15000 }
+          {
+            parseMode: 'HTML',
+            timeoutMs: 15000
+          }
         );
       }
 
       const adminChatId =
-        process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+        process.env.ADMIN_TELEGRAM_CHAT_ID;
 
       if (adminChatId) {
         await sendTelegramMessage(
@@ -7638,7 +7992,10 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
           `💰 <b>السعر:</b> ${finalTotal.toFixed(2)}$\n` +
           `🕓 <b>الوقت:</b> ${new Date().toLocaleString('en-US', { hour12: false })}`,
           process.env.TELEGRAM_BOT_TOKEN,
-          { parseMode: 'HTML', timeoutMs: 15000 }
+          {
+            parseMode: 'HTML',
+            timeoutMs: 15000
+          }
         );
       }
 
@@ -7658,7 +8015,9 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
   } catch (err) {
     console.error(
       '❌ Quantity Order Error:',
-      err?.response?.data || err.message || err
+      err?.response?.data ||
+      err.message ||
+      err
     );
 
     if (reservationCommitted || orderId) {
@@ -7668,12 +8027,14 @@ app.post('/buy-quantity-product', checkAuth, async (req, res) => {
       );
 
       req.session.pendingOrderId = orderId;
+
       return res.redirect('/processing');
     }
 
     return checkoutError('server');
   }
 });
+
 
 
 
