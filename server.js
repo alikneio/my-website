@@ -7049,247 +7049,632 @@ app.get('/api/out-of-stock', async (req, res) => {
 });
 
 
+
 app.post('/buy-quantity-product', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
 
-  const rawIdemKey = (req.body.idempotency_key || req.session.idemKey || '').toString().slice(0, 64);
   const { productId, quantity, player_id } = req.body;
 
-  const query = (sql, params) =>
-    new Promise((resolve, reject) =>
-      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+  const rawIdemKey = String(req.body.idempotency_key || '').trim();
+  const rawProductId = String(productId ?? '').trim();
+  const rawQuantity = String(quantity ?? '').trim();
+  const playerId = String(player_id ?? '').trim();
+
+  const validPositiveInt = value => /^[1-9]\d*$/.test(value);
+
+  const safeProductId = validPositiveInt(rawProductId)
+    ? Number(rawProductId)
+    : null;
+
+  const checkoutError = code =>
+    res.redirect(
+      safeProductId
+        ? `/api-checkout/${safeProductId}?error=${code}`
+        : '/'
     );
 
-  async function refundProviderOrder(providerOrderId) {
-    if (!providerOrderId) return;
+  const query = async (sql, params = []) => {
+    const [rows] = await promisePool.query(sql, params);
+    return rows;
+  };
+
+  const sendAdminAlert = async (orderId, message) => {
+    console.error('⚠️ DAILY CARD MANUAL REVIEW:', {
+      orderId,
+      userId,
+      message
+    });
+
+    const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+
+    if (!adminChatId) return;
+
     try {
-      await dailycardAPI.post('/api-keys/orders/cancel/', { id: providerOrderId });
-    } catch (e) {
-      console.warn('⚠️ Provider cancel/refund failed (ignored):', e?.message || e);
+      await sendTelegramMessage(
+        adminChatId,
+        `⚠️ <b>Daily Card - Manual Review</b>\n\n` +
+        `🧾 Local Order: #${orderId}\n` +
+        `👤 User ID: ${userId}\n` +
+        `📌 ${message}\n\n` +
+        `⛔ Do not retry or refund before checking Daily Card.`,
+        process.env.TELEGRAM_BOT_TOKEN,
+        { parseMode: 'HTML', timeoutMs: 15000 }
+      );
+    } catch (err) {
+      console.error('❌ Admin alert failed:', err.message);
     }
-  }
+  };
+
+  const updateIdemState = async (orderId, state, extra = {}) => {
+    await query(
+      `UPDATE idempotency_keys
+       SET response_json = ?
+       WHERE user_id = ?
+         AND idem_key = ?
+         AND order_id = ?`,
+      [
+        JSON.stringify({
+          state,
+          productId: safeProductId,
+          quantity: Number(rawQuantity),
+          playerId,
+          ...extra
+        }),
+        userId,
+        rawIdemKey,
+        orderId
+      ]
+    );
+  };
+
+  let orderId = null;
+  let reservationCommitted = false;
 
   try {
-    // 0) Idempotency gate
-    if (rawIdemKey) {
-      try {
-        await query(
-          `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
-          [userId, rawIdemKey]
-        );
-      } catch (e) {
-        // نفس request انبعت قبل -> خليه يروح على processing
-        return res.redirect('/processing');
-      }
+    // =====================================================
+    // 1) VALIDATION
+    // =====================================================
+
+    if (
+      !validPositiveInt(rawProductId) ||
+      !validPositiveInt(rawQuantity) ||
+      !Number.isSafeInteger(Number(rawProductId)) ||
+      !Number.isSafeInteger(Number(rawQuantity))
+    ) {
+      return checkoutError('invalid_quantity');
     }
 
-    // ✅ 0.5) Fresh user from DB (بنخليها مثل ما هي حتى ما نخرب منطقك)
-    let sessionUser = null;
-    try {
-      const [[freshUser]] = await promisePool.query(
-        'SELECT * FROM users WHERE id = ? LIMIT 1',
-        [userId]
-      );
-      sessionUser = freshUser || req.session.user || null;
-      if (freshUser) req.session.user = freshUser;
-    } catch (_) {
-      sessionUser = req.session.user || null;
+    if (!/^[a-zA-Z0-9_-]{16,64}$/.test(rawIdemKey)) {
+      return checkoutError('server');
     }
 
-    // 1) Fetch product (variable qty)
-    const [product] = await query(
-      `SELECT * FROM selected_api_products
-       WHERE product_id = ? AND active = 1 AND variable_quantity = 1
+    if (playerId.length > 255) {
+      return checkoutError('missing_player');
+    }
+
+    const productIdNum = Number(rawProductId);
+    const qty = Number(rawQuantity);
+
+    // =====================================================
+    // 2) PRODUCT
+    // =====================================================
+
+    const products = await query(
+      `SELECT *
+       FROM selected_api_products
+       WHERE product_id = ?
+         AND active = 1
+         AND variable_quantity = 1
        LIMIT 1`,
-      [productId]
+      [productIdNum]
     );
-    if (!product) return res.redirect(`/api-checkout/${productId}?error=notfound`);
+
+    const product = products[0];
+
+    if (!product) {
+      return checkoutError('notfound');
+    }
 
     if (Number(product.is_out_of_stock) === 1) {
-      return res.redirect(`/api-checkout/${productId}?error=out_of_stock`);
+      return checkoutError('out_of_stock');
     }
 
-    // 2) Validate qty
-    const qty = parseInt(quantity, 10);
+    const unitQty = Number(product.unit_quantity ?? 1);
+    const rawUnitPrice = Number(
+      product.custom_price || product.unit_price || 0
+    );
 
-    const unitQty = Math.max(1, parseInt(product.unit_quantity ?? 1, 10));
-    const rawUnitPrice = Number(product.custom_price || product.unit_price || 0) || 0;
+    const minQty = Number(product.min_quantity ?? 1);
+    const maxQty = Number(product.max_quantity ?? 999999);
 
-    const min = Number.isFinite(parseInt(product.min_quantity, 10)) ? parseInt(product.min_quantity, 10) : 1;
-    const max = Number.isFinite(parseInt(product.max_quantity, 10)) ? parseInt(product.max_quantity, 10) : 999999;
-
-    if (!Number.isFinite(qty) || qty < min || qty > max) {
-      return res.redirect(`/api-checkout/${productId}?error=invalid_quantity`);
+    if (
+      !Number.isSafeInteger(unitQty) ||
+      unitQty <= 0 ||
+      !Number.isFinite(rawUnitPrice) ||
+      rawUnitPrice <= 0 ||
+      !Number.isSafeInteger(minQty) ||
+      !Number.isSafeInteger(maxQty) ||
+      qty < minQty ||
+      qty > maxQty
+    ) {
+      return checkoutError('invalid_quantity');
     }
-    if (!Number.isFinite(unitQty) || unitQty <= 0) {
-      return res.redirect(`/api-checkout/${productId}?error=invalid_unit_qty`);
-    }
 
-    // 3) Player ID requirements
+    // =====================================================
+    // 3) PLAYER ID
+    // =====================================================
+
     const requiresPlayerId = Number(product.player_check) === 1;
-    if (requiresPlayerId && (!player_id || player_id.trim() === '')) {
-      return res.redirect(`/api-checkout/${productId}?error=missing_player`);
+    const requiresVerification =
+      Number(product.requires_verification) === 1;
+
+    if ((requiresPlayerId || requiresVerification) && !playerId) {
+      return checkoutError('missing_player');
     }
 
-    if (Number(product.requires_verification) === 1) {
-      const verifyRes = await verifyPlayerId(productId, player_id);
-      if (!verifyRes.success) {
-        return res.redirect(
-          `/api-checkout/${productId}?error=verify&msg=${encodeURIComponent(verifyRes.message || 'Verification failed')}`
-        );
+    if (requiresVerification) {
+      let verifyRes;
+
+      try {
+        verifyRes = await verifyPlayerId(productIdNum, playerId);
+      } catch (err) {
+        console.error('❌ Player verification error:', err.message);
+        return checkoutError('verify');
+      }
+
+      if (!verifyRes?.success) {
+        return checkoutError('verify');
       }
     }
 
-    // 4) Base pricing (NO DISCOUNT)
-    const baseTotalCents = Math.round((qty * rawUnitPrice * 100) / unitQty);
-    if (!Number.isFinite(baseTotalCents) || baseTotalCents <= 0) {
-      return res.redirect(`/api-checkout/${productId}?error=pricing`);
-    }
-    const baseTotal = baseTotalCents / 100;
+    // =====================================================
+    // 4) PRICE - NO DISCOUNT
+    // =====================================================
 
-    // ✅ 5) Final total = base total (NO DISCOUNT)
-    const finalTotal = baseTotal;
+    const totalCents = Math.round(
+      (qty * rawUnitPrice * 100) / unitQty
+    );
 
-    // 7) Call provider FIRST
-    const orderBody = {
-      product: parseInt(productId, 10),
-      quantity: qty,
-      ...(player_id ? { account_id: player_id } : {})
-    };
-
-    let providerOrderId = null;
-    try {
-      const { data: result } = await dailycardAPI.post('/api-keys/orders/create/', orderBody);
-      providerOrderId = result?.id || result?.data?.id || result?.order_id || null;
-    } catch (e) {
-      return res.redirect(`/api-checkout/${productId}?error=network`);
+    if (
+      !Number.isSafeInteger(totalCents) ||
+      totalCents <= 0
+    ) {
+      return checkoutError('pricing');
     }
 
-    if (!providerOrderId) {
-      return res.redirect(`/api-checkout/${productId}?error=order_failed`);
-    }
+    const finalTotal = totalCents / 100;
 
-    // 8) Transaction
+    const productName =
+      product.custom_name || `API Product ${productIdNum}`;
+
+    const orderDetails = playerId
+      ? `User ID: ${playerId}, Quantity: ${qty}`
+      : `Quantity: ${qty}`;
+
+    // =====================================================
+    // 5) RESERVE ORDER + DEBIT ATOMICALLY
+    // =====================================================
+
     const conn = await promisePool.getConnection();
-    let insertId = null;
+
+    let duplicate = false;
+    let transactionStarted = false;
+    let commitAttempted = false;
 
     try {
       await conn.beginTransaction();
+      transactionStarted = true;
 
-      // ✅ خصم ذري من الرصيد (NO DISCOUNT)
-      const [updRes] = await conn.query(
-        `UPDATE users
-            SET balance = balance - ?
-          WHERE id = ? AND balance >= ?`,
-        [finalTotal, userId, finalTotal]
-      );
+      try {
+        await conn.query(
+          `INSERT INTO idempotency_keys
+             (user_id, idem_key, response_json)
+           VALUES (?, ?, ?)`,
+          [
+            userId,
+            rawIdemKey,
+            JSON.stringify({
+              state: 'reserved',
+              productId: productIdNum,
+              quantity: qty,
+              playerId
+            })
+          ]
+        );
+      } catch (err) {
+        if (err.code !== 'ER_DUP_ENTRY') {
+          throw err;
+        }
 
-      if (!updRes?.affectedRows) {
-        await conn.rollback();
-        await refundProviderOrder(providerOrderId);
-        return res.redirect(`/api-checkout/${productId}?error=balance`);
+        const [existingRows] = await conn.query(
+          `SELECT order_id, response_json
+           FROM idempotency_keys
+           WHERE user_id = ?
+             AND idem_key = ?
+           LIMIT 1`,
+          [userId, rawIdemKey]
+        );
+
+        const existing = existingRows[0];
+
+        if (!existing) {
+          throw new Error('Duplicate key without existing record');
+        }
+
+        let payload = {};
+
+        try {
+          payload = JSON.parse(existing.response_json || '{}');
+        } catch (_) {}
+
+        if (
+          payload.productId !== productIdNum ||
+          payload.quantity !== qty ||
+          payload.playerId !== playerId
+        ) {
+          await conn.rollback();
+          transactionStarted = false;
+          return checkoutError('server');
+        }
+
+        orderId = existing.order_id;
+        duplicate = true;
       }
 
-      await conn.query(
-        `INSERT INTO transactions (user_id, type, amount, reason)
-         VALUES (?, 'debit', ?, ?)`,
-        [userId, finalTotal, `Purchase: ${product.custom_name || `API Product ${productId}`}`]
-      );
+      if (!duplicate) {
+        // Atomic balance deduction
+        const [balanceResult] = await conn.query(
+          `UPDATE users
+           SET balance = balance - ?
+           WHERE id = ?
+             AND balance >= ?`,
+          [finalTotal, userId, finalTotal]
+        );
 
-      const orderDetails = player_id
-        ? `User ID: ${player_id}, Quantity: ${qty}`
-        : `Quantity: ${qty}`;
+        if (balanceResult.affectedRows !== 1) {
+          await conn.rollback();
+          transactionStarted = false;
+          return checkoutError('balance');
+        }
 
-      const [orderRes] = await conn.query(
-        `INSERT INTO orders
-          (userId, productName, price, purchaseDate, order_details, status, provider_order_id, provider, source${rawIdemKey ? ', client_token' : ''})
-         VALUES
-          (?, ?, ?, NOW(), ?, 'Waiting', ?, 'dailycard', 'api'${rawIdemKey ? ', ?' : ''})`,
-        rawIdemKey
-          ? [userId, product.custom_name || `API Product ${productId}`, finalTotal, orderDetails, providerOrderId, rawIdemKey]
-          : [userId, product.custom_name || `API Product ${productId}`, finalTotal, orderDetails, providerOrderId]
-      );
+        // Save local order BEFORE provider request
+        const [orderResult] = await conn.query(
+          `INSERT INTO orders
+            (
+              userId,
+              productName,
+              price,
+              purchaseDate,
+              order_details,
+              status,
+              provider_order_id,
+              provider,
+              source,
+              client_token
+            )
+           VALUES
+            (?, ?, ?, NOW(), ?, 'Waiting',
+             NULL, 'dailycard', 'api', ?)`,
+          [
+            userId,
+            productName,
+            finalTotal,
+            orderDetails,
+            rawIdemKey
+          ]
+        );
 
-      insertId = orderRes.insertId;
+        orderId = orderResult.insertId;
 
-      await conn.query(
-        `INSERT INTO notifications (user_id, message, created_at, is_read)
-         VALUES (?, ?, NOW(), 0)`,
-        [userId, `✅ تم استلام طلبك (${product.custom_name || `API Product ${productId}`}) بنجاح. سيتم معالجته قريبًا.`]
-      );
+        // Link financial transaction to local order
+        await conn.query(
+          `INSERT INTO transactions
+             (user_id, order_id, type, amount, reason)
+           VALUES (?, ?, 'debit', ?, ?)`,
+          [
+            userId,
+            orderId,
+            finalTotal,
+            `Purchase: ${productName}`
+          ]
+        );
 
+        await conn.query(
+          `UPDATE idempotency_keys
+           SET order_id = ?
+           WHERE user_id = ?
+             AND idem_key = ?`,
+          [orderId, userId, rawIdemKey]
+        );
+
+        await conn.query(
+          `INSERT INTO notifications
+             (user_id, message, created_at, is_read)
+           VALUES (?, ?, NOW(), 0)`,
+          [
+            userId,
+            `✅ تم تسجيل طلبك (${productName}) رقم #${orderId}. سيتم معالجته قريبًا.`
+          ]
+        );
+      }
+
+      commitAttempted = true;
       await conn.commit();
-    } catch (e) {
-      try { await conn.rollback(); } catch (_) {}
-      await refundProviderOrder(providerOrderId);
-      console.error('❌ buy-quantity tx error:', e);
-      return res.redirect(`/api-checkout/${productId}?error=server`);
+      transactionStarted = false;
+      reservationCommitted = true;
+
+    } catch (err) {
+      if (transactionStarted) {
+        try {
+          await conn.rollback();
+        } catch (rollbackErr) {
+          console.error('❌ Rollback error:', rollbackErr);
+        }
+      }
+
+      console.error('❌ Quantity reservation error:', err);
+
+      if (commitAttempted) {
+        await sendAdminAlert(
+          orderId,
+          'Database COMMIT outcome uncertain. Check balance, order and transaction.'
+        );
+        return res.redirect('/processing');
+      }
+
+      return checkoutError('server');
+
     } finally {
       conn.release();
     }
 
-    // 10) Refresh session after commit
-    try {
-      const [[freshUserAfter]] = await promisePool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
-      if (freshUserAfter) req.session.user = freshUserAfter;
-    } catch (_) {}
+    // Duplicate request: NEVER call provider again.
+    if (duplicate) {
+      req.session.pendingOrderId = orderId || null;
+      return res.redirect('/processing');
+    }
 
-    // 11) Telegram (after commit) - NO DISCOUNT
+    req.session.pendingOrderId = orderId;
+
+    // =====================================================
+    // 6) MARK SENDING BEFORE CALLING PROVIDER
+    // =====================================================
+
     try {
-      const [urows] = await promisePool.query(
-        'SELECT username, telegram_chat_id FROM users WHERE id = ?',
+      await updateIdemState(orderId, 'sending');
+    } catch (err) {
+      await sendAdminAlert(
+        orderId,
+        `Could not save sending state: ${err.message}`
+      );
+
+      return res.redirect('/processing');
+    }
+
+    // =====================================================
+    // 7) CALL DAILY CARD ONCE
+    // =====================================================
+
+    let providerOrderId = null;
+
+    try {
+      const orderBody = {
+        product: productIdNum,
+        quantity: qty,
+        ...(playerId ? { account_id: playerId } : {})
+      };
+
+      const { data: result } = await dailycardAPI.post(
+        '/api-keys/orders/create/',
+        orderBody
+      );
+
+      providerOrderId =
+        result?.id ??
+        result?.data?.id ??
+        result?.order_id ??
+        result?.data?.order_id ??
+        null;
+
+      if (
+        providerOrderId === null ||
+        String(providerOrderId).trim() === ''
+      ) {
+        throw new Error('Provider returned no order ID');
+      }
+
+      providerOrderId = String(providerOrderId).trim();
+
+    } catch (err) {
+      // Important:
+      // Timeout does NOT prove the provider rejected the order.
+      // Never auto-refund or automatically retry.
+      try {
+        await updateIdemState(orderId, 'unknown', {
+          error: String(err.code || err.message).slice(0, 160)
+        });
+      } catch (saveErr) {
+        console.error(
+          '❌ CRITICAL: Could not save unknown state:',
+          orderId,
+          saveErr
+        );
+      }
+
+      await sendAdminAlert(
+        orderId,
+        `Provider outcome UNKNOWN: ${err.code || err.message}`
+      );
+
+      return res.redirect('/processing');
+    }
+
+    // =====================================================
+    // 8) SAVE PROVIDER ORDER ID
+    // =====================================================
+
+    const conn2 = await promisePool.getConnection();
+    let providerSaved = false;
+    let providerTxStarted = false;
+
+    try {
+      await conn2.beginTransaction();
+      providerTxStarted = true;
+
+      const [orderUpdate] = await conn2.query(
+        `UPDATE orders
+         SET provider_order_id = ?
+         WHERE id = ?
+           AND userId = ?`,
+        [providerOrderId, orderId, userId]
+      );
+
+      if (orderUpdate.affectedRows !== 1) {
+        throw new Error('Local order not found');
+      }
+
+      const [idemUpdate] = await conn2.query(
+        `UPDATE idempotency_keys
+         SET response_json = ?
+         WHERE user_id = ?
+           AND idem_key = ?
+           AND order_id = ?`,
+        [
+          JSON.stringify({
+            state: 'submitted',
+            productId: productIdNum,
+            quantity: qty,
+            playerId,
+            providerOrderId
+          }),
+          userId,
+          rawIdemKey,
+          orderId
+        ]
+      );
+
+      if (idemUpdate.affectedRows !== 1) {
+        throw new Error('Idempotency record not found');
+      }
+
+      await conn2.commit();
+      providerTxStarted = false;
+      providerSaved = true;
+
+    } catch (err) {
+      if (providerTxStarted) {
+        try {
+          await conn2.rollback();
+        } catch (_) {}
+      }
+
+      await sendAdminAlert(
+        orderId,
+        `Provider order CREATED (#${providerOrderId}) but local save failed or is uncertain: ${err.message}`
+      );
+
+    } finally {
+      conn2.release();
+    }
+
+    if (!providerSaved) {
+      return res.redirect('/processing');
+    }
+
+    // =====================================================
+    // 9) REFRESH USER SESSION
+    // =====================================================
+
+    let freshUser = null;
+
+    try {
+      const users = await query(
+        'SELECT * FROM users WHERE id = ? LIMIT 1',
         [userId]
       );
-      const urow = urows[0];
 
-      const productName = product.custom_name || `API Product ${productId}`;
+      freshUser = users[0] || null;
+
+      if (freshUser) {
+        req.session.user = freshUser;
+      }
+    } catch (err) {
+      console.warn('⚠️ Session refresh failed:', err.message);
+    }
+
+    // =====================================================
+    // 10) TELEGRAM NOTIFICATIONS
+    // =====================================================
+
+    try {
+      const urow = freshUser || req.session.user;
 
       if (urow?.telegram_chat_id) {
-        const userHtmlMsg =
+        await sendTelegramMessage(
+          urow.telegram_chat_id,
           `📥 <b>تم استلام طلبك بنجاح</b>\n\n` +
           `🛍️ <b>المنتج:</b> ${productName}\n` +
           `🔢 <b>الكمية:</b> ${qty}\n` +
-          `💰 <b>السعر:</b> ${Number(finalTotal).toFixed(2)}$\n` +
-          `📌 <b>الحالة:</b> جاري المعالجة`;
-
-        await sendTelegramMessage(
-          urow.telegram_chat_id,
-          userHtmlMsg,
+          `💰 <b>السعر:</b> ${finalTotal.toFixed(2)}$\n` +
+          `📌 <b>الحالة:</b> جاري المعالجة`,
           process.env.TELEGRAM_BOT_TOKEN,
           { parseMode: 'HTML', timeoutMs: 15000 }
         );
       }
 
-      const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+      const adminChatId =
+        process.env.ADMIN_TELEGRAM_CHAT_ID || '2096387191';
+
       if (adminChatId) {
-        const adminHtmlMsg =
+        await sendTelegramMessage(
+          adminChatId,
           `🆕 <b>طلب جديد (API Quantity)!</b>\n` +
+          `🧾 <b>رقم الطلب:</b> #${orderId}\n` +
+          `🔗 <b>Daily Card ID:</b> ${providerOrderId}\n` +
           `👤 <b>الزبون:</b> ${urow?.username || userId}\n` +
           `🎁 <b>المنتج:</b> ${productName}\n` +
           `📦 <b>الكمية:</b> ${qty}\n` +
-          `💰 <b>السعر:</b> ${Number(finalTotal).toFixed(2)}$\n` +
-          `🕓 <b>الوقت:</b> ${new Date().toLocaleString('en-US', { hour12: false })}`;
-
-        await sendTelegramMessage(
-          adminChatId,
-          adminHtmlMsg,
+          `💰 <b>السعر:</b> ${finalTotal.toFixed(2)}$\n` +
+          `🕓 <b>الوقت:</b> ${new Date().toLocaleString('en-US', { hour12: false })}`,
           process.env.TELEGRAM_BOT_TOKEN,
           { parseMode: 'HTML', timeoutMs: 15000 }
         );
       }
-    } catch (e) {
-      console.warn('⚠️ Telegram error (buy-quantity):', e.message || e);
+
+    } catch (err) {
+      console.warn(
+        '⚠️ Telegram error (buy-quantity):',
+        err.message || err
+      );
     }
 
-    req.session.pendingOrderId = insertId;
+    // =====================================================
+    // 11) PROCESSING PAGE
+    // =====================================================
+
     return res.redirect('/processing');
 
   } catch (err) {
-    console.error('❌ Quantity Order Error:', err?.response?.data || err.message || err);
-    return res.redirect(`/api-checkout/${productId}?error=server`);
+    console.error(
+      '❌ Quantity Order Error:',
+      err?.response?.data || err.message || err
+    );
+
+    if (reservationCommitted || orderId) {
+      await sendAdminAlert(
+        orderId,
+        `Unexpected error after reservation: ${err.message}`
+      );
+
+      req.session.pendingOrderId = orderId;
+      return res.redirect('/processing');
+    }
+
+    return checkoutError('server');
   }
 });
+
 
 
 
@@ -12909,187 +13294,585 @@ app.get('/anghami-section', (req, res) => {
 
 
 // 🔄 بدّل الراوت الحالي بهيدا — موحَّد مع بقية النظام
+
 app.post('/bigolive-section', checkAuth, async (req, res) => {
   const userId = req.session.user?.id;
   if (!userId) return res.redirect('/login?error=session');
 
-  // مفتاح عدم التكرار من الواجهة أو من السيشن
-  const rawIdemKey = req.body.idempotency_key || req.session.idemKey || '';
-  const { productId, quantity, player_id } = req.body;
+  const rawProductId = String(req.body.productId ?? '').trim();
+  const rawQuantity = String(req.body.quantity ?? '').trim();
+  const playerId = String(req.body.player_id ?? '').trim();
+  const rawIdemKey = String(req.body.idempotency_key || '').trim();
 
-  const query = (sql, params = []) =>
-    new Promise((resolve, reject) =>
-      db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
-    );
+  const productId = Number(rawProductId);
+  const qty = Number(rawQuantity);
 
-  try {
-    // 0) Idempotency
-    if (rawIdemKey) {
-      try {
-        await query(
-          `INSERT INTO idempotency_keys (user_id, idem_key) VALUES (?, ?)`,
-          [userId, String(rawIdemKey).slice(0, 64)]
-        );
-      } catch (e) {
-        // مكرر → لا خصم ولا طلب جديد
-        req.session.pendingOrderId = req.session.pendingOrderId || null;
-        return res.redirect('/processing');
-      }
+  const validInteger = value => /^[1-9]\d*$/.test(value);
+
+  const redirectError = error => {
+    if (!Number.isSafeInteger(productId) || productId <= 0) {
+      return res.redirect('/');
     }
+    return res.redirect(`/api-checkout/${productId}?error=${error}`);
+  };
 
-    // 1) إعدادات المنتج
-    const [product] = await query(
-      `SELECT * FROM selected_api_products WHERE product_id = ? AND active = 1`,
-      [productId]
-    );
-    if (!product) return res.redirect(`/api-checkout/${productId}?error=notfound`);
+  const query = async (sql, params = []) => {
+    const [rows] = await promisePool.query(sql, params);
+    return rows;
+  };
 
-    // منع الشراء لو Out of Stock
-    if (Number(product.is_out_of_stock) === 1) {
-      return res.redirect(`/api-checkout/${productId}?error=out_of_stock`);
-    }
-
-    // 2) أرقام وضوابط الكمية
-    const qty       = parseInt(quantity, 10);
-    const unitQty   = Math.max(1, parseInt(product.unit_quantity ?? 1, 10));
-    const unitPrice = Number(product.unit_price) || 0;
-    const minQty    = Math.max(1, parseInt(product.min_quantity ?? 1, 10));
-    const maxQty    = Math.max(minQty, parseInt(product.max_quantity ?? 999999, 10));
-
-    if (!Number.isFinite(qty) || qty < minQty || qty > maxQty || unitQty <= 0 || unitPrice <= 0) {
-      return res.redirect(`/api-checkout/${productId}?error=invalid_quantity`);
-    }
-
-    // 2.1) Player ID مطلوب إذا player_check=1 حتى لو ما في Verify خارجي
-    const requiresPlayerId = Number(product.player_check) === 1;
-    if (requiresPlayerId && (!player_id || player_id.trim() === '')) {
-      return res.redirect(`/api-checkout/${productId}?error=missing_player`);
-    }
-
-    // 3) التحقق الخارجي (إن لزم)
-    if (Number(product.requires_verification) === 1) {
-      const verifyRes = await verifyPlayerId(productId, player_id);
-      if (!verifyRes.success) {
-        return res.redirect(`/api-checkout/${productId}?error=verify&msg=${encodeURIComponent(verifyRes.message || 'Verification failed')}`);
-      }
-    }
-
-    // 4) التسعير الدقيق بالسنتات (موحّد مع باقي المسارات)
-    // totalCents = round(qty * unitPrice * 100 / unitQty)
-    const totalCents = Math.round((qty * unitPrice * 100) / unitQty);
-    if (!Number.isFinite(totalCents) || totalCents <= 0) {
-      return res.redirect(`/api-checkout/${productId}?error=pricing`);
-    }
-    const total = totalCents / 100;
-
-    // 5) خصم ذري يمنع السباق/التكرار
-    const upd = await query(
-      `UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?`,
-      [total, userId, total]
-    );
-    if (!upd?.affectedRows) {
-      return res.redirect(`/api-checkout/${productId}?error=balance`);
-    }
-
-    // 6) تسجيل معاملة الخصم
-    await query(
-      `INSERT INTO transactions (user_id, type, amount, reason)
-       VALUES (?, 'debit', ?, ?)`,
-      [userId, total, `Purchase: ${product.custom_name || `BIGO Product ${productId}`}`]
-    );
-
-    // 7) إنشاء الطلب عند المزوّد
-    const orderBody = {
-      product: Number(productId),
-      quantity: qty,
-      ...(player_id ? { account_id: player_id } : {})
-    };
-
-    let providerOrderId = null;
-    try {
-      const { data: result } = await dailycardAPI.post('/api-keys/orders/create/', orderBody);
-      providerOrderId = result?.id || result?.data?.id || result?.order_id || null;
-    } catch (e) {
-      // فشل شبكة/مزود → Refund فوري
-      await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
-      await query(
-        `INSERT INTO transactions (user_id, type, amount, reason)
-         VALUES (?, 'credit', ?, ?)`,
-        [userId, total, `Refund: ${product.custom_name || `BIGO Product ${productId}`} (provider error)`]
-      );
-      return res.redirect(`/api-checkout/${productId}?error=network`);
-    }
-
-    if (!providerOrderId) {
-      // فشل بدون ID → Refund
-      await query(`UPDATE users SET balance = balance + ? WHERE id = ?`, [total, userId]);
-      await query(
-        `INSERT INTO transactions (user_id, type, amount, reason)
-         VALUES (?, 'credit', ?, ?)`,
-        [userId, total, `Refund: ${product.custom_name || `BIGO Product ${productId}`}`]
-      );
-      return res.redirect(`/api-checkout/${productId}?error=order_failed`);
-    }
-
-    // 8) حفظ الطلب داخليًا (+ client_token لو موجود)
-    const orderDetails = player_id
-      ? `User ID: ${player_id}, Quantity: ${qty}`
-      : `Quantity: ${qty}`;
-
-    const insertSql = `
-      INSERT INTO orders
-        (userId, productName, price, purchaseDate, order_details, status, provider_order_id, provider, source${rawIdemKey ? ', client_token' : ''})
-      VALUES
-        (?, ?, ?, NOW(), ?, 'Waiting', ?, 'dailycard', 'api'${rawIdemKey ? ', ?' : ''})
-    `;
-    const insertParams = [
+  const notifyAdmin = async (orderId, message) => {
+    console.error('⚠️ BIGO MANUAL REVIEW:', {
+      orderId,
       userId,
-      product.custom_name || `BIGO Product ${productId}`,
-      total,
-      orderDetails,
-      providerOrderId
-    ];
-    if (rawIdemKey) insertParams.push(String(rawIdemKey).slice(0, 64));
+      message
+    });
 
-    const insertRes = await query(insertSql, insertParams);
-    const orderId = insertRes?.insertId ?? insertRes?.[0]?.insertId ?? null;
+    if (!process.env.ADMIN_TELEGRAM_CHAT_ID) return;
 
-    // 9) إشعارات داخلية + تيليغرام
-    await query(
-      `INSERT INTO notifications (user_id, message, created_at, is_read)
-       VALUES (?, ?, NOW(), 0)`,
-      [userId, `✅ تم استلام طلبك (${product.custom_name || `BIGO Product ${productId}`}) بنجاح. سيتم معالجته قريبًا.`]
-    );
-
-    const [userRow] = await query(
-      `SELECT username, telegram_chat_id FROM users WHERE id = ?`,
-      [userId]
-    );
-
-    if (userRow?.telegram_chat_id) {
-      await sendTelegramMessage(
-        userRow.telegram_chat_id,
-        `📥 <b>تم استلام طلبك</b>\n\n🛍️ <b>المنتج:</b> ${product.custom_name || `BIGO Product ${productId}`}\n🔢 <b>الكمية:</b> ${qty}\n💰 <b>السعر:</b> ${total}$\n📌 <b>الحالة:</b> جاري المعالجة`,
-        process.env.TELEGRAM_BOT_TOKEN
-      );
-    }
-    if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
+    try {
       await sendTelegramMessage(
         process.env.ADMIN_TELEGRAM_CHAT_ID,
-        `🆕 طلب BIGO جديد!\n👤 الزبون: ${userRow?.username}\n🎁 المنتج: ${product.custom_name || `BIGO Product ${productId}`}\n📦 الكمية: ${qty}\n💰 السعر:${total}$\n🕓 الوقت: ${new Date().toLocaleString('en-US', { hour12: false })}`,
+        `⚠️ BIGO Manual Review\n` +
+        `Local Order: #${orderId || 'UNKNOWN'}\n` +
+        `User ID: ${userId}\n` +
+        `${message}\n\n` +
+        `Do NOT retry or refund before checking Daily Card.`,
         process.env.TELEGRAM_BOT_TOKEN
+      );
+    } catch (err) {
+      console.error('❌ BIGO admin alert failed:', err.message);
+    }
+  };
+
+  const updateIdemState = async (orderId, state, extra = {}) => {
+    const result = await query(
+      `UPDATE idempotency_keys
+       SET response_json = ?
+       WHERE user_id = ?
+         AND idem_key = ?
+         AND order_id = ?`,
+      [
+        JSON.stringify({
+          state,
+          productId,
+          quantity: qty,
+          playerId,
+          ...extra
+        }),
+        userId,
+        rawIdemKey,
+        orderId
+      ]
+    );
+
+    if (result.affectedRows !== 1) {
+      throw new Error('Failed to update idempotency state');
+    }
+  };
+
+  let orderId = null;
+  let reservationCommitted = false;
+
+  try {
+    // 1) Validate inputs
+    if (
+      !validInteger(rawProductId) ||
+      !validInteger(rawQuantity) ||
+      !Number.isSafeInteger(productId) ||
+      !Number.isSafeInteger(qty)
+    ) {
+      return redirectError('invalid_quantity');
+    }
+
+    // Must come from checkout form.
+    if (!/^[a-zA-Z0-9_-]{16,64}$/.test(rawIdemKey)) {
+      return redirectError('server');
+    }
+
+    if (playerId.length > 255) {
+      return redirectError('missing_player');
+    }
+
+    // 2) Product settings
+    const products = await query(
+      `SELECT *
+       FROM selected_api_products
+       WHERE product_id = ?
+         AND active = 1
+       LIMIT 1`,
+      [productId]
+    );
+
+    const product = products[0];
+
+    if (!product) return redirectError('notfound');
+
+    if (Number(product.is_out_of_stock) === 1) {
+      return redirectError('out_of_stock');
+    }
+
+    // Preserve original BIGO pricing: unit_price.
+    const unitQty = Number(product.unit_quantity ?? 1);
+    const unitPrice = Number(product.unit_price ?? 0);
+    const minQty = Number(product.min_quantity ?? 1);
+    const maxQty = Number(product.max_quantity ?? 999999);
+
+    if (
+      !Number.isSafeInteger(unitQty) ||
+      unitQty <= 0 ||
+      !Number.isFinite(unitPrice) ||
+      unitPrice <= 0 ||
+      !Number.isSafeInteger(minQty) ||
+      !Number.isSafeInteger(maxQty) ||
+      qty < minQty ||
+      qty > maxQty
+    ) {
+      return redirectError('invalid_quantity');
+    }
+
+    // 3) Player ID
+    const requiresPlayerId = Number(product.player_check) === 1;
+    const requiresVerification =
+      Number(product.requires_verification) === 1;
+
+    if ((requiresPlayerId || requiresVerification) && !playerId) {
+      return redirectError('missing_player');
+    }
+
+    if (requiresVerification) {
+      let verifyRes;
+
+      try {
+        verifyRes = await verifyPlayerId(productId, playerId);
+      } catch (err) {
+        console.error('❌ BIGO verification error:', err.message);
+        return redirectError('verify');
+      }
+
+      if (!verifyRes?.success) {
+        return res.redirect(
+          `/api-checkout/${productId}?error=verify&msg=${encodeURIComponent(
+            verifyRes?.message || 'Verification failed'
+          )}`
+        );
+      }
+    }
+
+    // 4) Calculate price - NO DISCOUNT
+    const totalCents = Math.round(
+      (qty * unitPrice * 100) / unitQty
+    );
+
+    if (!Number.isSafeInteger(totalCents) || totalCents <= 0) {
+      return redirectError('pricing');
+    }
+
+    const total = totalCents / 100;
+
+    const productName =
+      product.custom_name || `BIGO Product ${productId}`;
+
+    const orderDetails = playerId
+      ? `User ID: ${playerId}, Quantity: ${qty}`
+      : `Quantity: ${qty}`;
+
+    // 5) Atomic balance debit + local order
+    const conn = await promisePool.getConnection();
+
+    let transactionOpen = false;
+    let commitAttempted = false;
+    let duplicate = false;
+
+    try {
+      await conn.beginTransaction();
+      transactionOpen = true;
+
+      try {
+        await conn.query(
+          `INSERT INTO idempotency_keys
+             (user_id, idem_key, response_json)
+           VALUES (?, ?, ?)`,
+          [
+            userId,
+            rawIdemKey,
+            JSON.stringify({
+              state: 'reserved',
+              productId,
+              quantity: qty,
+              playerId
+            })
+          ]
+        );
+      } catch (err) {
+        if (err.code !== 'ER_DUP_ENTRY') throw err;
+
+        const [existingRows] = await conn.query(
+          `SELECT order_id, response_json
+           FROM idempotency_keys
+           WHERE user_id = ?
+             AND idem_key = ?
+           LIMIT 1`,
+          [userId, rawIdemKey]
+        );
+
+        const existing = existingRows[0];
+
+        if (!existing) {
+          throw new Error('Duplicate key without existing record');
+        }
+
+        let payload = {};
+
+        try {
+          payload = JSON.parse(existing.response_json || '{}');
+        } catch (_) {}
+
+        if (
+          payload.productId !== productId ||
+          payload.quantity !== qty ||
+          payload.playerId !== playerId
+        ) {
+          await conn.rollback();
+          transactionOpen = false;
+          return redirectError('server');
+        }
+
+        orderId = existing.order_id;
+        duplicate = true;
+      }
+
+      if (!duplicate) {
+        const [debit] = await conn.query(
+          `UPDATE users
+           SET balance = balance - ?
+           WHERE id = ?
+             AND balance >= ?`,
+          [total, userId, total]
+        );
+
+        if (debit.affectedRows !== 1) {
+          await conn.rollback();
+          transactionOpen = false;
+          return redirectError('balance');
+        }
+
+        // Save order BEFORE contacting provider.
+        const [orderResult] = await conn.query(
+          `INSERT INTO orders
+            (
+              userId,
+              productName,
+              price,
+              purchaseDate,
+              order_details,
+              status,
+              provider_order_id,
+              provider,
+              source,
+              client_token
+            )
+           VALUES
+            (?, ?, ?, NOW(), ?, 'Waiting',
+             NULL, 'dailycard', 'api', ?)`,
+          [
+            userId,
+            productName,
+            total,
+            orderDetails,
+            rawIdemKey
+          ]
+        );
+
+        orderId = orderResult.insertId;
+
+        await conn.query(
+          `INSERT INTO transactions
+             (user_id, order_id, type, amount, reason)
+           VALUES (?, ?, 'debit', ?, ?)`,
+          [
+            userId,
+            orderId,
+            total,
+            `Purchase: ${productName}`
+          ]
+        );
+
+        const [idemUpdate] = await conn.query(
+          `UPDATE idempotency_keys
+           SET order_id = ?
+           WHERE user_id = ?
+             AND idem_key = ?`,
+          [orderId, userId, rawIdemKey]
+        );
+
+        if (idemUpdate.affectedRows !== 1) {
+          throw new Error('Failed to link idempotency key to order');
+        }
+
+        await conn.query(
+          `INSERT INTO notifications
+             (user_id, message, created_at, is_read)
+           VALUES (?, ?, NOW(), 0)`,
+          [
+            userId,
+            `✅ تم تسجيل طلبك (${productName}) رقم #${orderId}. سيتم معالجته قريبًا.`
+          ]
+        );
+      }
+
+      commitAttempted = true;
+      await conn.commit();
+      transactionOpen = false;
+      reservationCommitted = true;
+
+    } catch (err) {
+      if (transactionOpen) {
+        try {
+          await conn.rollback();
+        } catch (rollbackErr) {
+          console.error('❌ BIGO rollback error:', rollbackErr);
+        }
+      }
+
+      console.error('❌ BIGO reservation error:', err);
+
+      if (commitAttempted) {
+        await notifyAdmin(
+          orderId,
+          'Database COMMIT outcome uncertain. Check order, balance and transaction.'
+        );
+        return res.redirect('/processing');
+      }
+
+      return redirectError('server');
+
+    } finally {
+      conn.release();
+    }
+
+    req.session.pendingOrderId = orderId || null;
+
+    // Duplicate request: no new debit and no provider request.
+    if (duplicate) {
+      return res.redirect('/processing');
+    }
+
+    // 6) Mark sending BEFORE provider request
+    try {
+      await updateIdemState(orderId, 'sending');
+    } catch (err) {
+      await notifyAdmin(
+        orderId,
+        `Could not save sending state: ${err.message}`
+      );
+      return res.redirect('/processing');
+    }
+
+    // 7) Create Daily Card order ONCE
+    let providerOrderId = null;
+
+    try {
+      const orderBody = {
+        product: productId,
+        quantity: qty,
+        ...(playerId ? { account_id: playerId } : {})
+      };
+
+      const { data: result } = await dailycardAPI.post(
+        '/api-keys/orders/create/',
+        orderBody
+      );
+
+      providerOrderId =
+        result?.id ??
+        result?.data?.id ??
+        result?.order_id ??
+        result?.data?.order_id ??
+        null;
+
+      if (
+        providerOrderId === null ||
+        String(providerOrderId).trim() === ''
+      ) {
+        throw new Error('Provider returned no order ID');
+      }
+
+      providerOrderId = String(providerOrderId).trim();
+
+    } catch (err) {
+      // Timeout/network error may occur AFTER provider creates order.
+      // No automatic refund or retry.
+      try {
+        await updateIdemState(orderId, 'unknown', {
+          error: String(err.code || err.message).slice(0, 160)
+        });
+      } catch (saveErr) {
+        console.error(
+          '❌ CRITICAL BIGO unknown-state save failed:',
+          orderId,
+          saveErr
+        );
+      }
+
+      await notifyAdmin(
+        orderId,
+        `Daily Card result UNKNOWN: ${err.code || err.message}`
+      );
+
+      return res.redirect('/processing');
+    }
+
+    // 8) Save provider ID and idempotency state atomically
+    const conn2 = await promisePool.getConnection();
+
+    let providerTransactionOpen = false;
+    let providerSaved = false;
+
+    try {
+      await conn2.beginTransaction();
+      providerTransactionOpen = true;
+
+      const [orderUpdate] = await conn2.query(
+        `UPDATE orders
+         SET provider_order_id = ?
+         WHERE id = ?
+           AND userId = ?`,
+        [providerOrderId, orderId, userId]
+      );
+
+      if (orderUpdate.affectedRows !== 1) {
+        throw new Error('Local order not found');
+      }
+
+      const [stateUpdate] = await conn2.query(
+        `UPDATE idempotency_keys
+         SET response_json = ?
+         WHERE user_id = ?
+           AND idem_key = ?
+           AND order_id = ?`,
+        [
+          JSON.stringify({
+            state: 'submitted',
+            productId,
+            quantity: qty,
+            playerId,
+            providerOrderId
+          }),
+          userId,
+          rawIdemKey,
+          orderId
+        ]
+      );
+
+      if (stateUpdate.affectedRows !== 1) {
+        throw new Error('Idempotency record not found');
+      }
+
+      await conn2.commit();
+      providerTransactionOpen = false;
+      providerSaved = true;
+
+    } catch (err) {
+      if (providerTransactionOpen) {
+        try {
+          await conn2.rollback();
+        } catch (_) {}
+      }
+
+      await notifyAdmin(
+        orderId,
+        `Provider order CREATED (#${providerOrderId}), but local save failed or is uncertain: ${err.message}`
+      );
+
+    } finally {
+      conn2.release();
+    }
+
+    if (!providerSaved) {
+      return res.redirect('/processing');
+    }
+
+    // 9) Refresh user session
+    let freshUser = null;
+
+    try {
+      const users = await query(
+        'SELECT * FROM users WHERE id = ? LIMIT 1',
+        [userId]
+      );
+
+      freshUser = users[0] || null;
+
+      if (freshUser) {
+        req.session.user = freshUser;
+      }
+    } catch (err) {
+      console.warn('⚠️ BIGO session refresh error:', err.message);
+    }
+
+    // 10) Telegram notifications (after successful DB save)
+    try {
+      const userRow = freshUser || req.session.user;
+
+      if (userRow?.telegram_chat_id) {
+        await sendTelegramMessage(
+          userRow.telegram_chat_id,
+          `📥 <b>تم استلام طلبك</b>\n\n` +
+          `🛍️ <b>المنتج:</b> ${productName}\n` +
+          `🔢 <b>الكمية:</b> ${qty}\n` +
+          `💰 <b>السعر:</b> ${total.toFixed(2)}$\n` +
+          `📌 <b>الحالة:</b> جاري المعالجة`,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: 'HTML', timeoutMs: 15000 }
+        );
+      }
+
+      if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
+        await sendTelegramMessage(
+          process.env.ADMIN_TELEGRAM_CHAT_ID,
+          `🆕 <b>طلب BIGO جديد!</b>\n` +
+          `🧾 <b>رقم الطلب:</b> #${orderId}\n` +
+          `🔗 <b>Daily Card ID:</b> ${providerOrderId}\n` +
+          `👤 <b>الزبون:</b> ${userRow?.username || userId}\n` +
+          `🎁 <b>المنتج:</b> ${productName}\n` +
+          `📦 <b>الكمية:</b> ${qty}\n` +
+          `💰 <b>السعر:</b> ${total.toFixed(2)}$\n` +
+          `🕓 <b>الوقت:</b> ${new Date().toLocaleString('en-US', { hour12: false })}`,
+          process.env.TELEGRAM_BOT_TOKEN,
+          { parseMode: 'HTML', timeoutMs: 15000 }
+        );
+      }
+    } catch (err) {
+      console.warn(
+        '⚠️ BIGO Telegram error:',
+        err.message || err
       );
     }
 
-    // 10) تجربة موحّدة
-    req.session.pendingOrderId = orderId;
+    // 11) Processing page
     return res.redirect('/processing');
 
   } catch (err) {
-    console.error('❌ BIGO Order Error:', err?.response?.data || err.message || err);
-    return res.redirect(`/api-checkout/${productId}?error=server`);
+    console.error(
+      '❌ BIGO Order Error:',
+      err?.response?.data || err.message || err
+    );
+
+    if (reservationCommitted || orderId) {
+      await notifyAdmin(
+        orderId,
+        `Unexpected error after reservation: ${err.message}`
+      );
+
+      req.session.pendingOrderId = orderId;
+      return res.redirect('/processing');
+    }
+
+    return redirectError('server');
   }
 });
+
 
 
 
