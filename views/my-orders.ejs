@@ -1,434 +1,320 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Orders - AK Cell</title>
 
-  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/custom.css">
+  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    .card-rounded { border-radius: 1rem; }
+    .pill { border-radius: 999px; }
+    .order-item { border-radius: .75rem; }
+    .chip-row { gap: .5rem .5rem; }
 
-  <title>My Orders - AK Cell</title>
+    @media (max-width: 576px) {
+      .filters .search-actions .btn { width: 100%; }
+    }
 
-  <link rel="stylesheet" href="/css/bootstrap.css">
+    .pill.btn { padding: .5rem 1rem; }
 
-  <link rel="stylesheet" href="/css/custom.css">
+    @media (max-width: 576px) {
+      .pill.btn {
+        padding: .35rem .9rem;
+        font-size: .95rem;
+        line-height: 1.1;
+      }
+    }
 
-  <link rel="stylesheet" href="/css/bootstrap-icons/font/bootstrap-icons.css">
+    .badge-soft {
+      border-radius: 999px;
+      padding: .45rem .75rem;
+      font-weight: 700;
+    }
 
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    .virtual-order-box {
+      margin-top: .85rem;
+      padding: .85rem 1rem;
+      border-radius: .85rem;
+      border: 1px solid rgba(13,110,253,.14);
+      background: rgba(13,110,253,.045);
+    }
 
-  <style>
+    .phone-value {
+      font-weight: 800;
+      font-size: 1rem;
+      direction: ltr;
+      display: inline-block;
+    }
 
-    :root { --ak-navy:#172554; --ak-blue:#2563eb; --ak-muted:#64748b; --ak-border:#e2e8f0; }
-    body { background: radial-gradient(circle at 10% 8%,#dbeafe 0%,transparent 32%),radial-gradient(circle at 90% 85%,#e0e7ff 0%,transparent 30%),#f8fafc; color:#1e293b; min-height:100vh; }
-    .orders-shell { max-width:1100px; }
-    .orders-hero { background:#fff; border:1px solid var(--ak-border); border-radius:24px; padding:28px; box-shadow:0 14px 45px rgba(15,23,42,.05); margin-bottom:22px; }
-    .orders-hero .hero-icon { width:50px;height:50px;display:inline-grid;place-items:center;border-radius:14px;background:var(--ak-navy);color:white;font-size:24px; }
-    .orders-hero h1 { color:var(--ak-navy);font-weight:800;font-size:clamp(24px,3vw,32px);margin:0; }
-    .orders-hero p { color:var(--ak-muted);margin:8px 0 0; }
-    .card-rounded { border-radius:20px; border:1px solid var(--ak-border); overflow:hidden; }
-    .filters-card, .total-card { background:#fff; box-shadow:0 12px 32px rgba(15,23,42,.045)!important; }
-    .filters .form-label { font-size:13px;font-weight:700;color:#334155; }
-    .filters .form-control { border-radius:12px;min-height:44px;border-color:#dbe3ef; }
-    .filters .form-control:focus { border-color:#93c5fd;box-shadow:0 0 0 3px rgba(37,99,235,.1); }
-    .filters .btn { border-radius:11px;font-weight:700; }
-    .btn-primary { background:#2563eb;border-color:#2563eb; }
-    .pill { border-radius:999px!important; }
-    .pill.btn { padding:.48rem .9rem;font-size:.85rem; }
-    .chip-row { gap:.5rem; }
-    .total-card .total-amount { color:var(--ak-navy);font-size:27px;font-weight:800; }
-    .total-card .total-caption { color:var(--ak-muted);font-size:13px; }
-    .order-item { border:1px solid var(--ak-border)!important;border-radius:18px!important;background:#fff;padding:20px 22px;margin-bottom:14px!important;box-shadow:0 9px 28px rgba(15,23,42,.045)!important;transition:transform .18s,box-shadow .18s,border-color .18s;color:#334155; }
-    .order-item:hover { transform:translateY(-2px);border-color:#bfdbfe!important;box-shadow:0 16px 36px rgba(37,99,235,.09)!important;color:#334155; }
-    .order-item h5 { color:var(--ak-navy);font-size:17px;font-weight:800;overflow-wrap:anywhere; }
-    .order-item .order-price { color:#1d4ed8;font-size:17px;font-weight:800; }
-    .order-item .badge { border-radius:999px;padding:7px 11px;font-size:12px; }
-    .order-item .order-meta { color:var(--ak-muted);font-size:13px; }
-    .provider-chip { display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .55rem;border-radius:999px;background:rgba(13,110,253,.08);color:#0d6efd;font-size:.78rem;font-weight:700;margin-left:.4rem; }
-    .virtual-order-box { margin-top:.85rem;padding:.85rem 1rem;border-radius:14px;border:1px solid rgba(13,110,253,.14);background:rgba(13,110,253,.045); }
-    .phone-value { font-weight:800;font-size:1rem;direction:ltr;display:inline-block; }
-    .sms-preview { display:inline-flex;align-items:center;gap:.4rem;margin-top:.45rem;padding:.4rem .7rem;border-radius:999px;background:rgba(25,135,84,.12);color:#146c43;font-weight:800; }
-    .waiting-sms { display:inline-flex;align-items:center;gap:.4rem;margin-top:.45rem;color:#8a6400;font-weight:700; }
-    .json-hidden-details { display:none; }
-    .empty-orders { background:#fff;border:1px dashed #cbd5e1;border-radius:20px;padding:45px 20px; }
-    @media(max-width:576px) { .orders-hero{padding:22px 18px;} .order-item{padding:17px 15px;} .order-item .order-head{flex-wrap:wrap;} .filters .search-actions .btn{width:100%;} .pill.btn{padding:.4rem .8rem;font-size:.82rem;} }
-    @media(prefers-reduced-motion:reduce) { .order-item {transition:none;} .order-item:hover {transform:none;} }
+    .sms-preview {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      margin-top: .45rem;
+      padding: .4rem .7rem;
+      border-radius: 999px;
+      background: rgba(25,135,84,.12);
+      color: #146c43;
+      font-weight: 800;
+    }
+
+    .waiting-sms {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      margin-top: .45rem;
+      color: #8a6400;
+      font-weight: 700;
+    }
+
+    .provider-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .3rem .55rem;
+      border-radius: 999px;
+      background: rgba(13,110,253,.08);
+      color: #0d6efd;
+      font-size: .78rem;
+      font-weight: 700;
+      margin-left: .4rem;
+    }
+
+    .json-hidden-details {
+      display: none;
+    }
   </style>
-
 </head>
 
 <body>
+  <%- include('partials/header') %>
 
-  <%- include('partials/header') %>
+  <div class="container my-5">
+    <h1 class="text-center mb-4">My Order History</h1>
 
-  <div class="container orders-shell my-5">
-    <div class="orders-hero">
-      <div class="d-flex align-items-center gap-3">
-        <span class="hero-icon"><i class="bi bi-receipt-cutoff"></i></span>
-        <div><h1>My Order History</h1><p>Track and review all your AK Cell orders in one place.</p></div>
+    <div class="card shadow-sm card-rounded mb-3">
+      <div class="card-body filters">
+        <form class="row g-3 align-items-end" method="get" action="/my-orders">
+          <div class="col-12 col-md-4">
+            <label class="form-label">From date</label>
+            <input type="date" class="form-control" name="from" value="<%= filters?.from || '' %>">
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">To date</label>
+            <input type="date" class="form-control" name="to" value="<%= filters?.to || '' %>">
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Search (ID or name)</label>
+            <input type="search" class="form-control" name="q" placeholder="e.g. 1542 or WhatsApp" value="<%= filters?.q || '' %>">
+          </div>
+
+          <div class="col-12 col-md-8 search-actions">
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-primary">
+                <i class="bi bi-search me-1"></i> Search
+              </button>
+
+              <button type="button" id="resetBtn" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-clockwise me-1"></i> Reset
+              </button>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <% const s = (filters?.status || 'all'); %>
+            <input type="hidden" name="status" id="statusInput" value="<%= s %>">
+
+            <div class="d-flex flex-wrap chip-row">
+              <button type="button" data-status="all"
+                class="btn pill btn-sm <%= s==='all' ? 'btn-primary' : 'btn-outline-primary' %>">
+                All
+              </button>
+
+              <button type="button" data-status="Accepted"
+                class="btn pill btn-sm <%= s==='Accepted' ? 'btn-success' : 'btn-outline-success' %>">
+                Accepted
+              </button>
+
+              <button type="button" data-status="Waiting"
+                class="btn pill btn-sm <%= s==='Waiting' ? 'btn-warning' : 'btn-outline-warning' %>">
+                Waiting
+              </button>
+
+              <button type="button" data-status="In progress"
+                class="btn pill btn-sm <%= s==='In progress' ? 'btn-info' : 'btn-outline-info' %>">
+                In progress
+              </button>
+
+              <button type="button" data-status="Rejected"
+                class="btn pill btn-sm <%= s==='Rejected' ? 'btn-danger' : 'btn-outline-danger' %>">
+                Rejected
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
 
-    
-
-    <div class="card shadow-sm card-rounded filters-card mb-3">
-
-      <div class="card-body filters">
-
-        <form class="row g-3 align-items-end" method="get" action="/my-orders">
-
-          <div class="col-12 col-md-4">
-
-            <label class="form-label">From date</label>
-
-            <input type="date" class="form-control" name="from" value="<%= filters?.from || '' %>">
-
-          </div>
-
-          <div class="col-12 col-md-4">
-
-            <label class="form-label">To date</label>
-
-            <input type="date" class="form-control" name="to" value="<%= filters?.to || '' %>">
-
-          </div>
-
-          <div class="col-12 col-md-4">
-
-            <label class="form-label">Search (ID or name)</label>
-
-            <input type="search" class="form-control" name="q" placeholder="e.g. 1542 or WhatsApp" value="<%= filters?.q || '' %>">
-
-          </div>
-
-          <div class="col-12 col-md-8 search-actions">
-
-            <div class="d-flex flex-wrap gap-2">
-
-              <button class="btn btn-primary">
-
-                <i class="bi bi-search me-1"></i> Search
-
-              </button>
-
-              <button type="button" id="resetBtn" class="btn btn-outline-secondary">
-
-                <i class="bi bi-arrow-clockwise me-1"></i> Reset
-
-              </button>
-
-            </div>
-
-          </div>
-
-          <div class="col-12">
-
-            <% const s = (filters?.status || 'all'); %>
-
-            <input type="hidden" name="status" id="statusInput" value="<%= s %>">
-
-            <div class="d-flex flex-wrap chip-row">
-
-              <button type="button" data-status="all"
-
-                class="btn pill btn-sm <%= s==='all' ? 'btn-primary' : 'btn-outline-primary' %>">
-
-                All
-
-              </button>
-
-              <button type="button" data-status="Accepted"
-
-                class="btn pill btn-sm <%= s==='Accepted' ? 'btn-success' : 'btn-outline-success' %>">
-
-                Accepted
-
-              </button>
-
-              <button type="button" data-status="Waiting"
-
-                class="btn pill btn-sm <%= s==='Waiting' ? 'btn-warning' : 'btn-outline-warning' %>">
-
-                Waiting
-
-              </button>
-
-              <button type="button" data-status="In progress"
-
-                class="btn pill btn-sm <%= s==='In progress' ? 'btn-info' : 'btn-outline-info' %>">
-
-                In progress
-
-              </button>
-
-              <button type="button" data-status="Rejected"
-
-                class="btn pill btn-sm <%= s==='Rejected' ? 'btn-danger' : 'btn-outline-danger' %>">
-
-                Rejected
-
-              </button>
-
-            </div>
-
-          </div>
-
-        </form>
-
-      </div>
-
-    </div>
-
-    <div class="card shadow-sm card-rounded total-card mb-3">
-
-      <div class="card-body text-center">
-
-        <div class="total-caption">Total order value</div>
-          <div class="total-amount">$<%= Number(total || 0).toFixed(2) %></div>
-
-        <small class="total-caption"><%= (orders || []).length %> order(s) shown</small>
-
-      </div>
-
-    </div>
-
-    <% if (orders && orders.length > 0) { %>
-
-      <div class="list-group">
-
-        <% orders.forEach(order => { %>
-
-          <a
-
-            href="/order-details/<%= order.id %>"
-
-            class="list-group-item list-group-item-action shadow-sm mb-3 order-item"
-
-          >
-
-            <div class="d-flex w-100 justify-content-between gap-3 order-head">
-
-              <h5 class="mb-1">
-
-                <%= order.productName %>
-
-                <% if (order.provider === 'fivesim') { %>
-
-                  <span class="provider-chip">
-
-                    <i class="bi bi-phone"></i>
-
-                    Virtual Number
-
-                  </span>
-
-                <% } %>
-
-              </h5>
-
-              <small class="text-muted text-nowrap">
-
-                <%= new Date(order.purchaseDate).toLocaleDateString('en-US',{
-
-                  year:'numeric',
-
-                  month:'2-digit',
-
-                  day:'2-digit'
-
-                }) %>
-
-              </small>
-
-            </div>
-
-            <p class="mb-2">
-
-              Price:
-
-              <span class="order-price">$<%= (parseFloat(order.price) || 0).toFixed(2) %></span>
-
-            </p>
-
-            <div class="small">
-
-              Status:
-
-              <%
-
-                const st = order.displayStatus || order.status || 'Waiting';
-
-                const hasDelivery = !!(order.has_delivery || order.delivery_has_delivery);
-
-                const pendingManual = !!(order.pending_manual || order.stock_fallback);
-
-              %>
-
-              <% if (order.provider === 'fivesim' && order.fivesim_sms_code) { %>
-
-                <span class="badge bg-success">SMS Received</span>
-
-              <% } else if (order.provider === 'fivesim' && st === 'In progress') { %>
-
-                <span class="badge bg-info text-dark">Waiting for SMS</span>
-
-              <% } else if (pendingManual && (st === 'Waiting' || st === 'In progress')) { %>
-
-                <span class="badge bg-secondary">Pending manual</span>
-
-              <% } else if (hasDelivery && st === 'Accepted') { %>
-
-                <span class="badge bg-success">Delivered</span>
-
-              <% } else if (st === 'Waiting') { %>
-
-                <span class="badge bg-warning text-dark">Waiting</span>
-
-              <% } else if (st === 'In progress') { %>
-
-                <span class="badge bg-info text-dark">In progress</span>
-
-              <% } else if (st === 'Accepted') { %>
-
-                <span class="badge bg-success">Accepted</span>
-
-              <% } else if (st === 'Partial') { %>
-
-                <span class="badge" style="background:#a855f7;">Partial</span>
-
-              <% } else if (st === 'Rejected') { %>
-
-                <span class="badge bg-danger">Rejected</span>
-
-              <% } else { %>
-
-                <span class="badge bg-secondary"><%= st %></span>
-
-              <% } %>
-
-            </div>
-
-            <% if (order.provider === 'fivesim') { %>
-
-              <div class="virtual-order-box">
-
-                <div class="small text-muted mb-1">Temporary number</div>
-
-                <div class="phone-value">
-
-                  <%= order.fivesim_phone_number || 'Preparing number...' %>
-
-                </div>
-
-                <% if (order.fivesim_sms_code) { %>
-
-                  <div class="sms-preview">
-
-                    <i class="bi bi-chat-dots-fill"></i>
-
-                    SMS code: <%= order.fivesim_sms_code %>
-
-                  </div>
-
-                <% } else if (order.displayStatus !== 'Rejected') { %>
-
-                  <div class="waiting-sms">
-
-                    <i class="bi bi-hourglass-split"></i>
-
-                    Waiting for SMS — open order details to refresh.
-
-                  </div>
-
-                <% } %>
-
-              </div>
-
-            <% } else if (order.order_details) { %>
-
-              <div class="mt-2 text-muted small">
-
-                <i class="bi bi-info-circle me-1"></i>
-
-                <%= order.order_details %>
-
-              </div>
-
-            <% } %>
-
-            <% if (pendingManual) { %>
-
-              <div class="mt-2 small text-muted">
-
-                <i class="bi bi-hourglass-split me-1"></i>
-
-                This order will be processed manually (out of stock).
-
-              </div>
-
-            <% } %>
-
-          </a>
-
-        <% }) %>
-
-      </div>
-
-    <% } else { %>
-
-      <div class="text-center text-muted py-5 empty-orders">
-
-        <div class="display-6 mb-2"><i class="bi bi-inbox"></i></div>
-
-        <p class="mb-1">No orders found.</p>
-
-        <small>Try adjusting date range, status, or your search term.</small>
-
-      </div>
-
-    <% } %>
-
-  </div>
-
-  <%- include('partials/footer') %>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-  <script>
-
-    const statusInput = document.getElementById('statusInput');
-
-    document.querySelectorAll('button[data-status]').forEach(btn => {
-
-      btn.addEventListener('click', () => {
-
-        statusInput.value = btn.dataset.status;
-
-        btn.closest('form').submit();
-
-      });
-
-    });
-
-    document.getElementById('resetBtn')?.addEventListener('click', () => {
-
-      const form = document.querySelector('.filters form');
-
-      form.querySelector('input[name="from"]').value = '';
-
-      form.querySelector('input[name="to"]').value = '';
-
-      form.querySelector('input[name="q"]').value = '';
-
-      form.querySelector('input[name="status"]').value = 'all';
-
-      form.submit();
-
-    });
-
-  </script>
-
+    <div class="card shadow-sm card-rounded mb-3">
+      <div class="card-body text-center">
+        <div class="fw-semibold">Total: $<%= Number(total || 0).toFixed(2) %></div>
+        <small class="text-muted"><%= (orders || []).length %> order(s)</small>
+      </div>
+    </div>
+
+    <% if (orders && orders.length > 0) { %>
+      <div class="list-group">
+
+        <% orders.forEach(order => { %>
+          <a
+            href="/order-details/<%= order.id %>"
+            class="list-group-item list-group-item-action shadow-sm mb-3 order-item"
+          >
+            <div class="d-flex w-100 justify-content-between gap-3">
+              <h5 class="mb-1">
+                <%= order.productName %>
+
+                <% if (order.provider === 'fivesim') { %>
+                  <span class="provider-chip">
+                    <i class="bi bi-phone"></i>
+                    Virtual Number
+                  </span>
+                <% } %>
+              </h5>
+
+              <small class="text-muted text-nowrap">
+                <%= new Date(order.purchaseDate).toLocaleDateString('en-US',{
+                  year:'numeric',
+                  month:'2-digit',
+                  day:'2-digit'
+                }) %>
+              </small>
+            </div>
+
+            <p class="mb-2">
+              Price:
+              <span class="fw-bold">$<%= (parseFloat(order.price) || 0).toFixed(2) %></span>
+            </p>
+
+            <div class="small">
+              Status:
+
+              <%
+                const st = order.displayStatus || order.status || 'Waiting';
+                const hasDelivery = !!(order.has_delivery || order.delivery_has_delivery);
+                const pendingManual = !!(order.pending_manual || order.stock_fallback);
+              %>
+
+              <% if (order.provider === 'fivesim' && order.fivesim_sms_code) { %>
+                <span class="badge bg-success">SMS Received</span>
+
+              <% } else if (order.provider === 'fivesim' && st === 'In progress') { %>
+                <span class="badge bg-info text-dark">Waiting for SMS</span>
+
+              <% } else if (pendingManual && (st === 'Waiting' || st === 'In progress')) { %>
+                <span class="badge bg-secondary">Pending manual</span>
+
+              <% } else if (hasDelivery && st === 'Accepted') { %>
+                <span class="badge bg-success">Delivered</span>
+
+              <% } else if (st === 'Waiting') { %>
+                <span class="badge bg-warning text-dark">Waiting</span>
+
+              <% } else if (st === 'In progress') { %>
+                <span class="badge bg-info text-dark">In progress</span>
+
+              <% } else if (st === 'Accepted') { %>
+                <span class="badge bg-success">Accepted</span>
+
+              <% } else if (st === 'Partial') { %>
+                <span class="badge" style="background:#a855f7;">Partial</span>
+
+              <% } else if (st === 'Rejected') { %>
+                <span class="badge bg-danger">Rejected</span>
+
+              <% } else { %>
+                <span class="badge bg-secondary"><%= st %></span>
+              <% } %>
+            </div>
+
+            <% if (order.provider === 'fivesim') { %>
+              <div class="virtual-order-box">
+                <div class="small text-muted mb-1">Temporary number</div>
+
+                <div class="phone-value">
+                  <%= order.fivesim_phone_number || 'Preparing number...' %>
+                </div>
+
+                <% if (order.fivesim_sms_code) { %>
+                  <div class="sms-preview">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    SMS code: <%= order.fivesim_sms_code %>
+                  </div>
+                <% } else if (order.displayStatus !== 'Rejected') { %>
+                  <div class="waiting-sms">
+                    <i class="bi bi-hourglass-split"></i>
+                    Waiting for SMS — open order details to refresh.
+                  </div>
+                <% } %>
+              </div>
+
+            <% } else if (order.order_details) { %>
+              <div class="mt-2 text-muted small">
+                <i class="bi bi-info-circle me-1"></i>
+                <%= order.order_details %>
+              </div>
+            <% } %>
+
+            <% if (pendingManual) { %>
+              <div class="mt-2 small text-muted">
+                <i class="bi bi-hourglass-split me-1"></i>
+                This order will be processed manually (out of stock).
+              </div>
+            <% } %>
+          </a>
+        <% }) %>
+
+      </div>
+    <% } else { %>
+      <div class="text-center text-muted py-5">
+        <div class="display-6 mb-2"><i class="bi bi-inbox"></i></div>
+        <p class="mb-1">No orders found.</p>
+        <small>Try adjusting date range, status, or your search term.</small>
+      </div>
+    <% } %>
+  </div>
+
+  <%- include('partials/footer') %>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const statusInput = document.getElementById('statusInput');
+
+    document.querySelectorAll('button[data-status]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        statusInput.value = btn.dataset.status;
+        btn.closest('form').submit();
+      });
+    });
+
+    document.getElementById('resetBtn')?.addEventListener('click', () => {
+      const form = document.querySelector('.filters form');
+
+      form.querySelector('input[name="from"]').value = '';
+      form.querySelector('input[name="to"]').value = '';
+      form.querySelector('input[name="q"]').value = '';
+      form.querySelector('input[name="status"]').value = 'all';
+
+      form.submit();
+    });
+  </script>
 </body>
-
 </html>
