@@ -9558,6 +9558,9 @@ app.post('/admin/users/edit/:id', checkAdmin, async (req, res) => {
 
     const userId = parseInt(req.params.id, 10);
 
+
+
+
     // ================================
     // Validate Level Mode
     // ================================
@@ -9621,21 +9624,42 @@ app.post('/admin/users/edit/:id', checkAdmin, async (req, res) => {
 
     }
 
+
+    // ================================
+// RESELLER API ACCESS
+// ================================
+const apiEnabled =
+  req.body.api_enabled === '1' ? 1 : 0;
+
     // ================================
     // Update User
     // ================================
-    const sql = `
-      UPDATE users
-      SET username = ?,
-          email = ?,
-          phone = ?,
-          role = ?,
-          level = ?,
-          level_mode = ?,
-          discount_percent = ?,
-          total_spent = ?
-      WHERE id = ?
-    `;
+const sql = `
+  UPDATE users
+  SET username = ?,
+      email = ?,
+      phone = ?,
+      role = ?,
+      level = ?,
+      level_mode = ?,
+      discount_percent = ?,
+      total_spent = ?,
+      api_enabled = ?
+  WHERE id = ?
+`;
+
+await promisePool.query(sql, [
+  username,
+  email || null,
+  phone || null,
+  role,
+  finalLevel,
+  levelMode,
+  disc,
+  spent,
+  apiEnabled,
+  userId
+]);
 
     await promisePool.query(sql, [
       username,
@@ -10526,7 +10550,7 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
   // =======================================================
   // BASIC VALIDATION
   // =======================================================
-  if (!name || !name.trim()) {
+  if (!name || !String(name).trim()) {
     return res.status(400).send('Product name is required.');
   }
 
@@ -10631,12 +10655,10 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
   let normalizedOptions = [];
 
   try {
-
     // =====================================================
     // FIXED MODE
     // =====================================================
     if (safePricingMode === 'fixed') {
-
       safePrice = Number(price);
 
       if (
@@ -10647,7 +10669,6 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
       }
 
       if (dealerPricingEnabled === 1) {
-
         cleanLevel2Price =
           parseOptionalDealerPrice(level_2_price);
 
@@ -10678,7 +10699,6 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
     // OPTIONS MODE
     // =====================================================
     } else {
-
       const rawOptions = req.body.options || {};
 
       const optionList =
@@ -10798,12 +10818,17 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
     const conn = await promisePool.getConnection();
 
     try {
-
       await conn.beginTransaction();
 
-      // Make sure product still exists.
+      // Make sure product still exists and lock its row.
       const [existingProducts] = await conn.query(
-        `SELECT id FROM products WHERE id = ? LIMIT 1 FOR UPDATE`,
+        `
+          SELECT id, api_enabled
+          FROM products
+          WHERE id = ?
+          LIMIT 1
+          FOR UPDATE
+        `,
         [productId]
       );
 
@@ -10811,6 +10836,24 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
         await conn.rollback();
         return res.status(404).send('Product not found.');
       }
+
+      // =====================================================
+      // RESELLER API ACCESS
+      // =====================================================
+      // Preserve current value if the form does not contain
+      // the API field. An unchecked checkbox sends no value,
+      // so the EJS form must include a hidden marker.
+      const apiFieldPresent =
+        Object.prototype.hasOwnProperty.call(
+          req.body,
+          'api_enabled_present'
+        );
+
+      const apiEnabled = apiFieldPresent
+        ? (req.body.api_enabled === '1' ? 1 : 0)
+        : Number(existingProducts[0].api_enabled) === 1
+          ? 1
+          : 0;
 
       // =====================================================
       // UPDATE PRODUCT
@@ -10841,6 +10884,7 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
           is_out_of_stock = ?,
           delivery_mode = ?,
           pricing_mode = ?,
+          api_enabled = ?,
           checkout_flow = ?
 
         WHERE id = ?
@@ -10880,6 +10924,7 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
         is_out_of_stock,
         safeDeliveryMode,
         safePricingMode,
+        apiEnabled,
         safeCheckoutFlow,
 
         productId
@@ -10891,28 +10936,25 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
       // UPDATE OPTIONS
       // =====================================================
       if (safePricingMode === 'options') {
-
         for (const opt of normalizedOptions) {
-
-          // Important:
-          // product_id is included so an option belonging to
-          // another product cannot be edited.
+          // product_id prevents editing an option
+          // belonging to another product.
           const [updateResult] = await conn.query(
             `
-            UPDATE product_checkout_options
-            SET
-              option_label = ?,
-              option_value = ?,
-              price = ?,
-              level_2_price = ?,
-              level_3_price = ?,
-              level_4_price = ?,
-              level_5_price = ?,
-              sort_order = ?,
-              is_active = ?
-            WHERE id = ?
-              AND product_id = ?
-            LIMIT 1
+              UPDATE product_checkout_options
+              SET
+                option_label = ?,
+                option_value = ?,
+                price = ?,
+                level_2_price = ?,
+                level_3_price = ?,
+                level_4_price = ?,
+                level_5_price = ?,
+                sort_order = ?,
+                is_active = ?
+              WHERE id = ?
+                AND product_id = ?
+              LIMIT 1
             `,
             [
               opt.option_label,
@@ -10938,13 +10980,9 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
             );
           }
         }
-
       } else {
-
         // Fixed mode:
-        // We intentionally DO NOT delete old option rows here.
-        // This prevents accidental data loss if pricing mode
-        // is temporarily changed from Options -> Fixed.
+        // Preserve old option rows to prevent data loss.
       }
 
       // =====================================================
@@ -10955,8 +10993,14 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
       return res.redirect('/admin/products');
 
     } catch (err) {
-
-      await conn.rollback();
+      try {
+        await conn.rollback();
+      } catch (rollbackError) {
+        console.error(
+          '❌ Product rollback failed:',
+          rollbackError?.message || rollbackError
+        );
+      }
 
       console.error(
         '❌ Error updating product:',
@@ -10968,12 +11012,10 @@ app.post('/admin/products/edit/:id', checkAdmin, async (req, res) => {
         .send('Database error during update.');
 
     } finally {
-
       conn.release();
     }
 
   } catch (err) {
-
     console.error(
       '❌ POST /admin/products/edit/:id error:',
       err?.message || err
