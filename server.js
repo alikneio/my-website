@@ -662,6 +662,51 @@ const checkDeveloperAccess = async (req, res, next) => {
   }
 };
 
+// ==========================================
+// DEVELOPER CENTER - CSRF PROTECTION
+// ==========================================
+
+function developerCsrfToken(req, res, next) {
+  if (!req.session.developerCsrfToken) {
+    req.session.developerCsrfToken =
+      crypto.randomBytes(32).toString('hex');
+  }
+
+  res.locals.developerCsrfToken =
+    req.session.developerCsrfToken;
+
+  next();
+}
+
+function verifyDeveloperCsrf(req, res, next) {
+  const expected = req.session?.developerCsrfToken;
+  const provided = req.body?._csrf;
+
+  if (
+    typeof expected !== 'string' ||
+    typeof provided !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(expected) ||
+    !/^[a-f0-9]{64}$/.test(provided)
+  ) {
+    return res.status(403).send(
+      'Invalid security token. Please refresh the Developer Center.'
+    );
+  }
+
+  const valid = crypto.timingSafeEqual(
+    Buffer.from(expected, 'hex'),
+    Buffer.from(provided, 'hex')
+  );
+
+  if (!valid) {
+    return res.status(403).send(
+      'Invalid security token. Please refresh the Developer Center.'
+    );
+  }
+
+  next();
+}
+
 const {
   getFiveSimProfile,
   getCountries,
@@ -986,7 +1031,7 @@ app.get('/admin/balance-requests', checkAdmin, async (req, res) => {
 // ==========================================
 // AK CELL RESELLER API - DEVELOPER CENTER
 // ==========================================
-app.get('/developer', checkDeveloperAccess, async (req, res) => {
+app.get('/developer', checkDeveloperAccess, developerCsrfToken, async (req, res) => {
   try {
     const userId = Number(req.session.user.id);
 
@@ -1067,63 +1112,179 @@ app.get('/developer', checkDeveloperAccess, async (req, res) => {
 // AK CELL RESELLER API - KEY MANAGEMENT
 // ==========================================
 
-// Create a new API key
-app.post('/developer/keys/create', checkDeveloperAccess, async (req, res) => {
-  try {
+
+app.post(
+  '/developer/keys/create',
+  checkDeveloperAccess,
+  verifyDeveloperCsrf,
+  async (req, res) => {
     const userId = Number(req.session.user.id);
+    let conn = null;
+    let transactionStarted = false;
+    let committed = false;
 
-    const keyName = String(req.body.key_name || 'Default API Key')
-      .trim()
-      .slice(0, 100) || 'Default API Key';
+    // Prevent duplicate submissions from the same browser session.
+    // This token is consumed before any database write.
+    const submittedToken = String(req.body._csrf || '');
+    const sessionToken = req.session.developerCsrfToken;
 
-    // Generate secure random API key
-    const rawKey = 'akc_live_' + crypto.randomBytes(32).toString('hex');
-
-    const keyHash = crypto
-      .createHash('sha256')
-      .update(rawKey)
-      .digest('hex');
-
-    const keyPrefix = rawKey.slice(0, 16);
-
-    // Limit active keys per user
-    const [[countRow]] = await promisePool.query(
-      `SELECT COUNT(*) AS total
-       FROM reseller_api_keys
-       WHERE user_id = ? AND is_active = 1`,
-      [userId]
-    );
-
-    if (Number(countRow.total) >= 5) {
-      return res.status(400).send(
-        'Maximum 5 active API keys allowed.'
-      );
-    }
-
-    await promisePool.query(
-      `INSERT INTO reseller_api_keys
-       (user_id, key_name, key_prefix, key_hash)
-       VALUES (?, ?, ?, ?)`,
-      [userId, keyName, keyPrefix, keyHash]
-    );
-
-    // Show full key only in the response to this creation
-    res.set('Cache-Control', 'no-store');
-
-    return res.render('developer-key-created', {
-      user: req.session.user,
-      rawKey,
-      keyName
+    res.set({
+      'Cache-Control': 'no-store, no-cache, private, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff'
     });
 
-  } catch (error) {
-    console.error('❌ API key creation error:', error);
-    return res.status(500).send('Failed to create API key.');
+    try {
+      const keyName =
+        String(req.body.key_name || 'Default API Key')
+          .trim()
+          .slice(0, 100) || 'Default API Key';
+
+      // Generate a fresh key and render its page before committing.
+      const rawKey =
+        'akc_live_' +
+        crypto.randomBytes(32).toString('hex');
+
+      const keyHash = crypto
+        .createHash('sha256')
+        .update(rawKey)
+        .digest('hex');
+
+      const keyPrefix = rawKey.slice(0, 16);
+
+      // Pre-render before writing the key to the database.
+      const html = await new Promise((resolve, reject) => {
+        res.render(
+          'developer-key-created',
+          {
+            user: req.session.user,
+            rawKey,
+            keyName
+          },
+          (error, renderedHtml) => {
+            if (error) return reject(error);
+            resolve(renderedHtml);
+          }
+        );
+      });
+
+      conn = await promisePool.getConnection();
+      await conn.beginTransaction();
+      transactionStarted = true;
+
+      // Serialize key creation for this account.
+      const [[developer]] = await conn.query(
+        `SELECT id, api_enabled
+         FROM users
+         WHERE id = ?
+         LIMIT 1
+         FOR UPDATE`,
+        [userId]
+      );
+
+      if (!developer || Number(developer.api_enabled) !== 1) {
+        await conn.rollback();
+        transactionStarted = false;
+        return res.status(403).send('Developer API access denied.');
+      }
+
+      const [[countRow]] = await conn.query(
+        `SELECT COUNT(*) AS total
+         FROM reseller_api_keys
+         WHERE user_id = ?
+           AND is_active = 1`,
+        [userId]
+      );
+
+      if (Number(countRow.total) >= 5) {
+        await conn.rollback();
+        transactionStarted = false;
+        return res.status(409).send(
+          'Maximum 5 active API keys allowed.'
+        );
+      }
+
+      // Prevent a repeated request using the same CSRF token.
+      // This is an additional database-backed replay guard.
+      const requestHash = crypto
+        .createHash('sha256')
+        .update('developer-key-create:' + submittedToken)
+        .digest('hex');
+
+      // The replay guard is scoped to this user's session token.
+      // It is stored as a separate record in the session, not in the key table.
+      if (
+        req.session.lastDeveloperKeyCreateToken === requestHash
+      ) {
+        await conn.rollback();
+        transactionStarted = false;
+        return res.status(409).send(
+          'This key creation request was already submitted. Refresh the Developer Center.'
+        );
+      }
+
+      await conn.query(
+        `INSERT INTO reseller_api_keys
+          (user_id, key_name, key_prefix, key_hash, is_active)
+         VALUES (?, ?, ?, ?, 1)`,
+        [userId, keyName, keyPrefix, keyHash]
+      );
+
+      await conn.commit();
+      transactionStarted = false;
+      committed = true;
+
+      // Record the last completed submission.
+      req.session.lastDeveloperKeyCreateToken = requestHash;
+
+      // Rotate the CSRF token for the next operation.
+      req.session.developerCsrfToken =
+        crypto.randomBytes(32).toString('hex');
+
+      // Persist the session before delivering the response.
+      await new Promise((resolve, reject) => {
+        req.session.save(error => {
+          if (error) return reject(error);
+          resolve();
+        });
+      });
+
+      return res.status(201).send(html);
+
+    } catch (error) {
+      if (conn && transactionStarted) {
+        try {
+          await conn.rollback();
+        } catch (rollbackError) {
+          console.error(
+            'API key rollback error:',
+            rollbackError
+          );
+        }
+      }
+
+      console.error('API key creation error:', error);
+
+      if (committed) {
+        return res.status(500).send(
+          'The key may have been created, but its display failed. Please revoke the newly created key from Developer Center and generate another.'
+        );
+      }
+
+      return res.status(500).send(
+        'Failed to create API key.'
+      );
+    } finally {
+      if (conn) conn.release();
+    }
   }
-});
+);
+
 
 // Revoke an API key
-app.post('/developer/keys/:id/revoke', checkDeveloperAccess, async (req, res) => {
+app.post('/developer/keys/:id/revoke', checkDeveloperAccess, verifyDeveloperCsrf, async (req, res) => {
   try {
     const userId = Number(req.session.user.id);
     const keyId = Number(req.params.id);
