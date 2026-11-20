@@ -20,6 +20,7 @@
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "express-mysql-session": "^3.0.3",
+    "express-rate-limit": "^8.7.5",
     "express-session": "^1.18.2",
     "multer": "^2.0.2",
     "mysql2": "^3.14.3",

@@ -30,6 +30,7 @@ const sendOrderStatusTelegram = require('./utils/sendOrderStatusTelegram');
 const sendTelegramMessage = require('./utils/sendTelegramNotification');
 const uploadNone = multer();
 const crypto = require('crypto');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const dns = require("dns");
 dns.setDefaultResultOrder("ipv4first");
 
@@ -661,6 +662,44 @@ const checkDeveloperAccess = async (req, res, next) => {
     );
   }
 };
+
+
+
+/**
+ * AK CELL RESELLER API
+ * Rate limiting for API v1
+ *
+ * 60 requests per minute per client IP.
+ */
+const resellerApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+
+  // Keep failed authentication attempts counted.
+  skipSuccessfulRequests: false,
+  skipFailedRequests: false,
+
+  keyGenerator: (req) => {
+    const ip = req.ip || req.socket.remoteAddress;
+
+    return ipKeyGenerator(ip, 56);
+  },
+
+  handler: (req, res) => {
+    return res.status(429).json({
+      success: false,
+      error: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many API requests. Please try again later.'
+    });
+  }
+});
+
+// Apply only to the reseller API namespace.
+app.use('/api/v1', resellerApiLimiter);
+
 
 
 const authenticateResellerApi = async (req, res, next) => {
