@@ -9631,9 +9631,9 @@ app.post('/admin/users/edit/:id', checkAdmin, async (req, res) => {
 const apiEnabled =
   req.body.api_enabled === '1' ? 1 : 0;
 
-    // ================================
-    // Update User
-    // ================================
+   // ================================
+// Update User
+// ================================
 const sql = `
   UPDATE users
   SET username = ?,
@@ -9661,20 +9661,7 @@ await promisePool.query(sql, [
   userId
 ]);
 
-    await promisePool.query(sql, [
-      username,
-      email || null,
-      phone || null,
-      role,
-      finalLevel,
-      levelMode,
-      disc,
-      spent,
-      userId
-    ]);
-
-    return res.redirect('/admin/users');
-
+return res.redirect('/admin/users');
   } catch (err) {
     console.error(
       "❌ Error updating user:",
