@@ -662,6 +662,112 @@ const checkDeveloperAccess = async (req, res, next) => {
   }
 };
 
+
+const authenticateResellerApi = async (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+
+  try {
+    const authorization = req.get('Authorization') || '';
+
+    const match = /^Bearer (akc_live_[a-f0-9]{64})$/i.exec(
+      authorization
+    );
+
+    if (!match) {
+      return res.status(401).json({
+        success: false,
+        error: 'INVALID_API_KEY',
+        message: 'A valid API key is required.'
+      });
+    }
+
+    const rawKey = match[1];
+
+    const keyHash = crypto
+      .createHash('sha256')
+      .update(rawKey)
+      .digest('hex');
+
+    const [rows] = await promisePool.query(
+      `
+        SELECT
+          k.id AS api_key_id,
+          k.user_id,
+          k.key_name,
+          u.username,
+          u.level,
+          u.balance
+        FROM reseller_api_keys k
+        INNER JOIN users u ON u.id = k.user_id
+        WHERE k.key_hash = ?
+          AND k.is_active = 1
+          AND u.api_enabled = 1
+        LIMIT 1
+      `,
+      [keyHash]
+    );
+
+    if (!rows.length) {
+      return res.status(401).json({
+        success: false,
+        error: 'INVALID_API_KEY',
+        message: 'API key is invalid, revoked, or disabled.'
+      });
+    }
+
+    const account = rows[0];
+
+    req.resellerApi = {
+      keyId: Number(account.api_key_id),
+      userId: Number(account.user_id),
+      username: account.username,
+      level: Number(account.level),
+      balance: Number(account.balance)
+    };
+
+    return next();
+
+  } catch (error) {
+    console.error(
+      'Reseller API authentication error:',
+      error
+    );
+
+    return res.status(503).json({
+      success: false,
+      error: 'SERVICE_UNAVAILABLE',
+      message: 'API authentication is temporarily unavailable.'
+    });
+  }
+};
+
+
+// ==========================================
+// AK CELL API V1 - ACCOUNT
+// ==========================================
+
+app.get(
+  '/api/v1/account',
+  authenticateResellerApi,
+  async (req, res) => {
+
+    const account = req.resellerApi;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: account.userId,
+        username: account.username,
+        dealer_level: account.level,
+        balance: account.balance,
+        currency: 'USD',
+        api_access: true
+      }
+    });
+  }
+);
+
+
 // ==========================================
 // DEVELOPER CENTER - CSRF PROTECTION
 // ==========================================
