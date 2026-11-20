@@ -990,6 +990,9 @@ app.get('/developer', checkDeveloperAccess, async (req, res) => {
   try {
     const userId = Number(req.session.user.id);
 
+    // =====================================
+    // Get Developer Account
+    // =====================================
     const [[developer]] = await promisePool.query(
       `
         SELECT
@@ -1008,19 +1011,55 @@ app.get('/developer', checkDeveloperAccess, async (req, res) => {
     );
 
     if (!developer) {
-      return res.status(403).send('Developer access denied.');
+      return res.status(403).send(
+        'Developer access denied.'
+      );
     }
 
+    // =====================================
+    // Get Developer API Keys
+    // =====================================
+    const [apiKeys] = await promisePool.query(
+      `
+        SELECT
+          id,
+          key_name,
+          key_prefix,
+          is_active,
+          created_at,
+          last_used_at,
+          revoked_at
+        FROM reseller_api_keys
+        WHERE user_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT 100
+      `,
+      [userId]
+    );
+
+    // =====================================
+    // Render Developer Center
+    // =====================================
     res.set('Cache-Control', 'no-store');
 
     return res.render('developer', {
       user: developer,
-      developer
+      developer,
+      apiKeys,
+      activeKeysCount: apiKeys.filter(
+        key => Number(key.is_active) === 1
+      ).length
     });
 
   } catch (error) {
-    console.error('❌ Developer Center error:', error);
-    return res.status(500).send('Developer Center unavailable.');
+    console.error(
+      '❌ Developer Center error:',
+      error
+    );
+
+    return res.status(500).send(
+      'Developer Center unavailable.'
+    );
   }
 });
 
