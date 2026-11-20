@@ -1743,6 +1743,165 @@ app.get('/api/v1/orders/:id', authenticateResellerApi, async (req, res) => {
 
 
 
+/**
+ * AK CELL RESELLER API V1
+ * GET /api/v1/orders
+ *
+ * Read-only order list with pagination
+ * and optional status filtering.
+ */
+
+app.get('/api/v1/orders', authenticateResellerApi, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+
+  const parsePositiveInteger = (value, fallback, max) => {
+    if (value === undefined) return fallback;
+
+    if (
+      typeof value !== 'string' ||
+      !/^[1-9]\d*$/.test(value)
+    ) return null;
+
+    const number = Number(value);
+
+    if (!Number.isSafeInteger(number) || number > max) {
+      return null;
+    }
+
+    return number;
+  };
+
+  const page = parsePositiveInteger(req.query.page, 1, 1000000);
+  const limit = parsePositiveInteger(req.query.limit, 20, 100);
+
+  if (page === null || limit === null) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_PAGINATION'
+    });
+  }
+
+  const statusMap = {
+    Waiting: 'pending',
+    'In progress': 'processing',
+    Accepted: 'completed',
+    Partial: 'partial',
+    Rejected: 'rejected'
+  };
+
+  const reverseStatusMap = {
+    pending: 'Waiting',
+    processing: 'In progress',
+    completed: 'Accepted',
+    partial: 'Partial',
+    rejected: 'Rejected'
+  };
+
+  const rawStatus = req.query.status;
+
+  if (
+    rawStatus !== undefined &&
+    (
+      typeof rawStatus !== 'string' ||
+      !Object.hasOwn(reverseStatusMap, rawStatus)
+    )
+  ) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_STATUS'
+    });
+  }
+
+  const offset = (page - 1) * limit;
+
+  if (!Number.isSafeInteger(offset)) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_PAGINATION'
+    });
+  }
+
+  try {
+    const userId = req.resellerApi.userId;
+
+    let whereSql = `
+      WHERE userId = ?
+        AND order_channel = 'reseller_api'
+    `;
+
+    const params = [userId];
+
+    if (rawStatus !== undefined) {
+      whereSql += ' AND status = ?';
+      params.push(reverseStatusMap[rawStatus]);
+    }
+
+    const [[countRow]] = await promisePool.query(
+      `SELECT COUNT(*) AS total
+       FROM orders
+       ${whereSql}`,
+      params
+    );
+
+    const total = Number(countRow.total);
+
+    const [orders] = await promisePool.query(
+      `
+      SELECT
+        id,
+        product_id,
+        productName,
+        price,
+        purchaseDate,
+        status,
+        admin_reply,
+        fulfillment_mode
+      FROM orders
+      ${whereSql}
+      ORDER BY purchaseDate DESC, id DESC
+      LIMIT ? OFFSET ?
+      `,
+      [...params, limit, offset]
+    );
+
+    const data = orders.map(order => ({
+      order_id: Number(order.id),
+      product_id: order.product_id,
+      product_name: order.productName,
+      price: Number(order.price),
+      currency: 'USD',
+      status: statusMap[order.status] || 'unknown',
+      fulfillment: order.fulfillment_mode,
+      admin_reply: order.admin_reply,
+      created_at: order.purchaseDate
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: Math.ceil(total / limit),
+        has_next_page: page * limit < total
+      }
+    });
+
+  } catch (error) {
+    console.error('Reseller orders list error:', error);
+
+    return res.status(503).json({
+      success: false,
+      error: 'ORDERS_LIST_UNAVAILABLE',
+      message: 'Order list is temporarily unavailable.'
+    });
+  }
+});
+
+
+
+
 
 // ==========================================
 // DEVELOPER CENTER - CSRF PROTECTION
