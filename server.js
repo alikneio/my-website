@@ -1095,6 +1095,447 @@ app.get('/api/v1/products/:id', authenticateResellerApi, async (req, res) => {
     }));
 
 
+/**
+ * AK CELL RESELLER API V1
+ * POST /api/v1/orders
+ *
+ * Manual fulfillment only.
+ * Atomic debit + order + transaction + idempotency.
+ */
+
+app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+
+  const userId = req.resellerApi.userId;
+  const body = req.body;
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_REQUEST'
+    });
+  }
+
+  const rawKey = req.get('Idempotency-Key') || '';
+
+  if (!/^[A-Za-z0-9_-]{8,55}$/.test(rawKey)) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_IDEMPOTENCY_KEY',
+      message: 'Idempotency-Key must contain 8-55 valid characters.'
+    });
+  }
+
+  // Separate API keys from website idempotency keys.
+  const idemKey = `ra1_${rawKey}`;
+
+  const productId = Number(body.product_id);
+  const optionId = body.option_id == null
+    ? null
+    : Number(body.option_id);
+
+  if (!Number.isSafeInteger(productId) || productId <= 0 ||
+      (optionId !== null &&
+       (!Number.isSafeInteger(optionId) || optionId <= 0))) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_PRODUCT_OR_OPTION'
+    });
+  }
+
+  const permittedFields = [
+    'product_id',
+    'option_id',
+    'player_id',
+    'checkout_choice',
+    'account_email',
+    'account_password'
+  ];
+
+  if (Object.keys(body).some(key => !permittedFields.includes(key))) {
+    return res.status(400).json({
+      success: false,
+      error: 'UNSUPPORTED_FIELDS'
+    });
+  }
+
+  function cleanField(value, max = 255) {
+    if (value == null) return '';
+    if (typeof value !== 'string') return null;
+    const result = value.trim();
+    if (result.length > max || /[\r\n|]/.test(result)) return null;
+    return result;
+  }
+
+  const playerId = cleanField(body.player_id);
+  const choice = cleanField(body.checkout_choice, 40);
+  const email = cleanField(body.account_email);
+  const password = cleanField(body.account_password, 255);
+
+  if ([playerId, choice, email, password].includes(null)) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_CHECKOUT_FIELDS'
+    });
+  }
+
+  // Canonical fingerprint: same key cannot represent another order.
+  // Password is included in the hash but never returned.
+  const requestFingerprint = crypto.createHash('sha256')
+    .update(JSON.stringify({
+      product_id: productId,
+      option_id: optionId,
+      player_id: playerId,
+      checkout_choice: choice,
+      account_email: email,
+      account_password: password
+    }))
+    .digest('hex');
+
+  let conn;
+  let transactionStarted = false;
+
+  try {
+    conn = await promisePool.getConnection();
+    await conn.beginTransaction();
+    transactionStarted = true;
+
+    // Serialize orders and key usage for the same user.
+    const [[user]] = await conn.query(
+      `SELECT *
+       FROM users
+       WHERE id = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [userId]
+    );
+
+    if (!user || Number(user.api_enabled) !== 1) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.status(403).json({
+        success: false,
+        error: 'API_ACCESS_DISABLED'
+      });
+    }
+
+    // Verify that the key is still active.
+    const [[activeKey]] = await conn.query(
+      `SELECT id
+       FROM reseller_api_keys
+       WHERE id = ?
+         AND user_id = ?
+         AND is_active = 1
+       LIMIT 1`,
+      [req.resellerApi.keyId, userId]
+    );
+
+    if (!activeKey) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.status(401).json({
+        success: false,
+        error: 'INVALID_API_KEY'
+      });
+    }
+
+    // Lock existing idempotency record, if any.
+    const [[existing]] = await conn.query(
+      `SELECT order_id, response_json
+       FROM idempotency_keys
+       WHERE user_id = ?
+         AND idem_key = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [userId, idemKey]
+    );
+
+    if (existing) {
+      let stored = null;
+
+      try {
+        stored = JSON.parse(existing.response_json);
+      } catch (_) {}
+
+      await conn.rollback();
+      transactionStarted = false;
+
+      if (!stored || !stored.fingerprint || !stored.response) {
+        return res.status(409).json({
+          success: false,
+          error: 'IDEMPOTENCY_CONFLICT'
+        });
+      }
+
+      if (stored.fingerprint !== requestFingerprint) {
+        return res.status(409).json({
+          success: false,
+          error: 'IDEMPOTENCY_KEY_REUSED'
+        });
+      }
+
+      return res.status(200).json({
+        ...stored.response,
+        idempotent_replay: true
+      });
+    }
+
+    const [[product]] = await conn.query(
+      `SELECT *
+       FROM products
+       WHERE id = ?
+         AND active = 1
+         AND api_enabled = 1
+       LIMIT 1`,
+      [productId]
+    );
+
+    if (!product || Number(product.is_out_of_stock) === 1) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.status(404).json({
+        success: false,
+        error: 'PRODUCT_UNAVAILABLE'
+      });
+    }
+
+    const [options] = await conn.query(
+      `SELECT *
+       FROM product_checkout_options
+       WHERE product_id = ?
+         AND is_active = 1
+       ORDER BY sort_order ASC, id ASC`,
+      [productId]
+    );
+
+    let selectedOption = null;
+    let basePrice;
+
+    if (options.length) {
+      selectedOption = options.find(
+        option => Number(option.id) === optionId
+      );
+
+      if (!selectedOption) {
+        await conn.rollback();
+        transactionStarted = false;
+        return res.status(400).json({
+          success: false,
+          error: 'OPTION_REQUIRED_OR_INVALID'
+        });
+      }
+
+      basePrice = getLocalOptionPriceForUser(
+        selectedOption, product, user
+      );
+    } else {
+      if (optionId !== null) {
+        await conn.rollback();
+        transactionStarted = false;
+        return res.status(400).json({
+          success: false,
+          error: 'OPTION_NOT_SUPPORTED'
+        });
+      }
+
+      basePrice = getLocalProductPriceForUser(product, user);
+    }
+
+    const flow = String(product.checkout_flow || 'player_id')
+      .trim().toLowerCase();
+
+    const details = [];
+
+    if (selectedOption) {
+      details.push(
+        `Option: ${selectedOption.option_label}` +
+        (selectedOption.option_value
+          ? ` (${selectedOption.option_value})`
+          : '')
+      );
+    }
+
+    if (flow === 'player_id') {
+      if (Number(product.requires_player_id) === 1 && !playerId) {
+        await conn.rollback();
+        transactionStarted = false;
+        return res.status(400).json({
+          success: false,
+          error: 'PLAYER_ID_REQUIRED'
+        });
+      }
+
+      if (playerId) {
+        details.push(
+          `${product.player_id_label || 'Player ID'}: ${playerId}`
+        );
+      }
+    } else if (flow === 'account_choice') {
+      const safeChoice = choice || 'own_account';
+
+      if (!['own_account', 'account_from_us'].includes(safeChoice)) {
+        await conn.rollback();
+        transactionStarted = false;
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_CHECKOUT_CHOICE'
+        });
+      }
+
+      if (safeChoice === 'own_account') {
+        // Temporarily block password-based API purchases until
+        // secure credential storage and display are implemented.
+        await conn.rollback();
+        transactionStarted = false;
+        return res.status(422).json({
+          success: false,
+          error: 'ACCOUNT_CREDENTIAL_FLOW_NOT_READY'
+        });
+      }
+
+      details.push('Checkout Choice: Account from us');
+    } else if (flow === 'no_details') {
+      details.push('Checkout: Buy now only — no customer details required.');
+    } else {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.status(422).json({
+        success: false,
+        error: 'UNSUPPORTED_CHECKOUT_FLOW'
+      });
+    }
+
+    const discountRaw = Number(user.discount_percent || 0);
+    const discount = Number.isFinite(discountRaw)
+      ? Math.min(Math.max(discountRaw, 0), 100)
+      : 0;
+
+    const price = Number(
+      (Number(basePrice) * (1 - discount / 100)).toFixed(2)
+    );
+
+    if (!Number.isFinite(price) || price <= 0) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.status(422).json({
+        success: false,
+        error: 'INVALID_PRICE'
+      });
+    }
+
+    const [debit] = await conn.query(
+      `UPDATE users
+       SET balance = balance - ?
+       WHERE id = ?
+         AND balance >= ?`,
+      [price, userId, price]
+    );
+
+    if (debit.affectedRows !== 1) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.status(402).json({
+        success: false,
+        error: 'INSUFFICIENT_BALANCE'
+      });
+    }
+
+    const orderName = selectedOption
+      ? `${product.name} - ${selectedOption.option_label}`
+      : product.name;
+
+    const [created] = await conn.query(
+      `INSERT INTO orders
+       (
+         userId, productName, price, purchaseDate,
+         order_details, status, product_id,
+         source, fulfillment_mode, order_channel
+       )
+       VALUES (?, ?, ?, NOW(), ?, 'Waiting', ?,
+               'sql', 'manual', 'reseller_api')`,
+      [
+        userId,
+        orderName,
+        price,
+        details.join(' | ') || 'No checkout details',
+        productId
+      ]
+    );
+
+    const orderId = created.insertId;
+
+    await conn.query(
+      `INSERT INTO transactions
+       (user_id, order_id, type, amount, reason)
+       VALUES (?, ?, 'debit', ?, ?)`,
+      [userId, orderId, price, `Reseller API purchase #${orderId}`]
+    );
+
+    await conn.query(
+      `INSERT INTO notifications
+       (user_id, message, created_at, is_read)
+       VALUES (?, ?, NOW(), 0)`,
+      [
+        userId,
+        `تم استلام طلب Reseller API رقم #${orderId} بنجاح.`
+      ]
+    );
+
+    const response = {
+      success: true,
+      data: {
+        order_id: orderId,
+        product_id: productId,
+        product_name: orderName,
+        price,
+        currency: 'USD',
+        status: 'pending',
+        fulfillment: 'manual'
+      }
+    };
+
+    await conn.query(
+      `INSERT INTO idempotency_keys
+       (user_id, idem_key, order_id, response_json)
+       VALUES (?, ?, ?, ?)`,
+      [
+        userId,
+        idemKey,
+        orderId,
+        JSON.stringify({
+          fingerprint: requestFingerprint,
+          response
+        })
+      ]
+    );
+
+    await conn.commit();
+    transactionStarted = false;
+
+    return res.status(201).json(response);
+
+  } catch (error) {
+    if (conn && transactionStarted) {
+      try {
+        await conn.rollback();
+      } catch (rollbackError) {
+        console.error('Reseller order rollback failed:', rollbackError);
+      }
+    }
+
+    console.error('Reseller order creation error:', error);
+
+    return res.status(503).json({
+      success: false,
+      error: 'ORDER_CREATION_UNAVAILABLE',
+      message: 'Order could not be confirmed. Retry using the same Idempotency-Key.'
+    });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+
 
     // ==========================================
     // RESELLER API - CHECKOUT REQUIREMENTS
