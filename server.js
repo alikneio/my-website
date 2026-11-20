@@ -1094,6 +1094,83 @@ app.get('/api/v1/products/:id', authenticateResellerApi, async (req, res) => {
       )
     }));
 
+
+
+    // ==========================================
+    // RESELLER API - CHECKOUT REQUIREMENTS
+    // ==========================================
+
+    const rawCheckoutFlow = String(
+      product.checkout_flow || 'player_id'
+    ).trim().toLowerCase();
+
+    const checkoutFlow = [
+      'player_id',
+      'account_choice',
+      'no_details'
+    ].includes(rawCheckoutFlow)
+      ? rawCheckoutFlow
+      : 'player_id';
+
+    const checkoutFields = [];
+
+    if (checkoutFlow === 'player_id') {
+      checkoutFields.push({
+        name: 'player_id',
+        label: String(
+          product.player_id_label || 'Player ID'
+        ),
+        type: 'text',
+        required: Number(product.requires_player_id) === 1
+      });
+    }
+
+    if (checkoutFlow === 'account_choice') {
+      checkoutFields.push({
+        name: 'checkout_choice',
+        label: 'Account Type',
+        type: 'select',
+        required: true,
+        default: 'own_account',
+        options: [
+          {
+            value: 'own_account',
+            label: 'Use My Own Account'
+          },
+          {
+            value: 'account_from_us',
+            label: 'Account From Us'
+          }
+        ]
+      });
+
+      checkoutFields.push({
+        name: 'account_email',
+        label: 'Account Email',
+        type: 'email',
+        required_when: {
+          checkout_choice: 'own_account'
+        }
+      });
+
+      checkoutFields.push({
+        name: 'account_password',
+        label: 'Account Password',
+        type: 'password',
+        required_when: {
+          checkout_choice: 'own_account'
+        }
+      });
+    }
+
+    const checkoutRequirements = {
+      flow: checkoutFlow,
+      fields: checkoutFields,
+      requires_option: formattedOptions.length > 0,
+      fulfillment: 'manual'
+    };
+
+
     return res.status(200).json({
       success: true,
       data: {
@@ -1105,6 +1182,7 @@ app.get('/api/v1/products/:id', authenticateResellerApi, async (req, res) => {
         price: finalPrice(dealerPrice),
         currency: 'USD',
         options: formattedOptions,
+        checkout: checkoutRequirements,
         availability: outOfStock
           ? 'out_of_stock'
           : 'available'
