@@ -807,6 +807,187 @@ app.get(
 );
 
 
+
+/**
+ * AK CELL RESELLER API V1
+ * GET /api/v1/products
+ *
+ * Read-only local SQL product catalog.
+ * Only explicitly API-enabled, active products.
+ */
+app.get('/api/v1/products', authenticateResellerApi, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+
+  try {
+    const userId = req.resellerApi.userId;
+
+    // Read the latest pricing settings from the shared user account.
+    const [[user]] = await promisePool.query(
+      `SELECT id, level, discount_percent
+       FROM users
+       WHERE id = ?
+         AND api_enabled = 1
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (!user) {
+      return res.status(403).json({
+        success: false,
+        error: 'API_ACCESS_DISABLED'
+      });
+    }
+
+    // Local SQL products only.
+    const [products] = await promisePool.query(
+      `SELECT *
+       FROM products
+       WHERE api_enabled = 1
+         AND active = 1
+       ORDER BY main_category ASC,
+                sub_category ASC,
+                sort_order ASC,
+                id ASC
+       LIMIT 500`
+    );
+
+    if (!products.length) {
+      return res.json({
+        success: true,
+        data: [],
+        count: 0,
+        currency: 'USD'
+      });
+    }
+
+    const productIds = products.map(p => p.id);
+
+    // Read active checkout options in one query.
+    const [options] = await promisePool.query(
+      `SELECT
+         id, product_id, option_label, option_value,
+         price,
+         level_2_price, level_3_price,
+         level_4_price, level_5_price,
+         sort_order
+       FROM product_checkout_options
+       WHERE product_id IN (?)
+         AND is_active = 1
+       ORDER BY sort_order ASC, id ASC`,
+      [productIds]
+    );
+
+    // Count available local stock without exposing codes.
+    const [stockRows] = await promisePool.query(
+      `SELECT product_id, COUNT(*) AS available
+       FROM product_stock_items
+       WHERE product_id IN (?)
+         AND status = 'available'
+       GROUP BY product_id`,
+      [productIds]
+    );
+
+    const stockMap = new Map(
+      stockRows.map(row => [
+        Number(row.product_id),
+        Number(row.available)
+      ])
+    );
+
+    const optionsMap = new Map();
+
+    for (const option of options) {
+      const productId = Number(option.product_id);
+
+      if (!optionsMap.has(productId)) {
+        optionsMap.set(productId, []);
+      }
+
+      optionsMap.get(productId).push(option);
+    }
+
+    const manualDiscount = Math.min(
+      Math.max(Number(user.discount_percent || 0), 0),
+      100
+    );
+
+    const applyManualDiscount = (price) =>
+      Number((price * (1 - manualDiscount / 100)).toFixed(2));
+
+    const data = products.map(product => {
+      const id = Number(product.id);
+
+      // Reuse the website's existing dealer pricing logic.
+      const dealerPrice = getLocalProductPriceForUser(
+        product,
+        user
+      );
+
+      const finalPrice = applyManualDiscount(dealerPrice);
+
+      const productOptions = (optionsMap.get(id) || []).map(option => {
+        const optionDealerPrice = getLocalOptionPriceForUser(
+          option,
+          product,
+          user
+        );
+
+        return {
+          id: Number(option.id),
+          label: option.option_label,
+          value: option.option_value,
+          price: applyManualDiscount(optionDealerPrice)
+        };
+      });
+
+      const deliveryMode = String(
+        product.delivery_mode || 'manual'
+      ).toLowerCase();
+
+      const availableStock = stockMap.get(id) || 0;
+
+      const isOutOfStock =
+        Number(product.is_out_of_stock) === 1 ||
+        (deliveryMode === 'auto' && availableStock === 0);
+
+      return {
+        id,
+        name: product.name,
+        category: product.main_category,
+        subcategory: product.sub_category,
+        image: product.image || null,
+
+        price: finalPrice,
+        currency: 'USD',
+
+        options: productOptions,
+
+        availability: isOutOfStock
+          ? 'out_of_stock'
+          : 'available'
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data,
+      count: data.length,
+      currency: 'USD'
+    });
+
+  } catch (error) {
+    console.error('Reseller products API error:', error);
+
+    return res.status(503).json({
+      success: false,
+      error: 'PRODUCTS_UNAVAILABLE',
+      message: 'Product catalog is temporarily unavailable.'
+    });
+  }
+});
+
+
+
 // ==========================================
 // DEVELOPER CENTER - CSRF PROTECTION
 // ==========================================
