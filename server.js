@@ -1655,6 +1655,93 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
 
 
 
+/**
+ * AK CELL RESELLER API V1
+ * GET /api/v1/orders/:id
+ *
+ * Read-only order tracking.
+ * A reseller can only access their own API orders.
+ */
+
+app.get('/api/v1/orders/:id', authenticateResellerApi, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+
+  const orderId = Number(req.params.id);
+
+  if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_ORDER_ID',
+      message: 'Invalid order ID.'
+    });
+  }
+
+  try {
+    const userId = req.resellerApi.userId;
+
+    const [[order]] = await promisePool.query(
+      `
+      SELECT
+        id,
+        product_id,
+        productName,
+        price,
+        purchaseDate,
+        status,
+        admin_reply,
+        fulfillment_mode
+      FROM orders
+      WHERE id = ?
+        AND userId = ?
+        AND order_channel = 'reseller_api'
+      LIMIT 1
+      `,
+      [orderId, userId]
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'ORDER_NOT_FOUND',
+        message: 'Order not found.'
+      });
+    }
+
+    const statusMap = {
+      'Waiting': 'pending',
+      'In progress': 'processing',
+      'Accepted': 'completed',
+      'Partial': 'partial',
+      'Rejected': 'rejected'
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        order_id: Number(order.id),
+        product_id: order.product_id,
+        product_name: order.productName,
+        price: Number(order.price),
+        currency: 'USD',
+        status: statusMap[order.status] || 'unknown',
+        fulfillment: order.fulfillment_mode,
+        admin_reply: order.admin_reply,
+        created_at: order.purchaseDate
+      }
+    });
+
+  } catch (error) {
+    console.error('Reseller order tracking error:', error);
+
+    return res.status(503).json({
+      success: false,
+      error: 'ORDER_TRACKING_UNAVAILABLE',
+      message: 'Order tracking is temporarily unavailable.'
+    });
+  }
+});
+
+
 
 
 // ==========================================
