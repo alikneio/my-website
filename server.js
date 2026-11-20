@@ -947,8 +947,8 @@ app.get('/api/v1/products', authenticateResellerApi, async (req, res) => {
       const availableStock = stockMap.get(id) || 0;
 
       const isOutOfStock =
-        Number(product.is_out_of_stock) === 1 ||
-        (deliveryMode === 'auto' && availableStock === 0);
+  Number(product.is_out_of_stock) === 1 ||
+  (deliveryMode === 'stock' && availableStock === 0);
 
       return {
         id,
@@ -985,6 +985,143 @@ app.get('/api/v1/products', authenticateResellerApi, async (req, res) => {
     });
   }
 });
+
+
+
+/**
+ * AK CELL RESELLER API V1
+ * GET /api/v1/products/:id
+ *
+ * Read-only product details.
+ */
+app.get('/api/v1/products/:id', authenticateResellerApi, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+
+  const productId = Number(req.params.id);
+
+  if (!Number.isSafeInteger(productId) || productId <= 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_PRODUCT_ID',
+      message: 'Invalid product ID.'
+    });
+  }
+
+  try {
+    const [[user]] = await promisePool.query(
+      `SELECT id, level, discount_percent
+       FROM users
+       WHERE id = ?
+         AND api_enabled = 1
+       LIMIT 1`,
+      [req.resellerApi.userId]
+    );
+
+    if (!user) {
+      return res.status(403).json({
+        success: false,
+        error: 'API_ACCESS_DISABLED'
+      });
+    }
+
+    const [[product]] = await promisePool.query(
+      `SELECT *
+       FROM products
+       WHERE id = ?
+         AND api_enabled = 1
+         AND active = 1
+       LIMIT 1`,
+      [productId]
+    );
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: 'PRODUCT_NOT_FOUND',
+        message: 'Product not found or unavailable through API.'
+      });
+    }
+
+    const [options] = await promisePool.query(
+      `SELECT
+         id, option_label, option_value, price,
+         level_2_price, level_3_price,
+         level_4_price, level_5_price
+       FROM product_checkout_options
+       WHERE product_id = ?
+         AND is_active = 1
+       ORDER BY sort_order ASC, id ASC`,
+      [productId]
+    );
+
+    const [[stock]] = await promisePool.query(
+      `SELECT COUNT(*) AS available
+       FROM product_stock_items
+       WHERE product_id = ?
+         AND status = 'available'`,
+      [productId]
+    );
+
+    const discount = Math.min(
+      Math.max(Number(user.discount_percent || 0), 0),
+      100
+    );
+
+    const finalPrice = price =>
+      Number((Number(price) * (1 - discount / 100)).toFixed(2));
+
+    const dealerPrice = getLocalProductPriceForUser(
+      product,
+      user
+    );
+
+    const deliveryMode = String(
+      product.delivery_mode || 'manual'
+    ).toLowerCase().trim();
+
+    const availableStock = Number(stock.available || 0);
+
+    const outOfStock =
+      Number(product.is_out_of_stock) === 1 ||
+      (deliveryMode === 'stock' && availableStock === 0);
+
+    const formattedOptions = options.map(option => ({
+      id: Number(option.id),
+      label: option.option_label,
+      value: option.option_value,
+      price: finalPrice(
+        getLocalOptionPriceForUser(option, product, user)
+      )
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: Number(product.id),
+        name: product.name,
+        category: product.main_category,
+        subcategory: product.sub_category,
+        image: product.image || null,
+        price: finalPrice(dealerPrice),
+        currency: 'USD',
+        options: formattedOptions,
+        availability: outOfStock
+          ? 'out_of_stock'
+          : 'available'
+      }
+    });
+
+  } catch (error) {
+    console.error('Reseller product details error:', error);
+
+    return res.status(503).json({
+      success: false,
+      error: 'PRODUCT_DETAILS_UNAVAILABLE',
+      message: 'Product details are temporarily unavailable.'
+    });
+  }
+});
+
 
 
 
