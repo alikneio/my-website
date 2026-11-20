@@ -11980,160 +11980,330 @@ app.get('/admin/orders', checkAdmin, (req, res) => {
 });
 
 // مسار لتحديث حالة الطلب والرد
+
 app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
-  const orderId = req.params.id;
+  const orderId = Number(req.params.id);
   const { status: rawStatus, admin_reply } = req.body;
 
-  // توحيد الحالة
-  const normalized = (rawStatus || '').trim().toLowerCase();
-  const status =
-    normalized === 'accepted' ? 'Accepted' :
-    normalized === 'rejected' ? 'Rejected' :
-    rawStatus;
+  // ==========================================
+  // 1. Validate request
+  // ==========================================
 
-  let conn;
+  if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+    return res.status(400).send('Invalid order ID.');
+  }
+
+  const normalizedStatus = String(rawStatus || '')
+    .trim()
+    .toLowerCase();
+
+  const statusMap = {
+    waiting: 'Waiting',
+    pending: 'Waiting',
+    accepted: 'Accepted',
+    rejected: 'Rejected'
+  };
+
+  const status = statusMap[normalizedStatus];
+
+  if (!status) {
+    return res.status(400).send('Invalid order status.');
+  }
+
+  const adminReply = String(admin_reply ?? '').trim();
+
+  let conn = null;
+  let transactionStarted = false;
+  let committed = false;
+
+  let shouldRecalculateLevel = false;
+  let shouldNotifyTelegram = false;
+  let userIdFromOrder = null;
+
   try {
     conn = await promisePool.getConnection();
-    await conn.beginTransaction();
 
-    // 🔒 اقفل الطلب بالـ transaction (FOR UPDATE) لمنع سباق
+    await conn.beginTransaction();
+    transactionStarted = true;
+
+    // ==========================================
+    // 2. Lock order row
+    // ==========================================
+
     const [[order]] = await conn.query(
-      `SELECT * FROM orders WHERE id = ? FOR UPDATE`,
+      `SELECT *
+       FROM orders
+       WHERE id = ?
+       LIMIT 1
+       FOR UPDATE`,
       [orderId]
     );
 
     if (!order) {
       await conn.rollback();
+      transactionStarted = false;
+
       return res.status(404).send('Order not found.');
     }
 
-    const oldStatus = order.status;
-    const orderPrice = Number(order.price || 0);
-    const userId = order.userId;
+    const oldStatus = String(order.status || '').trim();
+    const oldNormalized = oldStatus.toLowerCase();
 
-    if (!Number.isFinite(orderPrice) || orderPrice < 0) {
+    const orderPrice = Number(order.price);
+    const userId = Number(order.userId);
+    userIdFromOrder = userId;
+
+    if (
+      !Number.isFinite(orderPrice) ||
+      orderPrice < 0 ||
+      !Number.isSafeInteger(userId) ||
+      userId <= 0
+    ) {
       await conn.rollback();
-      return res.status(400).send('Invalid order price.');
+      transactionStarted = false;
+
+      return res.status(400).send('Invalid order data.');
     }
 
-    // ✅ إذا ما في تغيير فعلي بالحالة: بس حدّث الرد الإداري وخلص
-    // (وبيمنع تكرار refund/total_spent)
-    if ((status || '').trim() === (oldStatus || '').trim()) {
+    // ==========================================
+    // 3. Same status: update reply only
+    // ==========================================
+
+    if (normalizedStatus === oldNormalized ||
+        (normalizedStatus === 'pending' &&
+         oldNormalized === 'waiting')) {
+
       await conn.query(
-        `UPDATE orders SET admin_reply = ? WHERE id = ?`,
-        [admin_reply, orderId]
+        `UPDATE orders
+         SET admin_reply = ?
+         WHERE id = ?`,
+        [adminReply, orderId]
       );
 
       await conn.commit();
-      res.redirect('/admin/orders');
+      transactionStarted = false;
+      committed = true;
 
-      // تيليغرام بالخلفية
-      withTimeout(sendOrderStatusTelegram(orderId, status, admin_reply))
-        .catch(tgErr => console.error("⚠️ Telegram (no-status-change) error:", tgErr.message));
-      return;
+      console.log(
+        `✅ Order #${orderId}: admin reply updated.`
+      );
+
+      return res.redirect('/admin/orders');
     }
 
-    // =========================================================
-    // 1) REJECTED: Refund balance + transaction + notification
-    //    (فقط إذا كان oldStatus مش Rejected)
-    // =========================================================
+    // ==========================================
+    // 4. Block terminal-state transitions
+    // ==========================================
+
+    if (
+      oldNormalized === 'accepted' ||
+      oldNormalized === 'rejected'
+    ) {
+      await conn.rollback();
+      transactionStarted = false;
+
+      console.warn(
+        `⚠️ Blocked order transition: ` +
+        `#${orderId} ${oldStatus} -> ${status}`
+      );
+
+      return res.status(409).send(
+        `Order #${orderId} is already ${oldStatus}. ` +
+        'Completed orders cannot change status.'
+      );
+    }
+
+    // Only Waiting/Pending can transition.
+    if (
+      oldNormalized !== 'waiting' &&
+      oldNormalized !== 'pending'
+    ) {
+      await conn.rollback();
+      transactionStarted = false;
+
+      return res.status(409).send(
+        `Cannot change order from ${oldStatus} to ${status}.`
+      );
+    }
+
+    // Don't move an existing order back to Waiting.
+    if (status === 'Waiting') {
+      await conn.rollback();
+      transactionStarted = false;
+
+      return res.status(409).send(
+        'Order is already awaiting processing.'
+      );
+    }
+
+    // ==========================================
+    // 5. REJECTED: refund exactly once
+    // ==========================================
+
     if (status === 'Rejected') {
-      // Refund
-      await conn.query(
-        `UPDATE users SET balance = balance + ? WHERE id = ?`,
+
+      const [refundResult] = await conn.query(
+        `UPDATE users
+         SET balance = balance + ?
+         WHERE id = ?`,
         [orderPrice, userId]
       );
 
-      await conn.query(
-        `INSERT INTO transactions (user_id, type, amount, reason)
-         VALUES (?, 'credit', ?, ?)`,
-        [userId, orderPrice, `Refund for rejected order #${orderId}`]
-      );
-
-      const notifMsg = `❌ تم رفض طلبك (${order.productName})، وتم استرجاع المبلغ (${order.price}$) إلى رصيدك.`;
-      await conn.query(
-        `INSERT INTO notifications (user_id, message, created_at, is_read)
-         VALUES (?, ?, NOW(), 0)`,
-        [userId, notifMsg]
-      );
-
-      await conn.query(
-        `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ?`,
-        [status, admin_reply, orderId]
-      );
-
-      await conn.commit();
-
-      console.log(`✅ Order #${orderId} rejected and refunded.`);
-      res.redirect('/admin/orders');
-
-      withTimeout(sendOrderStatusTelegram(orderId, status, admin_reply))
-        .catch(tgErr => console.error("⚠️ Telegram (rejected) error:", tgErr.message));
-
-      return;
-    }
-
-    // =========================================================
-    // 2) ACCEPTED: زِد total_spent مرة واحدة فقط عند الانتقال لأول مرة لـ Accepted
-    // =========================================================
-    if (status === 'Accepted') {
-      // حدّث الطلب أولاً
-      await conn.query(
-        `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ?`,
-        [status, admin_reply, orderId]
-      );
-
-      // ✅ إذا عم ننتقل لأول مرة لـ Accepted (oldStatus != Accepted)
-      // زِد total_spent
-      if (oldStatus !== 'Accepted') {
-        await conn.query(
-          `UPDATE users SET total_spent = total_spent + ? WHERE id = ?`,
-          [orderPrice, userId]
+      if (refundResult.affectedRows !== 1) {
+        throw new Error(
+          `Refund failed: user #${userId} not found.`
         );
       }
 
-      await conn.commit();
+      await conn.query(
+        `INSERT INTO transactions
+           (user_id, type, amount, reason)
+         VALUES (?, 'credit', ?, ?)`,
+        [
+          userId,
+          orderPrice,
+          `Refund for rejected order #${orderId}`
+        ]
+      );
 
-      // بعد الـ commit: level recalculation (مش داخل transaction)
-      try {
-        await recalcUserLevel(userId);
-      } catch (lvlErr) {
-        console.error('⚠️ recalcUserLevel error (admin accept):', lvlErr.message || lvlErr);
-      }
+      const notificationMessage =
+        `❌ تم رفض طلبك (${order.productName})، ` +
+        `وتم استرجاع المبلغ (${orderPrice.toFixed(2)}$) ` +
+        `إلى رصيدك.`;
 
-      console.log(`✅ Order #${orderId} updated to Accepted.`);
-      res.redirect('/admin/orders');
+      await conn.query(
+        `INSERT INTO notifications
+           (user_id, message, created_at, is_read)
+         VALUES (?, ?, NOW(), 0)`,
+        [userId, notificationMessage]
+      );
 
-      withTimeout(sendOrderStatusTelegram(orderId, status, admin_reply))
-        .catch(tgErr => console.error("⚠️ Telegram (accepted) error:", tgErr.message));
+      await conn.query(
+        `UPDATE orders
+         SET status = 'Rejected',
+             admin_reply = ?
+         WHERE id = ?`,
+        [adminReply, orderId]
+      );
 
-      return;
+      shouldNotifyTelegram = true;
+
+      console.log(
+        `💰 Order #${orderId}: refund prepared ` +
+        `for $${orderPrice.toFixed(2)}`
+      );
     }
 
-    // =========================================================
-    // 3) باقي الحالات: بس تحديث status + admin_reply
-    // =========================================================
-    await conn.query(
-      `UPDATE orders SET status = ?, admin_reply = ? WHERE id = ?`,
-      [status, admin_reply, orderId]
-    );
+    // ==========================================
+    // 6. ACCEPTED: count spending once
+    // ==========================================
+
+    else if (status === 'Accepted') {
+
+      await conn.query(
+        `UPDATE orders
+         SET status = 'Accepted',
+             admin_reply = ?
+         WHERE id = ?`,
+        [adminReply, orderId]
+      );
+
+      const [spendingResult] = await conn.query(
+        `UPDATE users
+         SET total_spent = COALESCE(total_spent, 0) + ?
+         WHERE id = ?`,
+        [orderPrice, userId]
+      );
+
+      if (spendingResult.affectedRows !== 1) {
+        throw new Error(
+          `Spending update failed: user #${userId} not found.`
+        );
+      }
+
+      shouldRecalculateLevel = true;
+      shouldNotifyTelegram = true;
+
+      console.log(
+        `✅ Order #${orderId}: acceptance prepared.`
+      );
+    }
+
+    // ==========================================
+    // 7. Commit all database changes
+    // ==========================================
 
     await conn.commit();
 
-    console.log(`✅ Order #${orderId} updated to ${status}`);
-    res.redirect('/admin/orders');
+    transactionStarted = false;
+    committed = true;
 
-    withTimeout(sendOrderStatusTelegram(orderId, status, admin_reply))
-      .catch(tgErr => console.error("⚠️ Telegram (update) error:", tgErr.message));
+    console.log(
+      `✅ Order #${orderId}: ` +
+      `${oldStatus} -> ${status} committed.`
+    );
 
-  } catch (e) {
-    console.error('❌ admin/order/update failed:', e);
-    try { if (conn) await conn.rollback(); } catch (_) {}
-    return res.status(500).send("Error updating request");
+  } catch (error) {
+
+    console.error(
+      '❌ admin/order/update failed:',
+      error
+    );
+
+    if (conn && transactionStarted) {
+      try {
+        await conn.rollback();
+      } catch (rollbackError) {
+        console.error(
+          '❌ Order rollback failed:',
+          rollbackError
+        );
+      }
+    }
+
+    return res.status(500).send(
+      'Error updating order. Please check its current status.'
+    );
+
   } finally {
-    try { if (conn) conn.release(); } catch (_) {}
+    if (conn) {
+      conn.release();
+    }
   }
+
+  // ==========================================
+  // 8. Post-commit operations
+  // ==========================================
+
+  if (committed && shouldRecalculateLevel) {
+    try {
+      await recalcUserLevel(userIdFromOrder);
+    } catch (levelError) {
+      console.error(
+        '⚠️ Level recalculation error:',
+        levelError
+      );
+    }
+  }
+
+  if (committed && shouldNotifyTelegram) {
+    withTimeout(
+      sendOrderStatusTelegram(
+        orderId,
+        status,
+        adminReply
+      )
+    ).catch(error => {
+      console.error(
+        '⚠️ Telegram notification error:',
+        error.message
+      );
+    });
+  }
+
+  return res.redirect('/admin/orders');
 });
+
 
 
 
