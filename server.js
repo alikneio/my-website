@@ -1024,6 +1024,93 @@ app.get('/developer', checkDeveloperAccess, async (req, res) => {
   }
 });
 
+// ==========================================
+// AK CELL RESELLER API - KEY MANAGEMENT
+// ==========================================
+
+// Create a new API key
+app.post('/developer/keys/create', checkDeveloperAccess, async (req, res) => {
+  try {
+    const userId = Number(req.session.user.id);
+
+    const keyName = String(req.body.key_name || 'Default API Key')
+      .trim()
+      .slice(0, 100) || 'Default API Key';
+
+    // Generate secure random API key
+    const rawKey = 'akc_live_' + crypto.randomBytes(32).toString('hex');
+
+    const keyHash = crypto
+      .createHash('sha256')
+      .update(rawKey)
+      .digest('hex');
+
+    const keyPrefix = rawKey.slice(0, 16);
+
+    // Limit active keys per user
+    const [[countRow]] = await promisePool.query(
+      `SELECT COUNT(*) AS total
+       FROM reseller_api_keys
+       WHERE user_id = ? AND is_active = 1`,
+      [userId]
+    );
+
+    if (Number(countRow.total) >= 5) {
+      return res.status(400).send(
+        'Maximum 5 active API keys allowed.'
+      );
+    }
+
+    await promisePool.query(
+      `INSERT INTO reseller_api_keys
+       (user_id, key_name, key_prefix, key_hash)
+       VALUES (?, ?, ?, ?)`,
+      [userId, keyName, keyPrefix, keyHash]
+    );
+
+    // Show full key only in the response to this creation
+    res.set('Cache-Control', 'no-store');
+
+    return res.render('developer-key-created', {
+      user: req.session.user,
+      rawKey,
+      keyName
+    });
+
+  } catch (error) {
+    console.error('❌ API key creation error:', error);
+    return res.status(500).send('Failed to create API key.');
+  }
+});
+
+// Revoke an API key
+app.post('/developer/keys/:id/revoke', checkDeveloperAccess, async (req, res) => {
+  try {
+    const userId = Number(req.session.user.id);
+    const keyId = Number(req.params.id);
+
+    if (!Number.isSafeInteger(keyId) || keyId <= 0) {
+      return res.status(400).send('Invalid API key ID.');
+    }
+
+    await promisePool.query(
+      `UPDATE reseller_api_keys
+       SET is_active = 0,
+           revoked_at = NOW()
+       WHERE id = ?
+         AND user_id = ?
+         AND is_active = 1`,
+      [keyId, userId]
+    );
+
+    return res.redirect('/developer');
+
+  } catch (error) {
+    console.error('❌ API key revoke error:', error);
+    return res.status(500).send('Failed to revoke API key.');
+  }
+});
+
 
 
 app.get('/test', (req, res) => {

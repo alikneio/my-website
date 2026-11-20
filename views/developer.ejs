@@ -3,82 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
+  <meta name="robots" content="noindex,nofollow">
   <title>Developer Center | AK Cell</title>
-
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  >
-
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-    rel="stylesheet"
-  >
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root{color-scheme:dark;--bg:#080e1c;--panel:#101a2d;--panel2:#142139;--line:#263650;--text:#eef5ff;--muted:#91a4c0;--accent:#5b8cff;--cyan:#37d4d4}
+    *{box-sizing:border-box}body{background:radial-gradient(ellipse at 85% -15%,#172d58 0%,transparent 48%),var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+    a{text-decoration:none}.shell{display:flex;min-height:100vh}.sidebar{width:258px;flex:none;background:#0b1425;border-right:1px solid var(--line);padding:27px 17px;position:sticky;top:0;height:100vh}.brand{display:flex;align-items:center;gap:12px;padding:0 12px 30px;color:#fff;font-size:20px;font-weight:800}.brand-icon{width:40px;height:40px;display:grid;place-items:center;background:linear-gradient(135deg,#4676ff,#35d6d1);border-radius:12px}.brand small{display:block;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:1.8px}.nav-label{font-size:10px;color:#7186a8;font-weight:800;letter-spacing:1.5px;margin:12px 13px}.side-link{display:flex;align-items:center;gap:12px;color:#9eb0ca;padding:12px 14px;border-radius:11px;margin-bottom:5px;font-size:14px}.side-link:hover,.side-link.active{background:#1a2c4d;color:#fff}.side-link.active{box-shadow:inset 3px 0 #5b8cff}.side-link i{font-size:18px}.side-link.disabled{opacity:.5;cursor:not-allowed}.side-bottom{margin-top:36px;border-top:1px solid var(--line);padding-top:18px}
+    .main{flex:1;min-width:0;padding:35px clamp(18px,4vw,60px) 65px;max-width:1600px;margin:auto}.topbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:30px}.eyebrow{color:#70a0ff;font-weight:800;font-size:11px;letter-spacing:2px}.page-title{font-weight:800;letter-spacing:-1.2px;font-size:clamp(28px,3.4vw,42px);margin:8px 0}.subtle{color:var(--muted)}.avatar{width:40px;height:40px;display:grid;place-items:center;border:1px solid #38547c;border-radius:12px;background:#1b2b49;font-weight:800}.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;background:#13392f;border:1px solid #245e4a;border-radius:100px;color:#6ff0b7;font-size:12px;font-weight:700}.pulse{height:7px;width:7px;border-radius:50%;background:#57e3a1;box-shadow:0 0 10px #57e3a1}
+    .hero{background:linear-gradient(110deg,#1b315a 0%,#152746 55%,#102139 100%);border:1px solid #35517d;border-radius:22px;padding:30px;position:relative;overflow:hidden;margin-bottom:24px}.hero:after{content:"</>";position:absolute;right:35px;top:3px;font-size:135px;color:#fff;opacity:.045;font-weight:900;pointer-events:none}.hero h2{font-size:24px;font-weight:800}.hero p{max-width:650px;color:#b8c9e3;margin:12px 0 0;line-height:1.7}.hero-content{position:relative;z-index:1}
+    .metric{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:21px;height:100%}.metric .ico{width:42px;height:42px;border-radius:12px;background:#1b3154;display:grid;place-items:center;color:#7eb0ff;font-size:19px}.metric .value{font-size:27px;font-weight:800;margin-top:15px}.metric .label{font-size:13px;color:var(--muted)}.metric .note{font-size:11px;color:#7892b4;margin-top:6px}
+    .section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:35px 0 15px}.section-head h3{font-size:19px;font-weight:800;margin:0}.section-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px}.panel h4{font-size:16px;font-weight:800}.key-illustration{width:50px;height:50px;display:grid;place-items:center;border-radius:14px;background:#1d3154;color:#8cb6ff;font-size:23px}.muted-chip{border:1px solid #3d4e66;color:#aabbd1;border-radius:20px;padding:5px 11px;font-size:11px;font-weight:700}.btn-primary-custom{background:linear-gradient(135deg,#517dff,#3664d9);color:#fff;border:0;border-radius:11px;padding:11px 18px;font-weight:700}.btn-primary-custom:disabled{background:#31415e;color:#9cacc5;cursor:not-allowed}.info-banner{border:1px solid #31517d;background:#132744;border-radius:12px;color:#bfd4f3;padding:13px 16px;font-size:13px}.info-banner i{color:#83b4ff}.code-card{background:#0a1323;border:1px solid #293e5f;border-radius:12px;padding:17px;overflow:auto;color:#b4d5ff;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;white-space:pre-wrap;word-break:break-word}.step{display:flex;gap:14px;padding:15px 0;border-bottom:1px solid var(--line)}.step:last-child{border-bottom:0}.step-num{width:29px;height:29px;flex:none;display:grid;place-items:center;background:#1e355b;color:#a8c7ff;border-radius:9px;font-size:12px;font-weight:800}.step strong{display:block;font-size:14px}.step span{color:var(--muted);font-size:12px}.footer-note{color:#7186a8;font-size:12px;margin-top:35px}.desktop-user{display:flex;align-items:center;gap:10px}.mobile-nav{display:none}.form-control{background:#0a1425;border:1px solid #365074;color:#fff}.form-control:focus{background:#0a1425;color:#fff;border-color:#6a95ff;box-shadow:0 0 0 .2rem #5b8cff22}.form-control::placeholder{color:#7f93af}
+    @media(max-width:950px){.sidebar{display:none}.main{padding:20px 16px 50px}.mobile-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}.topbar{margin-bottom:22px}.hero{padding:23px}.hero:after{font-size:90px;right:8px;top:40px}.desktop-user .username{display:none}}
+  </style>
 </head>
-
-<body class="bg-light">
-
-  <main class="container py-5">
-
-    <div class="mb-4">
-      <a href="/" class="text-decoration-none">
-        <i class="bi bi-arrow-left"></i>
-        Back to AK Cell
-      </a>
+<body>
+<%
+  const d = developer || {};
+  const safeLevel = Math.max(1, Math.min(5, Number(d.level) || 1));
+  const safeBalance = Number.isFinite(Number(d.balance)) ? Number(d.balance) : 0;
+  const displayName = String(d.username || 'Developer');
+  const apiAuthorized = Number(d.api_enabled) === 1;
+  const keys = Array.isArray(apiKeys) ? apiKeys : [];
+  const activeKeyCount = keys.filter(k => Number(k.is_active) === 1).length;
+  const keyActionsReady = typeof keyManagementReady !== 'undefined' && keyManagementReady === true && typeof csrfToken !== 'undefined' && !!csrfToken;
+%>
+<div class="shell">
+  <aside class="sidebar">
+    <a href="/" class="brand"><span class="brand-icon"><i class="bi bi-code-slash"></i></span><span>AK CELL<small>DEVELOPER PLATFORM</small></span></a>
+    <div class="nav-label">WORKSPACE</div>
+    <a class="side-link active" href="/developer"><i class="bi bi-grid-1x2"></i> Overview</a>
+    <a class="side-link" href="#api-keys"><i class="bi bi-key"></i> API Keys</a>
+    <a class="side-link" href="#quick-start"><i class="bi bi-terminal"></i> Quick Start</a>
+    <div class="nav-label mt-4">COMING SOON</div>
+    <span class="side-link disabled"><i class="bi bi-box-seam"></i> API Products</span>
+    <span class="side-link disabled"><i class="bi bi-receipt"></i> API Orders</span>
+    <span class="side-link disabled"><i class="bi bi-activity"></i> Usage & Logs</span>
+    <div class="side-bottom"><a class="side-link" href="/"><i class="bi bi-arrow-left-circle"></i> Back to AK Cell</a></div>
+  </aside>
+  <main class="main">
+    <div class="mobile-nav"><a href="/" class="text-white fw-bold"><i class="bi bi-code-slash me-2"></i>AK CELL <span class="subtle fw-normal">/ Developers</span></a><a href="/" class="subtle"><i class="bi bi-arrow-left"></i> Store</a></div>
+    <header class="topbar">
+      <div><div class="eyebrow">DEVELOPER WORKSPACE</div><h1 class="page-title">Developer Center<span style="color:#6b9aff">.</span></h1><div class="subtle">Build your integration with AK Cell.</div></div>
+      <div class="desktop-user"><span class="pill"><span class="pulse"></span> Authorized</span><div class="avatar"><%= displayName.charAt(0).toUpperCase() %></div><span class="username fw-semibold"><%= displayName %></span></div>
+    </header>
+    <section class="hero"><div class="hero-content"><span class="eyebrow">AK CELL RESELLER API</span><h2 class="mt-3">Welcome back, <%= displayName %> <span aria-hidden="true">👋</span></h2><p>Your central workspace for API access, credentials, and integration resources. We're preparing a secure way to connect your storefront to AK Cell's local product catalog.</p></div></section>
+    <div class="row g-3">
+      <div class="col-sm-6 col-xl-3"><div class="metric"><div class="ico"><i class="bi bi-person-badge"></i></div><div class="value">Level <%= safeLevel %></div><div class="label">Dealer Level</div><div class="note">Based on your AK Cell account</div></div></div>
+      <div class="col-sm-6 col-xl-3"><div class="metric"><div class="ico"><i class="bi bi-wallet2"></i></div><div class="value">$<%= safeBalance.toFixed(2) %></div><div class="label">Available Balance</div><div class="note">Shared with your store account</div></div></div>
+      <div class="col-sm-6 col-xl-3"><div class="metric"><div class="ico"><i class="bi bi-shield-check"></i></div><div class="value" style="color:#68e3ac;font-size:23px"><%= apiAuthorized ? 'Approved' : 'Disabled' %></div><div class="label">Developer Access</div><div class="note">Managed by AK Cell admins</div></div></div>
+      <div class="col-sm-6 col-xl-3"><div class="metric"><div class="ico"><i class="bi bi-key"></i></div><div class="value"><%= typeof apiKeys !== 'undefined' ? activeKeyCount : '—' %></div><div class="label">Active API Keys</div><div class="note"><%= typeof apiKeys !== 'undefined' ? 'Up to 5 active keys' : 'Key listing not connected yet' %></div></div></div>
     </div>
-
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-body p-4 p-md-5">
-
-        <span class="badge text-bg-primary mb-3">
-          AK Cell Reseller API
-        </span>
-
-        <h1 class="fw-bold">
-          <i class="bi bi-code-slash me-2"></i>
-          Developer Center
-        </h1>
-
-        <p class="text-muted">
-          Welcome, <%= developer.username %>.
-          Manage your API integration from here.
-        </p>
-
-        <hr>
-
-        <div class="row g-3 my-3">
-
-          <div class="col-md-6">
-            <div class="border rounded-3 p-3">
-              <div class="text-muted small">Dealer Level</div>
-              <div class="fs-3 fw-bold">
-                Level <%= developer.level %>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-md-6">
-            <div class="border rounded-3 p-3">
-              <div class="text-muted small">Account Balance</div>
-              <div class="fs-3 fw-bold">
-                $<%= Number(developer.balance || 0).toFixed(2) %>
-              </div>
-            </div>
-          </div>
-
+    <section id="api-keys">
+      <div class="section-head"><div><h3><i class="bi bi-key me-2" style="color:#79a6ff"></i> API Key Management</h3><p>Control the credentials that will connect your applications.</p></div><span class="muted-chip">SECURE ACCESS</span></div>
+      <div class="panel">
+        <div class="d-flex align-items-start justify-content-between flex-wrap gap-3"><div class="d-flex gap-3 align-items-center"><div class="key-illustration"><i class="bi bi-key-fill"></i></div><div><h4 class="mb-1">Your API Credentials</h4><div class="subtle small">Keys are stored as cryptographic hashes. Full keys are displayed only when created.</div></div></div></div>
+        <% if (keys.length) { %>
+          <div class="table-responsive mt-4"><table class="table table-dark table-borderless align-middle mb-0" style="--bs-table-bg:transparent;--bs-table-color:#e6efff"><thead><tr style="border-bottom:1px solid #2a3c58"><th>Name</th><th>Prefix</th><th>Status</th><th>Created</th><th>Action</th></tr></thead><tbody>
+            <% keys.forEach(function(k) { %><tr style="border-bottom:1px solid #202f48"><td><%= k.key_name %></td><td><code><%= k.key_prefix %>...</code></td><td><span class="muted-chip"><%= Number(k.is_active) === 1 ? 'Active' : 'Revoked' %></span></td><td class="small subtle"><%= k.created_at ? String(k.created_at).slice(0,19) : '—' %></td><td><% if (Number(k.is_active) === 1 && keyActionsReady) { %><form method="POST" action="/developer/keys/<%= Number(k.id) %>/revoke" onsubmit="return confirm('Revoke this API key? This cannot be undone.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-danger" type="submit">Revoke</button></form><% } else { %><span class="subtle small"><%= Number(k.is_active) === 1 ? 'Unavailable' : '—' %></span><% } %></td></tr><% }); %>
+          </tbody></table></div>
+        <% } else { %>
+          <div class="text-center py-4"><i class="bi bi-shield-lock" style="font-size:36px;color:#6c91c7"></i><h4 class="mt-3">No API keys to display</h4><p class="subtle small mb-0">Your keys will appear here once key listing is connected.</p></div>
+        <% } %>
+        <div class="mt-3 pt-3" style="border-top:1px solid var(--line)">
+          <% if (keyActionsReady) { %>
+            <form action="/developer/keys/create" method="POST" class="d-flex flex-column flex-sm-row gap-2 align-items-stretch align-items-sm-center"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input class="form-control" style="max-width:300px" type="text" name="key_name" maxlength="100" placeholder="e.g. My Store Integration" required><button class="btn-primary-custom" type="submit" <%= activeKeyCount >= 5 ? 'disabled' : '' %>><i class="bi bi-plus-lg me-1"></i> Generate API Key</button></form>
+          <% } else { %>
+            <button type="button" class="btn-primary-custom" disabled><i class="bi bi-plus-lg me-1"></i> Generate API Key</button>
+            <span class="subtle small ms-2">Activation pending security setup</span>
+          <% } %>
         </div>
-
-        <div class="alert alert-info rounded-3">
-          <i class="bi bi-info-circle me-2"></i>
-          Your developer account is authorized.
-          API key management and documentation are coming next.
-        </div>
-
       </div>
-    </div>
-
+      <div class="info-banner mt-3"><i class="bi bi-info-circle me-2"></i>API key management is being finalized. External ordering endpoints are not live yet. Never share your API key in chat, screenshots, or public code.</div>
+    </section>
+    <section id="quick-start">
+      <div class="section-head"><div><h3><i class="bi bi-terminal me-2" style="color:#79a6ff"></i> Integration Quick Start</h3><p>A preview of the planned integration flow. Requests are not available yet.</p></div><span class="muted-chip">DOCUMENTATION PREVIEW</span></div>
+      <div class="row g-3"><div class="col-lg-7"><div class="panel h-100"><h4>Planned API Authentication</h4><p class="subtle small">Your server will authenticate using a secret API key. Never expose it in browser JavaScript.</p><div class="code-card">GET /api/v1/account
+Authorization: Bearer YOUR_API_KEY
+Accept: application/json</div><p class="subtle small mt-3 mb-0">Endpoint shown for planning only — it is not implemented yet.</p></div></div><div class="col-lg-5"><div class="panel h-100"><h4>Getting Started</h4><div class="step"><div class="step-num">01</div><div><strong>Get approved</strong><span>Your account must have Developer Access enabled.</span></div></div><div class="step"><div class="step-num">02</div><div><strong>Create credentials</strong><span>Generate a key once key management is secured and activated.</span></div></div><div class="step"><div class="step-num">03</div><div><strong>Connect your store</strong><span>Use the documented API after endpoints are released.</span></div></div></div></div></div>
+    </section>
+    <div class="footer-note">© <%= new Date().getFullYear() %> AK Cell · Developer Platform · Access is restricted to approved accounts.</div>
   </main>
-
+</div>
 </body>
 </html>
