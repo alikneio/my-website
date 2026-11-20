@@ -1095,6 +1095,113 @@ app.get('/api/v1/products/:id', authenticateResellerApi, async (req, res) => {
     }));
 
 
+
+
+    // ==========================================
+    // RESELLER API - CHECKOUT REQUIREMENTS
+    // ==========================================
+
+    const rawCheckoutFlow = String(
+      product.checkout_flow || 'player_id'
+    ).trim().toLowerCase();
+
+    const checkoutFlow = [
+      'player_id',
+      'account_choice',
+      'no_details'
+    ].includes(rawCheckoutFlow)
+      ? rawCheckoutFlow
+      : 'player_id';
+
+    const checkoutFields = [];
+
+    if (checkoutFlow === 'player_id') {
+      checkoutFields.push({
+        name: 'player_id',
+        label: String(
+          product.player_id_label || 'Player ID'
+        ),
+        type: 'text',
+        required: Number(product.requires_player_id) === 1
+      });
+    }
+
+    if (checkoutFlow === 'account_choice') {
+      checkoutFields.push({
+        name: 'checkout_choice',
+        label: 'Account Type',
+        type: 'select',
+        required: true,
+        default: 'own_account',
+        options: [
+          {
+            value: 'own_account',
+            label: 'Use My Own Account'
+          },
+          {
+            value: 'account_from_us',
+            label: 'Account From Us'
+          }
+        ]
+      });
+
+      checkoutFields.push({
+        name: 'account_email',
+        label: 'Account Email',
+        type: 'email',
+        required_when: {
+          checkout_choice: 'own_account'
+        }
+      });
+
+      checkoutFields.push({
+        name: 'account_password',
+        label: 'Account Password',
+        type: 'password',
+        required_when: {
+          checkout_choice: 'own_account'
+        }
+      });
+    }
+
+    const checkoutRequirements = {
+      flow: checkoutFlow,
+      fields: checkoutFields,
+      requires_option: formattedOptions.length > 0,
+      fulfillment: 'manual'
+    };
+
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: Number(product.id),
+        name: product.name,
+        category: product.main_category,
+        subcategory: product.sub_category,
+        image: product.image || null,
+        price: finalPrice(dealerPrice),
+        currency: 'USD',
+        options: formattedOptions,
+        checkout: checkoutRequirements,
+        availability: outOfStock
+          ? 'out_of_stock'
+          : 'available'
+      }
+    });
+
+  } catch (error) {
+    console.error('Reseller product details error:', error);
+
+    return res.status(503).json({
+      success: false,
+      error: 'PRODUCT_DETAILS_UNAVAILABLE',
+      message: 'Product details are temporarily unavailable.'
+    });
+  }
+});
+
+
 /**
  * AK CELL RESELLER API V1
  * POST /api/v1/orders
@@ -1127,7 +1234,10 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
   }
 
   // Separate API keys from website idempotency keys.
-  const idemKey = `ra1_${rawKey}`;
+ const idemKey = crypto
+  .createHash('sha256')
+  .update(`akcell:reseller-api:v1:${rawKey}`)
+  .digest('hex');
 
   const productId = Number(body.product_id);
   const optionId = body.option_id == null
@@ -1370,6 +1480,7 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
           `${product.player_id_label || 'Player ID'}: ${playerId}`
         );
       }
+   
     } else if (flow === 'account_choice') {
       const safeChoice = choice || 'own_account';
 
@@ -1383,18 +1494,25 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
       }
 
       if (safeChoice === 'own_account') {
-        // Temporarily block password-based API purchases until
-        // secure credential storage and display are implemented.
-        await conn.rollback();
-        transactionStarted = false;
-        return res.status(422).json({
-          success: false,
-          error: 'ACCOUNT_CREDENTIAL_FLOW_NOT_READY'
-        });
+        if (!email || !password) {
+          await conn.rollback();
+          transactionStarted = false;
+          return res.status(400).json({
+            success: false,
+            error: 'ACCOUNT_CREDENTIALS_REQUIRED',
+            message: 'Account email and password are required.'
+          });
+        }
+
+        details.push('Checkout Choice: Use my own account');
+        details.push(`Account Email: ${email}`);
+        details.push(`Account Password: ${password}`);
+
+      } else {
+        details.push('Checkout Choice: Account from us');
       }
 
-      details.push('Checkout Choice: Account from us');
-    } else if (flow === 'no_details') {
+          } else if (flow === 'no_details') {
       details.push('Checkout: Buy now only — no customer details required.');
     } else {
       await conn.rollback();
@@ -1535,111 +1653,6 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
   }
 });
 
-
-
-    // ==========================================
-    // RESELLER API - CHECKOUT REQUIREMENTS
-    // ==========================================
-
-    const rawCheckoutFlow = String(
-      product.checkout_flow || 'player_id'
-    ).trim().toLowerCase();
-
-    const checkoutFlow = [
-      'player_id',
-      'account_choice',
-      'no_details'
-    ].includes(rawCheckoutFlow)
-      ? rawCheckoutFlow
-      : 'player_id';
-
-    const checkoutFields = [];
-
-    if (checkoutFlow === 'player_id') {
-      checkoutFields.push({
-        name: 'player_id',
-        label: String(
-          product.player_id_label || 'Player ID'
-        ),
-        type: 'text',
-        required: Number(product.requires_player_id) === 1
-      });
-    }
-
-    if (checkoutFlow === 'account_choice') {
-      checkoutFields.push({
-        name: 'checkout_choice',
-        label: 'Account Type',
-        type: 'select',
-        required: true,
-        default: 'own_account',
-        options: [
-          {
-            value: 'own_account',
-            label: 'Use My Own Account'
-          },
-          {
-            value: 'account_from_us',
-            label: 'Account From Us'
-          }
-        ]
-      });
-
-      checkoutFields.push({
-        name: 'account_email',
-        label: 'Account Email',
-        type: 'email',
-        required_when: {
-          checkout_choice: 'own_account'
-        }
-      });
-
-      checkoutFields.push({
-        name: 'account_password',
-        label: 'Account Password',
-        type: 'password',
-        required_when: {
-          checkout_choice: 'own_account'
-        }
-      });
-    }
-
-    const checkoutRequirements = {
-      flow: checkoutFlow,
-      fields: checkoutFields,
-      requires_option: formattedOptions.length > 0,
-      fulfillment: 'manual'
-    };
-
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        id: Number(product.id),
-        name: product.name,
-        category: product.main_category,
-        subcategory: product.sub_category,
-        image: product.image || null,
-        price: finalPrice(dealerPrice),
-        currency: 'USD',
-        options: formattedOptions,
-        checkout: checkoutRequirements,
-        availability: outOfStock
-          ? 'out_of_stock'
-          : 'available'
-      }
-    });
-
-  } catch (error) {
-    console.error('Reseller product details error:', error);
-
-    return res.status(503).json({
-      success: false,
-      error: 'PRODUCT_DETAILS_UNAVAILABLE',
-      message: 'Product details are temporarily unavailable.'
-    });
-  }
-});
 
 
 
