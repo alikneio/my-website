@@ -621,6 +621,47 @@ const checkAdmin = (req, res, next) => {
     else res.status(403).send('Access Denied');
 };
 
+// ==========================================
+// AK CELL RESELLER API - DEVELOPER ACCESS
+// ==========================================
+const checkDeveloperAccess = async (req, res, next) => {
+  const userId = Number(req.session?.user?.id);
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.redirect('/login');
+  }
+
+  try {
+    const [rows] = await promisePool.query(
+      `
+        SELECT id, api_enabled
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [userId]
+    );
+
+    if (!rows.length || Number(rows[0].api_enabled) !== 1) {
+      return res.status(403).send(
+        'Access Denied - Developer API access is not enabled.'
+      );
+    }
+
+    return next();
+
+  } catch (error) {
+    console.error(
+      '❌ Developer access verification error:',
+      error
+    );
+
+    return res.status(503).send(
+      'Developer Center is temporarily unavailable.'
+    );
+  }
+};
+
 const {
   getFiveSimProfile,
   getCountries,
@@ -937,6 +978,49 @@ app.get('/admin/balance-requests', checkAdmin, async (req, res) => {
   } catch (err) {
     console.error("GET /admin/balance-requests:", err);
     res.status(500).send("Server error");
+  }
+});
+
+
+
+// ==========================================
+// AK CELL RESELLER API - DEVELOPER CENTER
+// ==========================================
+app.get('/developer', checkDeveloperAccess, async (req, res) => {
+  try {
+    const userId = Number(req.session.user.id);
+
+    const [[developer]] = await promisePool.query(
+      `
+        SELECT
+          id,
+          username,
+          email,
+          level,
+          balance,
+          api_enabled
+        FROM users
+        WHERE id = ?
+          AND api_enabled = 1
+        LIMIT 1
+      `,
+      [userId]
+    );
+
+    if (!developer) {
+      return res.status(403).send('Developer access denied.');
+    }
+
+    res.set('Cache-Control', 'no-store');
+
+    return res.render('developer', {
+      user: developer,
+      developer
+    });
+
+  } catch (error) {
+    console.error('❌ Developer Center error:', error);
+    return res.status(500).send('Developer Center unavailable.');
   }
 });
 
