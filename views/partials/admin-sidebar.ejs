@@ -188,6 +188,109 @@
       width:260px;
     }
   }
+
+
+/* =========================================
+   AK CELL - RESPONSIVE ADMIN SIDEBAR
+========================================= */
+
+.ak-admin-mobile-toggle,
+.ak-admin-mobile-close,
+.ak-admin-sidebar-overlay {
+  display: none;
+}
+
+.ak-admin-sidebar {
+  flex: 0 0 292px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 991.98px) {
+
+  .ak-admin-mobile-toggle {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 1040;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #dbe3ef;
+    border-radius: 12px;
+    background: #fff;
+    color: #0d6efd;
+    box-shadow: 0 4px 16px rgba(0,0,0,.12);
+    font-size: 1.4rem;
+    cursor: pointer;
+  }
+
+  .ak-admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(292px, 85vw);
+    height: 100dvh;
+    min-height: 0;
+    overflow-y: auto;
+    z-index: 1060;
+    transform: translateX(-105%);
+    transition: transform .25s ease;
+    box-shadow: none;
+  }
+
+  .ak-admin-sidebar.is-open {
+    transform: translateX(0);
+    box-shadow: 12px 0 38px rgba(0,0,0,.3);
+  }
+
+  .ak-admin-mobile-close {
+    display: flex;
+    position: absolute;
+    top: 15px;
+    right: 12px;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 9px;
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    font-size: 1.2rem;
+  }
+
+  .ak-admin-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    background: rgba(2,6,23,.6);
+  }
+
+  .ak-admin-sidebar-overlay.is-visible {
+    display: block;
+  }
+
+  body.ak-admin-menu-open {
+    overflow: hidden;
+  }
+
+  .orders-main {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    padding-top: 72px;
+  }
+}
+
+@media (min-width: 992px) {
+  .ak-admin-sidebar {
+    width: 292px;
+  }
+}
+
 </style>
 
 <%
