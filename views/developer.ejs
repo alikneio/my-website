@@ -214,7 +214,7 @@ const keyActionsReady = apiAuthorized && /^[a-f0-9]{64}$/.test(csrfValue);
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Accept: application/json"</pre></div><p class="hint"><i class="bi bi-shield-check"></i> Use your API key only on your backend. Never embed it in public frontend code.</p><button class="dev-btn dev-btn-outline" data-go="documentation" type="button">View Full Documentation <i class="bi bi-arrow-right"></i></button></div></div>
 <div class="panel"><div class="paneltitle"><div><h3>Available API Capabilities</h3><p>Currently implemented API v1 functionality.</p></div></div><div class="info-grid"><div class="mini"><h4><i class="bi bi-person-check"></i> Account & Balance</h4><p>Check reseller account information, dealer level and wallet balance.</p></div><div class="mini"><h4><i class="bi bi-box-seam"></i> Product Catalog</h4><p>List available products, dealer pricing, options and required checkout details.</p></div><div class="mini"><h4><i class="bi bi-bag-check"></i> Order Creation</h4><p>Create manual fulfillment orders with an idempotency key.</p></div><div class="mini"><h4><i class="bi bi-clock-history"></i> Order Tracking</h4><p>Check individual order status or list your API orders with pagination.</p></div></div></div></section>
-<section id="credentials" class="dev-section"><div class="sectiontop"><div><h2>API Key Management</h2><p>Create, review and revoke credentials for your integrations.</p></div><span class="pill <%= apiAuthorized ? '' : 'off' %>"><i class="bi bi-circle-fill"></i><%= apiAuthorized ? 'Access Approved' : 'Access Disabled' %></span></div><div class="notice"><i class="bi bi-shield-lock"></i><div><strong>Keep your credentials private.</strong><p>The complete API key is displayed only once, immediately after creation. Existing keys cannot be revealed again. Revoke compromised keys promptly.</p></div></div><div class="panel"><div class="paneltitle"><div><h3>Your API Keys</h3><p>Manage your server-side integrations.</p></div><span class="keylimit"><%= activeKeyCount %> of 5 active</span></div><% if(keys.length){ %><div class="tablewrap"><table class="dev-table"><thead><tr><th>KEY NAME</th><th>KEY PREFIX</th><th>STATUS</th><th>CREATED</th><th>ACTIONS</th></tr></thead><tbody><% keys.forEach(function(k){ %><tr><td><strong><%= k.key_name %></strong></td><td><code><%= k.key_prefix %>…</code></td><td><span class="keybadge <%= Number(k.is_active) === 1 ? '' : 'revoked' %>"><%= Number(k.is_active) === 1 ? 'Active' : 'Revoked' %></span></td><td><%= k.created_at ? String(k.created_at).slice(0,19) : '—' %></td><td><% if(Number(k.is_active) === 1 && keyActionsReady){ %><form method="POST" action="/developer/keys/<%= Number(k.id) %>/revoke" onsubmit="return confirm('Revoke this API key? Any integration using it will lose access immediately.');"><input type="hidden" name="_csrf" value="<%= csrfValue %>"><button type="submit" class="dev-btn btn-danger" style="padding:6px 10px"><i class="bi bi-x-circle"></i> Revoke</button></form><% } else { %><span class="muted">—</span><% } %></td></tr><% }); %></tbody></table></div><% } else { %><div class="empty"><i class="bi bi-key"></i><strong>No API keys yet</strong><span>Create a private key to start integrating with AK Cell.</span></div><% } %><hr class="divider"><h3 style="font-size:14px;margin:0 0 12px">Create a new API key</h3><% if(keyActionsReady){ %><form id="createKeyForm" method="POST" action="/developer/keys/create" class="formrow"><input type="hidden" name="_csrf" value="<%= csrfValue %>"><input class="field" name="key_name" type="text" maxlength="100" required placeholder="e.g. Production Backend" aria-label="API key name"><button class="dev-btn dev-btn-primary" type="submit" id="createKeyButton" <%= activeKeyCount >= 5 ? 'disabled' : '' %>><i class="bi bi-plus-lg"></i> Generate API Key</button></form><p class="hint"><%= activeKeyCount >= 5 ? 'Maximum active key limit reached. Revoke an active key to create another.' : 'Maximum 5 active keys per account. Choose a descriptive name for each integration.' %></p><% } else { %><button class="dev-btn dev-btn-primary" disabled>Generate API Key</button><p class="hint">Key creation requires approved access and a valid security token. Refresh the page or contact support.</p><% } %></div></section>
+<section id="credentials" class="dev-section"><div class="sectiontop"><div><h2>API Key Management</h2><p>Create, review and revoke credentials for your integrations.</p></div><span class="pill <%= apiAuthorized ? '' : 'off' %>"><i class="bi bi-circle-fill"></i><%= apiAuthorized ? 'Access Approved' : 'Access Disabled' %></span></div><div class="notice"><i class="bi bi-shield-lock"></i><div><strong>Keep your credentials private.</strong><p>The complete API key is displayed only once, immediately after creation. Existing keys cannot be revealed again. Revoke compromised keys promptly.</p></div></div><div class="panel"><div class="paneltitle"><div><h3>Your API Keys</h3><p>Manage your server-side integrations.</p></div><span class="keylimit"><%= activeKeyCount %> of 5 active</span></div><% if(keys.length){ %><div class="tablewrap"><table class="dev-table"><thead><tr><th>KEY NAME</th><th>KEY PREFIX</th><th>STATUS</th><th>CREATED</th><th>ACTIONS</th></tr></thead><tbody><% keys.forEach(function(k){ %><tr><td><strong><%= k.key_name %></strong></td><td><code><%= k.key_prefix %>…</code></td><td><span class="keybadge <%= Number(k.is_active) === 1 ? '' : 'revoked' %>"><%= Number(k.is_active) === 1 ? 'Active' : 'Revoked' %></span></td><td><%= k.created_at ? String(k.created_at).slice(0,19) : '—' %></td><td><% if(Number(k.is_active) === 1 && keyActionsReady){ %><form method="POST" action="/developer/keys/<%= Number(k.id) %>/revoke" class="akc-revoke-form" data-key-name="<%= k.key_name %>"><input type="hidden" name="_csrf" value="<%= csrfValue %>"><button type="submit" class="dev-btn btn-danger" style="padding:6px 10px"><i class="bi bi-x-circle"></i> Revoke</button></form><% } else { %><span class="muted">—</span><% } %></td></tr><% }); %></tbody></table></div><% } else { %><div class="empty"><i class="bi bi-key"></i><strong>No API keys yet</strong><span>Create a private key to start integrating with AK Cell.</span></div><% } %><hr class="divider"><h3 style="font-size:14px;margin:0 0 12px">Create a new API key</h3><% if(keyActionsReady){ %><form id="createKeyForm" method="POST" action="/developer/keys/create" class="formrow"><input type="hidden" name="_csrf" value="<%= csrfValue %>"><input class="field" name="key_name" type="text" maxlength="100" required placeholder="e.g. Production Backend" aria-label="API key name"><button class="dev-btn dev-btn-primary" type="submit" id="createKeyButton" <%= activeKeyCount >= 5 ? 'disabled' : '' %>><i class="bi bi-plus-lg"></i> Generate API Key</button></form><p class="hint"><%= activeKeyCount >= 5 ? 'Maximum active key limit reached. Revoke an active key to create another.' : 'Maximum 5 active keys per account. Choose a descriptive name for each integration.' %></p><% } else { %><button class="dev-btn dev-btn-primary" disabled>Generate API Key</button><p class="hint">Key creation requires approved access and a valid security token. Refresh the page or contact support.</p><% } %></div></section>
 <section id="documentation" class="dev-section"><div class="sectiontop"><div><h2>API Documentation</h2><p>Reference for the AK Cell Reseller REST API.</p></div><span class="pill"><i class="bi bi-circle-fill"></i> API v1</span></div><div class="panel"><div class="paneltitle"><div><h3>Overview</h3><p>Build secure server-to-server integrations using HTTPS and JSON.</p></div></div><p class="small">All API routes use the following base URL:</p><div class="code"><div class="codetop"><span>BASE URL</span><button type="button" class="copy" data-copy="baseurl"><i class="bi bi-copy"></i> Copy</button></div><pre id="baseurl">https://akcell.store/api/v1</pre></div><div class="info-grid"><div class="mini"><h4>Authentication</h4><p><span class="inlinecode">Authorization: Bearer YOUR_API_KEY</span></p></div><div class="mini"><h4>Content type</h4><p><span class="inlinecode">Content-Type: application/json</span> for POST requests.</p></div></div></div>
 <div class="docsnav"><button type="button" data-open="ep-account">Account</button><button type="button" data-open="ep-products">Products</button><button type="button" data-open="ep-product">Product Details</button><button type="button" data-open="ep-create">Create Order</button><button type="button" data-open="ep-track">Order Status</button><button type="button" data-open="ep-history">Order History</button></div>
 <div class="endpoint open" id="ep-account"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/account</span><span class="endpoint-desc">Account profile and balance</span><i class="bi bi-chevron-down chevron"></i></div><div class="dev-endpoint-body"><p class="small muted">Returns the authenticated reseller account, dealer level, balance and API permission.</p><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-account" type="button">Copy</button></div><pre id="c-account">curl "https://akcell.store/api/v1/account" \
@@ -293,4 +293,103 @@ const keyActionsReady = apiAuthorized && /^[a-f0-9]{64}$/.test(csrfValue);
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<style>
+.akc-revoke-overlay{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(9,24,46,.66);backdrop-filter:blur(5px)}
+.akc-revoke-overlay.is-open{display:flex}
+.akc-revoke-dialog{position:relative;width:100%;max-width:460px;max-height:calc(100dvh - 40px);overflow:auto;background:#fff;border:1px solid #e4eaf2;border-radius:22px;padding:30px;box-shadow:0 28px 80px rgba(5,20,45,.27);color:#10213e}
+.akc-revoke-close{position:absolute;top:18px;right:18px;width:36px;height:36px;border:0;border-radius:10px;background:#f1f5f9;color:#64748b;cursor:pointer}
+.akc-revoke-icon{width:60px;height:60px;display:grid;place-items:center;border-radius:17px;background:#fef2f2;color:#dc2626;font-size:27px;margin-bottom:18px}
+.akc-revoke-eyebrow{font-size:11px;font-weight:800;letter-spacing:1px;color:#dc2626;text-transform:uppercase}
+.akc-revoke-title{font-size:24px;font-weight:800;margin:7px 0 10px}
+.akc-revoke-description{color:#64748b;font-size:14px;line-height:1.75;margin:0 0 18px}
+.akc-revoke-keybox{display:flex;gap:12px;align-items:center;padding:13px 15px;border:1px solid #e3eaf3;border-radius:12px;background:#f5f8fc;margin-bottom:16px}
+.akc-revoke-keybox>i{color:#2563eb;font-size:20px}
+.akc-revoke-keylabel{display:block;font-size:10px;color:#7b8ba0;font-weight:800;letter-spacing:.7px}
+.akc-revoke-keyname{display:block;font-size:14px;overflow-wrap:anywhere}
+.akc-revoke-warning{display:flex;align-items:flex-start;gap:11px;padding:14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;color:#9a3412;font-size:13px;line-height:1.65}
+.akc-revoke-actions{display:flex;gap:12px;margin-top:24px}
+.akc-revoke-btn{flex:1;min-height:46px;border-radius:11px;padding:12px;border:1px solid transparent;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.akc-revoke-cancel{background:#fff;color:#334155;border-color:#dce5ef}
+.akc-revoke-confirm{background:#dc2626;color:#fff}
+.akc-revoke-confirm:hover{background:#b91c1c}
+.akc-revoke-btn:disabled,.akc-revoke-close:disabled{opacity:.6;cursor:not-allowed}
+.akc-revoke-btn:focus-visible,.akc-revoke-close:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+@media(max-width:480px){.akc-revoke-dialog{padding:22px}.akc-revoke-actions{flex-direction:column-reverse}}
+</style>
+<div id="akcRevokeModal" class="akc-revoke-overlay" role="dialog" aria-modal="true" aria-labelledby="akcRevokeTitle" aria-describedby="akcRevokeDescription" aria-hidden="true">
+  <div class="akc-revoke-dialog" tabindex="-1">
+    <button type="button" class="akc-revoke-close" id="akcRevokeClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    <div class="akc-revoke-icon"><i class="bi bi-shield-x"></i></div>
+    <div class="akc-revoke-eyebrow">Security Action</div>
+    <h2 id="akcRevokeTitle" class="akc-revoke-title">Revoke API Key?</h2>
+    <p id="akcRevokeDescription" class="akc-revoke-description">This key will immediately stop working for every connected integration.</p>
+    <div class="akc-revoke-keybox"><i class="bi bi-key"></i><div><span class="akc-revoke-keylabel">SELECTED API KEY</span><strong id="akcRevokeKeyName" class="akc-revoke-keyname">API Key</strong></div></div>
+    <div class="akc-revoke-warning"><i class="bi bi-exclamation-triangle-fill"></i><span><strong>This action cannot be undone.</strong> Create a new API key and update your integrations to restore access.</span></div>
+    <div class="akc-revoke-actions">
+      <button type="button" class="akc-revoke-btn akc-revoke-cancel" id="akcRevokeCancel">Cancel</button>
+      <button type="button" class="akc-revoke-btn akc-revoke-confirm" id="akcRevokeConfirm"><i class="bi bi-x-circle"></i> <span id="akcRevokeConfirmText">Revoke API Key</span></button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  const modal=document.getElementById('akcRevokeModal');
+  const close=document.getElementById('akcRevokeClose');
+  const cancel=document.getElementById('akcRevokeCancel');
+  const confirm=document.getElementById('akcRevokeConfirm');
+  const confirmText=document.getElementById('akcRevokeConfirmText');
+  const keyName=document.getElementById('akcRevokeKeyName');
+  if(!modal||!close||!cancel||!confirm||!confirmText||!keyName)return;
+  let form=null,previousFocus=null,previousOverflow='',submitting=false;
+  function dismiss(){
+    if(submitting)return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden','true');
+    document.body.style.overflow=previousOverflow;
+    form=null;
+    if(previousFocus&&typeof previousFocus.focus==='function')previousFocus.focus();
+  }
+  document.addEventListener('submit',function(e){
+    const target=e.target;
+    if(!(target instanceof HTMLFormElement)||!target.classList.contains('akc-revoke-form'))return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if(submitting)return;
+    if(!/^\/developer\/keys\/\d+\/revoke$/.test(target.getAttribute('action')||''))return;
+    form=target;
+    previousFocus=document.activeElement;
+    previousOverflow=document.body.style.overflow;
+    keyName.textContent=target.dataset.keyName||'API Key';
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+    cancel.focus();
+  },true);
+  confirm.addEventListener('click',function(){
+    if(!form||submitting)return;
+    const token=form.querySelector('input[name="_csrf"]');
+    if(!token||!token.value){alert('Security token missing. Refresh the page and try again.');return;}
+    submitting=true;
+    confirm.disabled=cancel.disabled=close.disabled=true;
+    confirmText.textContent='Revoking...';
+    HTMLFormElement.prototype.submit.call(form);
+  });
+  cancel.addEventListener('click',dismiss);
+  close.addEventListener('click',dismiss);
+  modal.addEventListener('click',e=>{if(e.target===modal)dismiss();});
+  document.addEventListener('keydown',function(e){
+    if(!modal.classList.contains('is-open'))return;
+    if(e.key==='Escape'){e.preventDefault();dismiss();return;}
+    if(e.key!=='Tab')return;
+    const items=[close,cancel,confirm].filter(x=>!x.disabled);
+    if(!items.length){e.preventDefault();return;}
+    const first=items[0],last=items[items.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  });
+})();
+</script>
+
 </body></html>
