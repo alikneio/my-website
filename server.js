@@ -851,6 +851,11 @@ app.get('/api/v1/products', authenticateResellerApi, async (req, res) => {
        LIMIT 500`
     );
 
+    console.log('[API PRODUCTS DEBUG]', {
+  databaseProductsCount: products.length,
+  firstIds: products.slice(0, 10).map(p => p.id)
+});
+
     if (!products.length) {
       return res.json({
         success: true,
