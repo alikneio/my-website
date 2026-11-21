@@ -1,111 +1,265 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+
 <meta name="robots" content="noindex,nofollow"><title>Developer Center | AK Cell</title>
+
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
 <style>
+
 :root{--bg:#f4f7fb;--white:#fff;--ink:#162438;--muted:#718097;--line:#e3eaf2;--blue:#1478e6;--navy:#101b2e;--soft:#eaf3ff;--green:#15966c;--shadow:0 10px 32px rgba(18,42,73,.045)}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}button,input{font:inherit}button{cursor:pointer}a{text-decoration:none;color:inherit}a:hover{color:var(--blue)}.shell{max-width:1440px;margin:auto;padding:0 32px}.top{background:var(--navy);color:#fff}.top-inner{min-height:74px;display:flex;justify-content:space-between;align-items:center;gap:18px}.brand{display:flex;align-items:center;gap:12px;font-weight:850;font-size:19px;letter-spacing:.25px}.brandmark{width:39px;height:39px;border-radius:12px;background:linear-gradient(135deg,#26b6f0,#1264d8);display:grid;place-items:center;box-shadow:0 5px 18px #1478e644}.brand small{display:block;font-size:11px;color:#9eb0c9;font-weight:550;letter-spacing:1.4px}.toplinks{display:flex;align-items:center;gap:22px;font-size:12px;color:#c7d3e4}.toplinks a:hover{color:#fff}.avatar{display:inline-grid;place-items:center;width:31px;height:31px;background:#2a3c58;border-radius:50%;font-weight:800}.hero{background:linear-gradient(112deg,#132a4b,#10203a 64%,#173e70);color:white;padding:37px 0 40px;position:relative;overflow:hidden}.hero:after{content:'';position:absolute;width:390px;height:390px;border:1px solid #ffffff13;border-radius:50%;right:7%;top:-220px;box-shadow:0 0 0 65px #ffffff05,0 0 0 135px #ffffff04;pointer-events:none}.hero-inner{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:24px}.eyebrow{text-transform:uppercase;letter-spacing:2px;font-size:10px;font-weight:800;color:#80c7ff}.hero h1{font-size:33px;line-height:1.18;letter-spacing:-1px;margin:9px 0 12px}.hero p{color:#c0d0e6;max-width:630px;margin:0}.hero-actions{display:flex;gap:9px;flex-wrap:wrap}.btn{border:1px solid transparent;border-radius:9px;padding:10px 16px;font-weight:700;font-size:12px;display:inline-flex;gap:9px;align-items:center;justify-content:center}.btn-primary{background:#2389f5;color:white}.btn-primary:hover{background:#0869d5;color:white}.btn-light{background:white;color:#19334f}.btn-outline{background:white;border-color:var(--line);color:#34445b}.btn-outline:hover{background:#f4f8fd}.btn-danger{border-color:#f3d2d6;background:#fff6f6;color:#bc4353}.btn:disabled{opacity:.48;cursor:not-allowed}.layout{display:grid;grid-template-columns:232px minmax(0,1fr);gap:28px;padding-top:27px;padding-bottom:70px}.side{align-self:start;position:sticky;top:20px}.sidebox,.panel,.stat,.endpoint,.notice{background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}.sidebox{padding:12px}.sideheading{padding:13px 13px 8px;font-size:10px;color:#93a0b0;font-weight:800;letter-spacing:1.3px}.navitem{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 13px;border:0;border-radius:9px;background:transparent;color:#68778d;font-weight:650;margin:2px 0}.navitem i{font-size:16px}.navitem.active{background:var(--soft);color:#116dd1}.navitem:hover{background:#f2f6fb}.navitem .soon{margin-left:auto;color:#9aa8b8;font-size:10px}.sidefoot{font-size:11px;color:#8291a4;margin:15px 8px}.content{min-width:0}.section{display:none}.section.active{display:block}.sectiontop{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:22px}.sectiontop h2{font-size:24px;letter-spacing:-.6px;margin:0 0 5px}.sectiontop p{margin:0;color:var(--muted);font-size:13px}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 11px;font-size:11px;font-weight:750;background:#eaf9f2;color:#16825d;white-space:nowrap}.pill.off{background:#fff3e9;color:#bd7524}.pill i{font-size:9px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}.stat{padding:19px;min-width:0}.stathead{display:flex;align-items:center;justify-content:space-between;color:#7d8ba0;font-size:12px;gap:8px}.stathead i{display:grid;place-items:center;width:35px;height:35px;border-radius:10px;background:#eff5fd;color:#3e85d8;font-size:17px}.statvalue{font-size:26px;font-weight:850;letter-spacing:-.8px;margin-top:14px;line-height:1.1;overflow-wrap:anywhere}.statsub{font-size:11px;color:#9aa5b3;margin-top:8px}.panel{padding:24px;margin-bottom:20px}.paneltitle{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:21px}.paneltitle h3{margin:0 0 5px;font-size:16px}.paneltitle p{margin:0;color:var(--muted);font-size:12px}.paneltitle .bi{color:#7e91a9}.notice{padding:16px 19px;margin-bottom:20px;display:flex;gap:13px;align-items:flex-start;background:#f0f7ff;border-color:#d9e9fd;color:#395b7b}.notice i{color:#1478e6;font-size:18px}.notice strong{color:#1b456c}.notice p{margin:4px 0 0;font-size:12px}.split{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.step{display:flex;gap:13px;padding:15px 0;border-bottom:1px solid var(--line)}.step:last-child{border:0}.stepnum{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:#edf5ff;color:#247bdc;font-size:12px;font-weight:800;flex-shrink:0}.step strong{font-size:13px}.step p{font-size:12px;color:var(--muted);margin:3px 0 0}.code{background:#111d2e;color:#d5e6f6;border-radius:11px;overflow:hidden;margin:13px 0}.codetop{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;background:#1d2c42;color:#9fb5d0;font-size:11px}.copy{background:transparent;border:0;color:#b4c6dc;font-size:11px}.copy:hover{color:#fff}.code pre{padding:17px 18px;margin:0;overflow:auto;font:12px/1.8 Consolas,'Courier New',monospace;white-space:pre;tab-size:2}.inlinecode{font:12px Consolas,monospace;color:#116fd4;background:#eaf4ff;padding:3px 7px;border-radius:5px}.muted{color:var(--muted)}.small{font-size:12px}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.table{width:100%;border-collapse:collapse;text-align:left;white-space:nowrap}.table th{font-size:11px;letter-spacing:.2px;color:#8493a7;background:#f7f9fc;font-weight:700}.table td,.table th{padding:14px 16px;border-bottom:1px solid var(--line)}.table tr:last-child td{border-bottom:0}.table td{font-size:12px}.table code{font-size:11px;background:#f1f5fa;padding:5px 7px;border-radius:5px}.keybadge{display:inline-block;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:800;background:#e7f7ef;color:#138458}.keybadge.revoked{background:#f1f3f6;color:#7b8796}.formrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.field{min-width:230px;max-width:350px;width:100%;border:1px solid #d9e2ee;border-radius:9px;padding:11px 13px;background:white;outline:none}.field:focus{border-color:#4098ee;box-shadow:0 0 0 3px #2389f51a}.hint{font-size:11px;color:#8a99a9;margin-top:12px}.endpoint{margin-bottom:13px;overflow:hidden}.endpoint-head{display:flex;align-items:center;gap:12px;padding:17px 19px;cursor:pointer;flex-wrap:wrap}.method{font:800 11px Consolas,monospace;border-radius:6px;padding:5px 9px;background:#e6f7f1;color:#0c8c60}.method.post{background:#fff0dd;color:#bb7a16}.path{font:700 12px Consolas,monospace;overflow-wrap:anywhere}.endpoint-desc{color:#8190a2;font-size:12px;margin-left:auto}.endpoint-body{border-top:1px solid var(--line);padding:19px;display:none}.endpoint.open .endpoint-body{display:block}.endpoint-head .chevron{color:#8799ad}.endpoint.open .chevron{transform:rotate(180deg)}.docsnav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.docsnav button{border:1px solid var(--line);border-radius:8px;padding:8px 11px;background:#fff;color:#5e7189;font-size:11px}.docsnav button:hover{background:var(--soft);color:var(--blue)}.info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.mini{padding:17px;border:1px solid var(--line);border-radius:11px;background:#fff}.mini h4{margin:0 0 6px;font-size:13px}.mini p{font-size:12px;color:var(--muted);margin:0}.divider{border:0;border-top:1px solid var(--line);margin:20px 0}.foot{padding:23px 0;color:#8795a8;font-size:11px;border-top:1px solid var(--line)}.foot-inner{display:flex;justify-content:space-between;gap:12px}.empty{text-align:center;padding:30px 10px;color:#8997a9}.empty i{font-size:31px;color:#9bb0c7}.empty strong{display:block;color:#3c4c62;margin:10px 0 5px}.callout{padding:14px 16px;border-left:3px solid #e9aa43;background:#fffbf1;border-radius:7px;color:#836333;font-size:12px}.status-table td:first-child{font-family:Consolas,monospace;font-weight:700}.keylimit{color:#76869a;font-size:11px}.tabs-mobile{display:none}@media(max-width:1080px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}.layout{grid-template-columns:195px minmax(0,1fr);gap:17px}.shell{padding:0 20px}}@media(max-width:720px){.shell{padding:0 15px}.toplinks .desktop{display:none}.hero-inner{align-items:flex-start;flex-direction:column}.hero h1{font-size:27px}.layout{display:block;padding-top:17px}.side{position:static;margin-bottom:18px}.sidebox{display:flex;overflow-x:auto;gap:4px;padding:7px}.sideheading,.sidefoot{display:none}.navitem{white-space:nowrap;width:auto;font-size:12px;padding:10px}.navitem .soon{display:none}.sectiontop h2{font-size:21px}.panel{padding:18px}.endpoint-desc{width:100%;margin-left:0}.foot-inner{flex-direction:column}}@media(max-width:400px){.stats{gap:9px}.stat{padding:14px}.statvalue{font-size:21px}.stathead{font-size:11px}.stathead i{display:none}.hero-actions{width:100%}.hero-actions .btn{flex:1}}
+
+
+
+/* AK Cell Developer Center — integrated editorial workspace */
+:root{--bg:#f7f9fc;--ink:#142338;--muted:#66768b;--line:#e4eaf2;--blue:#1769d2;--soft:#edf4ff;--shadow:none}
+body{background:var(--bg);font-size:14px;color:var(--ink)}
+.shell{max-width:1320px;padding-left:28px;padding-right:28px}
+.dev-header{background:#fff;border-bottom:1px solid var(--line)}
+.dev-header-inner{height:68px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.dev-brand,.dev-logo,.dev-top-actions{display:flex;align-items:center;gap:14px}
+.dev-logo{font-size:15px;font-weight:900;letter-spacing:.03em;color:#142338}
+.dev-logo img{height:32px;width:32px;object-fit:contain;border-radius:8px}
+.dev-divider{height:24px;width:1px;background:#dce4ee}
+.dev-product{font-weight:700;font-size:13px;color:#56677d}
+.dev-version{background:#eff4fa;color:#52657e;border-radius:6px;font:700 11px Consolas,monospace;padding:6px 9px}
+.dev-back{font-size:12px;font-weight:700;color:#42546d}
+.dev-intro{padding-top:30px;padding-bottom:21px}
+.dev-breadcrumb{display:flex;align-items:center;gap:9px;color:#8a98aa;font-size:11px;margin-bottom:22px}
+.dev-breadcrumb i{font-size:9px}
+.dev-intro-main{display:flex;align-items:end;justify-content:space-between;gap:24px}
+.dev-overline{font-size:10px;letter-spacing:1.8px;font-weight:800;color:#4675ad;margin-bottom:7px}
+.dev-intro h1{font-size:32px;letter-spacing:-1.1px;line-height:1.2;margin:0 0 8px;font-weight:800}
+.dev-intro p{margin:0;color:var(--muted);font-size:13px}
+.dev-intro-actions{display:flex;gap:9px;flex-wrap:wrap}
+.layout{grid-template-columns:218px minmax(0,1fr);gap:27px;padding-top:14px;padding-bottom:58px}
+.side{top:22px}.sidebox{padding:9px;border-radius:12px;background:#fff}
+.sideheading{padding:15px 12px 6px;color:#9aa7b8}
+.navitem{border-radius:8px;font-size:12px;padding:11px 12px;gap:10px}
+.navitem.active{background:#eaf2ff;color:#135bb2}
+.navitem i{font-size:15px}
+.sidefoot{line-height:1.9}
+.sectiontop{margin-bottom:20px;align-items:center}.sectiontop h2{font-size:22px;letter-spacing:-.55px}
+.panel,.stat,.endpoint,.notice,.mini{border-radius:11px;box-shadow:none}
+.panel{padding:23px;margin-bottom:16px}.stats{gap:12px;margin-bottom:16px}.stat{padding:17px}
+.statvalue{font-size:25px;margin-top:13px}.stathead i{width:32px;height:32px}
+.notice{background:#f1f6fd;border-color:#dce9f8;border-radius:10px}
+.paneltitle{margin-bottom:18px}.paneltitle h3{font-size:15px}
+.btn{border-radius:8px;padding:10px 14px;font-size:12px}.btn-primary{background:#1769d2}.btn-primary:hover{background:#0e54af}
+.code{border-radius:9px;background:#101b2b}.codetop{background:#19283d}.code pre{line-height:1.7}
+.mini{background:#fbfcfe;padding:16px}.stepnum{border-radius:8px}
+.endpoint-head{padding:16px 18px}.endpoint{margin-bottom:10px}
+.tablewrap{border-radius:8px}.table td,.table th{padding:12px 14px}
+.foot{background:#fff}.foot-inner{padding-top:0;padding-bottom:0}
+@media(max-width:900px){.layout{grid-template-columns:185px minmax(0,1fr);gap:16px}.shell{padding-left:18px;padding-right:18px}.dev-intro-main{align-items:start;flex-direction:column;gap:17px}}
+@media(max-width:720px){.dev-header-inner{height:60px}.dev-intro{padding-top:23px}.dev-intro h1{font-size:27px}.dev-intro-actions{width:100%}.dev-intro-actions .btn{flex:1}.layout{display:block;padding-top:5px}.side{position:static}.sidebox{display:flex;gap:4px;overflow-x:auto;padding:7px}.sideheading,.sidefoot{display:none}.navitem{flex-shrink:0}.panel{padding:17px}.dev-product{font-size:12px}.dev-back span{display:none}}
+@media(max-width:380px){.dev-version{display:none}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 </style>
+
 </head>
+
 <body>
+
 <%
+
 const d = typeof developer !== 'undefined' && developer ? developer : {};
+
 const displayName = String(d.username || 'Developer');
+
 const safeLevel = Math.max(1,Math.min(5,Number(d.level)||1));
+
 const safeBalance = Number.isFinite(Number(d.balance)) ? Number(d.balance) : 0;
+
 const apiAuthorized = Number(d.api_enabled) === 1;
+
 const keys = typeof apiKeys !== 'undefined' && Array.isArray(apiKeys) ? apiKeys : [];
+
 const activeKeyCount = keys.filter(k => Number(k.is_active) === 1).length;
+
 const csrfValue = typeof developerCsrfToken !== 'undefined' && typeof developerCsrfToken === 'string' ? developerCsrfToken : '';
+
 const keyActionsReady = apiAuthorized && /^[a-f0-9]{64}$/.test(csrfValue);
+
 %>
-<header class="top"><div class="shell top-inner"><a class="brand" href="/"><span class="brandmark"><i class="bi bi-code-slash"></i></span><span>AK CELL<small>DEVELOPER PLATFORM</small></span></a><div class="toplinks"><a href="/" class="desktop"><i class="bi bi-shop"></i> Back to Store</a><span><span class="avatar"><%= displayName.charAt(0).toUpperCase() %></span> <span class="desktop"><%= displayName %></span></span></div></div></header>
-<section class="hero"><div class="shell hero-inner"><div><span class="eyebrow">AK CELL / API VERSION 1</span><h1>Build with AK Cell.</h1><p>Manage your integration, secure your credentials, explore products, and connect your reseller platform to the AK Cell API.</p></div><div class="hero-actions"><button class="btn btn-primary" type="button" data-go="documentation"><i class="bi bi-book"></i> Explore API Docs</button><button class="btn btn-light" type="button" data-go="credentials"><i class="bi bi-key"></i> Manage Keys</button></div></div></section>
+
+<header class="dev-header"><div class="shell dev-header-inner"><div class="dev-brand"><a href="/" class="dev-logo"><img src="/images/logo.webp" alt="AK Cell" onerror="this.style.display='none'"> <span>AK CELL</span></a><span class="dev-divider"></span><span class="dev-product">Developer Center</span></div><div class="dev-top-actions"><span class="dev-version">API v1</span><a href="/" class="dev-back"><i class="bi bi-arrow-left"></i> <span>Back to store</span></a></div></div></header>
+<div class="shell dev-intro"><div class="dev-breadcrumb"><a href="/">AK Cell</a><i class="bi bi-chevron-right"></i><span>Developers</span></div><div class="dev-intro-main"><div><div class="dev-overline">DEVELOPER WORKSPACE</div><h1>Build on AK Cell</h1><p>Everything you need to connect, manage and monitor your reseller integration.</p></div><div class="dev-intro-actions"><button type="button" class="btn btn-outline" data-go="documentation"><i class="bi bi-journal-code"></i> API Reference</button><button type="button" class="btn btn-primary" data-go="credentials"><i class="bi bi-key"></i> API Keys</button></div></div></div>
 <div class="shell layout"><aside class="side"><nav class="sidebox" aria-label="Developer navigation"><div class="sideheading">WORKSPACE</div><button class="navitem active" data-go="overview"><i class="bi bi-grid-1x2"></i> Overview</button><button class="navitem" data-go="credentials"><i class="bi bi-key"></i> API Keys</button><button class="navitem" data-go="documentation"><i class="bi bi-journal-code"></i> API Documentation</button><button class="navitem" data-go="orders"><i class="bi bi-receipt"></i> Orders Guide</button><div class="sideheading">RESOURCES</div><button class="navitem" data-go="security"><i class="bi bi-shield-lock"></i> Security & Limits</button></nav><div class="sidefoot">REST API · JSON · HTTPS<br>Base URL: akcell.store</div></aside>
+
 <main class="content">
+
 <section id="overview" class="section active"><div class="sectiontop"><div><h2>Developer Overview</h2><p>Your integration workspace at a glance.</p></div><span class="pill <%= apiAuthorized ? '' : 'off' %>"><i class="bi bi-circle-fill"></i><%= apiAuthorized ? 'API Access Enabled' : 'API Access Disabled' %></span></div>
+
 <div class="stats"><div class="stat"><div class="stathead">Wallet Balance <i class="bi bi-wallet2"></i></div><div class="statvalue">$<%= safeBalance.toFixed(2) %></div><div class="statsub">Shared with your store account</div></div><div class="stat"><div class="stathead">Dealer Tier <i class="bi bi-stars"></i></div><div class="statvalue">Level <%= safeLevel %></div><div class="statsub">Your current product pricing</div></div><div class="stat"><div class="stathead">Active API Keys <i class="bi bi-key"></i></div><div class="statvalue"><%= activeKeyCount %> <span class="muted" style="font-size:15px">/ 5</span></div><div class="statsub">Private server credentials</div></div><div class="stat"><div class="stathead">API Version <i class="bi bi-code-square"></i></div><div class="statvalue">v1</div><div class="statsub">REST · JSON responses</div></div></div>
+
 <div class="notice"><i class="bi bi-info-circle"></i><div><strong>API v1 endpoints are available for authorized accounts.</strong><p>Account, product catalog, order creation, order tracking and order history are implemented. External integrations should complete their own testing before production use.</p></div></div>
-<div class="split"><div class="panel"><div class="paneltitle"><div><h3>Getting Started</h3><p>Four steps to connect your reseller platform.</p></div><i class="bi bi-rocket-takeoff"></i></div><div class="step"><span class="stepnum">01</span><div><strong>Enable API access</strong><p>API access is approved by the AK Cell administrator.</p></div></div><div class="step"><span class="stepnum">02</span><div><strong>Create your private key</strong><p>Generate a Bearer token and save it securely when it is displayed.</p></div></div><div class="step"><span class="stepnum">03</span><div><strong>Fetch your catalog</strong><p>Read available products, prices and checkout requirements.</p></div></div><div class="step"><span class="stepnum">04</span><div><strong>Place and track orders</strong><p>Use an idempotency key for purchases, then poll order status.</p></div></div></div><div class="panel"><div class="paneltitle"><div><h3>Quick API Request</h3><p>Try your first authenticated request.</p></div><i class="bi bi-terminal"></i></div><div class="code"><div class="codetop"><span>cURL · Account Information</span><button type="button" class="copy" data-copy="quickcurl"><i class="bi bi-copy"></i> Copy</button></div><pre id="quickcurl">curl -X GET "https://akcell.store/api/v1/account" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Accept: application/json"</pre></div><p class="hint"><i class="bi bi-shield-check"></i> Use your API key only on your backend. Never embed it in public frontend code.</p><button class="btn btn-outline" data-go="documentation" type="button">View Full Documentation <i class="bi bi-arrow-right"></i></button></div></div>
+
+<div class="split"><div class="panel"><div class="paneltitle"><div><h3>Getting Started</h3><p>Four steps to connect your reseller platform.</p></div><i class="bi bi-rocket-takeoff"></i></div><div class="step"><span class="stepnum">01</span><div><strong>Enable API access</strong><p>API access is approved by the AK Cell administrator.</p></div></div><div class="step"><span class="stepnum">02</span><div><strong>Create your private key</strong><p>Generate a Bearer token and save it securely when it is displayed.</p></div></div><div class="step"><span class="stepnum">03</span><div><strong>Fetch your catalog</strong><p>Read available products, prices and checkout requirements.</p></div></div><div class="step"><span class="stepnum">04</span><div><strong>Place and track orders</strong><p>Use an idempotency key for purchases, then poll order status.</p></div></div></div><div class="panel"><div class="paneltitle"><div><h3>Quick API Request</h3><p>Try your first authenticated request.</p></div><i class="bi bi-terminal"></i></div><div class="code"><div class="codetop"><span>cURL · Account Information</span><button type="button" class="copy" data-copy="quickcurl"><i class="bi bi-copy"></i> Copy</button></div><pre id="quickcurl">curl -X GET "https://akcell.store/api/v1/account" \\
+
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+
+  -H "Accept: application/json"</pre></div><p class="hint"><i class="bi bi-shield-check"></i> Use your API key only on your backend. Never embed it in public frontend code.</p><button class="btn btn-outline" data-go="documentation" type="button">View Full Documentation <i class="bi bi-arrow-right"></i></button></div></div>
+
 <div class="panel"><div class="paneltitle"><div><h3>Available API Capabilities</h3><p>Currently implemented API v1 functionality.</p></div></div><div class="info-grid"><div class="mini"><h4><i class="bi bi-person-check"></i> Account & Balance</h4><p>Check reseller account information, dealer level and wallet balance.</p></div><div class="mini"><h4><i class="bi bi-box-seam"></i> Product Catalog</h4><p>List available products, dealer pricing, options and required checkout details.</p></div><div class="mini"><h4><i class="bi bi-bag-check"></i> Order Creation</h4><p>Create manual fulfillment orders with an idempotency key.</p></div><div class="mini"><h4><i class="bi bi-clock-history"></i> Order Tracking</h4><p>Check individual order status or list your API orders with pagination.</p></div></div></div></section>
+
 <section id="credentials" class="section"><div class="sectiontop"><div><h2>API Key Management</h2><p>Create, review and revoke credentials for your integrations.</p></div><span class="pill <%= apiAuthorized ? '' : 'off' %>"><i class="bi bi-circle-fill"></i><%= apiAuthorized ? 'Access Approved' : 'Access Disabled' %></span></div><div class="notice"><i class="bi bi-shield-lock"></i><div><strong>Keep your credentials private.</strong><p>The complete API key is displayed only once, immediately after creation. Existing keys cannot be revealed again. Revoke compromised keys promptly.</p></div></div><div class="panel"><div class="paneltitle"><div><h3>Your API Keys</h3><p>Manage your server-side integrations.</p></div><span class="keylimit"><%= activeKeyCount %> of 5 active</span></div><% if(keys.length){ %><div class="tablewrap"><table class="table"><thead><tr><th>KEY NAME</th><th>KEY PREFIX</th><th>STATUS</th><th>CREATED</th><th>ACTIONS</th></tr></thead><tbody><% keys.forEach(function(k){ %><tr><td><strong><%= k.key_name %></strong></td><td><code><%= k.key_prefix %>…</code></td><td><span class="keybadge <%= Number(k.is_active) === 1 ? '' : 'revoked' %>"><%= Number(k.is_active) === 1 ? 'Active' : 'Revoked' %></span></td><td><%= k.created_at ? String(k.created_at).slice(0,19) : '—' %></td><td><% if(Number(k.is_active) === 1 && keyActionsReady){ %><form method="POST" action="/developer/keys/<%= Number(k.id) %>/revoke" onsubmit="return confirm('Revoke this API key? Any integration using it will lose access immediately.');"><input type="hidden" name="_csrf" value="<%= csrfValue %>"><button type="submit" class="btn btn-danger" style="padding:6px 10px"><i class="bi bi-x-circle"></i> Revoke</button></form><% } else { %><span class="muted">—</span><% } %></td></tr><% }); %></tbody></table></div><% } else { %><div class="empty"><i class="bi bi-key"></i><strong>No API keys yet</strong><span>Create a private key to start integrating with AK Cell.</span></div><% } %><hr class="divider"><h3 style="font-size:14px;margin:0 0 12px">Create a new API key</h3><% if(keyActionsReady){ %><form id="createKeyForm" method="POST" action="/developer/keys/create" class="formrow"><input type="hidden" name="_csrf" value="<%= csrfValue %>"><input class="field" name="key_name" type="text" maxlength="100" required placeholder="e.g. Production Backend" aria-label="API key name"><button class="btn btn-primary" type="submit" id="createKeyButton" <%= activeKeyCount >= 5 ? 'disabled' : '' %>><i class="bi bi-plus-lg"></i> Generate API Key</button></form><p class="hint"><%= activeKeyCount >= 5 ? 'Maximum active key limit reached. Revoke an active key to create another.' : 'Maximum 5 active keys per account. Choose a descriptive name for each integration.' %></p><% } else { %><button class="btn btn-primary" disabled>Generate API Key</button><p class="hint">Key creation requires approved access and a valid security token. Refresh the page or contact support.</p><% } %></div></section>
+
 <section id="documentation" class="section"><div class="sectiontop"><div><h2>API Documentation</h2><p>Reference for the AK Cell Reseller REST API.</p></div><span class="pill"><i class="bi bi-circle-fill"></i> API v1</span></div><div class="panel"><div class="paneltitle"><div><h3>Overview</h3><p>Build secure server-to-server integrations using HTTPS and JSON.</p></div></div><p class="small">All API routes use the following base URL:</p><div class="code"><div class="codetop"><span>BASE URL</span><button type="button" class="copy" data-copy="baseurl"><i class="bi bi-copy"></i> Copy</button></div><pre id="baseurl">https://akcell.store/api/v1</pre></div><div class="info-grid"><div class="mini"><h4>Authentication</h4><p><span class="inlinecode">Authorization: Bearer YOUR_API_KEY</span></p></div><div class="mini"><h4>Content type</h4><p><span class="inlinecode">Content-Type: application/json</span> for POST requests.</p></div></div></div>
+
 <div class="docsnav"><button type="button" data-open="ep-account">Account</button><button type="button" data-open="ep-products">Products</button><button type="button" data-open="ep-product">Product Details</button><button type="button" data-open="ep-create">Create Order</button><button type="button" data-open="ep-track">Order Status</button><button type="button" data-open="ep-history">Order History</button></div>
-<div class="endpoint open" id="ep-account"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/account</span><span class="endpoint-desc">Account profile and balance</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Returns the authenticated reseller account, dealer level, balance and API permission.</p><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-account" type="button">Copy</button></div><pre id="c-account">curl "https://akcell.store/api/v1/account" \
-  -H "Authorization: Bearer YOUR_API_KEY"</pre></div><div class="code"><div class="codetop">EXAMPLE RESPONSE</div><pre>{
-  "success": true,
-  "data": {
-    "id": 12,
-    "username": "example_reseller",
-    "dealer_level": 2,
-    "balance": 100.00,
-    "currency": "USD",
-    "api_access": true
-  }
+
+<div class="endpoint open" id="ep-account"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/account</span><span class="endpoint-desc">Account profile and balance</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Returns the authenticated reseller account, dealer level, balance and API permission.</p><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-account" type="button">Copy</button></div><pre id="c-account">curl "https://akcell.store/api/v1/account" \\
+
+  -H "Authorization: Bearer YOUR_API_KEY"</pre></div><div class="code"><div class="codetop">EXAMPLE RESPONSE</div><pre>{
+
+  "success": true,
+
+  "data": {
+
+    "id": 12,
+
+    "username": "example_reseller",
+
+    "dealer_level": 2,
+
+    "balance": 100.00,
+
+    "currency": "USD",
+
+    "api_access": true
+
+  }
+
 }</pre></div></div></div>
-<div class="endpoint" id="ep-products"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/products</span><span class="endpoint-desc">Available catalog and reseller prices</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Returns products available to the authenticated reseller, including options, prices and availability.</p><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-products" type="button">Copy</button></div><pre id="c-products">curl "https://akcell.store/api/v1/products" \
-  -H "Authorization: Bearer YOUR_API_KEY"</pre></div><p class="hint">Prices depend on the authenticated reseller's dealer level. Product availability may change.</p></div></div>
-<div class="endpoint" id="ep-product"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/products/:id</span><span class="endpoint-desc">Product options and checkout requirements</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Read a specific product before ordering. Check its available options and required fields such as player ID or account details.</p><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-product" type="button">Copy</button></div><pre id="c-product">curl "https://akcell.store/api/v1/products/61" \
-  -H "Authorization: Bearer YOUR_API_KEY"</pre></div></div></div>
-<div class="endpoint" id="ep-create"><div class="endpoint-head" role="button" tabindex="0"><span class="method post">POST</span><span class="path">/orders</span><span class="endpoint-desc">Create a reseller order</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Creates an order and charges the reseller wallet when the request is valid. A unique <span class="inlinecode">Idempotency-Key</span> header is required to protect retries from duplicate charges.</p><div class="tablewrap"><table class="table"><thead><tr><th>FIELD</th><th>REQUIRED</th><th>DESCRIPTION</th></tr></thead><tbody><tr><td><code>product_id</code></td><td>Yes</td><td>Product identifier</td></tr><tr><td><code>option_id</code></td><td>Conditional</td><td>Selected product option</td></tr><tr><td><code>player_id</code></td><td>Conditional</td><td>Player / account ID</td></tr><tr><td><code>checkout_choice</code></td><td>Conditional</td><td>Checkout selection when applicable</td></tr><tr><td><code>account_email</code></td><td>Conditional</td><td>Account email when required</td></tr><tr><td><code>account_password</code></td><td>Conditional</td><td>Account password when required</td></tr></tbody></table></div><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-create" type="button">Copy</button></div><pre id="c-create">curl -X POST "https://akcell.store/api/v1/orders" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: YOUR_UNIQUE_ORDER_REFERENCE" \
-  -d '{"product_id":61}'</pre></div><div class="callout"><strong>Important:</strong> This example is a real purchase request, not a sandbox call. It may charge your wallet and create an order. Use a fresh idempotency key per intended purchase; reuse the same key only when retrying that purchase.</div><p class="hint">If the same idempotency key is reused with a different payload, the API returns HTTP 409. A rejected order can trigger a refund according to the platform's fulfillment rules.</p></div></div>
-<div class="endpoint" id="ep-track"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/orders/:id</span><span class="endpoint-desc">Track a single API order</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Returns the status of an API order belonging to the authenticated reseller. Other users' orders and website-only orders are not exposed.</p><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-track" type="button">Copy</button></div><pre id="c-track">curl "https://akcell.store/api/v1/orders/1927" \
-  -H "Authorization: Bearer YOUR_API_KEY"</pre></div><div class="code"><div class="codetop">EXAMPLE RESPONSE</div><pre>{
-  "success": true,
-  "data": {
-    "order_id": 1927,
-    "product_id": 61,
-    "product_name": "Adobe Creativity Cloud 1 month",
-    "price": 18,
-    "currency": "USD",
-    "status": "rejected",
-    "fulfillment": "manual",
-    "admin_reply": "",
-    "created_at": "2026-11-20 10:54:09"
-  }
+
+<div class="endpoint" id="ep-products"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/products</span><span class="endpoint-desc">Available catalog and reseller prices</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Returns products available to the authenticated reseller, including options, prices and availability.</p><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-products" type="button">Copy</button></div><pre id="c-products">curl "https://akcell.store/api/v1/products" \\
+
+  -H "Authorization: Bearer YOUR_API_KEY"</pre></div><p class="hint">Prices depend on the authenticated reseller's dealer level. Product availability may change.</p></div></div>
+
+<div class="endpoint" id="ep-product"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/products/:id</span><span class="endpoint-desc">Product options and checkout requirements</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Read a specific product before ordering. Check its available options and required fields such as player ID or account details.</p><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-product" type="button">Copy</button></div><pre id="c-product">curl "https://akcell.store/api/v1/products/PRODUCT_ID" \\
+
+  -H "Authorization: Bearer YOUR_API_KEY"</pre></div></div></div>
+
+<div class="endpoint" id="ep-create"><div class="endpoint-head" role="button" tabindex="0"><span class="method post">POST</span><span class="path">/orders</span><span class="endpoint-desc">Create a reseller order</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Creates an order and charges the reseller wallet when the request is valid. A unique <span class="inlinecode">Idempotency-Key</span> header is required to protect retries from duplicate charges.</p><div class="tablewrap"><table class="table"><thead><tr><th>FIELD</th><th>REQUIRED</th><th>DESCRIPTION</th></tr></thead><tbody><tr><td><code>product_id</code></td><td>Yes</td><td>Product identifier</td></tr><tr><td><code>option_id</code></td><td>Conditional</td><td>Selected product option</td></tr><tr><td><code>player_id</code></td><td>Conditional</td><td>Player / account ID</td></tr><tr><td><code>checkout_choice</code></td><td>Conditional</td><td>Checkout selection when applicable</td></tr><tr><td><code>account_email</code></td><td>Conditional</td><td>Account email when required</td></tr><tr><td><code>account_password</code></td><td>Conditional</td><td>Account password when required</td></tr></tbody></table></div><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-create" type="button">Copy</button></div><pre id="c-create">curl -X POST "https://akcell.store/api/v1/orders" \\
+
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+
+  -H "Content-Type: application/json" \\
+
+  -H "Idempotency-Key: YOUR_UNIQUE_ORDER_REFERENCE" \\
+
+  -d '{"product_id":PRODUCT_ID}'</pre></div><div class="callout"><strong>Important:</strong> This example is a real purchase request, not a sandbox call. It may charge your wallet and create an order. Use a fresh idempotency key per intended purchase; reuse the same key only when retrying that purchase.</div><p class="hint">If the same idempotency key is reused with a different payload, the API returns HTTP 409. A rejected order can trigger a refund according to the platform's fulfillment rules.</p></div></div>
+
+<div class="endpoint" id="ep-track"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/orders/:id</span><span class="endpoint-desc">Track a single API order</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Returns the status of an API order belonging to the authenticated reseller. Other users' orders and website-only orders are not exposed.</p><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-track" type="button">Copy</button></div><pre id="c-track">curl "https://akcell.store/api/v1/orders/1927" \\
+
+  -H "Authorization: Bearer YOUR_API_KEY"</pre></div><div class="code"><div class="codetop">EXAMPLE RESPONSE</div><pre>{
+
+  "success": true,
+
+  "data": {
+
+    "order_id": 1927,
+
+    "product_id": 61,
+
+    "product_name": "Adobe Creativity Cloud 1 month",
+
+    "price": 18,
+
+    "currency": "USD",
+
+    "status": "rejected",
+
+    "fulfillment": "manual",
+
+    "admin_reply": "",
+
+    "created_at": "2026-11-20 10:54:09"
+
+  }
+
 }</pre></div></div></div>
-<div class="endpoint" id="ep-history"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/orders</span><span class="endpoint-desc">Paginated reseller order history</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Lists only the authenticated reseller's API orders, newest first.</p><div class="tablewrap"><table class="table"><thead><tr><th>QUERY</th><th>DEFAULT</th><th>DESCRIPTION</th></tr></thead><tbody><tr><td><code>page</code></td><td>1</td><td>Page number</td></tr><tr><td><code>limit</code></td><td>20</td><td>Results per page, maximum 100</td></tr><tr><td><code>status</code></td><td>All</td><td>pending, processing, completed, partial, rejected</td></tr></tbody></table></div><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-history" type="button">Copy</button></div><pre id="c-history">curl "https://akcell.store/api/v1/orders?page=1&amp;limit=20&amp;status=rejected" \
-  -H "Authorization: Bearer YOUR_API_KEY"</pre></div><p class="hint">Response includes <code>data</code> and <code>pagination</code> with page, limit, total, total_pages and has_next_page.</p></div></div>
+
+<div class="endpoint" id="ep-history"><div class="endpoint-head" role="button" tabindex="0"><span class="method">GET</span><span class="path">/orders</span><span class="endpoint-desc">Paginated reseller order history</span><i class="bi bi-chevron-down chevron"></i></div><div class="endpoint-body"><p class="small muted">Lists only the authenticated reseller's API orders, newest first.</p><div class="tablewrap"><table class="table"><thead><tr><th>QUERY</th><th>DEFAULT</th><th>DESCRIPTION</th></tr></thead><tbody><tr><td><code>page</code></td><td>1</td><td>Page number</td></tr><tr><td><code>limit</code></td><td>20</td><td>Results per page, maximum 100</td></tr><tr><td><code>status</code></td><td>All</td><td>pending, processing, completed, partial, rejected</td></tr></tbody></table></div><div class="code"><div class="codetop"><span>REQUEST · cURL</span><button class="copy" data-copy="c-history" type="button">Copy</button></div><pre id="c-history">curl "https://akcell.store/api/v1/orders?page=1&amp;limit=20&amp;status=rejected" \\
+
+  -H "Authorization: Bearer YOUR_API_KEY"</pre></div><p class="hint">Response includes <code>data</code> and <code>pagination</code> with page, limit, total, total_pages and has_next_page.</p></div></div>
+
 <div class="panel"><div class="paneltitle"><div><h3>Order Status Reference</h3><p>Use these values when displaying and reconciling orders.</p></div></div><div class="tablewrap"><table class="table status-table"><thead><tr><th>STATUS</th><th>MEANING</th></tr></thead><tbody><tr><td>pending</td><td>Order received and waiting for processing.</td></tr><tr><td>processing</td><td>Order is being processed.</td></tr><tr><td>completed</td><td>Order has been accepted / fulfilled.</td></tr><tr><td>partial</td><td>Order has been marked partially fulfilled; review details with support.</td></tr><tr><td>rejected</td><td>Order rejected; applicable wallet refund is handled by platform rules.</td></tr></tbody></table></div></div><div class="panel"><div class="paneltitle"><div><h3>Error Handling</h3><p>Use HTTP status codes and the JSON <code>error</code> field.</p></div></div><div class="tablewrap"><table class="table"><thead><tr><th>HTTP</th><th>MEANING</th></tr></thead><tbody><tr><td>200 / 201</td><td>Successful request</td></tr><tr><td>400</td><td>Invalid or missing parameters</td></tr><tr><td>401</td><td>Invalid or missing authentication</td></tr><tr><td>403</td><td>Access not permitted</td></tr><tr><td>402</td><td>Insufficient wallet balance</td></tr><tr><td>404</td><td>Resource not found or not accessible</td></tr><tr><td>409</td><td>Idempotency key conflict</td></tr><tr><td>429</td><td>Rate limit exceeded</td></tr><tr><td>5xx</td><td>Server-side error; retry safely using the original idempotency key</td></tr></tbody></table></div><div class="code"><div class="codetop">EXAMPLE ERROR</div><pre>{
-  "success": false,
-  "error": "INSUFFICIENT_BALANCE"
+
+  "success": false,
+
+  "error": "INSUFFICIENT_BALANCE"
+
 }</pre></div></div></section>
+
 <section id="orders" class="section"><div class="sectiontop"><div><h2>Orders & Integration Workflow</h2><p>Understand the complete purchase and tracking lifecycle.</p></div></div><div class="panel"><div class="paneltitle"><div><h3>Recommended Order Flow</h3><p>Implement this flow in your backend service.</p></div></div><div class="step"><span class="stepnum">01</span><div><strong>Fetch products</strong><p>Call <code>GET /products</code> and <code>GET /products/:id</code> to determine current pricing and required fields.</p></div></div><div class="step"><span class="stepnum">02</span><div><strong>Generate a stable order reference</strong><p>Create a unique idempotency key for each intended purchase and save it with your local order.</p></div></div><div class="step"><span class="stepnum">03</span><div><strong>Submit the purchase</strong><p>Call <code>POST /orders</code>. Do not generate a new key merely because the network timed out.</p></div></div><div class="step"><span class="stepnum">04</span><div><strong>Track status</strong><p>Use <code>GET /orders/:id</code> and <code>GET /orders</code> to reconcile processing and final statuses.</p></div></div><div class="step"><span class="stepnum">05</span><div><strong>Handle refunds and failures</strong><p>Handle rejected orders and wallet balance changes according to the response and platform policy.</p></div></div></div><div class="notice"><i class="bi bi-arrow-repeat"></i><div><strong>Polling is the supported tracking approach.</strong><p>Webhook callbacks, client_order_id lookup and independent player validation are not documented as active AK Cell API v1 endpoints.</p></div></div><button class="btn btn-primary" type="button" data-go="documentation">Open Endpoint Reference <i class="bi bi-arrow-right"></i></button></section>
+
 <section id="security" class="section"><div class="sectiontop"><div><h2>Security & API Limits</h2><p>Protect your credentials and integrate responsibly.</p></div></div><div class="info-grid" style="margin-bottom:18px"><div class="mini"><h4><i class="bi bi-lock"></i> Backend-Only Credentials</h4><p>Store Bearer tokens in server environment variables or a secure secrets manager. Never expose them in browsers or mobile applications.</p></div><div class="mini"><h4><i class="bi bi-shield-check"></i> HTTPS Required</h4><p>Send requests only over HTTPS to the official AK Cell API domain.</p></div><div class="mini"><h4><i class="bi bi-arrow-repeat"></i> Safe Retries</h4><p>Use the same idempotency key and payload when retrying an uncertain purchase response.</p></div><div class="mini"><h4><i class="bi bi-person-lock"></i> Account Isolation</h4><p>Order detail and history endpoints restrict results to the authenticated reseller's API orders.</p></div></div><div class="panel"><div class="paneltitle"><div><h3>Current Limits</h3><p>Limits are enforced by the server and may be adjusted.</p></div></div><div class="tablewrap"><table class="table"><thead><tr><th>RESOURCE</th><th>LIMIT</th></tr></thead><tbody><tr><td>Active API keys</td><td>5 per account</td></tr><tr><td>API requests</td><td>60 per minute per IP</td></tr><tr><td>Order history page size</td><td>100 maximum</td></tr><tr><td>Order history page number</td><td>1–1,000,000</td></tr></tbody></table></div><p class="hint">Do not treat these as guaranteed throughput commitments. Handle HTTP 429 with backoff.</p></div><div class="callout"><strong>Security note:</strong> If an API key is exposed, revoke it in API Key Management and generate a replacement. Do not share complete keys with support.</div></section>
+
 </main></div>
+
 <footer class="foot"><div class="shell foot-inner"><span>© <%= new Date().getFullYear() %> AK Cell · Developer Platform</span><span>API v1 · Authorized reseller access · <a href="/">Back to Store</a></span></div></footer>
+
 <script>
+
 (function(){
-  function navigate(name){
-    if(!document.getElementById(name)) return;
-    document.querySelectorAll('.section').forEach(el=>el.classList.toggle('active',el.id===name));
-    document.querySelectorAll('.navitem[data-go]').forEach(el=>el.classList.toggle('active',el.dataset.go===name));
-    history.replaceState(null,'','#'+name);
-    window.scrollTo({top:0,behavior:'smooth'});
-  }
-  document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.go)));
-  document.querySelectorAll('.endpoint-head').forEach(el=>{
-    const toggle=()=>el.parentElement.classList.toggle('open');
-    el.addEventListener('click',toggle);
-    el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}});
-  });
-  document.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click',()=>{
-    const target=document.getElementById(el.dataset.open);if(!target)return;
-    target.classList.add('open');target.scrollIntoView({behavior:'smooth',block:'start'});
-  }));
-  document.querySelectorAll('[data-copy]').forEach(el=>el.addEventListener('click',async()=>{
-    const target=document.getElementById(el.dataset.copy);if(!target)return;
-    try{await navigator.clipboard.writeText(target.textContent);const old=el.textContent;el.textContent='Copied!';setTimeout(()=>el.textContent=old,1400);}catch(err){el.textContent='Select text to copy';}
-  }));
-  const createForm=document.getElementById('createKeyForm');
-  if(createForm)createForm.addEventListener('submit',()=>{const btn=document.getElementById('createKeyButton');if(btn){btn.disabled=true;btn.textContent='Generating...';}});
-  const initial=location.hash.slice(1);if(['overview','credentials','documentation','orders','security'].includes(initial))navigate(initial);
+
+  function navigate(name){
+
+    if(!document.getElementById(name)) return;
+
+    document.querySelectorAll('.section').forEach(el=>el.classList.toggle('active',el.id===name));
+
+    document.querySelectorAll('.navitem[data-go]').forEach(el=>el.classList.toggle('active',el.dataset.go===name));
+
+    history.replaceState(null,'','#'+name);
+
+    window.scrollTo({top:0,behavior:'smooth'});
+
+  }
+
+  document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.go)));
+
+  document.querySelectorAll('.endpoint-head').forEach(el=>{
+
+    const toggle=()=>el.parentElement.classList.toggle('open');
+
+    el.addEventListener('click',toggle);
+
+    el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}});
+
+  });
+
+  document.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click',()=>{
+
+    const target=document.getElementById(el.dataset.open);if(!target)return;
+
+    target.classList.add('open');target.scrollIntoView({behavior:'smooth',block:'start'});
+
+  }));
+
+  document.querySelectorAll('[data-copy]').forEach(el=>el.addEventListener('click',async()=>{
+
+    const target=document.getElementById(el.dataset.copy);if(!target)return;
+
+    try{await navigator.clipboard.writeText(target.textContent);const old=el.textContent;el.textContent='Copied!';setTimeout(()=>el.textContent=old,1400);}catch(err){el.textContent='Select text to copy';}
+
+  }));
+
+  const createForm=document.getElementById('createKeyForm');
+
+  if(createForm)createForm.addEventListener('submit',()=>{const btn=document.getElementById('createKeyButton');if(btn){btn.disabled=true;btn.textContent='Generating...';}});
+
+  const initial=location.hash.slice(1);if(['overview','credentials','documentation','orders','security'].includes(initial))navigate(initial);
+
 })();
+
 </script>
+
 </body></html>
