@@ -12745,23 +12745,325 @@ app.post('/admin/products/:id/stock/clear', checkAdmin, (req, res) => {
 
 
 
-// مسار لعرض كل الطلبات في لوحة تحكم الأدمن
-app.get('/admin/orders', checkAdmin, (req, res) => {
-    const sql = `SELECT orders.*, users.username FROM orders JOIN users ON users.id = orders.userId ORDER BY purchaseDate DESC`;
-    db.query(sql, [], (err, orders) => {
-        if (err) throw err;
-        res.render('admin-orders', { 
-            user: req.session.user,
-            orders: orders 
-        });
+
+/* =====================================================
+   AK CELL ADMIN ORDERS
+   Server-side pagination, search, filtering and sorting
+===================================================== */
+
+app.get('/admin/orders', checkAdmin, async (req, res) => {
+  try {
+    const pageSize = 25;
+
+    const rawPage = String(req.query.page || '1');
+
+    const requestedPage = /^[1-9]\d{0,5}$/.test(rawPage)
+      ? Number(rawPage)
+      : 1;
+
+    const search = typeof req.query.q === 'string'
+      ? req.query.q.trim().slice(0, 100)
+      : '';
+
+    const validStatuses = [
+      'Waiting',
+      'In progress',
+      'Accepted',
+      'Partial',
+      'Rejected'
+    ];
+
+    const status = validStatuses.includes(req.query.status)
+      ? req.query.status
+      : '';
+
+    const source = ['website', 'reseller_api'].includes(req.query.source)
+      ? req.query.source
+      : '';
+
+    const validSorts = [
+      'newest',
+      'oldest',
+      'priceHigh',
+      'priceLow'
+    ];
+
+    const sort = validSorts.includes(req.query.sort)
+      ? req.query.sort
+      : 'newest';
+
+    // ==========================================
+    // 1. Build filters
+    // ==========================================
+
+    const conditions = [];
+    const params = [];
+
+    if (status) {
+      conditions.push('o.status = ?');
+      params.push(status);
+    }
+
+    if (source === 'reseller_api') {
+      conditions.push(
+        "o.order_channel = 'reseller_api'"
+      );
+    } else if (source === 'website') {
+      conditions.push(
+        "(o.order_channel IS NULL OR o.order_channel <> 'reseller_api')"
+      );
+    }
+
+    if (search) {
+      const escapedSearch = search.replace(
+        /[\\%_]/g,
+        '\\$&'
+      );
+
+      const like = `%${escapedSearch}%`;
+
+      const searchConditions = [
+        "u.username LIKE ? ESCAPE '\\\\'",
+        "o.productName LIKE ? ESCAPE '\\\\'",
+        "o.order_details LIKE ? ESCAPE '\\\\'",
+        "o.admin_reply LIKE ? ESCAPE '\\\\'"
+      ];
+
+      params.push(like, like, like, like);
+
+      if (
+        /^[1-9]\d*$/.test(search) &&
+        Number.isSafeInteger(Number(search))
+      ) {
+        searchConditions.push('o.id = ?');
+        params.push(Number(search));
+      }
+
+      conditions.push(
+        `(${searchConditions.join(' OR ')})`
+      );
+    }
+
+    const whereSql = conditions.length
+      ? `WHERE ${conditions.join(' AND ')}`
+      : '';
+
+    // ==========================================
+    // 2. Safe sorting
+    // ==========================================
+
+    const sortMap = {
+      newest: 'o.purchaseDate DESC, o.id DESC',
+      oldest: 'o.purchaseDate ASC, o.id ASC',
+      priceHigh: 'o.price DESC, o.id DESC',
+      priceLow: 'o.price ASC, o.id DESC'
+    };
+
+    const orderBy = sortMap[sort];
+
+    // ==========================================
+    // 3. Global statistics
+    // ==========================================
+
+    const [[statsRow]] = await promisePool.query(`
+      SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(status = 'Waiting'), 0) AS waiting,
+        COALESCE(SUM(status = 'Accepted'), 0) AS accepted,
+        COALESCE(SUM(status = 'Rejected'), 0) AS rejected,
+        COALESCE(
+          SUM(order_channel = 'reseller_api'),
+          0
+        ) AS apiOrders
+      FROM orders
+    `);
+
+    const summary = {
+      total: Number(statsRow.total || 0),
+      waiting: Number(statsRow.waiting || 0),
+      accepted: Number(statsRow.accepted || 0),
+      rejected: Number(statsRow.rejected || 0),
+      apiOrders: Number(statsRow.apiOrders || 0)
+    };
+
+    // ==========================================
+    // 4. Count matching orders
+    // ==========================================
+
+    const [[countRow]] = await promisePool.query(
+      `SELECT COUNT(*) AS total
+       FROM orders o
+       INNER JOIN users u ON u.id = o.userId
+       ${whereSql}`,
+      params
+    );
+
+    const filteredTotal = Number(countRow.total || 0);
+
+    const totalPages = Math.max(
+      1,
+      Math.ceil(filteredTotal / pageSize)
+    );
+
+    const page = Math.min(requestedPage, totalPages);
+
+    const offset = (page - 1) * pageSize;
+
+    // ==========================================
+    // 5. Fetch only requested page
+    // ==========================================
+
+    const [orders] = await promisePool.query(
+      `SELECT
+         o.id,
+         o.userId,
+         o.productName,
+         o.price,
+         o.purchaseDate,
+         o.order_details,
+         o.status,
+         o.admin_reply,
+         o.order_channel,
+         u.username
+       FROM orders o
+       INNER JOIN users u ON u.id = o.userId
+       ${whereSql}
+       ORDER BY ${orderBy}
+       LIMIT ? OFFSET ?`,
+      [...params, pageSize, offset]
+    );
+
+    // ==========================================
+    // 6. Render
+    // ==========================================
+
+    return res.render('admin-orders', {
+      user: req.session.user,
+      orders,
+
+      summary,
+
+      pagination: {
+        page,
+        pageSize,
+        total: filteredTotal,
+        totalPages,
+        from: filteredTotal > 0 ? offset + 1 : 0,
+        to: Math.min(offset + pageSize, filteredTotal)
+      },
+
+      filters: {
+        search,
+        status,
+        source,
+        sort
+      }
     });
+
+  } catch (error) {
+    console.error(
+      '❌ Admin orders listing error:',
+      error
+    );
+
+    return res.status(503).send(
+      'Unable to load orders. Please try again.'
+    );
+  }
 });
 
-// مسار لتحديث حالة الطلب والرد
+
+/* =====================================================
+   SAFE ADMIN RETURN URL
+   Preserve pagination and filters after updating order
+===================================================== */
+
+function getSafeAdminOrdersReturnUrl(value) {
+  const fallback = '/admin/orders';
+
+  if (typeof value !== 'string' || value.length > 1000) {
+    return fallback;
+  }
+
+  try {
+    // Reject external URLs, protocol-relative URLs and
+    // malformed redirect targets.
+    if (!value.startsWith('/admin/orders')) {
+      return fallback;
+    }
+
+    const parsed = new URL(
+      value,
+      'https://akcell.internal'
+    );
+
+    if (
+      parsed.origin !== 'https://akcell.internal' ||
+      parsed.pathname !== '/admin/orders'
+    ) {
+      return fallback;
+    }
+
+    const allowed = new URLSearchParams();
+
+    const page = parsed.searchParams.get('page');
+    const q = parsed.searchParams.get('q');
+    const status = parsed.searchParams.get('status');
+    const source = parsed.searchParams.get('source');
+    const sort = parsed.searchParams.get('sort');
+
+    if (page && /^[1-9]\d{0,5}$/.test(page)) {
+      allowed.set('page', page);
+    }
+
+    if (q) {
+      allowed.set('q', q.slice(0, 100));
+    }
+
+    if (
+      ['Waiting', 'In progress', 'Accepted',
+       'Partial', 'Rejected'].includes(status)
+    ) {
+      allowed.set('status', status);
+    }
+
+    if (['website', 'reseller_api'].includes(source)) {
+      allowed.set('source', source);
+    }
+
+    if (
+      ['newest', 'oldest', 'priceHigh',
+       'priceLow'].includes(sort)
+    ) {
+      allowed.set('sort', sort);
+    }
+
+    const queryString = allowed.toString();
+
+    return fallback + (
+      queryString ? '?' + queryString : ''
+    );
+
+  } catch (_) {
+    return fallback;
+  }
+}
+
+
+/* =====================================================
+   ADMIN ORDER STATUS UPDATE
+   Atomic refund and spending accounting
+   Original financial workflow preserved
+===================================================== */
 
 app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
   const orderId = Number(req.params.id);
+
   const { status: rawStatus, admin_reply } = req.body;
+
+  const returnUrl = getSafeAdminOrdersReturnUrl(
+    req.body.return_to
+  );
 
   // ==========================================
   // 1. Validate request
@@ -12785,7 +13087,18 @@ app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
   const status = statusMap[normalizedStatus];
 
   if (!status) {
-    return res.status(400).send('Invalid order status.');
+    return res.status(400).send(
+      'Invalid order status.'
+    );
+  }
+
+  if (
+    typeof admin_reply !== 'string' &&
+    admin_reply != null
+  ) {
+    return res.status(400).send(
+      'Invalid admin reply.'
+    );
   }
 
   const adminReply = String(admin_reply ?? '').trim();
@@ -12821,14 +13134,20 @@ app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
       await conn.rollback();
       transactionStarted = false;
 
-      return res.status(404).send('Order not found.');
+      return res.status(404).send(
+        'Order not found.'
+      );
     }
 
-    const oldStatus = String(order.status || '').trim();
+    const oldStatus = String(
+      order.status || ''
+    ).trim();
+
     const oldNormalized = oldStatus.toLowerCase();
 
     const orderPrice = Number(order.price);
     const userId = Number(order.userId);
+
     userIdFromOrder = userId;
 
     if (
@@ -12840,17 +13159,22 @@ app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
       await conn.rollback();
       transactionStarted = false;
 
-      return res.status(400).send('Invalid order data.');
+      return res.status(400).send(
+        'Invalid order data.'
+      );
     }
 
     // ==========================================
     // 3. Same status: update reply only
     // ==========================================
 
-    if (normalizedStatus === oldNormalized ||
-        (normalizedStatus === 'pending' &&
-         oldNormalized === 'waiting')) {
-
+    if (
+      normalizedStatus === oldNormalized ||
+      (
+        normalizedStatus === 'pending' &&
+        oldNormalized === 'waiting'
+      )
+    ) {
       await conn.query(
         `UPDATE orders
          SET admin_reply = ?
@@ -12859,6 +13183,7 @@ app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
       );
 
       await conn.commit();
+
       transactionStarted = false;
       committed = true;
 
@@ -12866,7 +13191,7 @@ app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
         `✅ Order #${orderId}: admin reply updated.`
       );
 
-      return res.redirect('/admin/orders');
+      return res.redirect(returnUrl);
     }
 
     // ==========================================
@@ -12919,7 +13244,6 @@ app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
     // ==========================================
 
     if (status === 'Rejected') {
-
       const [refundResult] = await conn.query(
         `UPDATE users
          SET balance = balance + ?
@@ -12977,7 +13301,6 @@ app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
     // ==========================================
 
     else if (status === 'Accepted') {
-
       await conn.query(
         `UPDATE orders
          SET status = 'Accepted',
@@ -13022,7 +13345,6 @@ app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
     );
 
   } catch (error) {
-
     console.error(
       '❌ admin/order/update failed:',
       error
@@ -13079,7 +13401,11 @@ app.post('/admin/order/update/:id', checkAdmin, async (req, res) => {
     });
   }
 
-  return res.redirect('/admin/orders');
+  // ==========================================
+  // 9. Return to same pagination page
+  // ==========================================
+
+  return res.redirect(returnUrl);
 });
 
 
