@@ -228,6 +228,90 @@
       .orders-heading h1 { font-size: 1.4rem; }
       .filter-card { padding: 15px; }
     }
+
+
+/* AK Cell - Manage Orders Mobile Fix */
+@media (max-width: 767.98px) {
+
+  html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .orders-main {
+    width: 100%;
+    min-width: 0;
+    padding: 14px 12px;
+  }
+
+  .orders-heading {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .orders-heading h1 {
+    font-size: 1.35rem;
+  }
+
+  .orders-heading > div {
+    min-width: 0;
+  }
+
+  .orders-heading > .d-flex {
+    width: 100%;
+  }
+
+  .orders-heading > .d-flex .btn {
+    flex: 1;
+    font-size: .85rem;
+    padding: 10px 8px;
+  }
+
+  /* Statistics cards */
+  .stat-card {
+    padding: 12px;
+    min-width: 0;
+  }
+
+  .stat-card .d-flex {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+
+  .stat-value {
+    font-size: 1.35rem;
+    overflow-wrap: anywhere;
+  }
+
+  .stat-card .muted {
+    font-size: .75rem;
+  }
+
+  /* Filters */
+  .filter-card {
+    padding: 14px;
+  }
+
+  /* Keep wide table scrolling inside its card */
+  .table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .orders-table {
+    min-width: 1100px;
+  }
+}
+
   </style>
 </head>
 
