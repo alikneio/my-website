@@ -1202,12 +1202,14 @@ app.get('/api/v1/products/:id', authenticateResellerApi, async (req, res) => {
 });
 
 
+
 /**
  * AK CELL RESELLER API V1
  * POST /api/v1/orders
  *
  * Manual fulfillment only.
  * Atomic debit + order + transaction + idempotency.
+ * Telegram notification after successful commit.
  */
 
 app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
@@ -1233,20 +1235,25 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
     });
   }
 
-  // Separate API keys from website idempotency keys.
- const idemKey = crypto
-  .createHash('sha256')
-  .update(`akcell:reseller-api:v1:${rawKey}`)
-  .digest('hex');
+  const idemKey = crypto
+    .createHash('sha256')
+    .update(`akcell:reseller-api:v1:${rawKey}`)
+    .digest('hex');
 
   const productId = Number(body.product_id);
+
   const optionId = body.option_id == null
     ? null
     : Number(body.option_id);
 
-  if (!Number.isSafeInteger(productId) || productId <= 0 ||
-      (optionId !== null &&
-       (!Number.isSafeInteger(optionId) || optionId <= 0))) {
+  if (
+    !Number.isSafeInteger(productId) ||
+    productId <= 0 ||
+    (
+      optionId !== null &&
+      (!Number.isSafeInteger(optionId) || optionId <= 0)
+    )
+  ) {
     return res.status(400).json({
       success: false,
       error: 'INVALID_PRODUCT_OR_OPTION'
@@ -1262,7 +1269,11 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
     'account_password'
   ];
 
-  if (Object.keys(body).some(key => !permittedFields.includes(key))) {
+  if (
+    Object.keys(body).some(
+      key => !permittedFields.includes(key)
+    )
+  ) {
     return res.status(400).json({
       success: false,
       error: 'UNSUPPORTED_FIELDS'
@@ -1272,8 +1283,13 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
   function cleanField(value, max = 255) {
     if (value == null) return '';
     if (typeof value !== 'string') return null;
+
     const result = value.trim();
-    if (result.length > max || /[\r\n|]/.test(result)) return null;
+
+    if (result.length > max || /[\r\n|]/.test(result)) {
+      return null;
+    }
+
     return result;
   }
 
@@ -1289,9 +1305,10 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
     });
   }
 
-  // Canonical fingerprint: same key cannot represent another order.
-  // Password is included in the hash but never returned.
-  const requestFingerprint = crypto.createHash('sha256')
+  // Same idempotency key must always represent
+  // the exact same canonical request.
+  const requestFingerprint = crypto
+    .createHash('sha256')
     .update(JSON.stringify({
       product_id: productId,
       option_id: optionId,
@@ -1304,13 +1321,21 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
 
   let conn;
   let transactionStarted = false;
+  let committed = false;
+
+  // Notification data is populated only for a new order.
+  let telegramOrder = null;
 
   try {
     conn = await promisePool.getConnection();
+
     await conn.beginTransaction();
     transactionStarted = true;
 
-    // Serialize orders and key usage for the same user.
+    // ==========================================
+    // 1. Lock user
+    // ==========================================
+
     const [[user]] = await conn.query(
       `SELECT *
        FROM users
@@ -1323,13 +1348,17 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
     if (!user || Number(user.api_enabled) !== 1) {
       await conn.rollback();
       transactionStarted = false;
+
       return res.status(403).json({
         success: false,
         error: 'API_ACCESS_DISABLED'
       });
     }
 
-    // Verify that the key is still active.
+    // ==========================================
+    // 2. Verify active API key
+    // ==========================================
+
     const [[activeKey]] = await conn.query(
       `SELECT id
        FROM reseller_api_keys
@@ -1343,13 +1372,17 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
     if (!activeKey) {
       await conn.rollback();
       transactionStarted = false;
+
       return res.status(401).json({
         success: false,
         error: 'INVALID_API_KEY'
       });
     }
 
-    // Lock existing idempotency record, if any.
+    // ==========================================
+    // 3. Idempotency replay protection
+    // ==========================================
+
     const [[existing]] = await conn.query(
       `SELECT order_id, response_json
        FROM idempotency_keys
@@ -1370,7 +1403,11 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
       await conn.rollback();
       transactionStarted = false;
 
-      if (!stored || !stored.fingerprint || !stored.response) {
+      if (
+        !stored ||
+        !stored.fingerprint ||
+        !stored.response
+      ) {
         return res.status(409).json({
           success: false,
           error: 'IDEMPOTENCY_CONFLICT'
@@ -1384,11 +1421,17 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
         });
       }
 
+      // Important:
+      // No new order, debit, or Telegram notification.
       return res.status(200).json({
         ...stored.response,
         idempotent_replay: true
       });
     }
+
+    // ==========================================
+    // 4. Validate product
+    // ==========================================
 
     const [[product]] = await conn.query(
       `SELECT *
@@ -1400,9 +1443,13 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
       [productId]
     );
 
-    if (!product || Number(product.is_out_of_stock) === 1) {
+    if (
+      !product ||
+      Number(product.is_out_of_stock) === 1
+    ) {
       await conn.rollback();
       transactionStarted = false;
+
       return res.status(404).json({
         success: false,
         error: 'PRODUCT_UNAVAILABLE'
@@ -1429,6 +1476,7 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
       if (!selectedOption) {
         await conn.rollback();
         transactionStarted = false;
+
         return res.status(400).json({
           success: false,
           error: 'OPTION_REQUIRED_OR_INVALID'
@@ -1436,39 +1484,56 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
       }
 
       basePrice = getLocalOptionPriceForUser(
-        selectedOption, product, user
+        selectedOption,
+        product,
+        user
       );
     } else {
       if (optionId !== null) {
         await conn.rollback();
         transactionStarted = false;
+
         return res.status(400).json({
           success: false,
           error: 'OPTION_NOT_SUPPORTED'
         });
       }
 
-      basePrice = getLocalProductPriceForUser(product, user);
+      basePrice = getLocalProductPriceForUser(
+        product,
+        user
+      );
     }
 
-    const flow = String(product.checkout_flow || 'player_id')
-      .trim().toLowerCase();
+    // ==========================================
+    // 5. Validate checkout requirements
+    // ==========================================
+
+    const flow = String(
+      product.checkout_flow || 'player_id'
+    ).trim().toLowerCase();
 
     const details = [];
 
     if (selectedOption) {
       details.push(
         `Option: ${selectedOption.option_label}` +
-        (selectedOption.option_value
-          ? ` (${selectedOption.option_value})`
-          : '')
+        (
+          selectedOption.option_value
+            ? ` (${selectedOption.option_value})`
+            : ''
+        )
       );
     }
 
     if (flow === 'player_id') {
-      if (Number(product.requires_player_id) === 1 && !playerId) {
+      if (
+        Number(product.requires_player_id) === 1 &&
+        !playerId
+      ) {
         await conn.rollback();
         transactionStarted = false;
+
         return res.status(400).json({
           success: false,
           error: 'PLAYER_ID_REQUIRED'
@@ -1480,13 +1545,17 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
           `${product.player_id_label || 'Player ID'}: ${playerId}`
         );
       }
-   
+
     } else if (flow === 'account_choice') {
       const safeChoice = choice || 'own_account';
 
-      if (!['own_account', 'account_from_us'].includes(safeChoice)) {
+      if (
+        !['own_account', 'account_from_us']
+          .includes(safeChoice)
+      ) {
         await conn.rollback();
         transactionStarted = false;
+
         return res.status(400).json({
           success: false,
           error: 'INVALID_CHECKOUT_CHOICE'
@@ -1497,6 +1566,7 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
         if (!email || !password) {
           await conn.rollback();
           transactionStarted = false;
+
           return res.status(400).json({
             success: false,
             error: 'ACCOUNT_CREDENTIALS_REQUIRED',
@@ -1504,42 +1574,65 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
           });
         }
 
-        details.push('Checkout Choice: Use my own account');
+        details.push(
+          'Checkout Choice: Use my own account'
+        );
         details.push(`Account Email: ${email}`);
         details.push(`Account Password: ${password}`);
 
       } else {
-        details.push('Checkout Choice: Account from us');
+        details.push(
+          'Checkout Choice: Account from us'
+        );
       }
 
-          } else if (flow === 'no_details') {
-      details.push('Checkout: Buy now only — no customer details required.');
+    } else if (flow === 'no_details') {
+      details.push(
+        'Checkout: Buy now only — no customer details required.'
+      );
+
     } else {
       await conn.rollback();
       transactionStarted = false;
+
       return res.status(422).json({
         success: false,
         error: 'UNSUPPORTED_CHECKOUT_FLOW'
       });
     }
 
-    const discountRaw = Number(user.discount_percent || 0);
+    // ==========================================
+    // 6. Calculate final price
+    // ==========================================
+
+    const discountRaw = Number(
+      user.discount_percent || 0
+    );
+
     const discount = Number.isFinite(discountRaw)
       ? Math.min(Math.max(discountRaw, 0), 100)
       : 0;
 
     const price = Number(
-      (Number(basePrice) * (1 - discount / 100)).toFixed(2)
+      (
+        Number(basePrice) *
+        (1 - discount / 100)
+      ).toFixed(2)
     );
 
     if (!Number.isFinite(price) || price <= 0) {
       await conn.rollback();
       transactionStarted = false;
+
       return res.status(422).json({
         success: false,
         error: 'INVALID_PRICE'
       });
     }
+
+    // ==========================================
+    // 7. Atomic balance debit
+    // ==========================================
 
     const [debit] = await conn.query(
       `UPDATE users
@@ -1552,11 +1645,16 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
     if (debit.affectedRows !== 1) {
       await conn.rollback();
       transactionStarted = false;
+
       return res.status(402).json({
         success: false,
         error: 'INSUFFICIENT_BALANCE'
       });
     }
+
+    // ==========================================
+    // 8. Create order
+    // ==========================================
 
     const orderName = selectedOption
       ? `${product.name} - ${selectedOption.option_label}`
@@ -1565,12 +1663,21 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
     const [created] = await conn.query(
       `INSERT INTO orders
        (
-         userId, productName, price, purchaseDate,
-         order_details, status, product_id,
-         source, fulfillment_mode, order_channel
+         userId,
+         productName,
+         price,
+         purchaseDate,
+         order_details,
+         status,
+         product_id,
+         source,
+         fulfillment_mode,
+         order_channel
        )
-       VALUES (?, ?, ?, NOW(), ?, 'Waiting', ?,
-               'sql', 'manual', 'reseller_api')`,
+       VALUES (
+         ?, ?, ?, NOW(), ?, 'Waiting', ?,
+         'sql', 'manual', 'reseller_api'
+       )`,
       [
         userId,
         orderName,
@@ -1582,12 +1689,25 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
 
     const orderId = created.insertId;
 
+    // ==========================================
+    // 9. Record financial transaction
+    // ==========================================
+
     await conn.query(
       `INSERT INTO transactions
        (user_id, order_id, type, amount, reason)
        VALUES (?, ?, 'debit', ?, ?)`,
-      [userId, orderId, price, `Reseller API purchase #${orderId}`]
+      [
+        userId,
+        orderId,
+        price,
+        `Reseller API purchase #${orderId}`
+      ]
     );
+
+    // ==========================================
+    // 10. Internal customer notification
+    // ==========================================
 
     await conn.query(
       `INSERT INTO notifications
@@ -1598,6 +1718,10 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
         `تم استلام طلب Reseller API رقم #${orderId} بنجاح.`
       ]
     );
+
+    // ==========================================
+    // 11. Build API response
+    // ==========================================
 
     const response = {
       success: true,
@@ -1611,6 +1735,10 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
         fulfillment: 'manual'
       }
     };
+
+    // ==========================================
+    // 12. Save idempotency result
+    // ==========================================
 
     await conn.query(
       `INSERT INTO idempotency_keys
@@ -1627,8 +1755,90 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
       ]
     );
 
+    // ==========================================
+    // 13. Prepare Telegram notification
+    // ==========================================
+
+    telegramOrder = {
+      orderId,
+      userId,
+      username: String(
+        user.username || req.resellerApi.username || userId
+      ),
+      productName: orderName,
+      price
+    };
+
+    // ==========================================
+    // 14. Commit database transaction
+    // ==========================================
+
     await conn.commit();
+
     transactionStarted = false;
+    committed = true;
+
+    console.log(
+      `✅ Reseller API order #${orderId} committed.`
+    );
+
+    // ==========================================
+    // 15. Notify admin AFTER successful commit
+    // ==========================================
+
+    if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
+      const escapeTelegramHtml = value =>
+        String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+
+      const message =
+        `🆕 <b>طلب جديد عبر Reseller API</b>\n\n` +
+        `🧾 <b>رقم الطلب:</b> #${telegramOrder.orderId}\n` +
+        `👤 <b>الموزّع:</b> ${escapeTelegramHtml(telegramOrder.username)}\n` +
+        `🆔 <b>User ID:</b> ${telegramOrder.userId}\n` +
+        `🛍️ <b>المنتج:</b> ${escapeTelegramHtml(telegramOrder.productName)}\n` +
+        `💰 <b>السعر:</b> $${telegramOrder.price.toFixed(2)}\n` +
+        `📌 <b>الحالة:</b> Waiting\n` +
+        `🔗 <b>المصدر:</b> Reseller API`;
+
+      // Fire-and-forget:
+      // Telegram cannot delay or reverse a committed order.
+      try {
+        Promise.resolve(
+          sendTelegramMessage(
+            process.env.ADMIN_TELEGRAM_CHAT_ID,
+            message,
+            process.env.TELEGRAM_BOT_TOKEN,
+            {
+              parseMode: 'HTML',
+              timeoutMs: 15000
+            }
+          )
+        ).catch(error => {
+          console.error(
+            `⚠️ Telegram notification failed for API order #${orderId}:`,
+            error.message
+          );
+        });
+      } catch (error) {
+        console.error(
+          `⚠️ Telegram notification error for API order #${orderId}:`,
+          error.message
+        );
+      }
+    } else {
+      console.warn(
+        `⚠️ API order #${orderId}: ADMIN_TELEGRAM_CHAT_ID not configured.`
+      );
+    }
+
+    // ==========================================
+    // 16. Return successful API response
+    // ==========================================
 
     return res.status(201).json(response);
 
@@ -1637,19 +1847,46 @@ app.post('/api/v1/orders', authenticateResellerApi, async (req, res) => {
       try {
         await conn.rollback();
       } catch (rollbackError) {
-        console.error('Reseller order rollback failed:', rollbackError);
+        console.error(
+          'Reseller order rollback failed:',
+          rollbackError
+        );
       }
     }
 
-    console.error('Reseller order creation error:', error);
+    console.error(
+      'Reseller order creation error:',
+      error
+    );
+
+    // Defensive handling:
+    // Never report a committed order as a failed purchase.
+    if (committed && telegramOrder) {
+      return res.status(201).json({
+        success: true,
+        data: {
+          order_id: telegramOrder.orderId,
+          product_id: productId,
+          product_name: telegramOrder.productName,
+          price: telegramOrder.price,
+          currency: 'USD',
+          status: 'pending',
+          fulfillment: 'manual'
+        }
+      });
+    }
 
     return res.status(503).json({
       success: false,
       error: 'ORDER_CREATION_UNAVAILABLE',
-      message: 'Order could not be confirmed. Retry using the same Idempotency-Key.'
+      message:
+        'Order could not be confirmed. Retry using the same Idempotency-Key.'
     });
+
   } finally {
-    if (conn) conn.release();
+    if (conn) {
+      conn.release();
+    }
   }
 });
 
