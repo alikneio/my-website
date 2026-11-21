@@ -1,144 +1,130 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow,noarchive">
   <title>API Key Created | AK Cell</title>
-
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-
   <style>
-    body {
-      background: #f3f5f8;
-      color: #17212e;
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    }
-
-    .topbar {
-      background: #151c25;
-      border-bottom: 3px solid #c99b48;
-      color: #fff;
-    }
-
-    .brand-mark {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      background: #168dc2;
-      border-radius: 10px;
-    }
-
-    .secret-box {
-      background: #f7f9fb;
-      border: 1px solid #d9e0e8;
-      border-radius: 12px;
-      padding: 18px;
-      overflow-wrap: anywhere;
-      font-family: Consolas, monospace;
-      font-size: 14px;
-      user-select: all;
-    }
-
-    .main-card {
-      max-width: 720px;
-      margin: 55px auto;
-      border: 1px solid #e1e6ed;
-      border-radius: 16px;
-    }
-
-    .btn-primary {
-      background: #168dc2;
-      border-color: #168dc2;
-    }
+    .akc-key-page{--akc-ink:#142338;--akc-muted:#66768b;--akc-line:#e4eaf2;--akc-blue:#1769d2;background:#f7f9fc;color:var(--akc-ink);min-height:65vh;padding:34px 16px 72px;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .akc-key-wrap{max-width:850px;margin:0 auto}
+    .akc-key-crumb{font-size:12px;color:#8190a4;margin-bottom:25px;display:flex;gap:9px;align-items:center}
+    .akc-key-crumb a{color:#526780;text-decoration:none}.akc-key-crumb a:hover{color:var(--akc-blue)}
+    .akc-key-intro{display:flex;gap:17px;align-items:flex-start;margin-bottom:23px}
+    .akc-key-icon{width:52px;height:52px;display:grid;place-items:center;border-radius:14px;background:#e6f7ee;color:#13835b;font-size:24px;flex:none}
+    .akc-key-eyebrow{font-size:11px;letter-spacing:1.4px;font-weight:800;color:#16825d;margin-bottom:4px}
+    .akc-key-intro h1{font-size:29px;letter-spacing:-.8px;font-weight:800;margin:0 0 6px}
+    .akc-key-intro p{font-size:13px;color:var(--akc-muted);margin:0}
+    .akc-key-panel{background:#fff;border:1px solid var(--akc-line);border-radius:14px;overflow:hidden}
+    .akc-key-panel-head{padding:22px 26px;border-bottom:1px solid var(--akc-line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .akc-key-panel-head h2{font-size:16px;font-weight:750;margin:0 0 5px}
+    .akc-key-panel-head p{font-size:12px;color:var(--akc-muted);margin:0}
+    .akc-key-tag{font:700 11px Consolas,monospace;color:#167a58;background:#e8f7ef;padding:7px 10px;border-radius:7px}
+    .akc-key-panel-body{padding:26px}
+    .akc-key-warning{display:flex;gap:12px;background:#fff9ed;border:1px solid #f4e2b8;color:#77581f;border-radius:10px;padding:15px 17px;margin-bottom:24px;font-size:13px}
+    .akc-key-warning i{font-size:18px;color:#bc8722}.akc-key-warning strong{display:block;margin-bottom:3px}
+    .akc-key-label{font-size:12px;font-weight:750;display:block;margin-bottom:9px}
+    .akc-key-secret{font:13px/1.7 Consolas,"Courier New",monospace;letter-spacing:.1px;color:#dce9fa;background:#111d2e;border:1px solid #24374f;border-radius:10px;padding:18px;overflow-wrap:anywhere;word-break:break-all;min-height:75px;user-select:all}
+    .akc-key-secret.is-hidden{filter:none;color:transparent;text-shadow:0 0 9px #c4d8f2;user-select:none}
+    .akc-key-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+    .akc-key-button{border:1px solid transparent;border-radius:8px;font-weight:700;font-size:12px;padding:11px 16px;display:inline-flex;gap:9px;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}
+    .akc-key-button-primary{background:#1769d2;color:#fff}.akc-key-button-primary:hover{background:#1055ae;color:#fff}
+    .akc-key-button-secondary{background:#fff;border-color:#dbe3ee;color:#41536b}.akc-key-button-secondary:hover{background:#f3f7fc;color:#20344f}
+    .akc-key-feedback{font-size:12px;margin-top:12px;min-height:18px;color:#16825d}
+    .akc-key-divider{height:1px;background:var(--akc-line);margin:25px 0}
+    .akc-key-help{display:flex;gap:12px;align-items:flex-start;color:#65768c;font-size:12px;line-height:1.75}
+    .akc-key-help i{font-size:18px;color:#5683ba}
+    .akc-key-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:23px}
+    .akc-key-footer-note{color:#8492a4;font-size:11px}
+    @media(max-width:600px){.akc-key-page{padding:24px 14px 48px}.akc-key-intro h1{font-size:23px}.akc-key-panel-head,.akc-key-panel-body{padding:19px}.akc-key-actions .akc-key-button{flex:1}.akc-key-footer{align-items:stretch}.akc-key-footer .akc-key-button{width:100%}}
   </style>
 </head>
-
 <body>
-  <header class="topbar py-3">
-    <div class="container d-flex align-items-center gap-3">
-      <span class="brand-mark">
-        <i class="bi bi-code-slash fs-5"></i>
-      </span>
-      <div>
-        <strong>AK CELL</strong>
-        <div class="small text-white-50">Developer Platform</div>
+  <%- include('partials/header') %>
+  <main class="akc-key-page">
+    <div class="akc-key-wrap">
+      <nav class="akc-key-crumb" aria-label="Breadcrumb">
+        <a href="/">AK Cell</a><i class="bi bi-chevron-right"></i>
+        <a href="/developer">Developer Center</a><i class="bi bi-chevron-right"></i>
+        <span>New API Key</span>
+      </nav>
+      <div class="akc-key-intro">
+        <div class="akc-key-icon"><i class="bi bi-check2-circle"></i></div>
+        <div>
+          <div class="akc-key-eyebrow">CREDENTIAL CREATED</div>
+          <h1>Your API key is ready</h1>
+          <p>Your new credential <strong><%= keyName %></strong> was generated successfully.</p>
+        </div>
       </div>
-    </div>
-  </header>
-
-  <main class="container">
-    <div class="card main-card shadow-sm">
-      <div class="card-body p-4 p-md-5">
-
-        <div class="mb-3 text-success">
-          <i class="bi bi-check-circle-fill fs-1"></i>
+      <section class="akc-key-panel" aria-labelledby="credentialTitle">
+        <div class="akc-key-panel-head">
+          <div><h2 id="credentialTitle">New API credential</h2><p>Copy your key and store it in a secure location.</p></div>
+          <span class="akc-key-tag"><i class="bi bi-shield-check"></i> Created</span>
         </div>
-
-        <h2 class="fw-bold">API key created successfully</h2>
-
-        <p class="text-secondary">
-          Your new credential
-          <strong><%= keyName %></strong>
-          has been generated.
-        </p>
-
-        <div class="alert alert-warning">
-          <i class="bi bi-exclamation-triangle me-2"></i>
-          <strong>Copy this key now.</strong>
-          It will not be displayed again after leaving this page.
+        <div class="akc-key-panel-body">
+          <div class="akc-key-warning" role="alert">
+            <i class="bi bi-exclamation-triangle"></i>
+            <div><strong>This is the only time your key will be shown.</strong>Once you leave this page, the full key cannot be viewed again. Save it before continuing.</div>
+          </div>
+          <label class="akc-key-label" for="apiKey">Secret API key</label>
+          <div class="akc-key-secret is-hidden" id="apiKey" role="textbox" aria-label="Secret API key" aria-readonly="true"><%= rawKey %></div>
+          <div class="akc-key-actions">
+            <button type="button" class="akc-key-button akc-key-button-primary" id="copyKeyButton"><i class="bi bi-copy"></i><span>Copy API Key</span></button>
+            <button type="button" class="akc-key-button akc-key-button-secondary" id="toggleKeyButton" aria-pressed="false"><i class="bi bi-eye"></i><span>Show key</span></button>
+          </div>
+          <div class="akc-key-feedback" id="keyFeedback" aria-live="polite"></div>
+          <div class="akc-key-divider"></div>
+          <div class="akc-key-help"><i class="bi bi-lock"></i><div><strong>Use this key on your backend only.</strong> Store it in an environment variable or secrets manager. Never include it in browser JavaScript, public repositories, screenshots or client-side applications. Revoke it from Developer Center if compromised.</div></div>
         </div>
-
-        <label class="form-label fw-semibold">
-          Your secret API key
-        </label>
-
-        <div class="secret-box mb-3" id="apiKey">
-          <%= rawKey %>
-        </div>
-
-        <button
-          type="button"
-          class="btn btn-primary px-4"
-          id="copyKeyButton"
-        >
-          <i class="bi bi-copy me-2"></i>
-          Copy API Key
-        </button>
-
-        <hr class="my-4">
-
-        <p class="small text-secondary">
-          Store this credential securely on your server.
-          Never expose it in browser JavaScript, public repositories,
-          or frontend application code.
-        </p>
-
-        <a href="/developer" class="btn btn-outline-dark">
-          <i class="bi bi-arrow-left me-2"></i>
-          Return to Developer Center
-        </a>
-
+      </section>
+      <div class="akc-key-footer">
+        <a class="akc-key-button akc-key-button-secondary" href="/developer#credentials"><i class="bi bi-arrow-left"></i> Return to API Keys</a>
+        <span class="akc-key-footer-note">AK Cell Developer Platform · API v1</span>
       </div>
     </div>
   </main>
-
+  <%- include('partials/footer') %>
   <script>
-    document.getElementById('copyKeyButton')
-      .addEventListener('click', async function () {
-        const key = document.getElementById('apiKey').textContent.trim();
-
+    (function () {
+      'use strict';
+      const keyEl = document.getElementById('apiKey');
+      const copyButton = document.getElementById('copyKeyButton');
+      const toggleButton = document.getElementById('toggleKeyButton');
+      const feedback = document.getElementById('keyFeedback');
+      const keyValue = keyEl.textContent.trim();
+      copyButton.addEventListener('click', async function () {
         try {
-          await navigator.clipboard.writeText(key);
-          this.textContent = 'Copied successfully';
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(keyValue);
+          } else {
+            const temp = document.createElement('textarea');
+            temp.value = keyValue;
+            temp.style.position = 'fixed';
+            temp.style.left = '-9999px';
+            document.body.appendChild(temp);
+            temp.select();
+            const copied = document.execCommand('copy');
+            temp.remove();
+            if (!copied) throw new Error('Copy unavailable');
+          }
+          feedback.textContent = 'Copied. Save the key securely before leaving this page.';
+          feedback.style.color = '#16825d';
+          copyButton.querySelector('span').textContent = 'Copied';
         } catch (error) {
-          alert('Copy failed. Please select and copy the key manually.');
+          feedback.textContent = 'Automatic copy failed. Use Show key, then select and copy it manually.';
+          feedback.style.color = '#b45309';
         }
       });
+      toggleButton.addEventListener('click', function () {
+        const hidden = keyEl.classList.toggle('is-hidden');
+        toggleButton.setAttribute('aria-pressed', String(!hidden));
+        toggleButton.querySelector('span').textContent = hidden ? 'Show key' : 'Hide key';
+        toggleButton.querySelector('i').className = hidden ? 'bi bi-eye' : 'bi bi-eye-slash';
+      });
+    })();
   </script>
 </body>
 </html>
