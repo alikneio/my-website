@@ -38,17 +38,176 @@ dns.setDefaultResultOrder("ipv4first");
 
 
 
+const fs = require('fs');
+const whishUploadDir = path.join(__dirname, 'public', 'uploads', 'whish');
+
+fs.mkdirSync(whishUploadDir, { recursive: true });
+
+const allowedWhishTypes = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp'
+};
 
 const storage = multer.diskStorage({
-  destination: './public/uploads/whish',
+  destination: (req, file, cb) => {
+    cb(null, whishUploadDir);
+  },
+
   filename: (req, file, cb) => {
-    cb(null, `whish_${Date.now()}${path.extname(file.originalname)}`);
+    const extension = allowedWhishTypes[file.mimetype];
+
+    cb(
+      null,
+      `whish_${crypto.randomBytes(16).toString('hex')}${extension}`
+    );
   }
 });
-const upload = multer({ storage });
+
+const upload = multer({
+  storage,
+
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
+    fields: 3,
+    fieldSize: 2048
+  },
+
+  fileFilter: (req, file, cb) => {
+    const extension = path.extname(file.originalname).toLowerCase();
+
+    const expectedExtension = allowedWhishTypes[file.mimetype];
+
+    const validExtension =
+      file.mimetype === 'image/jpeg'
+        ? ['.jpg', '.jpeg'].includes(extension)
+        : extension === expectedExtension;
+
+    if (!expectedExtension || !validExtension) {
+      return cb(new Error('INVALID_WHISH_IMAGE'));
+    }
+
+    cb(null, true);
+  }
+});
 
 
+// Secure Whish upload middleware
+const secureWhishUpload = (req, res, next) => {
+  upload.single('proofImage')(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).send(
+            'Image is too large. Maximum allowed size is 5MB.'
+          );
+        }
 
+        return res.status(400).send(
+          'Invalid upload request.'
+        );
+      }
+
+      if (err.message === 'INVALID_WHISH_IMAGE') {
+        return res.status(400).send(
+          'Only JPG, PNG and WebP images are allowed.'
+        );
+      }
+
+      console.error('Whish upload error:', err);
+      return res.status(500).send('Upload failed.');
+    }
+
+    next();
+  });
+};
+
+
+// Verify actual image file signature
+const verifyWhishImage = async (req, res, next) => {
+  if (!req.file) {
+    return res.status(400).send(
+      'Payment proof image is required.'
+    );
+  }
+
+  const filePath = req.file.path;
+
+  const deleteUploadedFile = async () => {
+    try {
+      await fs.promises.unlink(filePath);
+    } catch (err) {
+      console.error('Whish cleanup error:', err);
+    }
+  };
+
+  try {
+    const handle = await fs.promises.open(filePath, 'r');
+
+    let buffer;
+
+    try {
+      buffer = Buffer.alloc(12);
+      const { bytesRead } = await handle.read(
+        buffer,
+        0,
+        12,
+        0
+      );
+
+      buffer = buffer.subarray(0, bytesRead);
+    } finally {
+      await handle.close();
+    }
+
+    const isJPEG =
+      buffer.length >= 3 &&
+      buffer[0] === 0xff &&
+      buffer[1] === 0xd8 &&
+      buffer[2] === 0xff;
+
+    const isPNG =
+      buffer.length >= 8 &&
+      buffer.subarray(0, 8).equals(
+        Buffer.from([
+          0x89, 0x50, 0x4e, 0x47,
+          0x0d, 0x0a, 0x1a, 0x0a
+        ])
+      );
+
+    const isWEBP =
+      buffer.length >= 12 &&
+      buffer.toString('ascii', 0, 4) === 'RIFF' &&
+      buffer.toString('ascii', 8, 12) === 'WEBP';
+
+    const expectedMime = req.file.mimetype;
+
+    const valid =
+      (isJPEG && expectedMime === 'image/jpeg') ||
+      (isPNG && expectedMime === 'image/png') ||
+      (isWEBP && expectedMime === 'image/webp');
+
+    if (!valid) {
+      await deleteUploadedFile();
+
+      return res.status(400).send(
+        'Invalid image content. Please upload a real JPG, PNG or WebP image.'
+      );
+    }
+
+    next();
+
+  } catch (err) {
+    console.error('Whish image verification error:', err);
+
+    await deleteUploadedFile();
+
+    return res.status(500).send(
+      'Unable to verify uploaded image.'
+    );
+  }
+};
 
 
 
@@ -609,6 +768,14 @@ function withTimeout(promise, ms = 4000) {
 const checkAuth = (req, res, next) => {
     if (req.session.user) next();
     else res.redirect('/login');
+};
+
+const checkWhishUploadAuth = (req, res, next) => {
+  if (!req.session?.user?.id) {
+    return res.redirect(303, '/login');
+  }
+
+  next();
 };
 
 const checkAuthJson = (req, res, next) => {
@@ -4344,7 +4511,12 @@ app.post('/telegram/link', (req, res) => {
   );
 });
 
-app.post('/add-balance/whish/usd', upload.single('proofImage'), (req, res) => {
+app.post(
+  '/add-balance/whish/usd',
+  checkWhishUploadAuth,
+  secureWhishUpload,
+  verifyWhishImage,
+  (req, res) => {
   const { amount } = req.body;
   const userId = req.session.user.id;
   const currency = 'USD';
@@ -4440,7 +4612,12 @@ app.get('/set-telegram/:chatId', (req, res) => {
 
 
 
-app.post('/add-balance/whish/lbp', upload.single('proofImage'), (req, res) => {
+app.post(
+  '/add-balance/whish/lbp',
+  checkWhishUploadAuth,
+  secureWhishUpload,
+  verifyWhishImage,
+  (req, res) => {
   const { amount } = req.body;
   const userId = req.session.user.id;
   const currency = 'LBP';
