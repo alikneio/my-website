@@ -69,6 +69,7 @@
             <td><%= new Date(req.created_at).toLocaleString() %></td>
             <td style="min-width:210px;">
               <form method="POST" action="/admin/balance-requests/update/<%= req.id %>">
+                <input type="hidden" name="_csrf" value="<%= adminBalanceCsrfToken %>">
                 <select name="status" class="form-select form-select-sm mb-2" onchange="toggleNoteInput(this, '<%= req.id %>')">
                   <option value="pending"  <%= req.status==='pending' ? 'selected' : '' %>>Pending</option>
                   <option value="approved" <%= req.status==='approved' ? 'selected' : '' %>>Approved</option>

@@ -789,6 +789,51 @@ const checkAdmin = (req, res, next) => {
     else res.status(403).send('Access Denied');
 };
 
+
+
+const adminBalanceCsrfToken = (req, res, next) => {
+  if (!req.session.adminBalanceCsrfToken) {
+    req.session.adminBalanceCsrfToken =
+      crypto.randomBytes(32).toString('hex');
+  }
+
+  res.locals.adminBalanceCsrfToken =
+    req.session.adminBalanceCsrfToken;
+
+  res.set('Cache-Control', 'no-store');
+  next();
+};
+
+const verifyAdminBalanceCsrf = (req, res, next) => {
+  const expected = req.session?.adminBalanceCsrfToken;
+  const provided = req.body?._csrf;
+
+  if (
+    typeof expected !== 'string' ||
+    typeof provided !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(expected) ||
+    !/^[a-f0-9]{64}$/.test(provided)
+  ) {
+    return res.status(403).send(
+      'Invalid security token. Refresh the page and try again.'
+    );
+  }
+
+  const valid = crypto.timingSafeEqual(
+    Buffer.from(expected, 'hex'),
+    Buffer.from(provided, 'hex')
+  );
+
+  if (!valid) {
+    return res.status(403).send(
+      'Invalid security token. Refresh the page and try again.'
+    );
+  }
+
+  next();
+};
+
+
 // ==========================================
 // AK CELL RESELLER API - DEVELOPER ACCESS
 // ==========================================
@@ -2645,7 +2690,7 @@ app.get('/my-balance', checkAuth, async (req, res) => {
   }
 });
 
-app.get('/admin/balance-requests', checkAdmin, async (req, res) => {
+app.get('/admin/balance-requests', checkAdmin, adminBalanceCsrfToken, async (req, res) => {
   const status = (req.query.status || '').trim(); // pending / approved / rejected
 
   try {
@@ -7993,24 +8038,38 @@ app.get(
 
 const fetch = require('node-fetch');
 
-app.post('/admin/balance-requests/update/:id', checkAdmin, async (req, res) => {
+
+app.post('/admin/balance-requests/update/:id', checkAdmin, verifyAdminBalanceCsrf, async (req, res) => {
   const requestId = Number(req.params.id);
-  const newStatus = String(req.body.status || 'pending');
+  const newStatus = String(req.body.status || '');
   const adminNote = String(req.body.admin_note || '').trim();
+
+  if (!Number.isSafeInteger(requestId) || requestId <= 0) {
+    return res.status(400).send('Invalid request ID');
+  }
 
   if (!['pending', 'approved', 'rejected'].includes(newStatus)) {
     return res.redirect('/admin/balance-requests?error=bad_status');
   }
 
-  const conn = await promisePool.getConnection();
+  if (adminNote.length > 2000) {
+    return res.status(400).send('Admin note is too long');
+  }
+
+  let conn;
+
   try {
+    conn = await promisePool.getConnection();
     await conn.beginTransaction();
 
-    // 1) هات الطلب
     const [[reqRow]] = await conn.query(
-      `SELECT id, user_id, amount, status FROM balance_requests WHERE id=? FOR UPDATE`,
+      `SELECT id, user_id, amount, status
+       FROM balance_requests
+       WHERE id = ?
+       FOR UPDATE`,
       [requestId]
     );
+
     if (!reqRow) {
       await conn.rollback();
       return res.redirect('/admin/balance-requests?error=not_found');
@@ -8018,45 +8077,94 @@ app.post('/admin/balance-requests/update/:id', checkAdmin, async (req, res) => {
 
     const oldStatus = reqRow.status;
 
-    // 2) إذا عم نحاول نوافق وهو أصلاً approved => لا تعمل شي
-    if (oldStatus === 'approved' && newStatus === 'approved') {
+    // An approved request is financially final.
+    if (oldStatus === 'approved') {
       await conn.rollback();
-      return res.redirect('/admin/balance-requests?info=already_approved');
+
+      return res.redirect(
+        '/admin/balance-requests?error=approved_locked'
+      );
     }
 
-    // 3) تحديث حالة الطلب
+    // Avoid unnecessary updates.
+    if (oldStatus === newStatus) {
+      await conn.rollback();
+
+      return res.redirect(
+        '/admin/balance-requests?info=unchanged'
+      );
+    }
+
+    const amount = Number(reqRow.amount);
+
+    if (
+      newStatus === 'approved' &&
+      (!Number.isFinite(amount) || amount <= 0)
+    ) {
+      await conn.rollback();
+
+      return res.redirect(
+        '/admin/balance-requests?error=invalid_amount'
+      );
+    }
+
     await conn.query(
       `UPDATE balance_requests
-       SET status=?, admin_note=?, admin_id=?, decided_at=NOW()
-       WHERE id=?`,
-      [newStatus, adminNote, req.session.user.id, requestId]
+       SET status = ?,
+           admin_note = ?,
+           admin_id = ?,
+           decided_at = NOW()
+       WHERE id = ?`,
+      [
+        newStatus,
+        adminNote,
+        req.session.user.id,
+        requestId
+      ]
     );
 
-    // 4) إذا صار approved من حالة غير approved => زيد رصيد المستخدم
-    if (newStatus === 'approved' && oldStatus !== 'approved') {
-      const amount = Number(reqRow.amount || 0);
-      if (amount > 0) {
-        await conn.query(
-          `UPDATE users SET balance = balance + ? WHERE id=?`,
-          [amount, reqRow.user_id]
-        );
+    if (newStatus === 'approved') {
+      const [result] = await conn.query(
+        `UPDATE users
+         SET balance = balance + ?
+         WHERE id = ?`,
+        [amount, reqRow.user_id]
+      );
 
-        // (اختياري) سجل transaction إذا عندك جدول transactions
-        // await conn.query(`INSERT INTO transactions (...) VALUES (...)`, [...]);
+      if (result.affectedRows !== 1) {
+        throw new Error('Balance update failed');
       }
     }
 
     await conn.commit();
-    return res.redirect('/admin/balance-requests?success=1');
+
+    return res.redirect(
+      '/admin/balance-requests?success=1'
+    );
 
   } catch (err) {
-    await conn.rollback();
-    console.error("POST /admin/balance-requests/update/:id:", err);
-    return res.redirect('/admin/balance-requests?error=server');
+    if (conn) {
+      try {
+        await conn.rollback();
+      } catch (rollbackError) {
+        console.error('Balance rollback failed:', rollbackError);
+      }
+    }
+
+    console.error(
+      'POST /admin/balance-requests/update/:id:',
+      err
+    );
+
+    return res.redirect(
+      '/admin/balance-requests?error=server'
+    );
+
   } finally {
-    conn.release();
+    if (conn) conn.release();
   }
 });
+
 
 
 app.get('/admin/dev/sync-smm', checkAdmin, async (req, res) => {
