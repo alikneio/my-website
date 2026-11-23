@@ -791,6 +791,25 @@ const checkAdmin = (req, res, next) => {
 
 
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+
+  // Successful logins do not count toward the limit.
+  skipSuccessfulRequests: true,
+
+  message: {
+    success: false,
+    message: 'Too many login attempts. Please try again after 15 minutes.',
+    showCaptcha: true
+  }
+});
+
+
+
 const adminBalanceCsrfToken = (req, res, next) => {
   if (!req.session.adminBalanceCsrfToken) {
     req.session.adminBalanceCsrfToken =
@@ -10220,7 +10239,7 @@ const getProviderErrorCode = data => {
 
 
 
-app.post('/login', async (req, res) => {
+app.post('/login', loginLimiter, async (req, res) => {
 
   // 🛡️ Reject malformed/empty requests safely
   if (!req.body || typeof req.body !== 'object') {
@@ -10302,17 +10321,43 @@ app.post('/login', async (req, res) => {
           });
         }
 
-        if (isMatch) {
-          req.session.user = user;
-          req.session.justLoggedIn = true;
-          req.session.loginAttempts = 0;
+  
+if (isMatch) {
+  // Create a fresh session after successful authentication
+  return req.session.regenerate((sessionErr) => {
+    if (sessionErr) {
+      console.error('Session regeneration failed:', sessionErr);
 
-          return res.json({
-            success: true,
-            redirectUrl: '/'
+      return res.status(500).json({
+        success: false,
+        message: 'Unable to complete login. Please try again.'
+      });
+    }
+
+    req.session.user = user;
+    req.session.justLoggedIn = true;
+    req.session.loginAttempts = 0;
+
+    // Save the new session before responding
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        console.error('Session save failed:', saveErr);
+
+        return req.session.destroy(() => {
+          res.status(500).json({
+            success: false,
+            message: 'Unable to save login session. Please try again.'
           });
+        });
+      }
 
-        } else {
+      return res.json({
+        success: true,
+        redirectUrl: '/'
+      });
+    });
+  });
+}else {
           req.session.loginAttempts += 1;
 
           return res.status(401).json({
